@@ -1,0 +1,59 @@
+tasks:
+
+  - id: setup_backend
+    agent: backend
+    description: Initialize FastAPI project
+    steps:
+      - Create folder structure as defined in backend_spec.yaml
+      - Create main.py
+      - Add /health endpoint returning {"status": "ok"}
+
+  - id: setup_database
+    agent: backend
+    description: Setup SQLite database and models
+    depends_on: setup_backend
+    steps:
+      - Configure SQLAlchemy
+      - Create User, Workout, WorkoutEntry, BodyMetrics models
+      - Initialize database connection
+
+  - id: implement_auth
+    agent: backend
+    description: Implement user authentication
+    depends_on: setup_database
+    steps:
+      - Implement password hashing using bcrypt
+      - Implement JWT token generation
+      - Create /auth/register and /auth/login endpoints
+
+  - id: implement_workouts
+    agent: backend
+    description: Implement workout endpoints
+    depends_on: implement_auth
+    steps:
+      - Implement POST /workouts
+      - Implement GET /workouts
+
+  - id: implement_entries
+    agent: backend
+    description: Implement workout entries
+    depends_on: implement_workouts
+    steps:
+      - Implement POST /entries
+
+  - id: implement_metrics
+    agent: backend
+    description: Implement metrics tracking
+    depends_on: implement_entries
+    steps:
+      - Implement POST /metrics
+      - Implement GET /metrics
+
+  - id: dockerize_backend
+    agent: devops
+    description: Dockerize backend service
+    depends_on: implement_metrics
+    steps:
+      - Create Dockerfile
+      - Create docker-compose.yml
+      - Ensure app runs on port 8000

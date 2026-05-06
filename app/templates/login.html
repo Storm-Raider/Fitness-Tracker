@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sign in — FitTrack</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: #111318;
+      color: #e2e8f0;
+      font-family: 'Geist', 'Inter', system-ui, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding-top: 30vh;
+    }
+    .login-wrap {
+      width: calc(100% - 2rem);
+      max-width: 360px;
+    }
+    .wordmark {
+      text-align: center;
+      font-size: 1.5rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      margin-bottom: 1.5rem;
+    }
+    .card {
+      background: #1a1e27;
+      border: 1px solid #2a2f3d;
+      border-radius: 8px;
+      padding: 1.5rem;
+    }
+    .flash-error {
+      background: #450a0a;
+      border: 1px solid #f87171;
+      color: #f87171;
+      border-radius: 6px;
+      padding: 0.75rem 1rem;
+      font-size: 0.875rem;
+      margin-bottom: 1rem;
+    }
+    label {
+      display: block;
+      font-size: 0.8rem;
+      color: #64748b;
+      margin-bottom: 0.25rem;
+    }
+    input[type="password"] {
+      width: 100%;
+      background: #111318;
+      border: 1px solid #2a2f3d;
+      border-radius: 6px;
+      color: #e2e8f0;
+      padding: 0.5rem 0.75rem;
+      font-size: 0.875rem;
+      font-family: inherit;
+      margin-bottom: 1rem;
+    }
+    input[type="password"]:focus {
+      outline: none;
+      border-color: #60a5fa;
+    }
+    .btn-primary {
+      display: block;
+      width: 100%;
+      min-height: 44px;
+      background: #60a5fa;
+      color: #0f172a;
+      border: none;
+      border-radius: 6px;
+      font-size: 0.875rem;
+      font-weight: 600;
+      font-family: inherit;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    .btn-primary:hover { background: #3b82f6; }
+  </style>
+</head>
+<body>
+  <div class="login-wrap">
+    <div class="wordmark">FitTrack</div>
+    <div class="card">
+      {% if error %}
+      <div class="flash-error">Wrong password</div>
+      {% endif %}
+      <form method="post" action="/login">
+        <input type="hidden" name="next" value="{{ next | e }}">
+        <!-- username field present for password-manager compatibility; value is ignored in validation -->
+        <input type="text" name="username" autocomplete="username"
+               style="display:none" aria-hidden="true" tabindex="-1">
+        <div>
+          <label for="password">Password</label>
+          <input type="password" id="password" name="password"
+                 autocomplete="current-password" autofocus>
+        </div>
+        <button type="submit" class="btn-primary">Sign in</button>
+      </form>
+    </div>
+  </div>
+</body>
+</html>

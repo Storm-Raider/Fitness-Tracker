@@ -1,0 +1,17 @@
+service: devops
+
+requirements:
+  - Dockerize backend service
+  - Use docker-compose for orchestration
+  - Expose backend on port 8000
+  - Include volume for SQLite persistence
+
+tailscale:
+  enabled: true
+  requirements:
+    - Do not expose public ports
+    - Access only via Tailscale network
+    - Assume Tailscale is pre-installed on host
+
+optional:
+  - Add reverse proxy (Caddy) if needed

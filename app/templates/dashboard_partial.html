@@ -1,0 +1,22 @@
+<div class="card" id="recent-workouts">
+  {% if workouts %}
+  <table>
+    <thead>
+      <tr><th>Date</th><th>Sets</th><th>Notes</th></tr>
+    </thead>
+    <tbody>
+      {% for w in workouts %}
+      <tr>
+        <td>
+          <a href="/workouts/{{ w.id }}">{{ w.started_at[:10] }}</a>
+        </td>
+        <td>{{ w.set_count }}</td>
+        <td style="color:var(--muted);">{{ w.notes or "—" }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p style="color:var(--muted); font-size:0.875rem;">No workouts logged yet. <a href="/workouts">Start one!</a></p>
+  {% endif %}
+</div>

@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+{% block title %}Body Metrics — FitTrack{% endblock %}
+{% block content %}
+<div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:1.25rem; padding-top:0.5rem;">
+  <h1 style="font-size:1.5rem; font-weight:700;">Body Metrics</h1>
+</div>
+
+<div class="grid-2" style="align-items:start; gap:1.5rem;">
+  <div>
+    <div class="card">
+      <div class="section-title" style="margin-bottom:1rem;">Log Entry</div>
+      <div class="form-group">
+        <label>Weight (kg)</label>
+        <div class="stepper-group">
+          <button type="button" class="stepper-btn" onclick="stepMetric('weight', -0.5)">−</button>
+          <input type="number" id="weight-input" value="75" step="0.1" min="0">
+          <button type="button" class="stepper-btn" onclick="stepMetric('weight', 0.5)">+</button>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Calories (optional)</label>
+        <input type="number" id="calories-input" placeholder="e.g. 2400" min="0">
+      </div>
+      <div id="metric-error" class="flash flash-error" style="display:none;"></div>
+      <div id="metric-success" class="flash flash-success" style="display:none;">Entry logged.</div>
+      <button class="btn btn-primary" style="width:100%;" onclick="logMetric()">Log Entry</button>
+    </div>
+  </div>
+
+  <div>
+    <div class="section-title">History</div>
+    <div class="card" id="metrics-table">
+      {% if metrics %}
+      <table>
+        <thead>
+          <tr><th>Date</th><th>Weight (kg)</th><th>Calories</th></tr>
+        </thead>
+        <tbody>
+          {% for m in metrics %}
+          <tr>
+            <td>{{ m.recorded_at[:10] }}</td>
+            <td>{{ m.weight_kg }}</td>
+            <td>{{ m.calories or "—" }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <p style="color:var(--muted); font-size:0.875rem;">No entries yet.</p>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<script>
+function stepMetric(field, delta) {
+  const el = document.getElementById(field + '-input');
+  el.value = Math.max(0, Math.round((parseFloat(el.value || 0) + delta) * 10) / 10);
+}
+
+async function logMetric() {
+  const weight = parseFloat(document.getElementById('weight-input').value);
+  const cal = document.getElementById('calories-input').value;
+  const calories = cal ? parseInt(cal) : null;
+  const errEl = document.getElementById('metric-error');
+  const okEl = document.getElementById('metric-success');
+  errEl.style.display = 'none';
+  okEl.style.display = 'none';
+
+  if (isNaN(weight) || weight <= 0) {
+    errEl.textContent = 'Enter a valid weight.';
+    errEl.style.display = 'block';
+    return;
+  }
+
+  const resp = await fetch('/metrics', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({weight_kg: weight, calories})
+  });
+
+  if (resp.ok) {
+    okEl.style.display = 'block';
+    setTimeout(() => { okEl.style.display = 'none'; }, 3000);
+    // Reload page to show new entry in table
+    setTimeout(() => location.reload(), 500);
+  } else {
+    errEl.textContent = 'Failed to log entry.';
+    errEl.style.display = 'block';
+  }
+}
+</script>
+{% endblock %}

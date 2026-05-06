@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}Fitness Tracker{% endblock %}</title>
+  <script src="https://unpkg.com/htmx.org@1.9.12/dist/htmx.min.js" defer></script>
+  <style>
+    :root {
+      --bg: #111318;
+      --surface: #1a1e27;
+      --border: #2a2f3d;
+      --text: #e2e8f0;
+      --muted: #64748b;
+      --accent: #60a5fa;
+      --accent-hover: #3b82f6;
+      --danger: #f87171;
+      --success: #34d399;
+      --pr: #fbbf24;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html { font-family: 'Geist', 'Inter', system-ui, sans-serif; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Geist', 'Inter', system-ui, sans-serif;
+      min-height: 100vh;
+    }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { color: var(--accent-hover); }
+    nav {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 0 1.5rem;
+      display: flex;
+      align-items: center;
+      gap: 2rem;
+      overflow-x: auto;
+    }
+    nav .brand {
+      font-weight: 700;
+      font-size: 1.1rem;
+      color: var(--text);
+      padding: 0.875rem 0;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+    nav .nav-links { display: flex; gap: 1.5rem; overflow-x: auto; }
+    nav .nav-links a {
+      color: var(--muted);
+      font-size: 0.9rem;
+      padding: 0.875rem 0;
+      display: inline-flex;
+      align-items: center;
+      white-space: nowrap;
+    }
+    nav .nav-links a:hover, nav .nav-links a.active { color: var(--text); }
+    .container { max-width: 1100px; margin: 0 auto; padding: 1.5rem; }
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1.25rem;
+    }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      padding: 0.5rem 1rem;
+      min-height: 44px;
+      border-radius: 6px;
+      border: none;
+      cursor: pointer;
+      font-size: 0.875rem;
+      font-weight: 500;
+      transition: background 0.15s;
+    }
+    .btn-primary { background: var(--accent); color: #0f172a; }
+    .btn-primary:hover { background: var(--accent-hover); }
+    .btn-danger { background: var(--danger); color: #0f172a; }
+    .btn-ghost {
+      background: transparent;
+      color: var(--muted);
+      border: 1px solid var(--border);
+    }
+    .btn-ghost:hover { color: var(--text); border-color: var(--muted); }
+    input, select, textarea {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+      padding: 0.5rem 0.75rem;
+      font-size: 0.875rem;
+      width: 100%;
+    }
+    input:focus, select:focus, textarea:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+    label { font-size: 0.8rem; color: var(--muted); display: block; margin-bottom: 0.25rem; }
+    .form-group { margin-bottom: 1rem; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
+    th { text-align: left; color: var(--muted); font-weight: 500; padding: 0.5rem 0.75rem; border-bottom: 1px solid var(--border); }
+    td { padding: 0.5rem 0.75rem; border-bottom: 1px solid var(--border); }
+    td a { display: block; }
+    tr:last-child td { border-bottom: none; }
+    .badge {
+      display: inline-block;
+      padding: 0.15rem 0.5rem;
+      border-radius: 4px;
+      font-size: 0.75rem;
+      font-weight: 600;
+    }
+    .badge-pr { background: var(--pr); color: #0f172a; }
+    .badge-streak { background: var(--success); color: #0f172a; }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+    .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem; }
+    @media (max-width: 640px) {
+      .grid-2, .grid-3 { grid-template-columns: 1fr; }
+    }
+    .section-title {
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--muted);
+      margin-bottom: 0.75rem;
+    }
+    .stepper-group {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .stepper-group input { text-align: center; width: 80px; }
+    .stepper-btn {
+      width: 44px; height: 44px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--text);
+      cursor: pointer;
+      font-size: 1.1rem;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+    .stepper-btn:hover { border-color: var(--accent); color: var(--accent); }
+    .flash {
+      padding: 0.75rem 1rem;
+      border-radius: 6px;
+      margin-bottom: 1rem;
+      font-size: 0.875rem;
+    }
+    .flash-success { background: #064e3b; border: 1px solid var(--success); color: var(--success); }
+    .flash-error { background: #450a0a; border: 1px solid var(--danger); color: var(--danger); }
+  </style>
+  {% block head %}{% endblock %}
+</head>
+<body>
+  <nav>
+    <span class="brand">FitTrack</span>
+    <div class="nav-links">
+      <a href="/">Dashboard</a>
+      <a href="/workouts">Workouts</a>
+      <a href="/metrics">Body Metrics</a>
+      <a href="/export/workouts.csv">Export CSV</a>
+    </div>
+    <form method="post" action="/logout" style="margin-left:auto; flex-shrink:0; display:flex; align-items:center;">
+      <button type="submit" class="btn btn-ghost" style="white-space:nowrap;">Sign out</button>
+    </form>
+  </nav>
+  <div class="container">
+    {% block content %}{% endblock %}
+  </div>
+  <script>
+    document.querySelectorAll('.nav-links a').forEach(function(a) {
+      var linkPath = new URL(a.href).pathname;
+      var here = location.pathname;
+      if (linkPath === '/' ? here === '/' : here === linkPath || here.startsWith(linkPath + '/')) {
+        a.classList.add('active');
+      }
+    });
+  </script>
+</body>
+</html>

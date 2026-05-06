@@ -1,0 +1,67 @@
+api_version: v1
+base_path: /api/v1
+
+auth:
+  register:
+    method: POST
+    path: /auth/register
+    request:
+      username: string
+      password: string
+    response:
+      message: string
+
+  login:
+    method: POST
+    path: /auth/login
+    request:
+      username: string
+      password: string
+    response:
+      token: string
+
+workouts:
+  create:
+    method: POST
+    path: /workouts
+    request:
+      date: string
+      notes: string
+    response:
+      id: int
+
+  list:
+    method: GET
+    path: /workouts
+    response:
+      workouts: list
+
+entries:
+  create:
+    method: POST
+    path: /entries
+    request:
+      workout_id: int
+      exercise: string
+      sets: int
+      reps: int
+      weight: float
+    response:
+      id: int
+
+metrics:
+  create:
+    method: POST
+    path: /metrics
+    request:
+      date: string
+      weight: float
+      calories: int
+    response:
+      id: int
+
+  list:
+    method: GET
+    path: /metrics
+    response:
+      metrics: list

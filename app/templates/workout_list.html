@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}Workouts — FitTrack{% endblock %}
+{% block content %}
+<div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:1.25rem; padding-top:0.5rem;">
+  <h1 style="font-size:1.5rem; font-weight:700;">Workouts</h1>
+  <button class="btn btn-primary" onclick="startWorkout(this)">
+    + New Workout
+  </button>
+</div>
+<div id="workout-list">
+  {% include "workout_list_partial.html" %}
+</div>
+<script>
+async function startWorkout(btn) {
+  btn.disabled = true;
+  const resp = await fetch('/workouts', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({notes: null})
+  });
+  if (resp.ok) {
+    const data = await resp.json();
+    window.location.href = '/workouts/' + data.id;
+  } else {
+    btn.disabled = false;
+    alert('Failed to create workout');
+  }
+}
+</script>
+{% endblock %}

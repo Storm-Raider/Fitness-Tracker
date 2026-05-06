@@ -1,0 +1,9 @@
+rules:
+  - Do not modify api_contract.yaml
+  - Do not introduce new frameworks
+  - Follow backend_spec.yaml strictly
+  - Keep code modular
+  - All endpoints must return JSON
+  - Validate inputs using Pydantic
+  - Use async routes where possible
+  - Do not skip task dependencies

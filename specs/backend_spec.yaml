@@ -1,0 +1,38 @@
+service: backend
+framework: FastAPI
+language: Python
+
+database:
+  type: SQLite
+  orm: SQLAlchemy
+
+authentication:
+  type: JWT
+  password_hashing: bcrypt
+
+requirements:
+  - Implement all endpoints from api_contract.yaml
+  - Use async FastAPI routes
+  - Use Pydantic for request/response schemas
+  - Use SQLAlchemy ORM for database
+  - Modular code organization
+
+project_structure:
+  - app/main.py
+  - app/models/
+  - app/schemas/
+  - app/routers/
+  - app/services/
+  - app/core/
+
+initial_features:
+  - Health check endpoint (/health)
+  - User registration and login
+  - Workout CRUD (basic)
+  - Entry creation
+  - Metrics tracking
+
+constraints:
+  - Keep functions small and readable
+  - Do not hardcode values
+  - Use environment variables where needed

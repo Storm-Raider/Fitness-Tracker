@@ -1,0 +1,18 @@
+{% if metrics %}
+<table>
+  <thead>
+    <tr><th>Date</th><th>Weight (kg)</th><th>Calories</th></tr>
+  </thead>
+  <tbody>
+    {% for m in metrics %}
+    <tr>
+      <td>{{ m.recorded_at[:10] }}</td>
+      <td>{{ m.weight_kg }}</td>
+      <td>{{ m.calories or "—" }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p style="color:var(--muted); font-size:0.875rem;">No entries yet.</p>
+{% endif %}

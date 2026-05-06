@@ -1,0 +1,7 @@
+setup_backend: pending
+setup_database: pending
+implement_auth: pending
+implement_workouts: pending
+implement_entries: pending
+implement_metrics: pending
+dockerize_backend: pending
