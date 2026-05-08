@@ -42,6 +42,10 @@ class WorkoutIn(BaseModel):
     notes: str | None = None
 
 
+class WorkoutPatch(BaseModel):
+    notes: str | None = None
+
+
 class SetIn(BaseModel):
     exercise_id: int
     reps: int
@@ -104,6 +108,23 @@ async def get_workout(
         sets = [dict(r) for r in await cur.fetchall()]
 
     return render(request, "workout_form", {"workout": dict(row), "sets": sets})
+
+
+@router.patch("/workouts/{workout_id}", status_code=204)
+async def patch_workout(
+    workout_id: int,
+    body: WorkoutPatch,
+    conn: aiosqlite.Connection = Depends(get_db),
+):
+    async with conn.execute(
+        "SELECT id FROM workouts WHERE id = ? AND user_id = 1", (workout_id,)
+    ) as cur:
+        if not await cur.fetchone():
+            raise HTTPException(status_code=404, detail="Workout not found")
+    await conn.execute(
+        "UPDATE workouts SET notes = ? WHERE id = ?", (body.notes, workout_id)
+    )
+    await conn.commit()
 
 
 @router.post("/workouts/{workout_id}/sets", status_code=201)

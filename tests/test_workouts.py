@@ -54,6 +54,24 @@ async def test_delete_set(client):
 
 
 @pytest.mark.asyncio
+async def test_patch_workout_notes(client):
+    w = await client.post("/workouts", json={"notes": None})
+    w_id = w.json()["id"]
+
+    resp = await client.patch(f"/workouts/{w_id}", json={"notes": "Felt strong today"})
+    assert resp.status_code == 204
+
+    detail = await client.get(f"/workouts/{w_id}", headers={"Accept": "application/json"})
+    assert detail.status_code == 200
+
+
+@pytest.mark.asyncio
+async def test_patch_missing_workout_returns_404(client):
+    resp = await client.patch("/workouts/99999", json={"notes": "ghost"})
+    assert resp.status_code == 404
+
+
+@pytest.mark.asyncio
 async def test_add_set_to_missing_workout(client):
     ex = await client.post("/exercises", json={"name": "Curl"})
     resp = await client.post("/workouts/99999/sets",

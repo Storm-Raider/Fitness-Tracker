@@ -30,6 +30,13 @@
   <span id="pr-badge" class="badge badge-pr">🏆 New PR!</span>
 </div>
 
+<div class="form-group" style="margin-bottom:1.25rem;">
+  <label for="workout-notes">Workout notes</label>
+  <textarea id="workout-notes" rows="2" placeholder="How did it feel? Any context…"
+            style="resize:vertical;">{{ workout.notes or '' }}</textarea>
+  <span id="notes-status" style="font-size:0.75rem; color:var(--muted); display:none;"></span>
+</div>
+
 <div class="grid-2" style="align-items:start; gap:1.5rem;">
   <!-- Log set form -->
   <div>
@@ -99,8 +106,56 @@
 
 <script>
 const WORKOUT_ID = {{ workout.id }};
+const LS_KEY = `workout-notes-${WORKOUT_ID}`;
 let exercises = [];
 let lastSets = {};
+
+// Workout notes auto-save with localStorage fallback
+(function initNotes() {
+  const ta = document.getElementById('workout-notes');
+  const status = document.getElementById('notes-status');
+  let saveTimer = null;
+
+  // Restore any pending offline edit
+  const pending = localStorage.getItem(LS_KEY);
+  if (pending !== null && pending !== ta.value) {
+    ta.value = pending;
+    setStatus('Unsaved (offline)', 'var(--danger)');
+    saveNotes(pending);
+  }
+
+  ta.addEventListener('input', () => {
+    localStorage.setItem(LS_KEY, ta.value);
+    setStatus('Saving…', 'var(--muted)');
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(() => saveNotes(ta.value), 800);
+  });
+
+  async function saveNotes(value) {
+    try {
+      const resp = await fetch(`/workouts/${WORKOUT_ID}`, {
+        method: 'PATCH',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({notes: value || null}),
+      });
+      if (resp.ok) {
+        localStorage.removeItem(LS_KEY);
+        setStatus('Saved', 'var(--success)');
+        setTimeout(() => { status.style.display = 'none'; }, 1500);
+      } else {
+        setStatus('Save failed', 'var(--danger)');
+      }
+    } catch {
+      setStatus('Offline — will retry on reconnect', 'var(--danger)');
+    }
+  }
+
+  function setStatus(msg, color) {
+    status.textContent = msg;
+    status.style.color = color;
+    status.style.display = 'inline';
+  }
+})();
 
 async function loadExercises() {
   const resp = await fetch('/exercises');
