@@ -69,6 +69,19 @@ async def dashboard(
 
     streak = compute_streak(all_days)
 
+    # Volume + session count — rolling 7-day window
+    async with conn.execute(
+        """
+        SELECT COALESCE(SUM(s.weight_kg * s.reps), 0) AS weekly_volume,
+               COUNT(DISTINCT s.workout_id)            AS weekly_sessions
+        FROM sets s
+        JOIN workouts w ON w.id = s.workout_id
+        WHERE s.user_id = 1
+          AND DATE(w.started_at) >= DATE('now', '-6 days')
+        """
+    ) as cur:
+        vol_row = dict(await cur.fetchone())
+
     return render(
         request,
         "dashboard",
@@ -77,5 +90,7 @@ async def dashboard(
             "prs": prs,
             "heatmap_svg": heatmap_svg,
             "streak": streak,
+            "weekly_volume": vol_row["weekly_volume"],
+            "weekly_sessions": vol_row["weekly_sessions"],
         },
     )

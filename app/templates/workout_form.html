@@ -125,7 +125,13 @@
               onclick="stopTimer()">✕</button>
     </div>
   </div>
-  <button class="btn btn-ghost" onclick="finishWorkout()" style="margin-left:auto; white-space:nowrap; flex-shrink:0;">
+  <div style="margin-left:auto; text-align:right; flex-shrink:0;">
+    <div style="font-size:0.7rem; color:var(--muted); text-transform:uppercase; letter-spacing:0.05em;">Volume</div>
+    <div id="session-volume" style="font-size:1rem; font-weight:700; color:var(--accent); font-variant-numeric:tabular-nums;">
+      {{ "{:,.0f}".format(session_volume) }} kg
+    </div>
+  </div>
+  <button class="btn btn-ghost" onclick="finishWorkout()" style="white-space:nowrap; flex-shrink:0;">
     Finish Workout
   </button>
 </div>
@@ -135,6 +141,16 @@ const WORKOUT_ID = {{ workout.id }};
 const LS_KEY = `workout-notes-${WORKOUT_ID}`;
 let exercises = [];
 let lastSets = {};
+
+// Live session volume
+let sessionVolume = {{ session_volume }};
+const setVolumes = {};  // set_id → weight_kg * reps, for deletion accounting
+{% for s in sets %}setVolumes[{{ s.id }}] = {{ s.weight_kg * s.reps }};{% endfor %}
+
+function updateVolumeDisplay() {
+  document.getElementById('session-volume').textContent =
+    sessionVolume.toLocaleString('en', {maximumFractionDigits: 1}) + ' kg';
+}
 
 // Rest timer
 const TIMER_DEFAULT = 90;
@@ -314,6 +330,11 @@ async function logSet() {
 
   startTimer();
 
+  const setVol = weight * reps;
+  setVolumes[data.id] = setVol;
+  sessionVolume += setVol;
+  updateVolumeDisplay();
+
   if (data.is_pr) {
     const badge = document.getElementById('pr-badge');
     badge.style.display = 'inline-block';
@@ -343,6 +364,11 @@ async function deleteSet(id, btn) {
   const resp = await fetch(`/workouts/${WORKOUT_ID}/sets/${id}`, {method:'DELETE'});
   if (resp.ok || resp.status === 204) {
     document.getElementById('set-' + id)?.remove();
+    if (setVolumes[id] !== undefined) {
+      sessionVolume -= setVolumes[id];
+      delete setVolumes[id];
+      updateVolumeDisplay();
+    }
   }
 }
 

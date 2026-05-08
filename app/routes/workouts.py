@@ -107,7 +107,12 @@ async def get_workout(
     ) as cur:
         sets = [dict(r) for r in await cur.fetchall()]
 
-    return render(request, "workout_form", {"workout": dict(row), "sets": sets})
+    session_volume = sum(s["weight_kg"] * s["reps"] for s in sets)
+    return render(request, "workout_form", {
+        "workout": dict(row),
+        "sets": sets,
+        "session_volume": session_volume,
+    })
 
 
 @router.patch("/workouts/{workout_id}", status_code=204)

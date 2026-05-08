@@ -11,6 +11,23 @@
   </div>
 </div>
 
+<div class="grid-3" style="margin-bottom:1.5rem;">
+  <div class="card" style="text-align:center;">
+    <div style="font-size:1.75rem; font-weight:700; color:var(--text);">{{ weekly_sessions }}</div>
+    <div class="section-title" style="margin:0.25rem 0 0;">Sessions (7 days)</div>
+  </div>
+  <div class="card" style="text-align:center;">
+    <div style="font-size:1.75rem; font-weight:700; color:var(--accent);">
+      {{ "{:,.0f}".format(weekly_volume) }} kg
+    </div>
+    <div class="section-title" style="margin:0.25rem 0 0;">Volume (7 days)</div>
+  </div>
+  <div class="card" style="text-align:center;">
+    <div style="font-size:1.75rem; font-weight:700; color:var(--pr);">{{ prs | length }}</div>
+    <div class="section-title" style="margin:0.25rem 0 0;">Exercises tracked</div>
+  </div>
+</div>
+
 <div style="margin-bottom:1.5rem;">
   <div class="card">
     <div class="section-title">Activity — last 52 weeks</div>
