@@ -100,8 +100,34 @@
   </div>
 </div>
 
-<div class="sticky-footer">
-  <button class="btn btn-ghost" onclick="finishWorkout()">Finish Workout</button>
+<div class="sticky-footer" style="display:flex; align-items:center; gap:1rem;">
+  <!-- Rest timer — hidden until a set is logged -->
+  <div id="rest-timer" style="display:none; align-items:center; gap:0.75rem; flex:1;">
+    <svg width="44" height="44" viewBox="0 0 44 44" style="flex-shrink:0;">
+      <circle cx="22" cy="22" r="18" fill="none" stroke="var(--border)" stroke-width="4"/>
+      <circle id="timer-ring" cx="22" cy="22" r="18" fill="none"
+              stroke="var(--accent)" stroke-width="4"
+              stroke-dasharray="113.1" stroke-dashoffset="0"
+              stroke-linecap="round"
+              transform="rotate(-90 22 22)"
+              style="transition:stroke-dashoffset 0.9s linear, stroke 0.3s;"/>
+    </svg>
+    <span id="timer-display"
+          style="font-size:1.4rem; font-weight:700; font-variant-numeric:tabular-nums; min-width:3.5rem;">
+      1:30
+    </span>
+    <div style="display:flex; gap:0.4rem;">
+      <button class="btn btn-ghost" style="padding:0.25rem 0.6rem; min-height:36px; font-size:0.8rem;"
+              onclick="adjustTimer(-30)">−30s</button>
+      <button class="btn btn-ghost" style="padding:0.25rem 0.6rem; min-height:36px; font-size:0.8rem;"
+              onclick="adjustTimer(30)">+30s</button>
+      <button class="btn btn-ghost" style="padding:0.25rem 0.6rem; min-height:36px;"
+              onclick="stopTimer()">✕</button>
+    </div>
+  </div>
+  <button class="btn btn-ghost" onclick="finishWorkout()" style="margin-left:auto; white-space:nowrap; flex-shrink:0;">
+    Finish Workout
+  </button>
 </div>
 
 <script>
@@ -109,6 +135,55 @@ const WORKOUT_ID = {{ workout.id }};
 const LS_KEY = `workout-notes-${WORKOUT_ID}`;
 let exercises = [];
 let lastSets = {};
+
+// Rest timer
+const TIMER_DEFAULT = 90;
+const TIMER_MAX = 600;
+const RING_C = 2 * Math.PI * 18; // circumference for r=18 ≈ 113.1
+let timerTotal = TIMER_DEFAULT;
+let timerRemaining = TIMER_DEFAULT;
+let timerInterval = null;
+
+function startTimer() {
+  timerTotal = TIMER_DEFAULT;
+  timerRemaining = TIMER_DEFAULT;
+  document.getElementById('rest-timer').style.display = 'flex';
+  document.getElementById('timer-ring').style.stroke = 'var(--accent)';
+  updateTimerDisplay();
+  clearInterval(timerInterval);
+  timerInterval = setInterval(() => {
+    timerRemaining = Math.max(0, timerRemaining - 1);
+    updateTimerDisplay();
+    if (timerRemaining === 0) {
+      clearInterval(timerInterval);
+      document.getElementById('timer-ring').style.stroke = 'var(--success)';
+      document.getElementById('timer-display').textContent = 'Done!';
+      setTimeout(stopTimer, 2000);
+    }
+  }, 1000);
+}
+
+function stopTimer() {
+  clearInterval(timerInterval);
+  document.getElementById('rest-timer').style.display = 'none';
+}
+
+function adjustTimer(delta) {
+  timerRemaining = Math.min(TIMER_MAX, Math.max(0, timerRemaining + delta));
+  timerTotal = timerRemaining; // ring resets to full from new base
+  document.getElementById('timer-ring').style.stroke = 'var(--accent)';
+  updateTimerDisplay();
+}
+
+function updateTimerDisplay() {
+  const mins = Math.floor(timerRemaining / 60);
+  const secs = timerRemaining % 60;
+  document.getElementById('timer-display').textContent =
+    `${mins}:${String(secs).padStart(2, '0')}`;
+  const progress = timerTotal > 0 ? timerRemaining / timerTotal : 0;
+  document.getElementById('timer-ring').style.strokeDashoffset =
+    RING_C * (1 - progress);
+}
 
 // Workout notes auto-save with localStorage fallback
 (function initNotes() {
@@ -236,6 +311,8 @@ async function logSet() {
 
   if (!resp.ok) { showErr('Failed to log set.'); return; }
   const data = await resp.json();
+
+  startTimer();
 
   if (data.is_pr) {
     const badge = document.getElementById('pr-badge');
