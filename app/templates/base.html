@@ -60,6 +60,8 @@
       white-space: nowrap;
     }
     nav .nav-links a:hover, nav .nav-links a.active { color: var(--text); }
+    nav .nav-user { margin-left: auto; display: flex; align-items: center; gap: 1rem; flex-shrink: 0; }
+    nav .nav-user .username { font-size: 0.85rem; color: var(--muted); white-space: nowrap; }
     .container { max-width: 1100px; margin: 0 auto; padding: 1.5rem; }
     .card {
       background: var(--surface);
@@ -168,10 +170,16 @@
       <a href="/workouts">Workouts</a>
       <a href="/metrics">Body Metrics</a>
       <a href="/export/workouts.csv">Export CSV</a>
+      {% if user.is_admin %}
+      <a href="/invite">Invite</a>
+      {% endif %}
     </div>
-    <form method="post" action="/logout" style="margin-left:auto; flex-shrink:0; display:flex; align-items:center;">
-      <button type="submit" class="btn btn-ghost" style="white-space:nowrap;">Sign out</button>
-    </form>
+    <div class="nav-user">
+      <span class="username">{{ user.username }}</span>
+      <form method="post" action="/logout" style="display:flex; align-items:center;">
+        <button type="submit" class="btn btn-ghost" style="white-space:nowrap;">Sign out</button>
+      </form>
+    </div>
   </nav>
   <div class="container">
     {% block content %}{% endblock %}

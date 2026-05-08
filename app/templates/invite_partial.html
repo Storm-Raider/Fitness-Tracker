@@ -1,0 +1,13 @@
+<div style="margin-top: 0.25rem;">
+  <p style="font-size: 0.8rem; color: var(--muted); margin-bottom: 0.5rem;">Share this link — expires in 48 hours, single use:</p>
+  <div style="display: flex; gap: 0.5rem; align-items: center;">
+    <input type="text" id="invite-url" value="{{ invite_url | e }}" readonly
+           style="flex: 1; font-size: 0.8rem; background: var(--bg); cursor: text;">
+    <button class="btn btn-ghost"
+            style="flex-shrink: 0;"
+            onclick="navigator.clipboard.writeText(document.getElementById('invite-url').value).then(function(){this.textContent='Copied!';setTimeout(function(){document.querySelector('[onclick]').textContent='Copy';},2000)}.bind(this))"
+            type="button">
+      Copy
+    </button>
+  </div>
+</div>

@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'v0.2.0';
+const CACHE_VERSION = 'v0.3.0';
 const CACHE_NAME = `fittrack-${CACHE_VERSION}`;
 
 const PRECACHE = [

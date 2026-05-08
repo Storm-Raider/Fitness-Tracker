@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Sign in — FitTrack</title>
+  <title>Create account — FitTrack</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
@@ -14,9 +14,9 @@
       display: flex;
       flex-direction: column;
       align-items: center;
-      padding-top: 30vh;
+      padding-top: 20vh;
     }
-    .login-wrap {
+    .wrap {
       width: calc(100% - 2rem);
       max-width: 360px;
     }
@@ -32,6 +32,11 @@
       border: 1px solid #2a2f3d;
       border-radius: 8px;
       padding: 1.5rem;
+    }
+    h2 {
+      font-size: 1rem;
+      font-weight: 600;
+      margin-bottom: 1.25rem;
     }
     .flash-error {
       background: #450a0a;
@@ -65,6 +70,12 @@
       outline: none;
       border-color: #60a5fa;
     }
+    .hint-text {
+      font-size: 0.75rem;
+      color: #64748b;
+      margin-top: -0.75rem;
+      margin-bottom: 1rem;
+    }
     .btn-primary {
       display: block;
       width: 100%;
@@ -80,42 +91,46 @@
       transition: background 0.15s;
     }
     .btn-primary:hover { background: #3b82f6; }
-    .hint {
-      text-align: center;
-      font-size: 0.8rem;
-      color: #64748b;
-      margin-top: 1rem;
-    }
   </style>
 </head>
 <body>
-  <div class="login-wrap">
+  <div class="wrap">
     <div class="wordmark">FitTrack</div>
     <div class="card">
-      {% if error %}
-      <div class="flash-error" role="alert">{{ error }}</div>
+      <h2>Create your account</h2>
+      {% if errors %}
+      <div class="flash-error" role="alert">
+        {% for msg in errors.values() %}{{ msg }}{% if not loop.last %}<br>{% endif %}{% endfor %}
+      </div>
       {% endif %}
-      <form method="post" action="/login">
-        <input type="hidden" name="next" value="{{ next | e }}">
+      <form method="post" action="/invite/accept/{{ token | e }}">
         <div>
           <label for="username">Username</label>
           <input type="text" id="username" name="username"
                  autocomplete="username"
-                 value="{{ prefill_username | e }}"
-                 {% if not prefill_username %}autofocus{% endif %}
-                 required>
+                 value="{{ form.get('username', '') | e }}"
+                 pattern="[a-zA-Z0-9_]{3,30}"
+                 required autofocus>
+          <p class="hint-text">3–30 characters: letters, numbers, underscores</p>
         </div>
         <div>
           <label for="password">Password</label>
           <input type="password" id="password" name="password"
-                 autocomplete="current-password"
-                 {% if prefill_username %}autofocus{% endif %}
+                 autocomplete="new-password"
+                 minlength="8"
+                 required>
+          <p class="hint-text">Minimum 8 characters</p>
+        </div>
+        <div>
+          <label for="password_confirm">Confirm password</label>
+          <input type="password" id="password_confirm" name="password_confirm"
+                 autocomplete="new-password"
+                 minlength="8"
                  required>
         </div>
-        <button type="submit" class="btn-primary">Sign in</button>
+        <button type="submit" class="btn-primary">Create account</button>
       </form>
     </div>
-    <p class="hint">Need access? Ask your server admin for an invite link.</p>
   </div>
 </body>
 </html>

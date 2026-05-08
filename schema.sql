@@ -39,6 +39,23 @@ CREATE TABLE IF NOT EXISTS body_metrics (
 
 CREATE INDEX IF NOT EXISTS idx_sets_exercise ON sets(exercise_id);
 
+CREATE TABLE IF NOT EXISTS users (
+    id            INTEGER  PRIMARY KEY AUTOINCREMENT,
+    username      TEXT     NOT NULL UNIQUE,
+    password_hash TEXT     NOT NULL,
+    is_admin      INTEGER  NOT NULL DEFAULT 0,
+    created_at    DATETIME NOT NULL DEFAULT (datetime('now','localtime'))
+);
+
+CREATE TABLE IF NOT EXISTS invite_tokens (
+    token      TEXT     PRIMARY KEY,
+    created_by INTEGER  NOT NULL REFERENCES users(id),
+    created_at DATETIME NOT NULL DEFAULT (datetime('now','localtime')),
+    expires_at DATETIME NOT NULL,
+    used_at    DATETIME NULL,
+    used_by    INTEGER  NULL REFERENCES users(id)
+);
+
 CREATE TABLE IF NOT EXISTS routines (
     id      INTEGER PRIMARY KEY AUTOINCREMENT,
     name    TEXT    NOT NULL,
