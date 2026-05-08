@@ -4,6 +4,7 @@ from contextlib import asynccontextmanager
 
 import httpx
 from fastapi import FastAPI
+from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pathlib import Path
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -19,7 +20,7 @@ logging.basicConfig(level=logging.INFO)
 
 DATABASE_PATH = os.environ.get("DATABASE_PATH", "/data/fitness.db")
 
-_EXEMPT_PATHS = {"/health", "/login", "/logout"}
+_EXEMPT_PATHS = {"/health", "/login", "/logout", "/sw.js"}
 
 
 class _AuthMiddleware(BaseHTTPMiddleware):
@@ -86,3 +87,11 @@ app.include_router(webhooks.router)
 @app.get("/health")
 async def health():
     return {"status": "ok"}
+
+
+@app.get("/sw.js", include_in_schema=False)
+async def service_worker():
+    # Serve from root so the SW controls all pages, not just /static/*
+    sw_path = Path(__file__).parent / "static" / "sw.js"
+    return FileResponse(sw_path, media_type="application/javascript",
+                        headers={"Service-Worker-Allowed": "/"})
