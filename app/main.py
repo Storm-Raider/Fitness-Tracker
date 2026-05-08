@@ -12,7 +12,7 @@ from starlette.requests import Request
 from starlette.responses import RedirectResponse
 
 from app.db import open_db, set_db, clear_db
-from app.routes import dashboard, exercises, export, import_, metrics, webhooks, workouts
+from app.routes import dashboard, exercises, export, import_, metrics, routines, webhooks, workouts
 from app.routes.auth import router as auth_router, verify_session
 from app.routes.workouts import set_http_client
 
@@ -82,6 +82,7 @@ app.include_router(metrics.router)
 app.include_router(export.router)
 app.include_router(import_.router)
 app.include_router(webhooks.router)
+app.include_router(routines.router)
 
 
 @app.get("/health")

@@ -38,3 +38,15 @@ CREATE TABLE IF NOT EXISTS body_metrics (
 );
 
 CREATE INDEX IF NOT EXISTS idx_sets_exercise ON sets(exercise_id);
+
+CREATE TABLE IF NOT EXISTS routines (
+    id      INTEGER PRIMARY KEY AUTOINCREMENT,
+    name    TEXT    NOT NULL,
+    user_id INTEGER NULL DEFAULT 1
+);
+
+CREATE TABLE IF NOT EXISTS routine_exercises (
+    routine_id  INTEGER NOT NULL REFERENCES routines(id) ON DELETE CASCADE,
+    exercise_id INTEGER NOT NULL REFERENCES exercises(id),
+    order_idx   INTEGER NOT NULL DEFAULT 0
+);

@@ -97,7 +97,7 @@ async def get_workout(
 
     async with conn.execute(
         """
-        SELECT s.id, e.name AS exercise_name, s.reps, s.weight_kg, s.notes
+        SELECT s.id, s.exercise_id, e.name AS exercise_name, s.reps, s.weight_kg, s.notes
         FROM sets s
         JOIN exercises e ON e.id = s.exercise_id
         WHERE s.workout_id = ? AND s.user_id = 1

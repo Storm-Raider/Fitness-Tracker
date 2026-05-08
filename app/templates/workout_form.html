@@ -42,6 +42,23 @@
   <div>
     <div class="card">
       <div class="section-title" style="margin-bottom:1rem;">Log a Set</div>
+      <!-- Load routine -->
+      <div class="form-group">
+        <label for="routine-select">Load routine (optional)</label>
+        <div style="display:flex; gap:0.5rem;">
+          <select id="routine-select" style="flex:1;" onchange="onRoutineSelect(this.value)">
+            <option value="">— select —</option>
+          </select>
+          <button type="button" class="btn btn-ghost"
+                  style="flex-shrink:0; min-height:36px; padding:0 0.75rem; font-size:0.8rem;"
+                  onclick="clearRoutine()">Clear</button>
+        </div>
+      </div>
+      <div id="routine-plan" style="display:none; margin-bottom:0.75rem;">
+        <div style="font-size:0.75rem; color:var(--muted); margin-bottom:0.4rem;">Tap to select:</div>
+        <div id="routine-chips" style="display:flex; flex-wrap:wrap; gap:0.4rem;"></div>
+      </div>
+
       <div class="form-group">
         <label for="exercise-input">Exercise</label>
         <input id="exercise-input" list="exercise-list" placeholder="Search or type exercise…" autocomplete="off">
@@ -100,6 +117,28 @@
   </div>
 </div>
 
+<!-- Save as routine modal -->
+<div id="routine-save-modal"
+     style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.75);
+            z-index:100; align-items:center; justify-content:center; padding:1rem;">
+  <div class="card" style="max-width:340px; width:100%; padding:1.5rem;">
+    <h3 style="font-size:1rem; font-weight:700; margin-bottom:1rem;">Save as Routine</h3>
+    <div class="form-group">
+      <label for="routine-name-input">Routine name</label>
+      <input type="text" id="routine-name-input" placeholder="e.g. Push Day" autocomplete="off">
+    </div>
+    <div id="routine-save-error"
+         style="color:var(--danger); font-size:0.8rem; margin-bottom:0.75rem; display:none;"></div>
+    <div style="display:flex; gap:0.5rem;">
+      <button class="btn btn-primary" style="flex:1;" onclick="saveRoutine()">Save</button>
+      <button class="btn btn-ghost"
+              onclick="document.getElementById('routine-save-modal').style.display='none'">
+        Cancel
+      </button>
+    </div>
+  </div>
+</div>
+
 <!-- Post-finish summary modal -->
 <div id="finish-modal"
      style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.75);
@@ -150,7 +189,12 @@
               onclick="stopTimer()">✕</button>
     </div>
   </div>
-  <div style="margin-left:auto; text-align:right; flex-shrink:0;">
+  <button class="btn btn-ghost"
+          style="margin-left:auto; white-space:nowrap; flex-shrink:0; font-size:0.8rem;"
+          onclick="document.getElementById('routine-save-modal').style.display='flex'">
+    Save Routine
+  </button>
+  <div style="text-align:right; flex-shrink:0;">
     <div style="font-size:0.7rem; color:var(--muted); text-transform:uppercase; letter-spacing:0.05em;">Volume</div>
     <div id="session-volume" style="font-size:1rem; font-weight:700; color:var(--accent); font-variant-numeric:tabular-nums;">
       {{ "{:,.0f}".format(session_volume) }} kg
@@ -169,8 +213,12 @@ let lastSets = {};
 
 // Live session volume
 let sessionVolume = {{ session_volume }};
-const setVolumes = {};  // set_id → weight_kg * reps, for deletion accounting
-{% for s in sets %}setVolumes[{{ s.id }}] = {{ s.weight_kg * s.reps }};{% endfor %}
+const setVolumes = {};    // set_id → weight_kg * reps
+const setExercises = {};  // set_id → {id, name}
+{% for s in sets %}
+setVolumes[{{ s.id }}]   = {{ s.weight_kg * s.reps }};
+setExercises[{{ s.id }}] = {id: {{ s.exercise_id }}, name: {{ s.exercise_name | tojson }}};
+{% endfor %}
 
 function updateVolumeDisplay() {
   document.getElementById('session-volume').textContent =
@@ -273,6 +321,102 @@ function updateTimerDisplay() {
   }
 })();
 
+// Routine load
+let _routines = [];
+
+async function loadRoutines() {
+  const resp = await fetch('/routines');
+  _routines = await resp.json();
+  const sel = document.getElementById('routine-select');
+  sel.innerHTML = '<option value="">— select —</option>';
+  _routines.forEach((r, i) => {
+    const opt = document.createElement('option');
+    opt.value = i;
+    opt.textContent = r.name;
+    sel.appendChild(opt);
+  });
+}
+loadRoutines();
+
+function onRoutineSelect(val) {
+  if (val === '') { clearRoutine(); return; }
+  const routine = _routines[parseInt(val)];
+  const chips = document.getElementById('routine-chips');
+  chips.innerHTML = routine.exercises.map(e =>
+    `<button type="button" class="btn btn-ghost"
+             style="font-size:0.8rem;padding:0.2rem 0.6rem;min-height:32px;"
+             onclick="selectExerciseFromRoutine(${e.id},${JSON.stringify(e.name).replace(/"/g,'&quot;')})">
+       ${e.name}
+     </button>`
+  ).join('');
+  document.getElementById('routine-plan').style.display = 'block';
+}
+
+function clearRoutine() {
+  document.getElementById('routine-select').value = '';
+  document.getElementById('routine-plan').style.display = 'none';
+}
+
+function selectExerciseFromRoutine(id, name) {
+  document.getElementById('exercise-input').value = name;
+  document.getElementById('exercise-id').value = id;
+  const last = lastSets[String(id)];
+  const hint = document.getElementById('last-set-hint');
+  if (last) {
+    document.getElementById('last-set-text').textContent = `${last.weight_kg} kg × ${last.reps} reps`;
+    document.getElementById('weight-input').value = last.weight_kg;
+    document.getElementById('reps-input').value   = last.reps;
+    hint.style.display = 'block';
+  } else {
+    hint.style.display = 'none';
+  }
+  document.getElementById('exercise-input').scrollIntoView({behavior:'smooth', block:'nearest'});
+  document.getElementById('exercise-input').focus();
+}
+
+// Routine save
+async function saveRoutine() {
+  const name   = document.getElementById('routine-name-input').value.trim();
+  const errEl  = document.getElementById('routine-save-error');
+  errEl.style.display = 'none';
+
+  if (!name) {
+    errEl.textContent = 'Enter a name for this routine.';
+    errEl.style.display = 'block';
+    return;
+  }
+
+  // Unique exercise IDs in order of first appearance
+  const seen = new Set();
+  const exerciseIds = [];
+  Object.entries(setExercises)
+    .sort(([a], [b]) => parseInt(a) - parseInt(b))
+    .forEach(([, ex]) => {
+      if (!seen.has(ex.id)) { seen.add(ex.id); exerciseIds.push(ex.id); }
+    });
+
+  if (!exerciseIds.length) {
+    errEl.textContent = 'Log at least one set before saving a routine.';
+    errEl.style.display = 'block';
+    return;
+  }
+
+  const resp = await fetch('/routines', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({name, exercise_ids: exerciseIds}),
+  });
+
+  if (resp.ok) {
+    document.getElementById('routine-save-modal').style.display = 'none';
+    document.getElementById('routine-name-input').value = '';
+    await loadRoutines();
+  } else {
+    errEl.textContent = 'Failed to save routine.';
+    errEl.style.display = 'block';
+  }
+}
+
 async function loadExercises() {
   const resp = await fetch('/exercises');
   const data = await resp.json();
@@ -356,7 +500,8 @@ async function logSet() {
   startTimer();
 
   const setVol = weight * reps;
-  setVolumes[data.id] = setVol;
+  setVolumes[data.id]   = setVol;
+  setExercises[data.id] = {id: exerciseId, name: exerciseName};
   sessionVolume += setVol;
   updateVolumeDisplay();
 
@@ -392,6 +537,7 @@ async function deleteSet(id, btn) {
     if (setVolumes[id] !== undefined) {
       sessionVolume -= setVolumes[id];
       delete setVolumes[id];
+      delete setExercises[id];
       updateVolumeDisplay();
     }
   }
