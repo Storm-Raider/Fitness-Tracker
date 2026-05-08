@@ -84,6 +84,42 @@ Deferred work from engineering + design reviews. Each item has enough context to
 
 ---
 
+## TODO-v2-A: Pending Invite List for Admins
+
+**What:** On the `/invite` admin page, show a list of outstanding (unused, non-expired) invite tokens — URL, created timestamp, and a Revoke button that DELETEs the token.
+
+**Why:** Deferred from v0.3.0 design review (decision 1A). The generator-only design (copy link, no list) was chosen to ship faster. Once multi-user is live and admins are actually issuing invites, the list becomes operationally valuable: admins need to see what's outstanding and revoke stale tokens.
+
+**Scope:**
+1. Add `GET /invite` → render `invite.html` with query: `SELECT * FROM invite_tokens WHERE used_at IS NULL AND expires_at > datetime('now') ORDER BY created_at DESC`
+2. `invite.html`: table with columns Token (last 8 chars), Created, Expires, Revoke (button → `DELETE /invite/{token}`)
+3. `DELETE /invite/{token}` → admin-only, hard-delete row from `invite_tokens`
+4. Empty state: "No pending invites" message
+
+**Where to start:** After v0.3.0 ships and at least one real invite has been issued. Don't build until the basic invite flow is validated.
+
+**Depends on:** v0.3.0 multi-user auth shipped and working.
+
+---
+
+## TODO-v2-B: Add user_id/username to Webhook Payloads
+
+**What:** Include `user_id` and `username` in both `pr_achieved` and `session_complete` webhook payloads.
+
+**Why:** With multi-user, webhook consumers (Home Assistant automations, Slack bots, n8n) cannot tell which user hit a PR or finished a session. The payload currently has no identity context. Ambiguous at any user count above 1.
+
+**Current payload gap:**
+- `pr_achieved`: `{exercise_name, weight_kg, reps}` — no user identity
+- `session_complete`: `{workout_id, sets, volume_kg}` — no user identity
+
+**Fix:** Add `{"user_id": N, "username": "..."}` to both payloads. Read from `current_user` (already available in those route handlers after the multi-user migration).
+
+**Where to start:** `app/routes/workouts.py`, `_fire_webhook` call sites. Bump webhook schema version if consumers rely on the payload structure.
+
+**Depends on:** v0.3.0 multi-user auth shipped (user_id is available in route context after that PR).
+
+---
+
 ## TODO-v2-1: Alembic Migration Setup
 
 **What:** Add Alembic to the project for managing schema migrations when v2 features are implemented.
