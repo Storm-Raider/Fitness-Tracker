@@ -100,6 +100,31 @@
   </div>
 </div>
 
+<!-- Post-finish summary modal -->
+<div id="finish-modal"
+     style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.75);
+            z-index:100; align-items:center; justify-content:center; padding:1rem;">
+  <div class="card" style="max-width:340px; width:100%; text-align:center; padding:2rem;">
+    <div style="font-size:2.5rem; margin-bottom:0.5rem;">✅</div>
+    <h2 style="font-size:1.2rem; font-weight:700; margin-bottom:1.5rem;">Workout complete!</h2>
+    <div class="grid-3" style="margin-bottom:1.75rem; gap:0.5rem;">
+      <div>
+        <div id="modal-duration" style="font-size:1.5rem; font-weight:700;"></div>
+        <div style="font-size:0.7rem; color:var(--muted); text-transform:uppercase; letter-spacing:0.05em;">min</div>
+      </div>
+      <div>
+        <div id="modal-sets" style="font-size:1.5rem; font-weight:700;"></div>
+        <div style="font-size:0.7rem; color:var(--muted); text-transform:uppercase; letter-spacing:0.05em;">sets</div>
+      </div>
+      <div>
+        <div id="modal-volume" style="font-size:1.5rem; font-weight:700; color:var(--accent);"></div>
+        <div style="font-size:0.7rem; color:var(--muted); text-transform:uppercase; letter-spacing:0.05em;">kg</div>
+      </div>
+    </div>
+    <a href="/workouts" class="btn btn-primary" style="width:100%; justify-content:center;">Done</a>
+  </div>
+</div>
+
 <div class="sticky-footer" style="display:flex; align-items:center; gap:1rem;">
   <!-- Rest timer — hidden until a set is logged -->
   <div id="rest-timer" style="display:none; align-items:center; gap:0.75rem; flex:1;">
@@ -373,7 +398,14 @@ async function deleteSet(id, btn) {
 }
 
 async function finishWorkout() {
-  window.location.href = '/workouts';
+  const resp = await fetch(`/workouts/${WORKOUT_ID}/finish`, {method: 'POST'});
+  if (!resp.ok) { window.location.href = '/workouts'; return; }
+  const data = await resp.json();
+  document.getElementById('modal-duration').textContent = data.duration_minutes;
+  document.getElementById('modal-sets').textContent     = data.set_count;
+  document.getElementById('modal-volume').textContent   =
+    data.volume_kg.toLocaleString('en', {maximumFractionDigits: 1});
+  document.getElementById('finish-modal').style.display = 'flex';
 }
 
 function showErr(msg) {

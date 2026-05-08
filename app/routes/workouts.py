@@ -201,6 +201,64 @@ async def add_set(
     )
 
 
+@router.post("/workouts/{workout_id}/finish")
+async def finish_workout(
+    workout_id: int,
+    background_tasks: BackgroundTasks,
+    conn: aiosqlite.Connection = Depends(get_db),
+):
+    async with conn.execute(
+        "SELECT id, started_at, ended_at FROM workouts WHERE id = ? AND user_id = 1",
+        (workout_id,),
+    ) as cur:
+        row = await cur.fetchone()
+    if not row:
+        raise HTTPException(status_code=404, detail="Workout not found")
+
+    if not row["ended_at"]:
+        await conn.execute(
+            "UPDATE workouts SET ended_at = datetime('now','localtime') WHERE id = ?",
+            (workout_id,),
+        )
+        await conn.commit()
+
+    async with conn.execute(
+        "SELECT started_at, ended_at FROM workouts WHERE id = ?", (workout_id,)
+    ) as cur:
+        w = dict(await cur.fetchone())
+
+    async with conn.execute(
+        """
+        SELECT COUNT(*)                          AS set_count,
+               COALESCE(SUM(weight_kg * reps),0) AS volume_kg
+        FROM sets WHERE workout_id = ? AND user_id = 1
+        """,
+        (workout_id,),
+    ) as cur:
+        stats = dict(await cur.fetchone())
+
+    started = datetime.fromisoformat(w["started_at"])
+    ended   = datetime.fromisoformat(w["ended_at"])
+    duration_minutes = round((ended - started).total_seconds() / 60, 1)
+
+    summary = {
+        "workout_id":       workout_id,
+        "duration_minutes": duration_minutes,
+        "set_count":        stats["set_count"],
+        "volume_kg":        round(stats["volume_kg"], 1),
+        "timestamp":        w["ended_at"],
+    }
+
+    webhook_url = os.environ.get("WEBHOOK_URL", "").strip()
+    if webhook_url and _http_client is not None:
+        background_tasks.add_task(
+            _fire_webhook, _http_client, webhook_url,
+            {"event": "session_complete", **summary},
+        )
+
+    return JSONResponse(summary)
+
+
 @router.delete("/workouts/{workout_id}/sets/{set_id}", status_code=204)
 async def delete_set(
     workout_id: int,

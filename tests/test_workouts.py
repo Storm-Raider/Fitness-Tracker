@@ -72,6 +72,39 @@ async def test_patch_missing_workout_returns_404(client):
 
 
 @pytest.mark.asyncio
+async def test_finish_workout_returns_summary(client):
+    ex = await client.post("/exercises", json={"name": "Deadlift"})
+    ex_id = ex.json()["id"]
+    w = await client.post("/workouts", json={"notes": None})
+    w_id = w.json()["id"]
+    await client.post(f"/workouts/{w_id}/sets",
+                      json={"exercise_id": ex_id, "reps": 5, "weight_kg": 100.0})
+
+    resp = await client.post(f"/workouts/{w_id}/finish")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["workout_id"] == w_id
+    assert data["set_count"] == 1
+    assert data["volume_kg"] == 500.0
+    assert data["duration_minutes"] >= 0
+
+
+@pytest.mark.asyncio
+async def test_finish_workout_idempotent(client):
+    w = await client.post("/workouts", json={"notes": None})
+    w_id = w.json()["id"]
+    await client.post(f"/workouts/{w_id}/finish")
+    resp = await client.post(f"/workouts/{w_id}/finish")
+    assert resp.status_code == 200
+
+
+@pytest.mark.asyncio
+async def test_finish_missing_workout_returns_404(client):
+    resp = await client.post("/workouts/99999/finish")
+    assert resp.status_code == 404
+
+
+@pytest.mark.asyncio
 async def test_add_set_to_missing_workout(client):
     ex = await client.post("/exercises", json={"name": "Curl"})
     resp = await client.post("/workouts/99999/sets",
