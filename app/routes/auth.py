@@ -110,7 +110,7 @@ async def login_post(
         )
 
     session_days = int(os.environ.get("SESSION_DAYS", "30"))
-    dest = next if next.startswith("/") else "/"
+    dest = next if (next.startswith("/") and not next.startswith("//")) else "/"
     response = RedirectResponse(url=dest, status_code=303)
     token = _serializer().dumps({"user_id": row["id"]})
     response.set_cookie(

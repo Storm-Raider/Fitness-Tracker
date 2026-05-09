@@ -460,6 +460,10 @@ document.getElementById('exercise-input').addEventListener('input', function() {
   }
 });
 
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
 function step(field, delta) {
   const el = document.getElementById(field + '-input');
   el.value = Math.max(0, parseFloat(el.value || 0) + delta);
@@ -529,8 +533,8 @@ async function logSet() {
   row.id = 'set-' + data.id;
   row.innerHTML = `
     <div class="set-meta">
-      <div>${exerciseName}</div>
-      <div class="set-detail">${weight} kg × ${reps} reps — est. 1RM: ${epley1RM(weight, reps)} kg${notes ? ' · ' + notes : ''}${data.is_pr ? ' <span class="badge badge-pr">PR</span>' : ''}</div>
+      <div>${escHtml(exerciseName)}</div>
+      <div class="set-detail">${weight} kg × ${reps} reps — est. 1RM: ${epley1RM(weight, reps)} kg${notes ? ' · ' + escHtml(notes) : ''}${data.is_pr ? ' <span class="badge badge-pr">PR</span>' : ''}</div>
     </div>
     <button class="btn btn-ghost" style="padding:0.2rem 0.5rem; font-size:0.75rem;"
             onclick="deleteSet(${data.id}, this)"><i data-lucide="x" style="width:14px;height:14px;"></i></button>
