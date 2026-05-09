@@ -118,7 +118,7 @@ async def exercise_detail(
         sessions = [dict(r) for r in await cur.fetchall()]
 
     if not sessions:
-        return render(request, "exercise_detail", {
+        return templates.TemplateResponse(request, "exercise_detail.html", {
             "exercise": dict(ex_row),
             "sessions": [],
             "pr_kg": None,
@@ -140,7 +140,7 @@ async def exercise_detail(
         unit=" kg",
     )
 
-    return render(request, "exercise_detail", {
+    return templates.TemplateResponse(request, "exercise_detail.html", {
         "exercise": dict(ex_row),
         "sessions": sessions,
         "pr_kg": pr_kg,

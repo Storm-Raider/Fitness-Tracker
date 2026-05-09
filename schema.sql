@@ -52,7 +52,9 @@ CREATE TABLE IF NOT EXISTS users (
     created_at    DATETIME NOT NULL DEFAULT (datetime('now','localtime'))
 );
 
-CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email ON users(email) WHERE email IS NOT NULL;
+-- idx_users_email is created by the _MIGRATIONS runner in db.py after the
+-- email column is guaranteed to exist.  Putting it here causes executescript()
+-- to fail with "no such column: email" on databases that pre-date the column.
 
 CREATE TABLE IF NOT EXISTS password_reset_tokens (
     token      TEXT     PRIMARY KEY,

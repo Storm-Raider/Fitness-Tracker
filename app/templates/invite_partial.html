@@ -5,7 +5,7 @@
            style="flex: 1; font-size: 0.8rem; background: var(--bg); cursor: text;">
     <button class="btn btn-ghost"
             style="flex-shrink: 0;"
-            onclick="navigator.clipboard.writeText(document.getElementById('invite-url').value).then(function(){this.textContent='Copied!';setTimeout(function(){document.querySelector('[onclick]').textContent='Copy';},2000)}.bind(this))"
+            onclick="var btn=this;navigator.clipboard.writeText(document.getElementById('invite-url').value).then(function(){btn.textContent='Copied!';setTimeout(function(){btn.textContent='Copy';},2000)})"
             type="button">
       Copy
     </button>
