@@ -36,7 +36,7 @@ async def dashboard(
 
     async with conn.execute(
         """
-        SELECT e.name AS exercise_name, MAX(s.weight_kg) AS pr_kg
+        SELECT e.id AS exercise_id, e.name AS exercise_name, MAX(s.weight_kg) AS pr_kg
         FROM sets s
         JOIN exercises e ON e.id = s.exercise_id
         WHERE s.user_id = ?

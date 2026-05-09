@@ -1,6 +1,9 @@
 import os
 import re
 import secrets
+import time
+from collections import defaultdict
+from threading import Lock
 
 import aiosqlite
 import bcrypt
@@ -17,6 +20,23 @@ COOKIE_NAME = "fittrack_session"
 _SALT = "fittrack-session"
 
 _USERNAME_RE = re.compile(r"^[a-zA-Z0-9_]{3,30}$")
+
+# ── Login rate limiter ────────────────────────────────────────────────────────
+_attempts: dict[str, list[float]] = defaultdict(list)
+_attempts_lock = Lock()
+_MAX_ATTEMPTS = 10
+_WINDOW_SECS = 900.0  # 15 minutes
+
+
+def _is_rate_limited(ip: str) -> bool:
+    now = time.monotonic()
+    with _attempts_lock:
+        bucket = [t for t in _attempts[ip] if now - t < _WINDOW_SECS]
+        _attempts[ip] = bucket
+        if len(bucket) >= _MAX_ATTEMPTS:
+            return True
+        bucket.append(now)
+        return False
 
 
 def _hash_password(password: str) -> str:
@@ -69,6 +89,14 @@ async def login_post(
     next: str = Form("/"),
     conn: aiosqlite.Connection = Depends(get_db),
 ):
+    client_ip = request.client.host if request.client else "unknown"
+    if _is_rate_limited(client_ip):
+        return templates.TemplateResponse(
+            request, "login.html",
+            {"error": "Too many login attempts. Please wait 15 minutes.", "next": next, "prefill_username": username},
+            status_code=429,
+        )
+
     async with conn.execute(
         "SELECT id, password_hash FROM users WHERE username = ?", (username,)
     ) as cur:

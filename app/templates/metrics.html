@@ -5,6 +5,13 @@
   <h1 style="font-size:1.5rem; font-weight:700;">Body Metrics</h1>
 </div>
 
+{% if chart_svg %}
+<div class="card" style="margin-bottom:1.5rem;padding:1.25rem 1.5rem 0.75rem;">
+  <div class="section-title" style="margin-bottom:0.75rem;">Weight trend</div>
+  {{ chart_svg | safe }}
+</div>
+{% endif %}
+
 <div class="grid-2" style="align-items:start; gap:1.5rem;">
   <div>
     <div class="card">

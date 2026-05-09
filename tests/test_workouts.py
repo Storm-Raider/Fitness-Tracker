@@ -17,7 +17,7 @@ async def test_list_workouts(client):
 
 @pytest.mark.asyncio
 async def test_add_set_and_pr_detection(client):
-    ex = await client.post("/exercises", json={"name": "Overhead Press"})
+    ex = await client.post("/exercises", json={"name": "Test OH Press"})
     ex_id = ex.json()["id"]
     w = await client.post("/workouts", json={"notes": None})
     w_id = w.json()["id"]
@@ -73,7 +73,7 @@ async def test_patch_missing_workout_returns_404(client):
 
 @pytest.mark.asyncio
 async def test_finish_workout_returns_summary(client):
-    ex = await client.post("/exercises", json={"name": "Deadlift"})
+    ex = await client.post("/exercises", json={"name": "Test Deadlift"})
     ex_id = ex.json()["id"]
     w = await client.post("/workouts", json={"notes": None})
     w_id = w.json()["id"]

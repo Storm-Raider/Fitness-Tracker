@@ -4,17 +4,22 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Create account — FitTrack</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400;14..32,500;14..32,600;14..32,700&display=swap" rel="stylesheet">
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
       background: #111318;
       color: #e2e8f0;
-      font-family: 'Geist', 'Inter', system-ui, sans-serif;
+      font-family: 'Inter', system-ui, sans-serif;
+      font-size: 15px;
       min-height: 100vh;
       display: flex;
       flex-direction: column;
       align-items: center;
       padding-top: 20vh;
+      -webkit-font-smoothing: antialiased;
     }
     .wrap {
       width: calc(100% - 2rem);
@@ -68,7 +73,8 @@
     input[type="text"]:focus,
     input[type="password"]:focus {
       outline: none;
-      border-color: #60a5fa;
+      border-color: #4f9cf9;
+      box-shadow: 0 0 0 3px rgba(79,156,249,0.2);
     }
     .hint-text {
       font-size: 0.75rem;
@@ -79,18 +85,22 @@
     .btn-primary {
       display: block;
       width: 100%;
-      min-height: 44px;
-      background: #60a5fa;
+      min-height: 42px;
+      background: linear-gradient(135deg, #60a5fa 0%, #3b82f6 100%);
       color: #0f172a;
       border: none;
-      border-radius: 6px;
+      border-radius: 7px;
       font-size: 0.875rem;
       font-weight: 600;
       font-family: inherit;
       cursor: pointer;
-      transition: background 0.15s;
+      transition: all 0.15s;
     }
-    .btn-primary:hover { background: #3b82f6; }
+    .btn-primary:hover {
+      background: linear-gradient(135deg, #93c5fd 0%, #60a5fa 100%);
+      box-shadow: 0 4px 12px rgba(96,165,250,0.3);
+      transform: translateY(-1px);
+    }
   </style>
 </head>
 <body>

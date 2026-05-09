@@ -33,7 +33,7 @@ async def test_webhook_fires_on_pr(client, monkeypatch):
     from app.routes import workouts as workouts_module
     workouts_module._http_client = mock_client
 
-    ex = await client.post("/exercises", json={"name": "Bench Press"})
+    ex = await client.post("/exercises", json={"name": "Test Bench Press"})
     ex_id = ex.json()["id"]
     w = await client.post("/workouts", json={"notes": None})
     w_id = w.json()["id"]

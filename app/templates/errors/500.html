@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Server Error — FitTrack</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400;14..32,500;14..32,600;14..32,700&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: #111318;
+      color: #e2e8f0;
+      font-family: 'Inter', system-ui, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem;
+      -webkit-font-smoothing: antialiased;
+    }
+    .code {
+      font-size: 5rem;
+      font-weight: 700;
+      letter-spacing: -0.04em;
+      color: #1f2535;
+      line-height: 1;
+      margin-bottom: 1rem;
+    }
+    .msg {
+      font-size: 1.1rem;
+      font-weight: 600;
+      margin-bottom: 0.5rem;
+    }
+    .sub {
+      font-size: 0.875rem;
+      color: #64748b;
+      margin-bottom: 2rem;
+    }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      padding: 0.5rem 1.25rem;
+      min-height: 40px;
+      background: linear-gradient(135deg, #60a5fa, #3b82f6);
+      color: #0f172a;
+      border: none;
+      border-radius: 7px;
+      font-size: 0.875rem;
+      font-weight: 600;
+      font-family: inherit;
+      cursor: pointer;
+      text-decoration: none;
+      transition: all 0.15s;
+    }
+    .btn:hover { background: linear-gradient(135deg, #93c5fd, #60a5fa); }
+  </style>
+</head>
+<body>
+  <div class="code">500</div>
+  <div class="msg">Something went wrong</div>
+  <div class="sub">An internal error occurred. Try again in a moment.</div>
+  <a href="/" class="btn">Go to dashboard</a>
+</body>
+</html>

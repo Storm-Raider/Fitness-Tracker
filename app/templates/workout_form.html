@@ -5,7 +5,7 @@
   .set-row { display:flex; gap:0.5rem; align-items:center; padding:0.5rem 0; border-bottom:1px solid var(--border); }
   .set-row:last-child { border-bottom:none; }
   .set-meta { flex:1; font-size:0.875rem; }
-  .set-detail { color:var(--muted); font-size:0.8rem; }
+  .set-detail { color:var(--muted); font-size:0.85rem; font-family:'JetBrains Mono',monospace; }
   #pr-badge { display:none; }
   .sticky-footer {
     position: sticky;
@@ -19,7 +19,7 @@
 {% endblock %}
 {% block content %}
 <div style="margin-bottom:1rem;">
-  <a href="/workouts" style="color:var(--muted); font-size:0.875rem; padding:0.875rem 0; display:inline-block;">← Workouts</a>
+  <a href="/workouts" style="color:var(--muted); font-size:0.875rem; padding:0.875rem 0; display:inline-flex; align-items:center; gap:0.3rem;"><i data-lucide="chevron-left" style="width:14px;height:14px;"></i>Workouts</a>
 </div>
 
 <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:1.25rem;">
@@ -27,7 +27,7 @@
     <h1 style="font-size:1.5rem; font-weight:700;">Workout</h1>
     <p style="color:var(--muted); font-size:0.8rem;">{{ workout.started_at[:10] }}</p>
   </div>
-  <span id="pr-badge" class="badge badge-pr">🏆 New PR!</span>
+  <span id="pr-badge" class="badge badge-pr"><i data-lucide="trophy" style="width:12px;height:12px;margin-right:0.25rem;vertical-align:middle;"></i>New PR!</span>
 </div>
 
 <div class="form-group" style="margin-bottom:1.25rem;">
@@ -70,7 +70,7 @@
           <label>Weight (kg)</label>
           <div class="stepper-group">
             <button type="button" class="stepper-btn" onclick="step('weight', -2.5)">−</button>
-            <input type="number" id="weight-input" value="60" step="0.5" min="0">
+            <input type="number" id="weight-input" class="num" value="60" step="0.5" min="0">
             <button type="button" class="stepper-btn" onclick="step('weight', 2.5)">+</button>
           </div>
         </div>
@@ -78,7 +78,7 @@
           <label>Reps</label>
           <div class="stepper-group">
             <button type="button" class="stepper-btn" onclick="step('reps', -1)">−</button>
-            <input type="number" id="reps-input" value="8" step="1" min="1">
+            <input type="number" id="reps-input" class="num" value="8" step="1" min="1">
             <button type="button" class="stepper-btn" onclick="step('reps', 1)">+</button>
           </div>
         </div>
@@ -89,6 +89,7 @@
       </div>
       <div id="last-set-hint" style="font-size:0.8rem; color:var(--muted); margin-bottom:0.75rem; display:none;">
         Last session: <span id="last-set-text"></span>
+        <span id="last-1rm" class="num" style="margin-left:0.35rem;color:var(--pr);font-size:0.75rem;"></span>
       </div>
       <button class="btn btn-primary" style="width:100%;" onclick="logSet()">Log Set</button>
       <div id="log-error" style="color:var(--danger); font-size:0.8rem; margin-top:0.5rem; display:none;"></div>
@@ -107,7 +108,7 @@
             <div class="set-detail">{{ s.weight_kg }} kg × {{ s.reps }} reps{% if s.notes %} · {{ s.notes }}{% endif %}</div>
           </div>
           <button class="btn btn-ghost" style="padding:0.2rem 0.5rem; font-size:0.75rem;"
-                  onclick="deleteSet({{ s.id }}, this)">✕</button>
+                  onclick="deleteSet({{ s.id }}, this)"><i data-lucide="x" style="width:14px;height:14px;"></i></button>
         </div>
         {% endfor %}
       {% else %}
@@ -148,15 +149,15 @@
     <h2 style="font-size:1.2rem; font-weight:700; margin-bottom:1.5rem;">Workout complete!</h2>
     <div class="grid-3" style="margin-bottom:1.75rem; gap:0.5rem;">
       <div>
-        <div id="modal-duration" style="font-size:1.5rem; font-weight:700;"></div>
+        <div id="modal-duration" class="num" style="font-size:1.5rem; font-weight:700;"></div>
         <div style="font-size:0.7rem; color:var(--muted); text-transform:uppercase; letter-spacing:0.05em;">min</div>
       </div>
       <div>
-        <div id="modal-sets" style="font-size:1.5rem; font-weight:700;"></div>
+        <div id="modal-sets" class="num" style="font-size:1.5rem; font-weight:700;"></div>
         <div style="font-size:0.7rem; color:var(--muted); text-transform:uppercase; letter-spacing:0.05em;">sets</div>
       </div>
       <div>
-        <div id="modal-volume" style="font-size:1.5rem; font-weight:700; color:var(--accent);"></div>
+        <div id="modal-volume" class="num" style="font-size:1.5rem; font-weight:700; color:var(--accent);"></div>
         <div style="font-size:0.7rem; color:var(--muted); text-transform:uppercase; letter-spacing:0.05em;">kg</div>
       </div>
     </div>
@@ -186,7 +187,7 @@
       <button class="btn btn-ghost" style="padding:0.25rem 0.6rem; min-height:36px; font-size:0.8rem;"
               onclick="adjustTimer(30)">+30s</button>
       <button class="btn btn-ghost" style="padding:0.25rem 0.6rem; min-height:36px;"
-              onclick="stopTimer()">✕</button>
+              onclick="stopTimer()"><i data-lucide="x" style="width:14px;height:14px;"></i></button>
     </div>
   </div>
   <button class="btn btn-ghost"
@@ -196,7 +197,7 @@
   </button>
   <div style="text-align:right; flex-shrink:0;">
     <div style="font-size:0.7rem; color:var(--muted); text-transform:uppercase; letter-spacing:0.05em;">Volume</div>
-    <div id="session-volume" style="font-size:1rem; font-weight:700; color:var(--accent); font-variant-numeric:tabular-nums;">
+    <div id="session-volume" class="num" style="font-size:1rem; font-weight:700; color:var(--accent);">
       {{ "{:,.0f}".format(session_volume) }} kg
     </div>
   </div>
@@ -210,6 +211,11 @@ const WORKOUT_ID = {{ workout.id }};
 const LS_KEY = `workout-notes-${WORKOUT_ID}`;
 let exercises = [];
 let lastSets = {};
+
+function epley1RM(weight, reps) {
+  if (reps <= 1) return weight;
+  return Math.round(weight * (1 + reps / 30) * 10) / 10;
+}
 
 // Live session volume
 let sessionVolume = {{ session_volume }};
@@ -364,6 +370,7 @@ function selectExerciseFromRoutine(id, name) {
   const hint = document.getElementById('last-set-hint');
   if (last) {
     document.getElementById('last-set-text').textContent = `${last.weight_kg} kg × ${last.reps} reps`;
+    document.getElementById('last-1rm').textContent = `· est. 1RM: ${epley1RM(last.weight_kg, last.reps)} kg`;
     document.getElementById('weight-input').value = last.weight_kg;
     document.getElementById('reps-input').value   = last.reps;
     hint.style.display = 'block';
@@ -439,6 +446,8 @@ document.getElementById('exercise-input').addEventListener('input', function() {
     if (last) {
       document.getElementById('last-set-text').textContent =
         `${last.weight_kg} kg × ${last.reps} reps`;
+      document.getElementById('last-1rm').textContent =
+        `· est. 1RM: ${epley1RM(last.weight_kg, last.reps)} kg`;
       document.getElementById('weight-input').value = last.weight_kg;
       document.getElementById('reps-input').value = last.reps;
       hint.style.display = 'block';
@@ -521,12 +530,13 @@ async function logSet() {
   row.innerHTML = `
     <div class="set-meta">
       <div>${exerciseName}</div>
-      <div class="set-detail">${weight} kg × ${reps} reps${notes ? ' · ' + notes : ''}${data.is_pr ? ' <span class="badge badge-pr">PR</span>' : ''}</div>
+      <div class="set-detail">${weight} kg × ${reps} reps — est. 1RM: ${epley1RM(weight, reps)} kg${notes ? ' · ' + notes : ''}${data.is_pr ? ' <span class="badge badge-pr">PR</span>' : ''}</div>
     </div>
     <button class="btn btn-ghost" style="padding:0.2rem 0.5rem; font-size:0.75rem;"
-            onclick="deleteSet(${data.id}, this)">✕</button>
+            onclick="deleteSet(${data.id}, this)"><i data-lucide="x" style="width:14px;height:14px;"></i></button>
   `;
   container.appendChild(row);
+  lucide.createIcons();
 }
 
 async function deleteSet(id, btn) {

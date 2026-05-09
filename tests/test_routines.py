@@ -10,8 +10,8 @@ async def test_list_routines_empty(client):
 
 @pytest.mark.asyncio
 async def test_create_and_list_routine(client):
-    ex1 = await client.post("/exercises", json={"name": "Bench Press"})
-    ex2 = await client.post("/exercises", json={"name": "Overhead Press"})
+    ex1 = await client.post("/exercises", json={"name": "Test Bench Press"})
+    ex2 = await client.post("/exercises", json={"name": "Test OH Press"})
     ex_ids = [ex1.json()["id"], ex2.json()["id"]]
 
     resp = await client.post("/routines", json={"name": "Push Day", "exercise_ids": ex_ids})
@@ -23,7 +23,7 @@ async def test_create_and_list_routine(client):
     assert len(routines) == 1
     assert routines[0]["name"] == "Push Day"
     assert routines[0]["id"] == r_id
-    assert [e["name"] for e in routines[0]["exercises"]] == ["Bench Press", "Overhead Press"]
+    assert [e["name"] for e in routines[0]["exercises"]] == ["Test Bench Press", "Test OH Press"]
 
 
 @pytest.mark.asyncio

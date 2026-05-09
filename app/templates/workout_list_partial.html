@@ -1,22 +1,45 @@
 {% if workouts %}
-<div class="card">
-  <table>
-    <thead>
-      <tr><th>Date</th><th>Notes</th><th></th></tr>
-    </thead>
-    <tbody>
-      {% for w in workouts %}
-      <tr>
-        <td><a href="/workouts/{{ w.id }}">{{ w.started_at[:10] }}</a></td>
-        <td style="color:var(--muted);">{{ w.notes or "—" }}</td>
-        <td><a href="/workouts/{{ w.id }}" class="btn btn-ghost" style="padding:0.25rem 0.6rem;">Open</a></td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
+<div style="display:flex;flex-direction:column;gap:0.5rem;">
+  {% for w in workouts %}
+  <a href="/workouts/{{ w.id }}" style="display:block;text-decoration:none;color:inherit;">
+    <div class="card" style="padding:1rem 1.25rem;transition:border-color 0.15s,box-shadow 0.15s;"
+         onmouseover="this.style.borderColor='#3d4459';this.style.boxShadow='0 4px 16px rgba(0,0,0,0.4)'"
+         onmouseout="this.style.borderColor='';this.style.boxShadow=''">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:1rem;">
+        <div style="min-width:0;">
+          <div style="font-weight:600;font-size:0.9rem;margin-bottom:0.2rem;">{{ w.started_at[:10] }}</div>
+          {% if w.notes %}
+          <div style="color:var(--muted);font-size:0.8rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+            {{ w.notes }}
+          </div>
+          {% endif %}
+        </div>
+        <div style="display:flex;align-items:center;gap:1rem;flex-shrink:0;">
+          {% if w.set_count > 0 %}
+          <div style="text-align:right;">
+            <div style="font-size:1rem;font-weight:700;">{{ w.set_count }}</div>
+            <div style="font-size:0.7rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.05em;">sets</div>
+          </div>
+          {% endif %}
+          {% if w.duration_min is not none %}
+          <div style="text-align:right;">
+            <div style="font-size:1rem;font-weight:700;color:var(--accent);">{{ w.duration_min }}</div>
+            <div style="font-size:0.7rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.05em;">min</div>
+          </div>
+          {% elif w.set_count == 0 %}
+          <div style="font-size:0.8rem;color:var(--muted);">In progress</div>
+          {% endif %}
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="9 18 15 12 9 6"/>
+          </svg>
+        </div>
+      </div>
+    </div>
+  </a>
+  {% endfor %}
 </div>
 {% else %}
 <div class="card">
-  <p style="color:var(--muted); font-size:0.875rem;">No workouts yet. Hit <strong>+ New Workout</strong> to begin.</p>
+  <p style="color:var(--muted);font-size:0.875rem;">No workouts yet. Hit <strong>+ New Workout</strong> to begin.</p>
 </div>
 {% endif %}

@@ -1,14 +1,14 @@
 import logging
 import os
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 import httpx
-from fastapi import FastAPI
-from fastapi.responses import FileResponse
+from fastapi import FastAPI, Request
+from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
-from pathlib import Path
+from fastapi.templating import Jinja2Templates
 from starlette.middleware.base import BaseHTTPMiddleware
-from starlette.requests import Request
 from starlette.responses import RedirectResponse
 
 from app.db import open_db, set_db, clear_db
@@ -20,6 +20,8 @@ from itsdangerous import BadSignature, SignatureExpired
 
 logging.basicConfig(level=logging.INFO)
 
+_templates = Jinja2Templates(directory=Path(__file__).parent / "templates")
+
 DATABASE_PATH = os.environ.get("DATABASE_PATH", "/data/fitness.db")
 
 _EXEMPT_PATHS = {"/health", "/login", "/logout", "/sw.js"}
@@ -27,6 +29,16 @@ _EXEMPT_PATHS = {"/health", "/login", "/logout", "/sw.js"}
 
 def _is_exempt(path: str) -> bool:
     return path in _EXEMPT_PATHS or path.startswith("/invite/accept/")
+
+
+class _SecurityHeadersMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        response = await call_next(request)
+        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+        response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
+        return response
 
 
 class _AuthMiddleware(BaseHTTPMiddleware):
@@ -101,7 +113,18 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="Fitness Tracker", lifespan=lifespan)
+app.add_middleware(_SecurityHeadersMiddleware)
 app.add_middleware(_AuthMiddleware)
+
+
+@app.exception_handler(404)
+async def _not_found(_req: Request, _exc):
+    return _templates.TemplateResponse("errors/404.html", {"request": _req}, status_code=404)
+
+
+@app.exception_handler(500)
+async def _server_error(_req: Request, _exc):
+    return _templates.TemplateResponse("errors/500.html", {"request": _req}, status_code=500)
 
 _static = Path(__file__).parent / "static"
 if _static.exists():

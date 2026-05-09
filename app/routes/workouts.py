@@ -6,7 +6,7 @@ import aiosqlite
 import httpx
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from app.db import get_db
 from app.routes.auth import get_current_user
@@ -40,18 +40,18 @@ async def _fire_webhook(
 
 
 class WorkoutIn(BaseModel):
-    notes: str | None = None
+    notes: str | None = Field(default=None, max_length=2000)
 
 
 class WorkoutPatch(BaseModel):
-    notes: str | None = None
+    notes: str | None = Field(default=None, max_length=2000)
 
 
 class SetIn(BaseModel):
-    exercise_id: int
-    reps: int
-    weight_kg: float
-    notes: str | None = None
+    exercise_id: int = Field(gt=0)
+    reps: int = Field(ge=1, le=999)
+    weight_kg: float = Field(ge=0.0, le=1000.0)
+    notes: str | None = Field(default=None, max_length=500)
 
 
 @router.get("/workouts")
@@ -62,12 +62,18 @@ async def list_workouts(
 ):
     async with conn.execute(
         """
-        SELECT id, started_at, ended_at, notes
-        FROM workouts
-        WHERE user_id = ?
-        ORDER BY started_at DESC
+        SELECT w.id, w.started_at, w.ended_at, w.notes,
+               COUNT(s.id) AS set_count,
+               CASE WHEN w.ended_at IS NOT NULL
+                    THEN CAST(ROUND((JULIANDAY(w.ended_at) - JULIANDAY(w.started_at)) * 1440) AS INTEGER)
+                    ELSE NULL END AS duration_min
+        FROM workouts w
+        LEFT JOIN sets s ON s.workout_id = w.id AND s.user_id = ?
+        WHERE w.user_id = ?
+        GROUP BY w.id
+        ORDER BY w.started_at DESC
         """,
-        (current_user["id"],),
+        (current_user["id"], current_user["id"]),
     ) as cur:
         workouts = [dict(r) for r in await cur.fetchall()]
     return render(request, "workout_list", {"workouts": workouts, "user": dict(current_user)})
