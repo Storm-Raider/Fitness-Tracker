@@ -339,9 +339,16 @@ function updateTimerDisplay() {
 let _routines = [];
 
 async function loadRoutines() {
-  const resp = await fetch('/routines');
-  _routines = await resp.json();
+  try {
+    const resp = await fetch('/routines');
+    if (!resp.ok) return;
+    _routines = await resp.json();
+  } catch { return; }
   const sel = document.getElementById('routine-select');
+  if (_routines.length === 0) {
+    sel.innerHTML = '<option value="">— no routines saved yet —</option>';
+    return;
+  }
   sel.innerHTML = '<option value="">— select —</option>';
   _routines.forEach((r, i) => {
     const opt = document.createElement('option');
@@ -433,14 +440,17 @@ async function saveRoutine() {
 }
 
 async function loadExercises() {
-  const resp = await fetch('/api/exercises');
-  const data = await resp.json();
-  exercises = data.exercises;
-  lastSets = data.last_sets || {};
-  const dl = document.getElementById('exercise-list');
-  dl.innerHTML = exercises.map(e =>
-    `<option value="${e.name}" data-id="${e.id}">`
-  ).join('');
+  try {
+    const resp = await fetch('/api/exercises');
+    if (!resp.ok) return;
+    const data = await resp.json();
+    exercises = data.exercises;
+    lastSets = data.last_sets || {};
+    const dl = document.getElementById('exercise-list');
+    dl.innerHTML = exercises.map(e =>
+      `<option value="${e.name}" data-id="${e.id}">`
+    ).join('');
+  } catch { /* network error — user can still type a new exercise name */ }
 }
 loadExercises();
 

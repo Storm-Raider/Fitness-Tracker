@@ -20,7 +20,18 @@ _MIGRATIONS = [
 
 
 async def init_db(conn: aiosqlite.Connection) -> None:
-    await conn.executescript(SCHEMA.read_text())
+    schema_text = SCHEMA.read_text()
+    await conn.executescript(schema_text)
+    # Belt-and-suspenders seed: extract and re-run the INSERT OR IGNORE block
+    # so existing databases created before exercise seeding was added also get
+    # populated on next startup.
+    seed_marker = "INSERT OR IGNORE INTO exercises"
+    seed_start = schema_text.find(seed_marker)
+    if seed_start != -1:
+        try:
+            await conn.execute(schema_text[seed_start:])
+        except Exception:
+            pass
     for sql in _MIGRATIONS:
         try:
             await conn.execute(sql)
