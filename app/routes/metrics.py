@@ -1,5 +1,5 @@
 import aiosqlite
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
@@ -43,6 +43,26 @@ async def list_metrics(
         "metrics",
         {"metrics": metrics, "chart_svg": chart_svg, "user": dict(current_user)},
     )
+
+
+@router.delete("/metrics/{metric_id}", status_code=200)
+async def delete_metric(
+    metric_id: int,
+    conn: aiosqlite.Connection = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    async with conn.execute(
+        "SELECT id FROM body_metrics WHERE id = ? AND user_id = ?",
+        (metric_id, current_user["id"]),
+    ) as cur:
+        if not await cur.fetchone():
+            raise HTTPException(status_code=404, detail="Entry not found")
+    await conn.execute(
+        "DELETE FROM body_metrics WHERE id = ? AND user_id = ?",
+        (metric_id, current_user["id"]),
+    )
+    await conn.commit()
+    return ""
 
 
 @router.post("/metrics", status_code=201)

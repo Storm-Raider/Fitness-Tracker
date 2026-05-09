@@ -296,6 +296,7 @@
     <div class="nav-links">
       <a href="/">Dashboard</a>
       <a href="/workouts"><i data-lucide="dumbbell" style="width:16px;height:16px;margin-right:0.3rem;"></i>Workouts</a>
+      <a href="/exercises"><i data-lucide="list" style="width:16px;height:16px;margin-right:0.3rem;"></i>Exercises</a>
       <a href="/metrics"><i data-lucide="trending-up" style="width:16px;height:16px;margin-right:0.3rem;"></i>Body Metrics</a>
       <a href="/export/workouts.csv"><i data-lucide="download" style="width:16px;height:16px;margin-right:0.3rem;"></i>Export CSV</a>
       {% if user.is_admin %}
@@ -303,7 +304,7 @@
       {% endif %}
     </div>
     <div class="nav-user">
-      <span class="username">{{ user.username }}</span>
+      <a href="/settings" class="username" style="color:var(--muted);">{{ user.username }}</a>
       <form method="post" action="/logout" style="display:flex;align-items:center;">
         <button type="submit" class="btn btn-ghost"
                 style="min-height:34px;padding:0.35rem 0.75rem;font-size:0.8rem;white-space:nowrap;">

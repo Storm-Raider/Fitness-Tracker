@@ -6,7 +6,7 @@ from pydantic import BaseModel, Field
 from app.db import get_db
 from app.routes.auth import get_current_user
 from app.utils.charts import generate_sparkline
-from app.utils.render import render
+from app.utils.render import render, templates
 
 router = APIRouter()
 
@@ -15,8 +15,32 @@ class ExerciseIn(BaseModel):
     name: str = Field(min_length=1, max_length=100)
 
 
-@router.get("/exercises")
-async def list_exercises(
+@router.get("/exercises", response_class=HTMLResponse)
+async def exercises_page(
+    request: Request,
+    conn: aiosqlite.Connection = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    async with conn.execute(
+        """
+        SELECT e.id, e.name, MAX(s.weight_kg) AS pr_kg
+        FROM exercises e
+        LEFT JOIN sets s ON s.exercise_id = e.id AND s.user_id = ?
+        GROUP BY e.id, e.name
+        ORDER BY e.name
+        """,
+        (current_user["id"],),
+    ) as cur:
+        exercises = [dict(r) for r in await cur.fetchall()]
+
+    return templates.TemplateResponse(
+        request, "exercises.html",
+        {"exercises": exercises, "user": dict(current_user)},
+    )
+
+
+@router.get("/api/exercises")
+async def list_exercises_json(
     conn: aiosqlite.Connection = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
@@ -75,7 +99,6 @@ async def exercise_detail(
 
     uid = current_user["id"]
 
-    # Best weight + set count + volume per training session (last 52)
     async with conn.execute(
         """
         SELECT
@@ -109,7 +132,6 @@ async def exercise_detail(
     total_sets = sum(s["set_count"] for s in sessions)
     total_volume = round(sum(s["volume_kg"] for s in sessions), 1)
 
-    # Chart: weight progression in chronological order
     chrono = list(reversed(sessions))
     chart_svg = generate_sparkline(
         values=[s["max_kg"] for s in chrono],

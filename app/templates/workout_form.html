@@ -27,7 +27,15 @@
     <h1 style="font-size:1.5rem; font-weight:700;">Workout</h1>
     <p style="color:var(--muted); font-size:0.8rem;">{{ workout.started_at[:10] }}</p>
   </div>
-  <span id="pr-badge" class="badge badge-pr"><i data-lucide="trophy" style="width:12px;height:12px;margin-right:0.25rem;vertical-align:middle;"></i>New PR!</span>
+  <div style="display:flex;align-items:center;gap:0.75rem;">
+    <span id="pr-badge" class="badge badge-pr"><i data-lucide="trophy" style="width:12px;height:12px;margin-right:0.25rem;vertical-align:middle;"></i>New PR!</span>
+    <button onclick="deleteWorkout()" title="Delete workout"
+            style="background:transparent;border:1px solid var(--border);color:var(--muted);cursor:pointer;padding:0.35rem 0.6rem;border-radius:6px;display:inline-flex;align-items:center;gap:0.35rem;font-size:0.75rem;font-family:inherit;transition:all 0.15s;"
+            onmouseover="this.style.color='var(--danger)';this.style.borderColor='rgba(248,113,113,0.4)';this.style.background='rgba(248,113,113,0.07)'"
+            onmouseout="this.style.color='var(--muted)';this.style.borderColor='var(--border)';this.style.background='transparent'">
+      <i data-lucide="trash-2" style="width:13px;height:13px;pointer-events:none;"></i>Delete
+    </button>
+  </div>
 </div>
 
 <div class="form-group" style="margin-bottom:1.25rem;">
@@ -425,7 +433,7 @@ async function saveRoutine() {
 }
 
 async function loadExercises() {
-  const resp = await fetch('/exercises');
+  const resp = await fetch('/api/exercises');
   const data = await resp.json();
   exercises = data.exercises;
   lastSets = data.last_sets || {};
@@ -479,7 +487,7 @@ async function logSet() {
 
   // Create exercise if not found
   if (!exerciseId) {
-    const cr = await fetch('/exercises', {
+    const cr = await fetch('/exercises', {   // POST stays at /exercises
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({name: exerciseName})
@@ -572,6 +580,18 @@ function showErr(msg) {
   const el = document.getElementById('log-error');
   el.textContent = msg;
   el.style.display = 'block';
+}
+
+async function deleteWorkout() {
+  const setCount = document.querySelectorAll('.set-row').length;
+  const msg = setCount > 0
+    ? `Delete this workout and its ${setCount} set${setCount !== 1 ? 's' : ''}? This cannot be undone.`
+    : 'Delete this empty workout?';
+  if (!confirm(msg)) return;
+  const resp = await fetch(`/workouts/${WORKOUT_ID}`, {method: 'DELETE'});
+  if (resp.ok) {
+    window.location.href = '/workouts';
+  }
 }
 </script>
 {% endblock %}
