@@ -102,10 +102,14 @@ async def lifespan(app: FastAPI):
     conn = await open_db(DATABASE_PATH)
     set_db(conn)
 
-    # Seed admin user; always sync password/is_admin from env so a changed
-    # ADMIN_PASSWORD takes effect on next restart without manual DB edits.
+    # Seed admin user; always sync password_hash and is_admin from env vars
+    # so the account is always correct after a restart regardless of what is
+    # stored in the DB.  Checking is_admin separately from the password lets
+    # us promote an existing non-admin account whose credentials now match the
+    # env vars without requiring a password change first.
     async with conn.execute(
-        "SELECT id, password_hash FROM users WHERE username = ?", (admin_username,)
+        "SELECT id, password_hash, is_admin FROM users WHERE username = ?",
+        (admin_username,),
     ) as cur:
         existing = await cur.fetchone()
     if not existing:
@@ -115,13 +119,19 @@ async def lifespan(app: FastAPI):
             (admin_username, hashed),
         )
         await conn.commit()
-    elif not _verify_password(admin_password, existing["password_hash"]):
-        hashed = _hash_password(admin_password)
-        await conn.execute(
-            "UPDATE users SET password_hash = ?, is_admin = 1 WHERE id = ?",
-            (hashed, existing["id"]),
-        )
-        await conn.commit()
+    else:
+        password_ok = _verify_password(admin_password, existing["password_hash"])
+        already_admin = bool(existing["is_admin"])
+        if not password_ok or not already_admin:
+            new_hash = (
+                _hash_password(admin_password) if not password_ok
+                else existing["password_hash"]
+            )
+            await conn.execute(
+                "UPDATE users SET password_hash = ?, is_admin = 1 WHERE id = ?",
+                (new_hash, existing["id"]),
+            )
+            await conn.commit()
 
     client = httpx.AsyncClient()
     set_http_client(client)

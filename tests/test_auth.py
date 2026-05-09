@@ -458,3 +458,21 @@ async def test_logout_clears_cookie(client):
     resp = await client.post("/logout")
     assert resp.status_code == 303
     assert resp.headers["location"] == "/login"
+
+
+# ---------------------------------------------------------------------------
+# Nav invite link visibility
+# ---------------------------------------------------------------------------
+
+@pytest.mark.asyncio
+async def test_admin_sees_invite_link_in_nav(admin_client):
+    resp = await admin_client.get("/", headers={"Accept": "text/html"})
+    assert resp.status_code == 200
+    assert b"/invite" in resp.content
+
+
+@pytest.mark.asyncio
+async def test_non_admin_does_not_see_invite_link_in_nav(client):
+    resp = await client.get("/", headers={"Accept": "text/html"})
+    assert resp.status_code == 200
+    assert b"/invite" not in resp.content
