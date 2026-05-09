@@ -17,13 +17,13 @@
         <div style="display:flex;align-items:center;gap:1rem;flex-shrink:0;">
           {% if w.set_count > 0 %}
           <div style="text-align:right;">
-            <div style="font-size:1rem;font-weight:700;">{{ w.set_count }}</div>
+            <div class="num" style="font-size:1rem;font-weight:700;">{{ w.set_count }}</div>
             <div style="font-size:0.7rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.05em;">sets</div>
           </div>
           {% endif %}
           {% if w.duration_min is not none %}
           <div style="text-align:right;">
-            <div style="font-size:1rem;font-weight:700;color:var(--accent);">{{ w.duration_min }}</div>
+            <div class="num" style="font-size:1rem;font-weight:700;color:var(--accent);">{{ w.duration_min }}</div>
             <div style="font-size:0.7rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.05em;">min</div>
           </div>
           {% elif w.set_count == 0 %}
