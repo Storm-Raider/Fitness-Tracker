@@ -12,6 +12,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from itsdangerous import URLSafeTimedSerializer
 
 from app.db import get_db
+from app.utils.email import send_email
 from app.utils.render import render, templates
 
 router = APIRouter()
@@ -20,8 +21,9 @@ COOKIE_NAME = "fittrack_session"
 _SALT = "fittrack-session"
 
 _USERNAME_RE = re.compile(r"^[a-zA-Z0-9_]{3,30}$")
+_EMAIL_RE = re.compile(r"^[^@\s]{1,64}@[^@\s]+\.[^@\s]{2,}$")
 
-# ── Login rate limiter ────────────────────────────────────────────────────────
+# ── Rate limiter (login + forgot-password) ────────────────────────────────────
 _attempts: dict[str, list[float]] = defaultdict(list)
 _attempts_lock = Lock()
 _MAX_ATTEMPTS = 10
@@ -73,6 +75,8 @@ async def require_admin(user=Depends(get_current_user)):
     return user
 
 
+# ── Login ─────────────────────────────────────────────────────────────────────
+
 @router.get("/login", response_class=HTMLResponse)
 async def login_get(request: Request, next: str = "/", username: str = ""):
     return templates.TemplateResponse(
@@ -87,6 +91,7 @@ async def login_post(
     username: str = Form(...),
     password: str = Form(...),
     next: str = Form("/"),
+    remember: bool = Form(False),
     conn: aiosqlite.Connection = Depends(get_db),
 ):
     client_ip = request.client.host if request.client else "unknown"
@@ -116,7 +121,7 @@ async def login_post(
     response.set_cookie(
         COOKIE_NAME,
         token,
-        max_age=session_days * 86400,
+        max_age=session_days * 86400 if remember else None,
         httponly=True,
         samesite="strict",
     )
@@ -129,6 +134,121 @@ async def logout():
     response.delete_cookie(COOKIE_NAME, httponly=True, samesite="strict")
     return response
 
+
+# ── Forgot / reset password ───────────────────────────────────────────────────
+
+@router.get("/forgot-password", response_class=HTMLResponse)
+async def forgot_password_get(request: Request):
+    return templates.TemplateResponse(request, "forgot_password.html", {"sent": False, "error": None})
+
+
+@router.post("/forgot-password", response_class=HTMLResponse)
+async def forgot_password_post(
+    request: Request,
+    email: str = Form(...),
+    conn: aiosqlite.Connection = Depends(get_db),
+):
+    client_ip = request.client.host if request.client else "unknown"
+    if _is_rate_limited(client_ip):
+        return templates.TemplateResponse(
+            request, "forgot_password.html",
+            {"sent": False, "error": "Too many requests. Please wait 15 minutes."},
+            status_code=429,
+        )
+
+    email = email.strip().lower()
+
+    # Always show the same success message to prevent email enumeration.
+    async with conn.execute(
+        "SELECT id FROM users WHERE lower(email) = ?", (email,)
+    ) as cur:
+        user_row = await cur.fetchone()
+
+    if user_row:
+        token = secrets.token_urlsafe(32)
+        await conn.execute(
+            "INSERT INTO password_reset_tokens(token, user_id, expires_at) "
+            "VALUES (?, ?, datetime('now','localtime','+1 hour'))",
+            (token, user_row["id"]),
+        )
+        await conn.commit()
+
+        base = str(request.base_url).rstrip("/")
+        reset_url = f"{base}/reset-password/{token}"
+        body_text = (
+            f"Hi,\n\nClick the link below to reset your FitTrack password.\n"
+            f"This link expires in 1 hour.\n\n{reset_url}\n\n"
+            f"If you didn't request this, you can ignore this email."
+        )
+        body_html = (
+            f"<p>Click the link below to reset your FitTrack password.<br>"
+            f"This link expires in 1 hour.</p>"
+            f'<p><a href="{reset_url}">{reset_url}</a></p>'
+            f"<p>If you didn't request this, you can ignore this email.</p>"
+        )
+        await send_email(email, "Reset your FitTrack password", body_text, body_html)
+
+    return templates.TemplateResponse(request, "forgot_password.html", {"sent": True, "error": None})
+
+
+@router.get("/reset-password/{token}", response_class=HTMLResponse)
+async def reset_password_get(
+    token: str,
+    request: Request,
+    conn: aiosqlite.Connection = Depends(get_db),
+):
+    async with conn.execute(
+        "SELECT token FROM password_reset_tokens "
+        "WHERE token = ? AND used_at IS NULL AND expires_at > datetime('now','localtime')",
+        (token,),
+    ) as cur:
+        row = await cur.fetchone()
+    if not row:
+        raise HTTPException(status_code=400, detail="Invalid or expired password reset link")
+    return templates.TemplateResponse(request, "reset_password.html", {"token": token, "errors": {}})
+
+
+@router.post("/reset-password/{token}", response_class=HTMLResponse)
+async def reset_password_post(
+    token: str,
+    request: Request,
+    password: str = Form(...),
+    password_confirm: str = Form(...),
+    conn: aiosqlite.Connection = Depends(get_db),
+):
+    async with conn.execute(
+        "SELECT token, user_id FROM password_reset_tokens "
+        "WHERE token = ? AND used_at IS NULL AND expires_at > datetime('now','localtime')",
+        (token,),
+    ) as cur:
+        row = await cur.fetchone()
+    if not row:
+        raise HTTPException(status_code=400, detail="Invalid or expired password reset link")
+
+    errors = {}
+    if len(password) < 8:
+        errors["password"] = "Password must be at least 8 characters"
+    elif password != password_confirm:
+        errors["password_confirm"] = "Passwords do not match"
+
+    if errors:
+        return templates.TemplateResponse(
+            request, "reset_password.html", {"token": token, "errors": errors}
+        )
+
+    hashed = _hash_password(password)
+    await conn.execute(
+        "UPDATE users SET password_hash = ? WHERE id = ?", (hashed, row["user_id"])
+    )
+    await conn.execute(
+        "UPDATE password_reset_tokens SET used_at = datetime('now','localtime') WHERE token = ?",
+        (token,),
+    )
+    await conn.commit()
+    return RedirectResponse(url="/login?reset=1", status_code=303)
+
+
+# ── Invite ────────────────────────────────────────────────────────────────────
 
 @router.get("/invite", response_class=HTMLResponse)
 async def invite_get(
@@ -183,6 +303,7 @@ async def invite_accept_post(
     token: str,
     request: Request,
     username: str = Form(...),
+    email: str = Form(...),
     password: str = Form(...),
     password_confirm: str = Form(...),
     conn: aiosqlite.Connection = Depends(get_db),
@@ -196,9 +317,12 @@ async def invite_accept_post(
     if not row:
         raise HTTPException(status_code=400, detail="Invalid or expired invite link")
 
+    email = email.strip().lower()
     errors = {}
     if not _USERNAME_RE.match(username):
         errors["username"] = "Username must be 3–30 characters: letters, numbers, underscores only"
+    if not _EMAIL_RE.match(email):
+        errors["email"] = "Enter a valid email address"
     if len(password) < 8:
         errors["password"] = "Password must be at least 8 characters"
     elif password != password_confirm:
@@ -207,15 +331,15 @@ async def invite_accept_post(
     if errors:
         return templates.TemplateResponse(
             request, "invite_accept.html",
-            {"token": token, "errors": errors, "form": {"username": username}},
+            {"token": token, "errors": errors, "form": {"username": username, "email": email}},
             status_code=200,
         )
 
     hashed = _hash_password(password)
     try:
         async with conn.execute(
-            "INSERT INTO users(username, password_hash, is_admin) VALUES (?, ?, 0)",
-            (username, hashed),
+            "INSERT INTO users(username, password_hash, is_admin, email) VALUES (?, ?, 0, ?)",
+            (username, hashed, email),
         ) as cur:
             new_user_id = cur.lastrowid
         await conn.execute(
@@ -225,11 +349,15 @@ async def invite_accept_post(
             (new_user_id, token),
         )
         await conn.commit()
-    except aiosqlite.IntegrityError:
-        errors["username"] = "Username is already taken"
+    except aiosqlite.IntegrityError as exc:
+        msg = str(exc)
+        if "email" in msg:
+            errors["email"] = "An account with that email already exists"
+        else:
+            errors["username"] = "Username is already taken"
         return templates.TemplateResponse(
             request, "invite_accept.html",
-            {"token": token, "errors": errors, "form": {"username": username}},
+            {"token": token, "errors": errors, "form": {"username": username, "email": email}},
             status_code=200,
         )
 

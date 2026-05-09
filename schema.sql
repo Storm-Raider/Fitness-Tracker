@@ -48,7 +48,18 @@ CREATE TABLE IF NOT EXISTS users (
     username      TEXT     NOT NULL UNIQUE,
     password_hash TEXT     NOT NULL,
     is_admin      INTEGER  NOT NULL DEFAULT 0,
+    email         TEXT,
     created_at    DATETIME NOT NULL DEFAULT (datetime('now','localtime'))
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email ON users(email) WHERE email IS NOT NULL;
+
+CREATE TABLE IF NOT EXISTS password_reset_tokens (
+    token      TEXT     PRIMARY KEY,
+    user_id    INTEGER  NOT NULL REFERENCES users(id),
+    created_at DATETIME NOT NULL DEFAULT (datetime('now','localtime')),
+    expires_at DATETIME NOT NULL,
+    used_at    DATETIME NULL
 );
 
 CREATE TABLE IF NOT EXISTS invite_tokens (

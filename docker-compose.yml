@@ -12,6 +12,11 @@ services:
       - APP_SECRET=${APP_SECRET}
       - WEBHOOK_URL=${WEBHOOK_URL:-}
       - SESSION_DAYS=${SESSION_DAYS:-30}
+      - SMTP_HOST=${SMTP_HOST:-}
+      - SMTP_PORT=${SMTP_PORT:-587}
+      - SMTP_USER=${SMTP_USER:-}
+      - SMTP_PASS=${SMTP_PASS:-}
+      - SMTP_FROM=${SMTP_FROM:-}
     restart: unless-stopped
 
 volumes:

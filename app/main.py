@@ -24,11 +24,15 @@ _templates = Jinja2Templates(directory=Path(__file__).parent / "templates")
 
 DATABASE_PATH = os.environ.get("DATABASE_PATH", "/data/fitness.db")
 
-_EXEMPT_PATHS = {"/health", "/login", "/logout", "/sw.js"}
+_EXEMPT_PATHS = {"/health", "/login", "/logout", "/sw.js", "/forgot-password"}
 
 
 def _is_exempt(path: str) -> bool:
-    return path in _EXEMPT_PATHS or path.startswith("/invite/accept/")
+    return (
+        path in _EXEMPT_PATHS
+        or path.startswith("/invite/accept/")
+        or path.startswith("/reset-password/")
+    )
 
 
 class _SecurityHeadersMiddleware(BaseHTTPMiddleware):

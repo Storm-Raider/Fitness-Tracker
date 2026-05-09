@@ -6,8 +6,26 @@ _conn: aiosqlite.Connection | None = None
 SCHEMA = Path(__file__).parent.parent / "schema.sql"
 
 
+_MIGRATIONS = [
+    "ALTER TABLE users ADD COLUMN email TEXT",
+    "CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email ON users(email) WHERE email IS NOT NULL",
+    """CREATE TABLE IF NOT EXISTS password_reset_tokens (
+        token      TEXT     PRIMARY KEY,
+        user_id    INTEGER  NOT NULL REFERENCES users(id),
+        created_at DATETIME NOT NULL DEFAULT (datetime('now','localtime')),
+        expires_at DATETIME NOT NULL,
+        used_at    DATETIME NULL
+    )""",
+]
+
+
 async def init_db(conn: aiosqlite.Connection) -> None:
     await conn.executescript(SCHEMA.read_text())
+    for sql in _MIGRATIONS:
+        try:
+            await conn.execute(sql)
+        except Exception:
+            pass
     await conn.commit()
 
 
