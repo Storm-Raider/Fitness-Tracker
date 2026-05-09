@@ -1,9 +1,9 @@
 {% extends "base.html" %}
 {% block title %}Dashboard — FitTrack{% endblock %}
 {% block content %}
-<div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:1.25rem; padding-top:0.5rem;">
-  <h1 style="font-size:1.5rem; font-weight:700;">Dashboard</h1>
-  <div style="display:flex; gap:0.75rem; align-items:center;">
+<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.5rem;padding-top:0.5rem;">
+  <h1 style="font-size:1.4rem;font-weight:700;letter-spacing:-0.01em;">Dashboard</h1>
+  <div style="display:flex;gap:0.75rem;align-items:center;">
     {% if streak > 0 %}
     <span class="badge badge-streak">🔥 {{ streak }}-day streak</span>
     {% endif %}
@@ -12,19 +12,38 @@
 </div>
 
 <div class="grid-3" style="margin-bottom:1.5rem;">
-  <div class="card" style="text-align:center;">
-    <div style="font-size:1.75rem; font-weight:700; color:var(--text);">{{ weekly_sessions }}</div>
-    <div class="section-title" style="margin:0.25rem 0 0;">Sessions (7 days)</div>
-  </div>
-  <div class="card" style="text-align:center;">
-    <div style="font-size:1.75rem; font-weight:700; color:var(--accent);">
-      {{ "{:,.0f}".format(weekly_volume) }} kg
+  <!-- Sessions -->
+  <div class="card" style="display:flex;align-items:center;gap:1rem;">
+    <div style="width:42px;height:42px;border-radius:10px;background:rgba(79,156,249,0.12);display:flex;align-items:center;justify-content:center;flex-shrink:0;color:var(--accent);">
+      <i data-lucide="calendar-days" style="width:20px;height:20px;"></i>
     </div>
-    <div class="section-title" style="margin:0.25rem 0 0;">Volume (7 days)</div>
+    <div>
+      <div class="num" style="font-size:clamp(1.5rem,4vw,2.25rem);font-weight:700;letter-spacing:-0.02em;line-height:1;">{{ weekly_sessions }}</div>
+      <div class="section-title" style="margin:0.2rem 0 0;">Sessions (7 days)</div>
+    </div>
   </div>
-  <div class="card" style="text-align:center;">
-    <div style="font-size:1.75rem; font-weight:700; color:var(--pr);">{{ prs | length }}</div>
-    <div class="section-title" style="margin:0.25rem 0 0;">Exercises tracked</div>
+  <!-- Volume -->
+  <div class="card" style="display:flex;align-items:center;gap:1rem;">
+    <div style="width:42px;height:42px;border-radius:10px;background:rgba(79,156,249,0.12);display:flex;align-items:center;justify-content:center;flex-shrink:0;color:var(--accent);">
+      <i data-lucide="dumbbell" style="width:20px;height:20px;"></i>
+    </div>
+    <div>
+      <div class="num" style="font-size:clamp(1.5rem,4vw,2.25rem);font-weight:700;letter-spacing:-0.02em;line-height:1;color:var(--accent);">
+        {{ "{:,.0f}".format(weekly_volume) }}
+        <span style="font-size:1rem;font-weight:500;color:var(--muted);">kg</span>
+      </div>
+      <div class="section-title" style="margin:0.2rem 0 0;">Volume (7 days)</div>
+    </div>
+  </div>
+  <!-- PRs / Exercises -->
+  <div class="card" style="display:flex;align-items:center;gap:1rem;">
+    <div style="width:42px;height:42px;border-radius:10px;background:var(--pr-dim);display:flex;align-items:center;justify-content:center;flex-shrink:0;color:var(--pr);">
+      <i data-lucide="activity" style="width:20px;height:20px;"></i>
+    </div>
+    <div>
+      <div class="num" style="font-size:clamp(1.5rem,4vw,2.25rem);font-weight:700;letter-spacing:-0.02em;line-height:1;color:var(--pr);">{{ prs | length }}</div>
+      <div class="section-title" style="margin:0.2rem 0 0;">Exercises tracked</div>
+    </div>
   </div>
 </div>
 
@@ -46,19 +65,19 @@
       {% if prs %}
       <table>
         <thead>
-          <tr><th>Exercise</th><th>PR (kg)</th></tr>
+          <tr><th>Exercise</th><th>PR</th></tr>
         </thead>
         <tbody>
           {% for pr in prs %}
           <tr>
-            <td>{{ pr.exercise_name }}</td>
+            <td><a href="/exercises/{{ pr.exercise_id }}" style="color:inherit;text-decoration:none;" onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='inherit'">{{ pr.exercise_name }}</a></td>
             <td><span class="badge badge-pr">{{ pr.pr_kg }} kg</span></td>
           </tr>
           {% endfor %}
         </tbody>
       </table>
       {% else %}
-      <p style="color:var(--muted); font-size:0.875rem;">No sets logged yet.</p>
+      <p style="color:var(--muted);font-size:0.875rem;">No sets logged yet.</p>
       {% endif %}
     </div>
   </div>

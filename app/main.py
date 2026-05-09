@@ -1,35 +1,69 @@
 import logging
 import os
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 import httpx
-from fastapi import FastAPI
-from fastapi.responses import FileResponse
+from fastapi import FastAPI, Request
+from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
-from pathlib import Path
+from fastapi.templating import Jinja2Templates
 from starlette.middleware.base import BaseHTTPMiddleware
-from starlette.requests import Request
 from starlette.responses import RedirectResponse
 
 from app.db import open_db, set_db, clear_db
 from app.routes import dashboard, exercises, export, import_, metrics, routines, webhooks, workouts
-from app.routes.auth import router as auth_router, verify_session
+from app.routes.auth import router as auth_router, COOKIE_NAME, _serializer, _hash_password
 from app.routes.workouts import set_http_client
 
+from itsdangerous import BadSignature, SignatureExpired
+
 logging.basicConfig(level=logging.INFO)
+
+_templates = Jinja2Templates(directory=Path(__file__).parent / "templates")
 
 DATABASE_PATH = os.environ.get("DATABASE_PATH", "/data/fitness.db")
 
 _EXEMPT_PATHS = {"/health", "/login", "/logout", "/sw.js"}
 
 
+def _is_exempt(path: str) -> bool:
+    return path in _EXEMPT_PATHS or path.startswith("/invite/accept/")
+
+
+class _SecurityHeadersMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        response = await call_next(request)
+        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+        response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
+        response.headers["Content-Security-Policy"] = (
+            "default-src 'self'; "
+            "script-src 'self' 'unsafe-inline' https://unpkg.com; "
+            "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
+            "font-src https://fonts.gstatic.com; "
+            "img-src 'self' data:; "
+            "connect-src 'self'; "
+            "frame-ancestors 'none';"
+        )
+        return response
+
+
 class _AuthMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
-        if request.url.path in _EXEMPT_PATHS:
+        if _is_exempt(request.url.path):
             return await call_next(request)
-        cookie = request.cookies.get("fittrack_session", "")
-        if cookie and verify_session(cookie):
-            return await call_next(request)
+        cookie = request.cookies.get(COOKIE_NAME, "")
+        if cookie:
+            try:
+                session_days = int(os.environ.get("SESSION_DAYS", "30"))
+                payload = _serializer().loads(cookie, max_age=session_days * 86400)
+                if isinstance(payload, dict) and "user_id" in payload:
+                    request.state.user_id = payload["user_id"]
+                    return await call_next(request)
+            except (BadSignature, SignatureExpired):
+                pass
         next_url = request.url.path
         if request.url.query:
             next_url += "?" + request.url.query
@@ -38,16 +72,22 @@ class _AuthMiddleware(BaseHTTPMiddleware):
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    app_password = os.environ.get("APP_PASSWORD", "")
+    admin_username = os.environ.get("ADMIN_USERNAME", "")
+    admin_password = os.environ.get("ADMIN_PASSWORD", "")
     app_secret = os.environ.get("APP_SECRET", "")
     session_days_str = os.environ.get("SESSION_DAYS", "30")
 
-    if not app_password:
-        raise RuntimeError("APP_PASSWORD environment variable is required")
+    if not admin_username:
+        raise RuntimeError("ADMIN_USERNAME environment variable is required")
+    if not admin_password:
+        raise RuntimeError("ADMIN_PASSWORD environment variable is required")
     if not app_secret:
         raise RuntimeError("APP_SECRET environment variable is required")
     if len(app_secret) < 32:
-        raise RuntimeError("APP_SECRET must be at least 32 characters (generate with: python -c \"import secrets; print(secrets.token_hex(32))\")")
+        raise RuntimeError(
+            "APP_SECRET must be at least 32 characters "
+            "(generate with: python -c \"import secrets; print(secrets.token_hex(32))\")"
+        )
     try:
         session_days = int(session_days_str)
     except ValueError:
@@ -57,6 +97,20 @@ async def lifespan(app: FastAPI):
 
     conn = await open_db(DATABASE_PATH)
     set_db(conn)
+
+    # Seed admin user if not already present
+    async with conn.execute(
+        "SELECT id FROM users WHERE username = ?", (admin_username,)
+    ) as cur:
+        existing = await cur.fetchone()
+    if not existing:
+        hashed = _hash_password(admin_password)
+        await conn.execute(
+            "INSERT INTO users(username, password_hash, is_admin) VALUES (?, ?, 1)",
+            (admin_username, hashed),
+        )
+        await conn.commit()
+
     client = httpx.AsyncClient()
     set_http_client(client)
     try:
@@ -68,7 +122,18 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="Fitness Tracker", lifespan=lifespan)
+app.add_middleware(_SecurityHeadersMiddleware)
 app.add_middleware(_AuthMiddleware)
+
+
+@app.exception_handler(404)
+async def _not_found(_req: Request, _exc):
+    return _templates.TemplateResponse("errors/404.html", {"request": _req}, status_code=404)
+
+
+@app.exception_handler(500)
+async def _server_error(_req: Request, _exc):
+    return _templates.TemplateResponse("errors/500.html", {"request": _req}, status_code=500)
 
 _static = Path(__file__).parent / "static"
 if _static.exists():
@@ -92,7 +157,6 @@ async def health():
 
 @app.get("/sw.js", include_in_schema=False)
 async def service_worker():
-    # Serve from root so the SW controls all pages, not just /static/*
     sw_path = Path(__file__).parent / "static" / "sw.js"
     return FileResponse(sw_path, media_type="application/javascript",
                         headers={"Service-Worker-Allowed": "/"})

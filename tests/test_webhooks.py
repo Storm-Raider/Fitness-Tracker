@@ -4,8 +4,8 @@ from unittest.mock import AsyncMock, patch
 
 
 @pytest.mark.asyncio
-async def test_get_webhook_config_no_url(client):
-    resp = await client.get("/webhooks")
+async def test_get_webhook_config_no_url(admin_client):
+    resp = await admin_client.get("/webhooks")
     assert resp.status_code == 200
     data = resp.json()
     assert data["url"] is None
@@ -13,9 +13,15 @@ async def test_get_webhook_config_no_url(client):
 
 
 @pytest.mark.asyncio
-async def test_get_webhook_config_with_url(client, monkeypatch):
-    monkeypatch.setenv("WEBHOOK_URL", "https://example.com/hook")
+async def test_get_webhook_config_requires_admin(client):
     resp = await client.get("/webhooks")
+    assert resp.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_get_webhook_config_with_url(admin_client, monkeypatch):
+    monkeypatch.setenv("WEBHOOK_URL", "https://example.com/hook")
+    resp = await admin_client.get("/webhooks")
     data = resp.json()
     assert data["url"] == "https://example.com/hook"
     assert "pr_achieved" in data["events"]
@@ -33,7 +39,7 @@ async def test_webhook_fires_on_pr(client, monkeypatch):
     from app.routes import workouts as workouts_module
     workouts_module._http_client = mock_client
 
-    ex = await client.post("/exercises", json={"name": "Bench Press"})
+    ex = await client.post("/exercises", json={"name": "Test Bench Press"})
     ex_id = ex.json()["id"]
     w = await client.post("/workouts", json={"notes": None})
     w_id = w.json()["id"]

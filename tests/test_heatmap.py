@@ -12,13 +12,13 @@ def test_empty_dates_produces_svg():
 def test_active_day_uses_accent_color():
     today = date.today().isoformat()
     svg = generate_heatmap_svg([today])
-    # Active cells use #60a5fa (accent blue)
-    assert "#60a5fa" in svg
+    # Active cells use #f59e0b (gold identity color)
+    assert "#f59e0b" in svg
 
 
 def test_inactive_day_uses_dark_color():
     svg = generate_heatmap_svg([])
-    assert "#262b35" in svg
+    assert "#1a1e27" in svg
 
 
 def test_svg_contains_rect_elements():

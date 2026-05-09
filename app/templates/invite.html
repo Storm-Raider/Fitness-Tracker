@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}Invite User — FitTrack{% endblock %}
+
+{% block content %}
+<div style="max-width: 480px; margin: 2rem auto;">
+  <h1 style="font-size: 1.25rem; font-weight: 600; margin-bottom: 1.5rem;">Invite a new user</h1>
+
+  <div class="card">
+    <p style="font-size: 0.875rem; color: var(--muted); margin-bottom: 1.25rem;">
+      Generate a one-time invite link. It expires after 48 hours.
+    </p>
+    <button class="btn btn-primary"
+            style="width: 100%;"
+            hx-post="/invite"
+            hx-target="#invite-result"
+            hx-swap="innerHTML">
+      Generate invite link
+    </button>
+    <div id="invite-result" style="margin-top: 1rem;"></div>
+  </div>
+</div>
+{% endblock %}

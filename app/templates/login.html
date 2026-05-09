@@ -4,17 +4,22 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Sign in — FitTrack</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600;700&display=swap" rel="stylesheet">
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
-      background: #111318;
+      background: #0d0f14;
       color: #e2e8f0;
-      font-family: 'Geist', 'Inter', system-ui, sans-serif;
+      font-family: 'Space Grotesk', system-ui, sans-serif;
+      font-size: 15px;
       min-height: 100vh;
       display: flex;
       flex-direction: column;
       align-items: center;
-      padding-top: 30vh;
+      padding-top: 28vh;
+      -webkit-font-smoothing: antialiased;
     }
     .login-wrap {
       width: calc(100% - 2rem);
@@ -22,22 +27,41 @@
     }
     .wordmark {
       text-align: center;
-      font-size: 1.5rem;
+      font-size: 1.4rem;
       font-weight: 700;
       letter-spacing: -0.02em;
+      margin-bottom: 0.5rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.45rem;
+    }
+    .wordmark-dot {
+      width: 7px;
+      height: 7px;
+      background: #f59e0b;
+      border-radius: 50%;
+      box-shadow: 0 0 8px rgba(245,158,11,0.6);
+    }
+    .tagline {
+      text-align: center;
+      font-size: 0.8rem;
+      color: #64748b;
       margin-bottom: 1.5rem;
+      letter-spacing: 0.01em;
     }
     .card {
-      background: #1a1e27;
-      border: 1px solid #2a2f3d;
-      border-radius: 8px;
+      background: #141720;
+      border: 1px solid #252b3b;
+      border-radius: 10px;
       padding: 1.5rem;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.04);
     }
     .flash-error {
-      background: #450a0a;
-      border: 1px solid #f87171;
+      background: rgba(248,113,113,0.08);
+      border: 1px solid rgba(248,113,113,0.25);
       color: #f87171;
-      border-radius: 6px;
+      border-radius: 8px;
       padding: 0.75rem 1rem;
       font-size: 0.875rem;
       margin-bottom: 1rem;
@@ -45,61 +69,88 @@
     label {
       display: block;
       font-size: 0.8rem;
+      font-weight: 500;
       color: #64748b;
-      margin-bottom: 0.25rem;
+      margin-bottom: 0.3rem;
     }
+    input[type="text"],
     input[type="password"] {
       width: 100%;
-      background: #111318;
-      border: 1px solid #2a2f3d;
-      border-radius: 6px;
+      background: #0d0f14;
+      border: 1px solid #252b3b;
+      border-radius: 7px;
       color: #e2e8f0;
       padding: 0.5rem 0.75rem;
       font-size: 0.875rem;
       font-family: inherit;
       margin-bottom: 1rem;
+      transition: border-color 0.15s, box-shadow 0.15s;
     }
+    input[type="text"]:focus,
     input[type="password"]:focus {
       outline: none;
-      border-color: #60a5fa;
+      border-color: #4f9cf9;
+      box-shadow: 0 0 0 3px rgba(79,156,249,0.2);
     }
     .btn-primary {
       display: block;
       width: 100%;
-      min-height: 44px;
-      background: #60a5fa;
+      min-height: 42px;
+      background: linear-gradient(135deg, #4f9cf9 0%, #3b82f6 100%);
       color: #0f172a;
       border: none;
-      border-radius: 6px;
+      border-radius: 7px;
       font-size: 0.875rem;
       font-weight: 600;
       font-family: inherit;
       cursor: pointer;
-      transition: background 0.15s;
+      transition: all 0.15s;
     }
-    .btn-primary:hover { background: #3b82f6; }
+    .btn-primary:hover {
+      background: linear-gradient(135deg, #7ab8fc 0%, #4f9cf9 100%);
+      box-shadow: 0 4px 12px rgba(79,156,249,0.3);
+      transform: translateY(-1px);
+    }
+    .hint {
+      text-align: center;
+      font-size: 0.8rem;
+      color: #64748b;
+      margin-top: 1rem;
+    }
   </style>
 </head>
 <body>
   <div class="login-wrap">
-    <div class="wordmark">FitTrack</div>
+    <div class="wordmark">
+      <span class="wordmark-dot"></span>
+      FitTrack
+    </div>
+    <p class="tagline">Your lifts. Your data. Your server.</p>
     <div class="card">
       {% if error %}
-      <div class="flash-error">Wrong password</div>
+      <div class="flash-error" role="alert">{{ error }}</div>
       {% endif %}
       <form method="post" action="/login">
         <input type="hidden" name="next" value="{{ next | e }}">
-        <!-- username field present for password-manager compatibility; value is ignored in validation -->
-        <input type="text" name="username" autocomplete="username"
-               style="display:none" aria-hidden="true" tabindex="-1">
+        <div>
+          <label for="username">Username</label>
+          <input type="text" id="username" name="username"
+                 autocomplete="username"
+                 value="{{ prefill_username | e }}"
+                 {% if not prefill_username %}autofocus{% endif %}
+                 required>
+        </div>
         <div>
           <label for="password">Password</label>
           <input type="password" id="password" name="password"
-                 autocomplete="current-password" autofocus>
+                 autocomplete="current-password"
+                 {% if prefill_username %}autofocus{% endif %}
+                 required>
         </div>
         <button type="submit" class="btn-primary">Sign in</button>
       </form>
     </div>
+    <p class="hint">Need access? Ask your server admin for an invite link.</p>
   </div>
 </body>
 </html>

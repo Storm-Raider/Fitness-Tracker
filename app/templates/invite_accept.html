@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Create account — FitTrack</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400;14..32,500;14..32,600;14..32,700&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: #111318;
+      color: #e2e8f0;
+      font-family: 'Inter', system-ui, sans-serif;
+      font-size: 15px;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding-top: 20vh;
+      -webkit-font-smoothing: antialiased;
+    }
+    .wrap {
+      width: calc(100% - 2rem);
+      max-width: 360px;
+    }
+    .wordmark {
+      text-align: center;
+      font-size: 1.5rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      margin-bottom: 1.5rem;
+    }
+    .card {
+      background: #1a1e27;
+      border: 1px solid #2a2f3d;
+      border-radius: 8px;
+      padding: 1.5rem;
+    }
+    h2 {
+      font-size: 1rem;
+      font-weight: 600;
+      margin-bottom: 1.25rem;
+    }
+    .flash-error {
+      background: #450a0a;
+      border: 1px solid #f87171;
+      color: #f87171;
+      border-radius: 6px;
+      padding: 0.75rem 1rem;
+      font-size: 0.875rem;
+      margin-bottom: 1rem;
+    }
+    label {
+      display: block;
+      font-size: 0.8rem;
+      color: #64748b;
+      margin-bottom: 0.25rem;
+    }
+    input[type="text"],
+    input[type="password"] {
+      width: 100%;
+      background: #111318;
+      border: 1px solid #2a2f3d;
+      border-radius: 6px;
+      color: #e2e8f0;
+      padding: 0.5rem 0.75rem;
+      font-size: 0.875rem;
+      font-family: inherit;
+      margin-bottom: 1rem;
+    }
+    input[type="text"]:focus,
+    input[type="password"]:focus {
+      outline: none;
+      border-color: #4f9cf9;
+      box-shadow: 0 0 0 3px rgba(79,156,249,0.2);
+    }
+    .hint-text {
+      font-size: 0.75rem;
+      color: #64748b;
+      margin-top: -0.75rem;
+      margin-bottom: 1rem;
+    }
+    .btn-primary {
+      display: block;
+      width: 100%;
+      min-height: 42px;
+      background: linear-gradient(135deg, #60a5fa 0%, #3b82f6 100%);
+      color: #0f172a;
+      border: none;
+      border-radius: 7px;
+      font-size: 0.875rem;
+      font-weight: 600;
+      font-family: inherit;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .btn-primary:hover {
+      background: linear-gradient(135deg, #93c5fd 0%, #60a5fa 100%);
+      box-shadow: 0 4px 12px rgba(96,165,250,0.3);
+      transform: translateY(-1px);
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="wordmark">FitTrack</div>
+    <div class="card">
+      <h2>Create your account</h2>
+      {% if errors %}
+      <div class="flash-error" role="alert">
+        {% for msg in errors.values() %}{{ msg }}{% if not loop.last %}<br>{% endif %}{% endfor %}
+      </div>
+      {% endif %}
+      <form method="post" action="/invite/accept/{{ token | e }}">
+        <div>
+          <label for="username">Username</label>
+          <input type="text" id="username" name="username"
+                 autocomplete="username"
+                 value="{{ form.get('username', '') | e }}"
+                 pattern="[a-zA-Z0-9_]{3,30}"
+                 required autofocus>
+          <p class="hint-text">3–30 characters: letters, numbers, underscores</p>
+        </div>
+        <div>
+          <label for="password">Password</label>
+          <input type="password" id="password" name="password"
+                 autocomplete="new-password"
+                 minlength="8"
+                 required>
+          <p class="hint-text">Minimum 8 characters</p>
+        </div>
+        <div>
+          <label for="password_confirm">Confirm password</label>
+          <input type="password" id="password_confirm" name="password_confirm"
+                 autocomplete="new-password"
+                 minlength="8"
+                 required>
+        </div>
+        <button type="submit" class="btn-primary">Create account</button>
+      </form>
+    </div>
+  </div>
+</body>
+</html>

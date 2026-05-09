@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% block title %}{{ exercise.name }} — FitTrack{% endblock %}
+{% block content %}
+<div style="margin-bottom:1rem;padding-top:0.5rem;">
+  <a href="/workouts" style="color:var(--muted);font-size:0.875rem;display:inline-flex;align-items:center;gap:0.35rem;">
+    <i data-lucide="chevron-left" style="width:14px;height:14px;"></i>
+    Workouts
+  </a>
+</div>
+
+<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;margin-bottom:1.5rem;flex-wrap:wrap;">
+  <div>
+    <h1 style="font-size:1.5rem;font-weight:700;letter-spacing:-0.01em;margin-bottom:0.25rem;">{{ exercise.name }}</h1>
+    {% if pr_kg %}
+    <span class="badge badge-pr" style="font-size:0.8rem;">PR: {{ pr_kg }} kg</span>
+    {% endif %}
+  </div>
+  {% if sessions %}
+  <div style="display:flex;gap:1rem;">
+    <div style="text-align:right;">
+      <div class="num" style="font-size:1.6rem;font-weight:700;letter-spacing:-0.02em;">{{ total_sets }}</div>
+      <div class="section-title" style="margin:0;">Total sets</div>
+    </div>
+    <div style="text-align:right;">
+      <div class="num" style="font-size:1.6rem;font-weight:700;letter-spacing:-0.02em;color:var(--accent);">{{ "{:,.0f}".format(total_volume) }} <span style="font-size:0.9rem;font-weight:500;color:var(--muted);">kg</span></div>
+      <div class="section-title" style="margin:0;">Total volume</div>
+    </div>
+    <div style="text-align:right;">
+      <div class="num" style="font-size:1.6rem;font-weight:700;letter-spacing:-0.02em;">{{ sessions|length }}</div>
+      <div class="section-title" style="margin:0;">Sessions</div>
+    </div>
+  </div>
+  {% endif %}
+</div>
+
+{% if chart_svg %}
+<div class="card" style="margin-bottom:1.5rem;padding:1.25rem 1.5rem 0.75rem;">
+  <div class="section-title" style="margin-bottom:0.75rem;">Weight progression</div>
+  {{ chart_svg | safe }}
+</div>
+{% endif %}
+
+{% if sessions %}
+<div class="section-title">Session history</div>
+<div class="card">
+  <table>
+    <thead>
+      <tr>
+        <th>Date</th>
+        <th>Top weight</th>
+        <th>Est. 1RM</th>
+        <th>Sets</th>
+        <th>Volume</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for s in sessions %}
+      {% set one_rm = (s.max_kg * (1 + 1 / 30)) | round(1) %}
+      <tr>
+        <td style="font-weight:500;">{{ s.date }}</td>
+        <td class="num">
+          {{ s.max_kg }} kg
+          {% if s.max_kg == pr_kg %}
+          <span class="badge badge-pr" style="margin-left:0.35rem;font-size:0.65rem;vertical-align:middle;">PR</span>
+          {% endif %}
+        </td>
+        <td class="num" style="color:var(--pr);">{{ one_rm }} kg</td>
+        <td class="num">{{ s.set_count }}</td>
+        <td class="num" style="color:var(--muted);">{{ "{:,.0f}".format(s.volume_kg) }} kg</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<div class="card" style="text-align:center;padding:3rem 1.25rem;">
+  <p style="color:var(--muted);font-size:0.9rem;">No sets logged for this exercise yet.</p>
+  <a href="/workouts" class="btn btn-primary" style="margin-top:1rem;">Start a workout</a>
+</div>
+{% endif %}
+{% endblock %}

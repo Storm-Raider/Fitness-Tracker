@@ -5,6 +5,13 @@
   <h1 style="font-size:1.5rem; font-weight:700;">Body Metrics</h1>
 </div>
 
+{% if chart_svg %}
+<div class="card" style="margin-bottom:1.5rem;padding:1.25rem 1.5rem 0.75rem;">
+  <div class="section-title" style="margin-bottom:0.75rem;">Weight trend</div>
+  {{ chart_svg | safe }}
+</div>
+{% endif %}
+
 <div class="grid-2" style="align-items:start; gap:1.5rem;">
   <div>
     <div class="card">
@@ -13,13 +20,13 @@
         <label>Weight (kg)</label>
         <div class="stepper-group">
           <button type="button" class="stepper-btn" onclick="stepMetric('weight', -0.5)">−</button>
-          <input type="number" id="weight-input" value="75" step="0.1" min="0">
+          <input type="number" id="weight-input" class="num" value="75" step="0.1" min="0">
           <button type="button" class="stepper-btn" onclick="stepMetric('weight', 0.5)">+</button>
         </div>
       </div>
       <div class="form-group">
         <label>Calories (optional)</label>
-        <input type="number" id="calories-input" placeholder="e.g. 2400" min="0">
+        <input type="number" id="calories-input" class="num" placeholder="e.g. 2400" min="0">
       </div>
       <div id="metric-error" class="flash flash-error" style="display:none;"></div>
       <div id="metric-success" class="flash flash-success" style="display:none;">Entry logged.</div>
@@ -39,8 +46,8 @@
           {% for m in metrics %}
           <tr>
             <td>{{ m.recorded_at[:10] }}</td>
-            <td>{{ m.weight_kg }}</td>
-            <td>{{ m.calories or "—" }}</td>
+            <td class="num">{{ m.weight_kg }}</td>
+            <td class="num">{{ m.calories or "—" }}</td>
           </tr>
           {% endfor %}
         </tbody>
