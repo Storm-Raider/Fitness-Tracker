@@ -13,7 +13,7 @@ from starlette.responses import RedirectResponse
 
 from app.db import open_db, set_db, clear_db
 from app.routes import dashboard, exercises, export, import_, metrics, routines, settings, webhooks, workouts
-from app.routes.auth import router as auth_router, COOKIE_NAME, _serializer, _hash_password
+from app.routes.auth import router as auth_router, COOKIE_NAME, _serializer, _hash_password, _verify_password
 from app.routes.workouts import set_http_client
 
 from itsdangerous import BadSignature, SignatureExpired
@@ -102,9 +102,10 @@ async def lifespan(app: FastAPI):
     conn = await open_db(DATABASE_PATH)
     set_db(conn)
 
-    # Seed admin user if not already present
+    # Seed admin user; always sync password/is_admin from env so a changed
+    # ADMIN_PASSWORD takes effect on next restart without manual DB edits.
     async with conn.execute(
-        "SELECT id FROM users WHERE username = ?", (admin_username,)
+        "SELECT id, password_hash FROM users WHERE username = ?", (admin_username,)
     ) as cur:
         existing = await cur.fetchone()
     if not existing:
@@ -112,6 +113,13 @@ async def lifespan(app: FastAPI):
         await conn.execute(
             "INSERT INTO users(username, password_hash, is_admin) VALUES (?, ?, 1)",
             (admin_username, hashed),
+        )
+        await conn.commit()
+    elif not _verify_password(admin_password, existing["password_hash"]):
+        hashed = _hash_password(admin_password)
+        await conn.execute(
+            "UPDATE users SET password_hash = ?, is_admin = 1 WHERE id = ?",
+            (hashed, existing["id"]),
         )
         await conn.commit()
 
