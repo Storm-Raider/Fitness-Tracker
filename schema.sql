@@ -48,7 +48,20 @@ CREATE TABLE IF NOT EXISTS users (
     username      TEXT     NOT NULL UNIQUE,
     password_hash TEXT     NOT NULL,
     is_admin      INTEGER  NOT NULL DEFAULT 0,
+    email         TEXT,
     created_at    DATETIME NOT NULL DEFAULT (datetime('now','localtime'))
+);
+
+-- idx_users_email is created by the _MIGRATIONS runner in db.py after the
+-- email column is guaranteed to exist.  Putting it here causes executescript()
+-- to fail with "no such column: email" on databases that pre-date the column.
+
+CREATE TABLE IF NOT EXISTS password_reset_tokens (
+    token      TEXT     PRIMARY KEY,
+    user_id    INTEGER  NOT NULL REFERENCES users(id),
+    created_at DATETIME NOT NULL DEFAULT (datetime('now','localtime')),
+    expires_at DATETIME NOT NULL,
+    used_at    DATETIME NULL
 );
 
 CREATE TABLE IF NOT EXISTS invite_tokens (

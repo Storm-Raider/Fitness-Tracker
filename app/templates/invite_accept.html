@@ -6,71 +6,109 @@
   <title>Create account — FitTrack</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400;14..32,500;14..32,600;14..32,700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
-      background: #111318;
-      color: #e2e8f0;
-      font-family: 'Inter', system-ui, sans-serif;
+      background: #090b10;
+      background-image:
+        radial-gradient(ellipse 80% 60% at 50% -5%, rgba(79,156,249,0.07) 0%, transparent 65%),
+        radial-gradient(circle at 1px 1px, rgba(255,255,255,0.05) 1px, transparent 0);
+      background-size: auto, 28px 28px;
+      color: #e4eaf2;
+      font-family: 'Barlow', system-ui, sans-serif;
       font-size: 15px;
       min-height: 100vh;
       display: flex;
       flex-direction: column;
       align-items: center;
-      padding-top: 20vh;
+      padding-top: 10vh;
       -webkit-font-smoothing: antialiased;
     }
     .wrap {
       width: calc(100% - 2rem);
       max-width: 360px;
+      animation: slideUp 0.35s cubic-bezier(0.16, 1, 0.3, 1) both;
+    }
+    @keyframes slideUp {
+      from { opacity: 0; transform: translateY(12px); }
+      to   { opacity: 1; transform: translateY(0); }
     }
     .wordmark {
+      font-family: 'Syne', system-ui, sans-serif;
       text-align: center;
-      font-size: 1.5rem;
+      font-size: 1.55rem;
       font-weight: 700;
-      letter-spacing: -0.02em;
-      margin-bottom: 1.5rem;
+      letter-spacing: -0.03em;
+      margin-bottom: 0.5rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.45rem;
+    }
+    .wordmark-dot {
+      width: 7px;
+      height: 7px;
+      background: #f59e0b;
+      border-radius: 50%;
+      box-shadow: 0 0 10px rgba(245,158,11,0.7);
+    }
+    .tagline {
+      text-align: center;
+      font-size: 0.8rem;
+      color: #5a6a82;
+      margin-bottom: 1.75rem;
+      letter-spacing: 0.02em;
     }
     .card {
-      background: #1a1e27;
-      border: 1px solid #2a2f3d;
-      border-radius: 8px;
-      padding: 1.5rem;
+      background: #0f1219;
+      border: 1px solid #1e2334;
+      border-radius: 12px;
+      padding: 1.75rem;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,255,255,0.04),
+                  0 0 60px rgba(79,156,249,0.04);
     }
     h2 {
+      font-family: 'Syne', system-ui, sans-serif;
       font-size: 1rem;
-      font-weight: 600;
+      font-weight: 700;
+      letter-spacing: -0.01em;
       margin-bottom: 1.25rem;
     }
     .flash-error {
-      background: #450a0a;
-      border: 1px solid #f87171;
+      background: rgba(248,113,113,0.08);
+      border: 1px solid rgba(248,113,113,0.25);
       color: #f87171;
-      border-radius: 6px;
+      border-radius: 8px;
       padding: 0.75rem 1rem;
       font-size: 0.875rem;
       margin-bottom: 1rem;
     }
     label {
       display: block;
-      font-size: 0.8rem;
-      color: #64748b;
-      margin-bottom: 0.25rem;
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: #5a6a82;
+      margin-bottom: 0.35rem;
     }
     input[type="text"],
+    input[type="email"],
     input[type="password"] {
       width: 100%;
-      background: #111318;
-      border: 1px solid #2a2f3d;
-      border-radius: 6px;
-      color: #e2e8f0;
-      padding: 0.5rem 0.75rem;
-      font-size: 0.875rem;
-      font-family: inherit;
-      margin-bottom: 1rem;
+      background: #090b10;
+      border: 1px solid #1e2334;
+      border-radius: 8px;
+      color: #e4eaf2;
+      padding: 0.55rem 0.85rem;
+      font-size: 0.9rem;
+      font-family: 'Barlow', system-ui, sans-serif;
+      margin-bottom: 0.35rem;
+      transition: border-color 0.15s, box-shadow 0.15s;
     }
     input[type="text"]:focus,
+    input[type="email"]:focus,
     input[type="password"]:focus {
       outline: none;
       border-color: #4f9cf9;
@@ -78,41 +116,46 @@
     }
     .hint-text {
       font-size: 0.75rem;
-      color: #64748b;
-      margin-top: -0.75rem;
+      color: #5a6a82;
       margin-bottom: 1rem;
     }
+    .field-error {
+      font-size: 0.75rem;
+      color: #f87171;
+      margin-bottom: 1rem;
+    }
+    .spacer { margin-bottom: 1rem; }
     .btn-primary {
       display: block;
       width: 100%;
-      min-height: 42px;
-      background: linear-gradient(135deg, #60a5fa 0%, #3b82f6 100%);
-      color: #0f172a;
+      min-height: 44px;
+      background: linear-gradient(135deg, #4f9cf9 0%, #3b82f6 100%);
+      color: #fff;
       border: none;
-      border-radius: 7px;
-      font-size: 0.875rem;
+      border-radius: 8px;
+      font-size: 0.9rem;
       font-weight: 600;
-      font-family: inherit;
+      font-family: 'Barlow', system-ui, sans-serif;
+      letter-spacing: 0.02em;
       cursor: pointer;
       transition: all 0.15s;
     }
     .btn-primary:hover {
-      background: linear-gradient(135deg, #93c5fd 0%, #60a5fa 100%);
-      box-shadow: 0 4px 12px rgba(96,165,250,0.3);
+      background: linear-gradient(135deg, #7ab8fc 0%, #4f9cf9 100%);
+      box-shadow: 0 4px 20px rgba(79,156,249,0.4);
       transform: translateY(-1px);
     }
   </style>
 </head>
 <body>
   <div class="wrap">
-    <div class="wordmark">FitTrack</div>
+    <div class="wordmark">
+      <span class="wordmark-dot"></span>
+      FitTrack
+    </div>
+    <p class="tagline">You've been invited.</p>
     <div class="card">
       <h2>Create your account</h2>
-      {% if errors %}
-      <div class="flash-error" role="alert">
-        {% for msg in errors.values() %}{{ msg }}{% if not loop.last %}<br>{% endif %}{% endfor %}
-      </div>
-      {% endif %}
       <form method="post" action="/invite/accept/{{ token | e }}">
         <div>
           <label for="username">Username</label>
@@ -121,7 +164,23 @@
                  value="{{ form.get('username', '') | e }}"
                  pattern="[a-zA-Z0-9_]{3,30}"
                  required autofocus>
+          {% if errors.get('username') %}
+          <p class="field-error">{{ errors.username }}</p>
+          {% else %}
           <p class="hint-text">3–30 characters: letters, numbers, underscores</p>
+          {% endif %}
+        </div>
+        <div>
+          <label for="email">Email address</label>
+          <input type="email" id="email" name="email"
+                 autocomplete="email"
+                 value="{{ form.get('email', '') | e }}"
+                 required>
+          {% if errors.get('email') %}
+          <p class="field-error">{{ errors.email }}</p>
+          {% else %}
+          <p class="hint-text">Used for password recovery only</p>
+          {% endif %}
         </div>
         <div>
           <label for="password">Password</label>
@@ -129,7 +188,11 @@
                  autocomplete="new-password"
                  minlength="8"
                  required>
+          {% if errors.get('password') %}
+          <p class="field-error">{{ errors.password }}</p>
+          {% else %}
           <p class="hint-text">Minimum 8 characters</p>
+          {% endif %}
         </div>
         <div>
           <label for="password_confirm">Confirm password</label>
@@ -137,6 +200,11 @@
                  autocomplete="new-password"
                  minlength="8"
                  required>
+          {% if errors.get('password_confirm') %}
+          <p class="field-error">{{ errors.password_confirm }}</p>
+          {% else %}
+          <div class="spacer"></div>
+          {% endif %}
         </div>
         <button type="submit" class="btn-primary">Create account</button>
       </form>

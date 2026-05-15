@@ -36,24 +36,37 @@
 
   <div>
     <div class="section-title">History</div>
-    <div class="card" id="metrics-table">
+    <div class="card" id="metrics-table" style="padding:0;overflow:hidden;">
       {% if metrics %}
       <table>
         <thead>
-          <tr><th>Date</th><th>Weight (kg)</th><th>Calories</th></tr>
+          <tr><th>Date</th><th>Weight (kg)</th><th>Calories</th><th style="width:40px;"></th></tr>
         </thead>
         <tbody>
           {% for m in metrics %}
-          <tr>
+          <tr id="metric-{{ m.id }}">
             <td>{{ m.recorded_at[:10] }}</td>
             <td class="num">{{ m.weight_kg }}</td>
             <td class="num">{{ m.calories or "—" }}</td>
+            <td style="padding:0.4rem 0.5rem;text-align:center;">
+              <button
+                hx-delete="/metrics/{{ m.id }}"
+                hx-target="#metric-{{ m.id }}"
+                hx-swap="outerHTML"
+                hx-confirm="Delete this entry?"
+                style="background:transparent;border:none;color:var(--muted);cursor:pointer;padding:0.25rem;border-radius:4px;display:inline-flex;align-items:center;transition:color 0.15s;"
+                onmouseover="this.style.color='var(--danger)'"
+                onmouseout="this.style.color='var(--muted)'"
+                title="Delete entry">
+                <i data-lucide="trash-2" style="width:14px;height:14px;pointer-events:none;"></i>
+              </button>
+            </td>
           </tr>
           {% endfor %}
         </tbody>
       </table>
       {% else %}
-      <p style="color:var(--muted); font-size:0.875rem;">No entries yet.</p>
+      <p style="color:var(--muted); font-size:0.875rem; padding:1.25rem;">No entries yet.</p>
       {% endif %}
     </div>
   </div>
@@ -89,7 +102,6 @@ async function logMetric() {
   if (resp.ok) {
     okEl.style.display = 'block';
     setTimeout(() => { okEl.style.display = 'none'; }, 3000);
-    // Reload page to show new entry in table
     setTimeout(() => location.reload(), 500);
   } else {
     errEl.textContent = 'Failed to log entry.';

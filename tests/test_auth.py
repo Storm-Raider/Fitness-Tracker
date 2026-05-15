@@ -1,4 +1,5 @@
 import pytest
+from unittest.mock import AsyncMock, patch
 
 
 # ---------------------------------------------------------------------------
@@ -41,6 +42,28 @@ async def test_login_missing_username_field_returns_422(anon_client):
         data={"password": "test-password", "next": "/"},
     )
     assert resp.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_login_remember_me_sets_max_age(anon_client):
+    resp = await anon_client.post(
+        "/login",
+        data={"username": "testuser", "password": "test-password", "next": "/", "remember": "true"},
+    )
+    assert resp.status_code == 303
+    cookie_header = resp.headers.get("set-cookie", "")
+    assert "max-age" in cookie_header.lower()
+
+
+@pytest.mark.asyncio
+async def test_login_without_remember_me_is_session_cookie(anon_client):
+    resp = await anon_client.post(
+        "/login",
+        data={"username": "testuser", "password": "test-password", "next": "/"},
+    )
+    assert resp.status_code == 303
+    cookie_header = resp.headers.get("set-cookie", "")
+    assert "max-age" not in cookie_header.lower()
 
 
 # ---------------------------------------------------------------------------
@@ -94,14 +117,20 @@ async def test_invite_accept_creates_user_and_redirects(anon_client, db_conn):
 
     resp = await anon_client.post(
         "/invite/accept/tok-create",
-        data={"username": "newuser", "password": "newpassword", "password_confirm": "newpassword"},
+        data={
+            "username": "newuser",
+            "email": "newuser@example.com",
+            "password": "newpassword",
+            "password_confirm": "newpassword",
+        },
     )
     assert resp.status_code in (302, 303)
     assert "login" in resp.headers["location"]
 
-    async with db_conn.execute("SELECT id FROM users WHERE username = 'newuser'") as cur:
+    async with db_conn.execute("SELECT id, email FROM users WHERE username = 'newuser'") as cur:
         row = await cur.fetchone()
     assert row is not None
+    assert row["email"] == "newuser@example.com"
 
 
 @pytest.mark.asyncio
@@ -126,7 +155,12 @@ async def test_invite_accept_single_use_token(anon_client, db_conn):
 
     await anon_client.post(
         "/invite/accept/tok-once",
-        data={"username": "firstuser", "password": "password1", "password_confirm": "password1"},
+        data={
+            "username": "firstuser",
+            "email": "first@example.com",
+            "password": "password1",
+            "password_confirm": "password1",
+        },
     )
     resp = await anon_client.get("/invite/accept/tok-once")
     assert resp.status_code == 400
@@ -146,10 +180,60 @@ async def test_invite_accept_password_mismatch(anon_client, db_conn):
 
     resp = await anon_client.post(
         "/invite/accept/tok-mismatch",
-        data={"username": "user1", "password": "password1", "password_confirm": "differentpass"},
+        data={
+            "username": "user1",
+            "email": "user1@example.com",
+            "password": "password1",
+            "password_confirm": "differentpass",
+        },
     )
     assert resp.status_code == 200
     assert b"Passwords do not match" in resp.content
+
+
+@pytest.mark.asyncio
+async def test_invite_accept_invalid_email(anon_client, db_conn):
+    await db_conn.execute(
+        "INSERT INTO invite_tokens(token, created_by, expires_at) "
+        "VALUES ('tok-bademail', 1, datetime('now','localtime','+48 hours'))"
+    )
+    await db_conn.commit()
+
+    resp = await anon_client.post(
+        "/invite/accept/tok-bademail",
+        data={
+            "username": "user2",
+            "email": "not-an-email",
+            "password": "password1",
+            "password_confirm": "password1",
+        },
+    )
+    assert resp.status_code == 200
+    assert b"valid email" in resp.content.lower()
+
+
+@pytest.mark.asyncio
+async def test_invite_accept_duplicate_email(anon_client, db_conn):
+    await db_conn.execute(
+        "INSERT INTO users(username, password_hash, email) VALUES ('existing', 'x', 'taken@example.com')"
+    )
+    await db_conn.execute(
+        "INSERT INTO invite_tokens(token, created_by, expires_at) "
+        "VALUES ('tok-dupemail', 1, datetime('now','localtime','+48 hours'))"
+    )
+    await db_conn.commit()
+
+    resp = await anon_client.post(
+        "/invite/accept/tok-dupemail",
+        data={
+            "username": "brandnew",
+            "email": "taken@example.com",
+            "password": "password1",
+            "password_confirm": "password1",
+        },
+    )
+    assert resp.status_code == 200
+    assert b"already exists" in resp.content.lower()
 
 
 @pytest.mark.asyncio
@@ -162,7 +246,12 @@ async def test_invite_accept_username_already_taken(anon_client, db_conn):
 
     resp = await anon_client.post(
         "/invite/accept/tok-dup",
-        data={"username": "testuser", "password": "newpassword", "password_confirm": "newpassword"},
+        data={
+            "username": "testuser",
+            "email": "dup@example.com",
+            "password": "newpassword",
+            "password_confirm": "newpassword",
+        },
     )
     assert resp.status_code == 200
     assert b"already taken" in resp.content.lower()
@@ -178,7 +267,12 @@ async def test_invite_accept_invalid_username_format(anon_client, db_conn):
 
     resp = await anon_client.post(
         "/invite/accept/tok-badname",
-        data={"username": "bad name!", "password": "password1", "password_confirm": "password1"},
+        data={
+            "username": "bad name!",
+            "email": "ok@example.com",
+            "password": "password1",
+            "password_confirm": "password1",
+        },
     )
     assert resp.status_code == 200
     assert b"Username must be" in resp.content
@@ -194,7 +288,12 @@ async def test_invite_accept_password_too_short(anon_client, db_conn):
 
     resp = await anon_client.post(
         "/invite/accept/tok-short",
-        data={"username": "newuser2", "password": "short", "password_confirm": "short"},
+        data={
+            "username": "newuser2",
+            "email": "short@example.com",
+            "password": "short",
+            "password_confirm": "short",
+        },
     )
     assert resp.status_code == 200
     assert b"8" in resp.content
@@ -208,6 +307,117 @@ async def test_invite_accept_password_too_short(anon_client, db_conn):
 async def test_invite_accept_nonexistent_token_returns_400(anon_client):
     resp = await anon_client.get("/invite/accept/totallymadeuptoken")
     assert resp.status_code == 400
+
+
+# ---------------------------------------------------------------------------
+# Forgot / reset password
+# ---------------------------------------------------------------------------
+
+@pytest.mark.asyncio
+async def test_forgot_password_page_renders(anon_client):
+    resp = await anon_client.get("/forgot-password")
+    assert resp.status_code == 200
+    assert b"reset" in resp.content.lower()
+
+
+@pytest.mark.asyncio
+async def test_forgot_password_unknown_email_shows_success(anon_client):
+    with patch("app.routes.auth.send_email", new_callable=AsyncMock) as mock_send:
+        resp = await anon_client.post(
+            "/forgot-password", data={"email": "nobody@example.com"}
+        )
+    assert resp.status_code == 200
+    assert b"sent" in resp.content.lower()
+    mock_send.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_forgot_password_known_email_creates_token_and_sends_email(anon_client, db_conn):
+    await db_conn.execute(
+        "UPDATE users SET email = 'testuser@example.com' WHERE username = 'testuser'"
+    )
+    await db_conn.commit()
+
+    with patch("app.routes.auth.send_email", new_callable=AsyncMock) as mock_send:
+        resp = await anon_client.post(
+            "/forgot-password", data={"email": "testuser@example.com"}
+        )
+
+    assert resp.status_code == 200
+    assert b"sent" in resp.content.lower()
+    mock_send.assert_called_once()
+
+    async with db_conn.execute(
+        "SELECT token FROM password_reset_tokens WHERE user_id = 1"
+    ) as cur:
+        row = await cur.fetchone()
+    assert row is not None
+
+
+@pytest.mark.asyncio
+async def test_reset_password_valid_token(anon_client, db_conn):
+    await db_conn.execute(
+        "INSERT INTO password_reset_tokens(token, user_id, expires_at) "
+        "VALUES ('reset-tok', 1, datetime('now','localtime','+1 hour'))"
+    )
+    await db_conn.commit()
+
+    resp = await anon_client.get("/reset-password/reset-tok")
+    assert resp.status_code == 200
+    assert b"password" in resp.content.lower()
+
+    resp = await anon_client.post(
+        "/reset-password/reset-tok",
+        data={"password": "brandnewpass", "password_confirm": "brandnewpass"},
+    )
+    assert resp.status_code in (302, 303)
+    assert "login" in resp.headers["location"]
+
+    async with db_conn.execute(
+        "SELECT used_at FROM password_reset_tokens WHERE token = 'reset-tok'"
+    ) as cur:
+        row = await cur.fetchone()
+    assert row["used_at"] is not None
+
+
+@pytest.mark.asyncio
+async def test_reset_password_expired_token_returns_400(anon_client, db_conn):
+    await db_conn.execute(
+        "INSERT INTO password_reset_tokens(token, user_id, expires_at) "
+        "VALUES ('reset-exp', 1, datetime('now','localtime','-1 hour'))"
+    )
+    await db_conn.commit()
+
+    resp = await anon_client.get("/reset-password/reset-exp")
+    assert resp.status_code == 400
+
+
+@pytest.mark.asyncio
+async def test_reset_password_used_token_returns_400(anon_client, db_conn):
+    await db_conn.execute(
+        "INSERT INTO password_reset_tokens(token, user_id, expires_at, used_at) "
+        "VALUES ('reset-used', 1, datetime('now','localtime','+1 hour'), datetime('now','localtime'))"
+    )
+    await db_conn.commit()
+
+    resp = await anon_client.get("/reset-password/reset-used")
+    assert resp.status_code == 400
+
+
+@pytest.mark.asyncio
+async def test_reset_password_mismatch_shows_error(anon_client, db_conn):
+    await db_conn.execute(
+        "INSERT INTO password_reset_tokens(token, user_id, expires_at) "
+        "VALUES ('reset-mm', 1, datetime('now','localtime','+1 hour'))"
+    )
+    await db_conn.commit()
+
+    resp = await anon_client.post(
+        "/reset-password/reset-mm",
+        data={"password": "newpassword1", "password_confirm": "newpassword2"},
+    )
+    assert resp.status_code == 200
+    assert b"do not match" in resp.content.lower()
 
 
 # ---------------------------------------------------------------------------
@@ -234,7 +444,35 @@ async def test_open_redirect_prevention(anon_client):
 
 
 @pytest.mark.asyncio
+async def test_open_redirect_prevention_protocol_relative(anon_client):
+    resp = await anon_client.post(
+        "/login",
+        data={"username": "testuser", "password": "test-password", "next": "//evil.com"},
+    )
+    assert resp.status_code == 303
+    assert resp.headers["location"] == "/"
+
+
+@pytest.mark.asyncio
 async def test_logout_clears_cookie(client):
     resp = await client.post("/logout")
     assert resp.status_code == 303
     assert resp.headers["location"] == "/login"
+
+
+# ---------------------------------------------------------------------------
+# Nav invite link visibility
+# ---------------------------------------------------------------------------
+
+@pytest.mark.asyncio
+async def test_admin_sees_invite_link_in_nav(admin_client):
+    resp = await admin_client.get("/", headers={"Accept": "text/html"})
+    assert resp.status_code == 200
+    assert b"/invite" in resp.content
+
+
+@pytest.mark.asyncio
+async def test_non_admin_does_not_see_invite_link_in_nav(client):
+    resp = await client.get("/", headers={"Accept": "text/html"})
+    assert resp.status_code == 200
+    assert b"/invite" not in resp.content

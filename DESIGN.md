@@ -20,9 +20,11 @@
 **Rule:** Blue = interactive chrome. Gold = data/achievement semantic. Never swap.
 
 ## Typography
-- UI/prose: Space Grotesk (Google Fonts), 400/500/600/700
+- Headings (h1/h2/h3): Syne (Google Fonts), 600/700/800 — distinctive geometric, letter-spacing: -0.02em
+- UI/prose: Barlow (Google Fonts), 400/500/600
 - Numeric data: JetBrains Mono (Google Fonts), 500/600/700
 - All weight values (kg), reps, volume, PR values → JetBrains Mono
+- Labels: uppercase + letter-spacing: 0.06em + font-weight: 700
 - Fallback: system-ui, sans-serif / monospace (for offline self-hosting)
 
 ## Spacing Scale

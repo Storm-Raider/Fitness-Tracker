@@ -1,17 +1,15 @@
 {% if workouts %}
 <div style="display:flex;flex-direction:column;gap:0.5rem;">
   {% for w in workouts %}
-  <a href="/workouts/{{ w.id }}" style="display:block;text-decoration:none;color:inherit;">
-    <div class="card" style="padding:1rem 1.25rem;transition:border-color 0.15s,box-shadow 0.15s;"
-         onmouseover="this.style.borderColor='#3d4459';this.style.boxShadow='0 4px 16px rgba(0,0,0,0.4)'"
-         onmouseout="this.style.borderColor='';this.style.boxShadow=''">
+  <div id="workout-{{ w.id }}" class="card" style="padding:0;display:flex;align-items:stretch;overflow:hidden;transition:border-color 0.15s,box-shadow 0.15s;"
+       onmouseover="this.style.borderColor='#3d4459';this.style.boxShadow='0 4px 16px rgba(0,0,0,0.4)'"
+       onmouseout="this.style.borderColor='';this.style.boxShadow=''">
+    <a href="/workouts/{{ w.id }}" style="flex:1;min-width:0;text-decoration:none;color:inherit;display:block;padding:1rem 1.25rem;">
       <div style="display:flex;align-items:center;justify-content:space-between;gap:1rem;">
         <div style="min-width:0;">
           <div style="font-weight:600;font-size:0.9rem;margin-bottom:0.2rem;">{{ w.started_at[:10] }}</div>
           {% if w.notes %}
-          <div style="color:var(--muted);font-size:0.8rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
-            {{ w.notes }}
-          </div>
+          <div style="color:var(--muted);font-size:0.8rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ w.notes }}</div>
           {% endif %}
         </div>
         <div style="display:flex;align-items:center;gap:1rem;flex-shrink:0;">
@@ -34,8 +32,19 @@
           </svg>
         </div>
       </div>
-    </div>
-  </a>
+    </a>
+    <button
+      hx-delete="/workouts/{{ w.id }}"
+      hx-target="#workout-{{ w.id }}"
+      hx-swap="outerHTML"
+      hx-confirm="Delete this workout{% if w.set_count > 0 %} and its {{ w.set_count }} set{{ 's' if w.set_count != 1 }}{% endif %}? This cannot be undone."
+      style="flex-shrink:0;width:44px;background:transparent;border:none;border-left:1px solid var(--border);color:var(--muted);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:color 0.15s,background 0.15s;"
+      onmouseover="this.style.color='var(--danger)';this.style.background='rgba(248,113,113,0.07)'"
+      onmouseout="this.style.color='var(--muted)';this.style.background='transparent'"
+      title="Delete workout">
+      <i data-lucide="trash-2" style="width:15px;height:15px;pointer-events:none;"></i>
+    </button>
+  </div>
   {% endfor %}
 </div>
 {% else %}

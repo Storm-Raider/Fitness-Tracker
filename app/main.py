@@ -12,8 +12,8 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import RedirectResponse
 
 from app.db import open_db, set_db, clear_db
-from app.routes import dashboard, exercises, export, import_, metrics, routines, webhooks, workouts
-from app.routes.auth import router as auth_router, COOKIE_NAME, _serializer, _hash_password
+from app.routes import dashboard, exercises, export, import_, metrics, routines, settings, webhooks, workouts
+from app.routes.auth import router as auth_router, COOKIE_NAME, _serializer, _hash_password, _verify_password
 from app.routes.workouts import set_http_client
 
 from itsdangerous import BadSignature, SignatureExpired
@@ -24,11 +24,15 @@ _templates = Jinja2Templates(directory=Path(__file__).parent / "templates")
 
 DATABASE_PATH = os.environ.get("DATABASE_PATH", "/data/fitness.db")
 
-_EXEMPT_PATHS = {"/health", "/login", "/logout", "/sw.js"}
+_EXEMPT_PATHS = {"/health", "/login", "/logout", "/sw.js", "/forgot-password"}
 
 
 def _is_exempt(path: str) -> bool:
-    return path in _EXEMPT_PATHS or path.startswith("/invite/accept/")
+    return (
+        path in _EXEMPT_PATHS
+        or path.startswith("/invite/accept/")
+        or path.startswith("/reset-password/")
+    )
 
 
 class _SecurityHeadersMiddleware(BaseHTTPMiddleware):
@@ -98,9 +102,14 @@ async def lifespan(app: FastAPI):
     conn = await open_db(DATABASE_PATH)
     set_db(conn)
 
-    # Seed admin user if not already present
+    # Seed admin user; always sync password_hash and is_admin from env vars
+    # so the account is always correct after a restart regardless of what is
+    # stored in the DB.  Checking is_admin separately from the password lets
+    # us promote an existing non-admin account whose credentials now match the
+    # env vars without requiring a password change first.
     async with conn.execute(
-        "SELECT id FROM users WHERE username = ?", (admin_username,)
+        "SELECT id, password_hash, is_admin FROM users WHERE username = ?",
+        (admin_username,),
     ) as cur:
         existing = await cur.fetchone()
     if not existing:
@@ -110,6 +119,19 @@ async def lifespan(app: FastAPI):
             (admin_username, hashed),
         )
         await conn.commit()
+    else:
+        password_ok = _verify_password(admin_password, existing["password_hash"])
+        already_admin = bool(existing["is_admin"])
+        if not password_ok or not already_admin:
+            new_hash = (
+                _hash_password(admin_password) if not password_ok
+                else existing["password_hash"]
+            )
+            await conn.execute(
+                "UPDATE users SET password_hash = ?, is_admin = 1 WHERE id = ?",
+                (new_hash, existing["id"]),
+            )
+            await conn.commit()
 
     client = httpx.AsyncClient()
     set_http_client(client)
@@ -148,6 +170,7 @@ app.include_router(export.router)
 app.include_router(import_.router)
 app.include_router(webhooks.router)
 app.include_router(routines.router)
+app.include_router(settings.router)
 
 
 @app.get("/health")

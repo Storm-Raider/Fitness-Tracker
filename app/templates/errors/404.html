@@ -6,13 +6,15 @@
   <title>Not Found — FitTrack</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400;14..32,500;14..32,600;14..32,700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
-      background: #111318;
-      color: #e2e8f0;
-      font-family: 'Inter', system-ui, sans-serif;
+      background: #090b10;
+      background-image: radial-gradient(circle at 1px 1px, rgba(255,255,255,0.05) 1px, transparent 0);
+      background-size: 28px 28px;
+      color: #e4eaf2;
+      font-family: 'Barlow', system-ui, sans-serif;
       min-height: 100vh;
       display: flex;
       flex-direction: column;
@@ -22,21 +24,24 @@
       -webkit-font-smoothing: antialiased;
     }
     .code {
+      font-family: 'Syne', system-ui, sans-serif;
       font-size: 5rem;
-      font-weight: 700;
+      font-weight: 800;
       letter-spacing: -0.04em;
-      color: #1f2535;
+      color: #1c2230;
       line-height: 1;
       margin-bottom: 1rem;
     }
     .msg {
+      font-family: 'Syne', system-ui, sans-serif;
       font-size: 1.1rem;
-      font-weight: 600;
+      font-weight: 700;
+      letter-spacing: -0.01em;
       margin-bottom: 0.5rem;
     }
     .sub {
       font-size: 0.875rem;
-      color: #64748b;
+      color: #5a6a82;
       margin-bottom: 2rem;
     }
     .btn {
@@ -44,18 +49,22 @@
       align-items: center;
       padding: 0.5rem 1.25rem;
       min-height: 40px;
-      background: linear-gradient(135deg, #60a5fa, #3b82f6);
-      color: #0f172a;
+      background: linear-gradient(135deg, #4f9cf9, #3b82f6);
+      color: #fff;
       border: none;
-      border-radius: 7px;
+      border-radius: 8px;
       font-size: 0.875rem;
       font-weight: 600;
-      font-family: inherit;
+      font-family: 'Barlow', system-ui, sans-serif;
       cursor: pointer;
       text-decoration: none;
       transition: all 0.15s;
     }
-    .btn:hover { background: linear-gradient(135deg, #93c5fd, #60a5fa); }
+    .btn:hover {
+      background: linear-gradient(135deg, #7ab8fc, #4f9cf9);
+      box-shadow: 0 4px 16px rgba(79,156,249,0.35);
+      transform: translateY(-1px);
+    }
   </style>
 </head>
 <body>

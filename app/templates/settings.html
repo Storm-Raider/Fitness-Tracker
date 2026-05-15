@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% block title %}Settings — FitTrack{% endblock %}
+{% block content %}
+<div style="padding-top:0.5rem; margin-bottom:1.5rem;">
+  <h1 style="font-size:1.5rem; font-weight:700;">Account Settings</h1>
+</div>
+
+{% if success == 'email' %}
+<div class="flash flash-success" role="status" style="margin-bottom:1.5rem;">Email address updated.</div>
+{% elif success == 'password' %}
+<div class="flash flash-success" role="status" style="margin-bottom:1.5rem;">Password updated successfully.</div>
+{% endif %}
+
+<div style="display:flex; flex-direction:column; gap:1.5rem; max-width:480px;">
+
+  <!-- Profile -->
+  <div class="card">
+    <div class="section-title" style="margin-bottom:1rem;">Profile</div>
+    <div class="form-group">
+      <label>Username</label>
+      <input type="text" value="{{ profile.username | e }}" disabled
+             style="color:var(--muted); cursor:not-allowed;">
+    </div>
+    <form method="post" action="/settings/email">
+      <div class="form-group">
+        <label for="email">Email address</label>
+        <input type="email" id="email" name="email"
+               value="{{ profile.email or '' | e }}"
+               autocomplete="email"
+               placeholder="you@example.com">
+        {% if email_errors.get('email') %}
+        <p style="font-size:0.75rem; color:var(--danger); margin-top:0.3rem;">{{ email_errors.email }}</p>
+        {% else %}
+        <p style="font-size:0.75rem; color:var(--muted); margin-top:0.3rem;">Used for password recovery</p>
+        {% endif %}
+      </div>
+      <button type="submit" class="btn btn-primary">Update email</button>
+    </form>
+  </div>
+
+  <!-- Security -->
+  <div class="card">
+    <div class="section-title" style="margin-bottom:1rem;">Security</div>
+    <form method="post" action="/settings/password">
+      <div class="form-group">
+        <label for="current_password">Current password</label>
+        <input type="password" id="current_password" name="current_password"
+               autocomplete="current-password" required>
+        {% if password_errors.get('current_password') %}
+        <p style="font-size:0.75rem; color:var(--danger); margin-top:0.3rem;">{{ password_errors.current_password }}</p>
+        {% endif %}
+      </div>
+      <div class="form-group">
+        <label for="new_password">New password</label>
+        <input type="password" id="new_password" name="new_password"
+               autocomplete="new-password" minlength="8" required>
+        {% if password_errors.get('new_password') %}
+        <p style="font-size:0.75rem; color:var(--danger); margin-top:0.3rem;">{{ password_errors.new_password }}</p>
+        {% else %}
+        <p style="font-size:0.75rem; color:var(--muted); margin-top:0.3rem;">Minimum 8 characters</p>
+        {% endif %}
+      </div>
+      <div class="form-group">
+        <label for="new_password_confirm">Confirm new password</label>
+        <input type="password" id="new_password_confirm" name="new_password_confirm"
+               autocomplete="new-password" minlength="8" required>
+        {% if password_errors.get('new_password_confirm') %}
+        <p style="font-size:0.75rem; color:var(--danger); margin-top:0.3rem;">{{ password_errors.new_password_confirm }}</p>
+        {% endif %}
+      </div>
+      <button type="submit" class="btn btn-primary">Change password</button>
+    </form>
+  </div>
+
+</div>
+{% endblock %}

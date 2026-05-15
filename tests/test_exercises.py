@@ -24,7 +24,7 @@ async def test_list_exercises_includes_last_sets(client):
     w_id = w.json()["id"]
     await client.post(f"/workouts/{w_id}/sets", json={"exercise_id": ex_id, "reps": 5, "weight_kg": 100.0})
 
-    resp = await client.get("/exercises")
+    resp = await client.get("/api/exercises")
     assert resp.status_code == 200
     data = resp.json()
     assert str(ex_id) in data["last_sets"]

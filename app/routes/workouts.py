@@ -10,7 +10,7 @@ from pydantic import BaseModel, Field
 
 from app.db import get_db
 from app.routes.auth import get_current_user
-from app.utils.render import render
+from app.utils.render import render, templates
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -122,7 +122,7 @@ async def get_workout(
         sets = [dict(r) for r in await cur.fetchall()]
 
     session_volume = sum(s["weight_kg"] * s["reps"] for s in sets)
-    return render(request, "workout_form", {
+    return templates.TemplateResponse(request, "workout_form.html", {
         "workout": dict(row),
         "sets": sets,
         "session_volume": session_volume,
@@ -276,6 +276,24 @@ async def finish_workout(
         )
 
     return JSONResponse(summary)
+
+
+@router.delete("/workouts/{workout_id}", status_code=200)
+async def delete_workout(
+    workout_id: int,
+    conn: aiosqlite.Connection = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    uid = current_user["id"]
+    async with conn.execute(
+        "SELECT id FROM workouts WHERE id = ? AND user_id = ?", (workout_id, uid)
+    ) as cur:
+        if not await cur.fetchone():
+            raise HTTPException(status_code=404, detail="Workout not found")
+    await conn.execute("DELETE FROM sets WHERE workout_id = ? AND user_id = ?", (workout_id, uid))
+    await conn.execute("DELETE FROM workouts WHERE id = ? AND user_id = ?", (workout_id, uid))
+    await conn.commit()
+    return ""
 
 
 @router.delete("/workouts/{workout_id}/sets/{set_id}", status_code=204)
