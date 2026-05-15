@@ -30,6 +30,7 @@ _EXEMPT_PATHS = {"/health", "/login", "/logout", "/sw.js", "/forgot-password"}
 def _is_exempt(path: str) -> bool:
     return (
         path in _EXEMPT_PATHS
+        or path.startswith("/static/")
         or path.startswith("/invite/accept/")
         or path.startswith("/reset-password/")
     )
@@ -45,8 +46,8 @@ class _SecurityHeadersMiddleware(BaseHTTPMiddleware):
         response.headers["Content-Security-Policy"] = (
             "default-src 'self'; "
             "script-src 'self' 'unsafe-inline' https://unpkg.com; "
-            "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
-            "font-src https://fonts.gstatic.com; "
+            "style-src 'self' 'unsafe-inline'; "
+            "font-src 'self'; "
             "img-src 'self' data:; "
             "connect-src 'self'; "
             "frame-ancestors 'none';"
