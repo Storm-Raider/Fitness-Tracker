@@ -9,12 +9,16 @@ All notable changes to FitTrack are documented here.
 - **Exercise detail chips** — category / equipment / primary muscle shown as neutral muted chips on exercise detail pages; form cue rendered below
 - **14 pre-built global routines** — PPL (Push/Pull/Legs), Full Body A & B, Upper/Lower (Upper A/B, Lower A/B), and Bro Split (Chest/Back/Shoulders/Arms/Legs) — visible to all users in the routine dropdown
 - **`app/data/` module** — `exercises.py` (105 entries) and `routines.py` (14 routines) as the authoritative data source; replaces inline schema seed
+- **Cascading Routine → Muscle Group → Exercise filter** — workout form now has a Muscle Group dropdown between the routine select and the exercise chips; selecting a routine narrows the muscle list to that routine's muscles; selecting a muscle group filters both chips and datalist autocomplete; empty-state messages shown when the intersection is zero
+- **`exercise_muscles` table** — normalized one-row-per-muscle storage (314 rows seeded from `exercises.py`); compound strings like "Quads, Glutes" split into separate rows; `GET /api/exercises` and `GET /routines` now return `muscles:[{name,is_primary}]` arrays per exercise
 
 ### Changed
 - Exercise seeding now uses `INSERT OR IGNORE` + `UPDATE` so metadata is refreshed on every startup without duplicates
 - Routine seeding wrapped in `BEGIN IMMEDIATE` transaction for atomic startup
 - `GET /routines` returns global pre-built routines (`user_id IS NULL`) alongside user-created ones
 - `GET /exercises/{id}` now selects all 5 metadata columns
+- `GET /api/exercises` response shape: each exercise now includes `muscles:[{name,is_primary}]` array (user-created exercises return `muscles:[]`)
+- `GET /routines` response shape: each routine's exercises now include `muscles:[{name,is_primary}]` array
 
 ### Fixed
 - `.gitignore` `data/` pattern was too broad and blocked `app/data/` module from being tracked — anchored to `/data/`
