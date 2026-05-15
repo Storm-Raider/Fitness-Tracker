@@ -2,6 +2,25 @@
 
 All notable changes to FitTrack are documented here.
 
+## [Unreleased]
+
+### Added
+- **Exercise metadata** — category, equipment, primary muscle, secondary muscle, and form cue for all 105 exercises
+- **Exercise detail chips** — category / equipment / primary muscle shown as neutral muted chips on exercise detail pages; form cue rendered below
+- **14 pre-built global routines** — PPL (Push/Pull/Legs), Full Body A & B, Upper/Lower (Upper A/B, Lower A/B), and Bro Split (Chest/Back/Shoulders/Arms/Legs) — visible to all users in the routine dropdown
+- **`app/data/` module** — `exercises.py` (105 entries) and `routines.py` (14 routines) as the authoritative data source; replaces inline schema seed
+
+### Changed
+- Exercise seeding now uses `INSERT OR IGNORE` + `UPDATE` so metadata is refreshed on every startup without duplicates
+- Routine seeding wrapped in `BEGIN IMMEDIATE` transaction for atomic startup
+- `GET /routines` returns global pre-built routines (`user_id IS NULL`) alongside user-created ones
+- `GET /exercises/{id}` now selects all 5 metadata columns
+
+### Fixed
+- `.gitignore` `data/` pattern was too broad and blocked `app/data/` module from being tracked — anchored to `/data/`
+
+---
+
 ## [0.3.0] — 2026-05-09
 
 ### Added
