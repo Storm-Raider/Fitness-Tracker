@@ -137,6 +137,43 @@ Without Alembic, this is a manual `sqlite3` operation on the Pi's live database 
 
 ---
 
+## TODO-EL-1: Fix N+1 query in list_routines
+
+**What:** Rewrite `GET /routines` (`app/routes/routines.py:28-39`) to fetch all routine exercises in a single query instead of one subquery per routine.
+
+**Why:** The current implementation issues 1 query to fetch routines, then N queries (one per routine) to fetch exercises. With 14 pre-built global routines always present, every workout form load triggers 15+ DB queries. Negligible at single-user Pi scale (~0.75ms) but grows linearly with routine count. A single `GROUP_CONCAT` JOIN eliminates the N+1 permanently.
+
+**Context:** Pre-existing pattern, made more visible by the exercise library plan which seeds 14 global routines. Raised in /plan-eng-review 2026-05-15. SQLite `GROUP_CONCAT` ordering behavior differs from a subquery — test order_idx preservation carefully after the fix.
+
+**Where to start:** `app/routes/routines.py:17-41`. Replace the exercise fetch loop with:
+```sql
+SELECT r.id, r.name, GROUP_CONCAT(e.id || ':' || e.name ORDER BY re.order_idx) AS exercises
+FROM routines r
+LEFT JOIN routine_exercises re ON re.routine_id = r.id
+LEFT JOIN exercises e ON e.id = re.exercise_id
+WHERE r.user_id = ? OR r.user_id IS NULL
+GROUP BY r.id ORDER BY r.name
+```
+Then parse the `exercises` string in Python. Alternatively use `json_group_array` (SQLite 3.38+).
+
+**Depends on:** Nothing. Can be done independently as a follow-on PR.
+
+---
+
+## TODO-EL-2: Guard delete button on global routines in frontend
+
+**What:** After the exercise library plan ships, `GET /routines` returns 14 global routines alongside user-created ones. If the frontend renders a delete button for every routine, clicking it on a global routine 404s silently (DELETE guard: `WHERE user_id = ?`). Check and fix.
+
+**Why:** Raised by outside voice in /plan-eng-review 2026-05-15. The backend is already correct (no data can be deleted), but the UX is confusing if ghost delete buttons appear on pre-built routines.
+
+**Context:** Verify first by opening the workout form's routine management UI and checking whether delete buttons appear for routines with `user_id = NULL`. If they do: add `user_id` to the `GET /routines` JSON response (`SELECT id, name, user_id FROM routines ...`) and in the template conditionally hide the delete button when `user_id` is null.
+
+**Where to start:** `app/routes/routines.py:22-26` (add user_id to SELECT) and the routine management template (if one exists) or the workout form JS that renders the routine list.
+
+**Depends on:** Exercise library plan shipped (routines seed complete).
+
+---
+
 ## TODO-v2-3: Hevy CSV Import Format
 
 **What:** Add support for Hevy's CSV export format in addition to Strong's.

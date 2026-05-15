@@ -1,0 +1,156 @@
+ROUTINES = [
+    {
+        "name": "PPL — Push Day",
+        "exercises": [
+            "Bench Press",
+            "Overhead Press",
+            "Incline Dumbbell Press",
+            "Cable Fly",
+            "Tricep Pushdown",
+            "Overhead Tricep Extension",
+        ],
+    },
+    {
+        "name": "PPL — Pull Day",
+        "exercises": [
+            "Deadlift",
+            "Pull-up",
+            "Barbell Row",
+            "Lat Pulldown",
+            "Face Pull",
+            "Barbell Curl",
+            "Hammer Curl",
+        ],
+    },
+    {
+        "name": "PPL — Leg Day",
+        "exercises": [
+            "Back Squat",
+            "Romanian Deadlift",
+            "Leg Press",
+            "Leg Curl",
+            "Leg Extension",
+            "Calf Raise",
+        ],
+    },
+    {
+        "name": "Full Body A",
+        "exercises": [
+            "Back Squat",
+            "Bench Press",
+            "Barbell Row",
+            "Overhead Press",
+            "Romanian Deadlift",
+            "Plank",
+        ],
+    },
+    {
+        "name": "Full Body B",
+        "exercises": [
+            "Deadlift",
+            "Incline Bench Press",
+            "Pull-up",
+            "Dumbbell Shoulder Press",
+            "Lunge",
+            "Hanging Leg Raise",
+        ],
+    },
+    {
+        "name": "Upper/Lower — Upper A",
+        "exercises": [
+            "Bench Press",
+            "Barbell Row",
+            "Overhead Press",
+            "Lat Pulldown",
+            "Tricep Pushdown",
+            "Barbell Curl",
+        ],
+    },
+    {
+        "name": "Upper/Lower — Upper B",
+        "exercises": [
+            "Incline Dumbbell Press",
+            "Single-Arm Dumbbell Row",
+            "Dumbbell Shoulder Press",
+            "Chin-up",
+            "Skull Crusher",
+            "Hammer Curl",
+        ],
+    },
+    {
+        "name": "Upper/Lower — Lower A",
+        "exercises": [
+            "Back Squat",
+            "Romanian Deadlift",
+            "Leg Press",
+            "Leg Curl",
+            "Calf Raise",
+        ],
+    },
+    {
+        "name": "Upper/Lower — Lower B",
+        "exercises": [
+            "Deadlift",
+            "Front Squat",
+            "Bulgarian Split Squat",
+            "Leg Extension",
+            "Seated Calf Raise",
+        ],
+    },
+    {
+        "name": "Bro Split — Chest",
+        "exercises": [
+            "Bench Press",
+            "Incline Bench Press",
+            "Decline Bench Press",
+            "Dumbbell Fly",
+            "Cable Fly",
+            "Chest Dip",
+        ],
+    },
+    {
+        "name": "Bro Split — Back",
+        "exercises": [
+            "Deadlift",
+            "Barbell Row",
+            "Pull-up",
+            "Lat Pulldown",
+            "Seated Cable Row",
+            "T-Bar Row",
+        ],
+    },
+    {
+        "name": "Bro Split — Shoulders",
+        "exercises": [
+            "Overhead Press",
+            "Lateral Raise",
+            "Front Raise",
+            "Face Pull",
+            "Barbell Shrug",
+            "Rear Delt Fly",
+        ],
+    },
+    {
+        "name": "Bro Split — Arms",
+        "exercises": [
+            "Barbell Curl",
+            "Hammer Curl",
+            "Preacher Curl",
+            "Tricep Pushdown",
+            "Skull Crusher",
+            "Tricep Dip",
+        ],
+    },
+    {
+        "name": "Bro Split — Legs",
+        "exercises": [
+            "Back Squat",
+            "Romanian Deadlift",
+            "Leg Press",
+            "Leg Curl",
+            "Leg Extension",
+            "Calf Raise",
+            "Seated Calf Raise",
+        ],
+    },
+]

@@ -48,7 +48,48 @@ async def test_exercise_library_seeded():
     try:
         async with conn.execute("SELECT COUNT(*) FROM exercises") as cur:
             row = await cur.fetchone()
-        assert row[0] == 86, f"Expected 86 exercises, got {row[0]}"
+        assert row[0] >= 105, f"Expected >= 105 exercises, got {row[0]}"
+    finally:
+        await conn.close()
+
+
+@pytest.mark.asyncio
+async def test_exercise_metadata_display():
+    conn = await open_db(":memory:")
+    try:
+        async with conn.execute(
+            "SELECT category FROM exercises WHERE name = 'Bench Press'"
+        ) as cur:
+            row = await cur.fetchone()
+        assert row is not None
+        assert row["category"] == "Push"
+    finally:
+        await conn.close()
+
+
+@pytest.mark.asyncio
+async def test_seeding_idempotency():
+    from app.db import init_db
+    conn = await open_db(":memory:")
+    try:
+        await init_db(conn)
+        async with conn.execute(
+            "SELECT COUNT(*) FROM routines WHERE user_id IS NULL"
+        ) as cur:
+            row = await cur.fetchone()
+        assert row[0] == 14, f"Expected 14 global routines after double init, got {row[0]}"
+    finally:
+        await conn.close()
+
+
+@pytest.mark.asyncio
+async def test_migration_columns_exist():
+    conn = await open_db(":memory:")
+    try:
+        async with conn.execute("PRAGMA table_info(exercises)") as cur:
+            columns = {r["name"] for r in await cur.fetchall()}
+        for col in ("category", "equipment", "muscle_primary", "muscle_secondary", "cue"):
+            assert col in columns, f"Column '{col}' missing from exercises table"
     finally:
         await conn.close()
 

@@ -20,7 +20,7 @@ async def list_routines(
     current_user=Depends(get_current_user),
 ):
     async with conn.execute(
-        "SELECT id, name FROM routines WHERE user_id = ? ORDER BY name",
+        "SELECT id, name FROM routines WHERE user_id = ? OR user_id IS NULL ORDER BY name",
         (current_user["id"],),
     ) as cur:
         routines = [dict(r) for r in await cur.fetchall()]

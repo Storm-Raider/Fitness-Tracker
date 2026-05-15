@@ -5,7 +5,7 @@
 .gstack/
 
 # Live database and WAL files
-data/
+/data/
 *.db
 *.db-shm
 *.db-wal

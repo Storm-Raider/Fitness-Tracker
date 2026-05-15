@@ -14,6 +14,16 @@
     {% if pr_kg %}
     <span class="badge badge-pr" style="font-size:0.8rem;">PR: {{ pr_kg }} kg</span>
     {% endif %}
+    {% if exercise.category or exercise.equipment or exercise.muscle_primary %}
+    <div style="display:flex;gap:0.4rem;flex-wrap:wrap;margin-top:0.5rem;">
+      {% if exercise.category %}<span style="background:var(--surface-2);color:var(--muted);border:1px solid var(--border);border-radius:0.375rem;padding:0.2rem 0.55rem;font-size:0.75rem;font-weight:500;">{{ exercise.category }}</span>{% endif %}
+      {% if exercise.equipment %}<span style="background:var(--surface-2);color:var(--muted);border:1px solid var(--border);border-radius:0.375rem;padding:0.2rem 0.55rem;font-size:0.75rem;font-weight:500;">{{ exercise.equipment }}</span>{% endif %}
+      {% if exercise.muscle_primary %}<span style="background:var(--surface-2);color:var(--muted);border:1px solid var(--border);border-radius:0.375rem;padding:0.2rem 0.55rem;font-size:0.75rem;font-weight:500;">{{ exercise.muscle_primary }}</span>{% endif %}
+    </div>
+    {% endif %}
+    {% if exercise.cue %}
+    <p style="color:var(--muted);font-size:0.85rem;line-height:1.5;margin-top:0.5rem;max-width:60ch;">{{ exercise.cue }}</p>
+    {% endif %}
   </div>
   {% if sessions %}
   <div style="display:flex;gap:1rem;">

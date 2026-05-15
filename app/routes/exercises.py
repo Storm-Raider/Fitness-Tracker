@@ -91,7 +91,8 @@ async def exercise_detail(
     current_user=Depends(get_current_user),
 ):
     async with conn.execute(
-        "SELECT id, name FROM exercises WHERE id = ?", (exercise_id,)
+        "SELECT id, name, category, equipment, muscle_primary, muscle_secondary, cue FROM exercises WHERE id = ?",
+        (exercise_id,)
     ) as cur:
         ex_row = await cur.fetchone()
     if not ex_row:
