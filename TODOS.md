@@ -139,22 +139,27 @@ Without Alembic, this is a manual `sqlite3` operation on the Pi's live database 
 
 ## TODO-EL-1: Fix N+1 query in list_routines
 
-**What:** Rewrite `GET /routines` (`app/routes/routines.py:28-39`) to fetch all routine exercises in a single query instead of one subquery per routine.
+**What:** Rewrite `GET /routines` (`app/routes/routines.py`) to fetch all routine exercises across all routines in a single query instead of one query per routine.
 
-**Why:** The current implementation issues 1 query to fetch routines, then N queries (one per routine) to fetch exercises. With 14 pre-built global routines always present, every workout form load triggers 15+ DB queries. Negligible at single-user Pi scale (~0.75ms) but grows linearly with routine count. A single `GROUP_CONCAT` JOIN eliminates the N+1 permanently.
+**Why:** The current implementation issues 1 query to fetch routines, then N queries (one per routine) to fetch exercises + muscles. With 14 pre-built global routines always present, every workout form load triggers 15+ DB queries. Negligible at single-user Pi scale (~0.75ms) but grows linearly with routine count.
 
-**Context:** Pre-existing pattern, made more visible by the exercise library plan which seeds 14 global routines. Raised in /plan-eng-review 2026-05-15. SQLite `GROUP_CONCAT` ordering behavior differs from a subquery — test order_idx preservation carefully after the fix.
+**Context:** Pre-existing N+1, considered for bundling in the cascading dropdowns PR (2026-05-15) but deferred to keep scope clean (eng review D2). The per-routine query now includes a muscles LEFT JOIN (shipped with cascading dropdowns), so the single-query fix must also carry the muscles aggregation.
 
-**Where to start:** `app/routes/routines.py:17-41`. Replace the exercise fetch loop with:
+**Where to start:** `app/routes/routines.py` — replace the for-loop with a single cross-routine query:
 ```sql
-SELECT r.id, r.name, GROUP_CONCAT(e.id || ':' || e.name ORDER BY re.order_idx) AS exercises
+SELECT r.id, r.name, re.order_idx,
+       e.id AS ex_id, e.name AS ex_name,
+       json_group_array(json_object('name', em.muscle, 'is_primary', em.is_primary))
+           FILTER (WHERE em.muscle IS NOT NULL) AS muscles
 FROM routines r
 LEFT JOIN routine_exercises re ON re.routine_id = r.id
 LEFT JOIN exercises e ON e.id = re.exercise_id
+LEFT JOIN exercise_muscles em ON em.exercise_id = e.id
 WHERE r.user_id = ? OR r.user_id IS NULL
-GROUP BY r.id ORDER BY r.name
+GROUP BY r.id, e.id
+ORDER BY r.name, re.order_idx
 ```
-Then parse the `exercises` string in Python. Alternatively use `json_group_array` (SQLite 3.38+).
+Then assemble routines + exercises in Python (two-pass: build routine dict, append exercises). Test order_idx preservation carefully.
 
 **Depends on:** Nothing. Can be done independently as a follow-on PR.
 
@@ -170,7 +175,42 @@ Then parse the `exercises` string in Python. Alternatively use `json_group_array
 
 **Where to start:** `app/routes/routines.py:22-26` (add user_id to SELECT) and the routine management template (if one exists) or the workout form JS that renders the routine list.
 
-**Depends on:** Exercise library plan shipped (routines seed complete).
+**Depends on:** Exercise library plan shipped ✓ (2026-05-15). Ready to action.
+
+---
+
+## TODO-EL-3: Migrate exercise detail page from muscle_primary/muscle_secondary to exercise_muscles table
+
+**What:** Update `GET /exercises/{id}` (`app/routes/exercises.py`) and `exercise_detail.html` to read muscle data from the `exercise_muscles` join table instead of the `muscle_primary`/`muscle_secondary` string columns on the exercises table.
+
+**Why:** The cascading dropdown feature (2026-05-15) introduces the `exercise_muscles` table as the normalized source of truth. The exercise detail page still reads from the legacy string columns — these two sources will drift if exercises.py data changes. Migrating the detail page completes the normalization.
+
+**Scope:**
+1. Update `GET /exercises/{id}` SELECT to join with `exercise_muscles`: `SELECT e.id, e.name, e.category, e.equipment, e.cue, em.muscle, em.is_primary FROM exercises e LEFT JOIN exercise_muscles em ON em.exercise_id = e.id WHERE e.id = ?`
+2. Group muscle rows in Python into `{"muscles": [{name, is_primary}], ...}` before passing to template
+3. Update `exercise_detail.html` chips to render from `exercise.muscles` list instead of `exercise.muscle_primary` string
+
+**Where to start:** `app/routes/exercises.py:31-40` (the exercise detail GET route). After doing this, run the exercise detail QA manually for Bench Press.
+
+**Depends on:** Cascading dropdown feature shipped ✓ (2026-05-15) — `exercise_muscles` table exists and is seeded with 314 rows. Ready to action.
+
+---
+
+## TODO-EL-4: Remove muscle_primary and muscle_secondary columns from exercises table
+
+**What:** Once TODO-EL-3 ships and the exercise detail page reads from `exercise_muscles`, the `muscle_primary` and `muscle_secondary` columns on the `exercises` table become dead. Remove them: add a migration to `_MIGRATIONS` in `app/db.py` — SQLite doesn't support DROP COLUMN before 3.35; for older Pi SQLite, this requires a table rebuild.
+
+**Why:** Dead columns that stay in the schema forever confuse future contributors and get queried accidentally. Raised by outside voice in /plan-ceo-review 2026-05-15.
+
+**Scope:**
+1. Check Pi SQLite version: `sqlite3 --version` — if >= 3.35, use `ALTER TABLE exercises DROP COLUMN muscle_primary; ALTER TABLE exercises DROP COLUMN muscle_secondary`
+2. If < 3.35: create `exercises_new`, copy relevant columns, rename — standard SQLite table-rebuild migration
+3. Add migration to `_MIGRATIONS` list in `app/db.py` (try/except as with all migrations)
+4. Update `exercises.py` data to remove the `muscle_primary`/`muscle_secondary` keys — they're no longer needed after normalization
+
+**Where to start:** Pi SQLite is 3.51.2 (confirmed 2026-05-15) — use `ALTER TABLE exercises DROP COLUMN` directly (supported since 3.35). Add two migrations to `_MIGRATIONS` in `app/db.py`.
+
+**Depends on:** TODO-EL-3 shipped and validated (exercise detail page no longer reads these columns).
 
 ---
 
