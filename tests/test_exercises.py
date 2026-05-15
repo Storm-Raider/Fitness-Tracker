@@ -2,6 +2,40 @@ import pytest
 
 
 @pytest.mark.asyncio
+async def test_api_exercises_includes_muscles_array(client):
+    resp = await client.get("/api/exercises")
+    assert resp.status_code == 200
+    data = resp.json()
+    bench = next((e for e in data["exercises"] if e["name"] == "Bench Press"), None)
+    assert bench is not None
+    assert "muscles" in bench
+    assert isinstance(bench["muscles"], list)
+    muscle_names = [m["name"] for m in bench["muscles"]]
+    assert "Chest" in muscle_names
+
+
+@pytest.mark.asyncio
+async def test_exercise_muscles_seeded(client):
+    resp = await client.get("/api/exercises")
+    bench = next(e for e in resp.json()["exercises"] if e["name"] == "Bench Press")
+    assert len(bench["muscles"]) >= 1
+    primary = [m for m in bench["muscles"] if m["is_primary"]]
+    assert len(primary) >= 1
+
+
+@pytest.mark.asyncio
+async def test_api_exercises_user_created_has_empty_muscles(client):
+    resp = await client.post("/exercises", json={"name": "My Custom Move"})
+    assert resp.status_code == 201
+    ex_id = resp.json()["id"]
+
+    resp = await client.get("/api/exercises")
+    custom = next((e for e in resp.json()["exercises"] if e["id"] == ex_id), None)
+    assert custom is not None
+    assert custom["muscles"] == []
+
+
+@pytest.mark.asyncio
 async def test_create_exercise(client):
     resp = await client.post("/exercises", json={"name": "Test Bench Press"})
     assert resp.status_code == 201

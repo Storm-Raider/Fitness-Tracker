@@ -63,6 +63,26 @@ async def init_db(conn: aiosqlite.Connection) -> None:
                 ex["name"],
             ),
         )
+    for ex in EXERCISES:
+        async with conn.execute("SELECT id FROM exercises WHERE name=?", (ex["name"],)) as _cur:
+            row = await _cur.fetchone()
+        if row:
+            ex_id = row["id"]
+            muscles = []
+            for m in (ex.get("muscle_primary") or "").split(", "):
+                m = m.strip()
+                if m:
+                    muscles.append((ex_id, m, 1))
+            for m in (ex.get("muscle_secondary") or "").split(", "):
+                m = m.strip()
+                if m:
+                    muscles.append((ex_id, m, 0))
+            for (eid, muscle, is_p) in muscles:
+                await conn.execute(
+                    "INSERT OR IGNORE INTO exercise_muscles(exercise_id, muscle, is_primary) VALUES (?,?,?)",
+                    (eid, muscle, is_p),
+                )
+
     for routine in ROUTINES:
         async with conn.execute(
             "SELECT id FROM routines WHERE name=? AND user_id IS NULL", (routine["name"],)

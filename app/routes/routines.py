@@ -1,3 +1,4 @@
+import json
 import aiosqlite
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import JSONResponse
@@ -28,15 +29,24 @@ async def list_routines(
     for r in routines:
         async with conn.execute(
             """
-            SELECT e.id, e.name
+            SELECT e.id, e.name,
+                   MIN(re.order_idx) AS ord,
+                   json_group_array(json_object('name', em.muscle, 'is_primary', em.is_primary))
+                       FILTER (WHERE em.muscle IS NOT NULL) AS muscles
             FROM routine_exercises re
             JOIN exercises e ON e.id = re.exercise_id
+            LEFT JOIN exercise_muscles em ON em.exercise_id = e.id
             WHERE re.routine_id = ?
-            ORDER BY re.order_idx
+            GROUP BY e.id, e.name
+            ORDER BY ord
             """,
             (r["id"],),
         ) as cur:
-            r["exercises"] = [dict(x) for x in await cur.fetchall()]
+            rows = await cur.fetchall()
+        r["exercises"] = [
+            {"id": row["id"], "name": row["name"], "muscles": json.loads(row["muscles"] or "[]")}
+            for row in rows
+        ]
 
     return JSONResponse(routines)
 

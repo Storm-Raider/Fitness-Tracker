@@ -62,6 +62,17 @@
                   onclick="clearRoutine()">Clear</button>
         </div>
       </div>
+      <div class="form-group">
+        <label for="muscle-group-select">Muscle group (optional)</label>
+        <div style="display:flex; gap:0.5rem;">
+          <select id="muscle-group-select" style="flex:1;" onchange="onMuscleGroupSelect(this.value)">
+            <option value="">— all muscle groups —</option>
+          </select>
+          <button type="button" class="btn btn-ghost"
+                  style="flex-shrink:0; min-height:36px; padding:0 0.75rem; font-size:0.8rem;"
+                  onclick="clearMuscleGroup()">Clear</button>
+        </div>
+      </div>
       <div id="routine-plan" style="display:none; margin-bottom:0.75rem;">
         <div style="font-size:0.75rem; color:var(--muted); margin-bottom:0.4rem;">Tap to select:</div>
         <div id="routine-chips" style="display:flex; flex-wrap:wrap; gap:0.4rem;"></div>
@@ -219,6 +230,7 @@ const WORKOUT_ID = {{ workout.id }};
 const LS_KEY = `workout-notes-${WORKOUT_ID}`;
 let exercises = [];
 let lastSets = {};
+let selectedMuscleGroup = '';
 
 function epley1RM(weight, reps) {
   if (reps <= 1) return weight;
@@ -335,6 +347,71 @@ function updateTimerDisplay() {
   }
 })();
 
+// Cascading filter helpers
+function _musclesForExercise(ex) {
+  return (ex.muscles || []).map(m => m.name);
+}
+
+function _exerciseMatchesMuscle(ex, muscle) {
+  if (!muscle) return true;
+  return (ex.muscles || []).some(m => m.name === muscle);
+}
+
+function _populateMuscleDropdown(exercisePool) {
+  const counts = {};
+  exercisePool.forEach(ex => {
+    _musclesForExercise(ex).forEach(m => { counts[m] = (counts[m] || 0) + 1; });
+  });
+  const groups = Object.keys(counts).sort();
+  const sel = document.getElementById('muscle-group-select');
+  const prev = sel.value;
+  sel.innerHTML = '<option value="">— all muscle groups —</option>';
+  groups.forEach(g => {
+    const opt = document.createElement('option');
+    opt.value = g;
+    opt.textContent = `${g} (${counts[g]})`;
+    if (g === prev) opt.selected = true;
+    sel.appendChild(opt);
+  });
+  if (prev && !groups.includes(prev)) {
+    sel.value = '';
+    selectedMuscleGroup = '';
+  }
+}
+
+function _updateChipsAndDatalist() {
+  const routineVal = document.getElementById('routine-select').value;
+  const exercisePool = routineVal !== '' ? _routines[parseInt(routineVal)].exercises : exercises;
+  const filtered = exercisePool.filter(e => _exerciseMatchesMuscle(e, selectedMuscleGroup));
+
+  const chipsEl = document.getElementById('routine-chips');
+  const planEl = document.getElementById('routine-plan');
+  if (routineVal !== '' || selectedMuscleGroup) {
+    if (filtered.length === 0) {
+      const label = routineVal !== ''
+        ? `No exercises in this routine target ${selectedMuscleGroup || 'any muscle'}`
+        : `No exercises target ${selectedMuscleGroup}`;
+      chipsEl.innerHTML = `<span style="color:var(--muted);font-size:0.8rem;">${label}</span>`;
+    } else {
+      chipsEl.innerHTML = filtered.map(e =>
+        `<button type="button" class="btn btn-ghost"
+                 style="font-size:0.8rem;padding:0.2rem 0.6rem;min-height:32px;"
+                 onclick="selectExerciseFromRoutine(${e.id},${JSON.stringify(e.name).replace(/"/g,'&quot;')})">
+           ${escHtml(e.name)}
+         </button>`
+      ).join('');
+    }
+    planEl.style.display = 'block';
+  } else {
+    planEl.style.display = 'none';
+  }
+
+  const dl = document.getElementById('exercise-list');
+  dl.innerHTML = filtered.map(e =>
+    `<option value="${escHtml(e.name)}" data-id="${e.id}">`
+  ).join('');
+}
+
 // Routine load
 let _routines = [];
 
@@ -360,22 +437,31 @@ async function loadRoutines() {
 loadRoutines();
 
 function onRoutineSelect(val) {
+  selectedMuscleGroup = '';
+  document.getElementById('muscle-group-select').value = '';
   if (val === '') { clearRoutine(); return; }
   const routine = _routines[parseInt(val)];
-  const chips = document.getElementById('routine-chips');
-  chips.innerHTML = routine.exercises.map(e =>
-    `<button type="button" class="btn btn-ghost"
-             style="font-size:0.8rem;padding:0.2rem 0.6rem;min-height:32px;"
-             onclick="selectExerciseFromRoutine(${e.id},${JSON.stringify(e.name).replace(/"/g,'&quot;')})">
-       ${e.name}
-     </button>`
-  ).join('');
-  document.getElementById('routine-plan').style.display = 'block';
+  _populateMuscleDropdown(routine.exercises);
+  _updateChipsAndDatalist();
 }
 
 function clearRoutine() {
   document.getElementById('routine-select').value = '';
-  document.getElementById('routine-plan').style.display = 'none';
+  selectedMuscleGroup = '';
+  document.getElementById('muscle-group-select').value = '';
+  _populateMuscleDropdown(exercises);
+  _updateChipsAndDatalist();
+}
+
+function onMuscleGroupSelect(val) {
+  selectedMuscleGroup = val;
+  _updateChipsAndDatalist();
+}
+
+function clearMuscleGroup() {
+  selectedMuscleGroup = '';
+  document.getElementById('muscle-group-select').value = '';
+  _updateChipsAndDatalist();
 }
 
 function selectExerciseFromRoutine(id, name) {
@@ -446,10 +532,8 @@ async function loadExercises() {
     const data = await resp.json();
     exercises = data.exercises;
     lastSets = data.last_sets || {};
-    const dl = document.getElementById('exercise-list');
-    dl.innerHTML = exercises.map(e =>
-      `<option value="${e.name}" data-id="${e.id}">`
-    ).join('');
+    _populateMuscleDropdown(exercises);
+    _updateChipsAndDatalist();
   } catch { /* network error — user can still type a new exercise name */ }
 }
 loadExercises();

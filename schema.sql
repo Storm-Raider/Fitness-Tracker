@@ -85,6 +85,13 @@ CREATE TABLE IF NOT EXISTS routine_exercises (
     order_idx   INTEGER NOT NULL DEFAULT 0
 );
 
+CREATE TABLE IF NOT EXISTS exercise_muscles (
+    exercise_id  INTEGER NOT NULL REFERENCES exercises(id) ON DELETE CASCADE,
+    muscle       TEXT    NOT NULL,
+    is_primary   BOOLEAN NOT NULL DEFAULT 1,
+    PRIMARY KEY (exercise_id, muscle)
+);
+
 -- Built-in exercise library (INSERT OR IGNORE so existing user data is never clobbered)
 INSERT OR IGNORE INTO exercises(name) VALUES
   ('Ab Wheel Rollout'),

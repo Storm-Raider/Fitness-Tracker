@@ -44,8 +44,25 @@ async def list_exercises_json(
     conn: aiosqlite.Connection = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
-    async with conn.execute("SELECT id, name FROM exercises ORDER BY name") as cur:
-        exercises = [dict(r) for r in await cur.fetchall()]
+    async with conn.execute(
+        """
+        SELECT e.id, e.name, em.muscle, em.is_primary
+        FROM exercises e
+        LEFT JOIN exercise_muscles em ON em.exercise_id = e.id
+        ORDER BY e.name, em.is_primary DESC, em.muscle
+        """
+    ) as cur:
+        rows = await cur.fetchall()
+
+    _ex: dict = {}
+    for r in rows:
+        if r["id"] not in _ex:
+            _ex[r["id"]] = {"id": r["id"], "name": r["name"], "muscles": []}
+        if r["muscle"]:
+            _ex[r["id"]]["muscles"].append(
+                {"name": r["muscle"], "is_primary": bool(r["is_primary"])}
+            )
+    exercises_list = list(_ex.values())
 
     async with conn.execute(
         """
@@ -63,7 +80,7 @@ async def list_exercises_json(
             for r in await cur.fetchall()
         }
 
-    return JSONResponse({"exercises": exercises, "last_sets": last_sets})
+    return JSONResponse({"exercises": exercises_list, "last_sets": last_sets})
 
 
 @router.post("/exercises", status_code=201)

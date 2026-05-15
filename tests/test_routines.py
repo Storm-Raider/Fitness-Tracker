@@ -2,6 +2,32 @@ import pytest
 
 
 @pytest.mark.asyncio
+async def test_routines_include_muscles_array(client):
+    resp = await client.get("/routines")
+    routines = resp.json()
+    push_day = next((r for r in routines if "Push" in r["name"]), None)
+    assert push_day is not None
+    bench = next((e for e in push_day["exercises"] if e["name"] == "Bench Press"), None)
+    assert bench is not None
+    assert "muscles" in bench
+    assert any(m["name"] == "Chest" for m in bench["muscles"])
+
+
+@pytest.mark.asyncio
+async def test_routines_exercise_without_muscles_has_empty_array(client):
+    ex = await client.post("/exercises", json={"name": "Custom Pull"})
+    ex_id = ex.json()["id"]
+    r = await client.post("/routines", json={"name": "Custom Routine", "exercise_ids": [ex_id]})
+    r_id = r.json()["id"]
+
+    resp = await client.get("/routines")
+    routines = resp.json()
+    routine = next(r for r in routines if r["id"] == r_id)
+    custom_ex = next(e for e in routine["exercises"] if e["id"] == ex_id)
+    assert custom_ex["muscles"] == []
+
+
+@pytest.mark.asyncio
 async def test_global_routines_visible_to_user(client):
     resp = await client.get("/routines")
     assert resp.status_code == 200
