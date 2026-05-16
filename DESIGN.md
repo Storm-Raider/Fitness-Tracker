@@ -206,3 +206,38 @@ Lucide **v0.378.0** via CDN. Pinned — do not use `@latest`.
 ## Background Texture
 
 The page body has a subtle dot-grid texture (`radial-gradient`, 28px repeat, 5% white dots at 1px). Adds depth without competing with content. Do not apply to cards or surface elements.
+
+---
+
+## HTMX Interaction Map
+
+**HTMX is used in exactly 3 places.** The workout form (`/workouts/{id}`) uses vanilla `fetch()` for everything — no HTMX there.
+
+### True HTMX interactions
+
+| Action | Method + URL | `hx-target` | `hx-swap` | Server response |
+|--------|-------------|-------------|-----------|-----------------|
+| Generate invite link | `POST /invite` | `#invite-result` | `innerHTML` | `invite_partial.html` fragment (link + copy button) |
+| Delete workout (from list) | `DELETE /workouts/{id}` | `#workout-{id}` | `outerHTML` | empty 200 (element removed) |
+| Delete body metric | `DELETE /metrics/{id}` | `#metric-{id}` | `outerHTML` | empty 200 (row removed) |
+
+Delete actions both carry `hx-confirm="..."` — browser native confirm dialog fires before the request. No JS required.
+
+**Re-initialize Lucide after swap:** All HTMX swap targets that inject new HTML must call `lucide.createIcons()` to render icon SVGs. The base template registers a global `htmx:afterSwap` listener that does this automatically.
+
+### Vanilla `fetch()` interactions (workout form)
+
+The workout form JS (`workouts/{id}`) owns all interactions below. No HTMX.
+
+| Action | Method + URL | DOM update |
+|--------|-------------|------------|
+| Log set | `POST /workouts/{id}/sets` | Prepend `div#set-{id}` to `#sets-container`; show PR badge for 3 s if `data.is_pr` |
+| Delete set | `DELETE /workouts/{id}/sets/{sid}` | `document.getElementById('set-' + id)?.remove()` |
+| Finish workout | `POST /workouts/{id}/finish` | Populate `#finish-modal` fields, set `display: flex` |
+| Delete workout | `DELETE /workouts/{id}` | `window.location.href = '/workouts'` |
+| Load routines | `GET /routines` | Build `<option>` list inside `#routine-select` |
+| Load exercises | `GET /api/exercises` | Populate `<datalist>` + `#muscle-group-select` options |
+| Save routine | `POST /routines` | Close modal, call `loadRoutines()` to refresh dropdown |
+| Patch notes | `PATCH /workouts/{id}` | No DOM update; debounced autosave |
+
+**Why fetch() not HTMX on the workout form:** The log-set response drives multiple DOM mutations simultaneously (append row, show/hide PR badge, update volume total, reset form). HTMX's single-target swap model can't express that without `hx-swap-oob`, which would require the server to render partial fragments it doesn't currently own. The JS approach is 30 lines and keeps the server returning clean JSON.
