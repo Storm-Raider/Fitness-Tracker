@@ -163,6 +163,8 @@ Then assemble routines + exercises in Python (two-pass: build routine dict, appe
 
 **Depends on:** Nothing. Can be done independently as a follow-on PR.
 
+**SHIPPED 2026-05-16** — Single cross-routine query replaces the N+1 for-loop. Python assembly builds `routines_map` dict in one pass; routines with no exercises get an empty `exercises: []` via the `ex_id IS NOT NULL` guard. 115/115 passing.
+
 ---
 
 ## TODO-EL-2: Guard delete button on global routines in frontend

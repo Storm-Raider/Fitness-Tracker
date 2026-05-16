@@ -21,34 +21,37 @@ async def list_routines(
     current_user=Depends(get_current_user),
 ):
     async with conn.execute(
-        "SELECT id, name FROM routines WHERE user_id = ? OR user_id IS NULL ORDER BY name",
+        """
+        SELECT r.id, r.name,
+               e.id AS ex_id, e.name AS ex_name,
+               MIN(re.order_idx) AS ord,
+               json_group_array(json_object('name', em.muscle, 'is_primary', em.is_primary))
+                   FILTER (WHERE em.muscle IS NOT NULL) AS muscles
+        FROM routines r
+        LEFT JOIN routine_exercises re ON re.routine_id = r.id
+        LEFT JOIN exercises e ON e.id = re.exercise_id
+        LEFT JOIN exercise_muscles em ON em.exercise_id = e.id
+        WHERE r.user_id = ? OR r.user_id IS NULL
+        GROUP BY r.id, e.id
+        ORDER BY r.name, ord
+        """,
         (current_user["id"],),
     ) as cur:
-        routines = [dict(r) for r in await cur.fetchall()]
+        rows = await cur.fetchall()
 
-    for r in routines:
-        async with conn.execute(
-            """
-            SELECT e.id, e.name,
-                   MIN(re.order_idx) AS ord,
-                   json_group_array(json_object('name', em.muscle, 'is_primary', em.is_primary))
-                       FILTER (WHERE em.muscle IS NOT NULL) AS muscles
-            FROM routine_exercises re
-            JOIN exercises e ON e.id = re.exercise_id
-            LEFT JOIN exercise_muscles em ON em.exercise_id = e.id
-            WHERE re.routine_id = ?
-            GROUP BY e.id, e.name
-            ORDER BY ord
-            """,
-            (r["id"],),
-        ) as cur:
-            rows = await cur.fetchall()
-        r["exercises"] = [
-            {"id": row["id"], "name": row["name"], "muscles": json.loads(row["muscles"] or "[]")}
-            for row in rows
-        ]
+    routines_map: dict = {}
+    for row in rows:
+        r_id = row["id"]
+        if r_id not in routines_map:
+            routines_map[r_id] = {"id": r_id, "name": row["name"], "exercises": []}
+        if row["ex_id"] is not None:
+            routines_map[r_id]["exercises"].append({
+                "id": row["ex_id"],
+                "name": row["ex_name"],
+                "muscles": json.loads(row["muscles"] or "[]"),
+            })
 
-    return JSONResponse(routines)
+    return JSONResponse(list(routines_map.values()))
 
 
 @router.post("/routines", status_code=201)
