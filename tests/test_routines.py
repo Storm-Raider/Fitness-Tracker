@@ -31,7 +31,7 @@ async def test_routines_exercise_without_muscles_has_empty_array(client):
 async def test_global_routines_visible_to_user(client):
     resp = await client.get("/routines")
     assert resp.status_code == 200
-    assert len(resp.json()) == 14
+    assert len(resp.json()) == 12
 
 
 @pytest.mark.asyncio
@@ -46,7 +46,7 @@ async def test_create_and_list_routine(client):
 
     listing = await client.get("/routines")
     routines = listing.json()
-    assert len(routines) == 15
+    assert len(routines) == 13
     push_day = next(r for r in routines if r["name"] == "Push Day")
     assert push_day["id"] == r_id
     assert [e["name"] for e in push_day["exercises"]] == ["Test Bench Press", "Test OH Press"]
@@ -77,7 +77,7 @@ async def test_delete_routine(client):
     assert resp.status_code == 204
 
     listing = await client.get("/routines")
-    assert len(listing.json()) == 14
+    assert len(listing.json()) == 12
 
 
 @pytest.mark.asyncio

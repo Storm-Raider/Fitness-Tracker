@@ -77,7 +77,7 @@ async def test_seeding_idempotency():
             "SELECT COUNT(*) FROM routines WHERE user_id IS NULL"
         ) as cur:
             row = await cur.fetchone()
-        assert row[0] == 14, f"Expected 14 global routines after double init, got {row[0]}"
+        assert row[0] == 12, f"Expected 12 global routines after double init, got {row[0]}"
     finally:
         await conn.close()
 

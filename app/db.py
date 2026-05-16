@@ -100,22 +100,18 @@ async def init_db(conn: aiosqlite.Connection) -> None:
                     (ex_id, muscle, is_p),
                 )
 
+    await conn.execute("DELETE FROM routines WHERE user_id IS NULL")
     for routine in ROUTINES:
-        async with conn.execute(
-            "SELECT id FROM routines WHERE name=? AND user_id IS NULL", (routine["name"],)
-        ) as _cur:
-            row = await _cur.fetchone()
-        if row is None:
-            cur = await conn.execute(
-                "INSERT INTO routines(name, user_id) VALUES (?, NULL)", (routine["name"],)
+        cur = await conn.execute(
+            "INSERT INTO routines(name, user_id) VALUES (?, NULL)", (routine["name"],)
+        )
+        routine_id = cur.lastrowid
+        for idx, ex_name in enumerate(routine["exercises"]):
+            await conn.execute(
+                """INSERT OR IGNORE INTO routine_exercises(routine_id, exercise_id, order_idx)
+                   SELECT ?, id, ? FROM exercises WHERE name=?""",
+                (routine_id, idx, ex_name),
             )
-            routine_id = cur.lastrowid
-            for idx, ex_name in enumerate(routine["exercises"]):
-                await conn.execute(
-                    """INSERT OR IGNORE INTO routine_exercises(routine_id, exercise_id, order_idx)
-                       SELECT ?, id, ? FROM exercises WHERE name=?""",
-                    (routine_id, idx, ex_name),
-                )
     await conn.execute("COMMIT")
     logging.info("Seeded %d exercises, %d global routines", len(EXERCISES), len(ROUTINES))
 
