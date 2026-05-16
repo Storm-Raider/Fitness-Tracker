@@ -108,12 +108,32 @@ async def exercise_detail(
     current_user=Depends(get_current_user),
 ):
     async with conn.execute(
-        "SELECT id, name, category, equipment, muscle_primary, muscle_secondary, cue FROM exercises WHERE id = ?",
-        (exercise_id,)
+        """
+        SELECT e.id, e.name, e.category, e.equipment, e.cue,
+               em.muscle, em.is_primary
+        FROM exercises e
+        LEFT JOIN exercise_muscles em ON em.exercise_id = e.id
+        WHERE e.id = ?
+        ORDER BY em.is_primary DESC, em.muscle
+        """,
+        (exercise_id,),
     ) as cur:
-        ex_row = await cur.fetchone()
-    if not ex_row:
+        rows = await cur.fetchall()
+    if not rows:
         raise HTTPException(status_code=404, detail="Exercise not found")
+
+    first = rows[0]
+    exercise = {
+        "id": first["id"],
+        "name": first["name"],
+        "category": first["category"],
+        "equipment": first["equipment"],
+        "cue": first["cue"],
+        "muscles": [
+            {"name": r["muscle"], "is_primary": bool(r["is_primary"])}
+            for r in rows if r["muscle"]
+        ],
+    }
 
     uid = current_user["id"]
 
@@ -137,7 +157,7 @@ async def exercise_detail(
 
     if not sessions:
         return templates.TemplateResponse(request, "exercise_detail.html", {
-            "exercise": dict(ex_row),
+            "exercise": exercise,
             "sessions": [],
             "pr_kg": None,
             "total_sets": 0,
@@ -159,7 +179,7 @@ async def exercise_detail(
     )
 
     return templates.TemplateResponse(request, "exercise_detail.html", {
-        "exercise": dict(ex_row),
+        "exercise": exercise,
         "sessions": sessions,
         "pr_kg": pr_kg,
         "total_sets": total_sets,

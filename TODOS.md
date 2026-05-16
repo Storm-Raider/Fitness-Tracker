@@ -167,15 +167,13 @@ Then assemble routines + exercises in Python (two-pass: build routine dict, appe
 
 ## TODO-EL-2: Guard delete button on global routines in frontend
 
-**What:** After the exercise library plan ships, `GET /routines` returns 14 global routines alongside user-created ones. If the frontend renders a delete button for every routine, clicking it on a global routine 404s silently (DELETE guard: `WHERE user_id = ?`). Check and fix.
+**Status: VERIFIED NO-OP (2026-05-16)**
 
-**Why:** Raised by outside voice in /plan-eng-review 2026-05-15. The backend is already correct (no data can be deleted), but the UX is confusing if ghost delete buttons appear on pre-built routines.
+Routines in the current frontend are rendered as `<option>` elements inside a `<select>` dropdown only. No delete buttons exist in any template for routine entries. The DELETE endpoint has the correct backend guard (`WHERE id = ? AND user_id = ?`). Nothing to change until a routine management UI with per-row delete buttons is added.
 
-**Context:** Verify first by opening the workout form's routine management UI and checking whether delete buttons appear for routines with `user_id = NULL`. If they do: add `user_id` to the `GET /routines` JSON response (`SELECT id, name, user_id FROM routines ...`) and in the template conditionally hide the delete button when `user_id` is null.
+Re-action if a dedicated routine management page is built: add `user_id` to `GET /routines` response and conditionally hide delete buttons when `user_id` is null.
 
-**Where to start:** `app/routes/routines.py:22-26` (add user_id to SELECT) and the routine management template (if one exists) or the workout form JS that renders the routine list.
-
-**Depends on:** Exercise library plan shipped ✓ (2026-05-15). Ready to action.
+**Depends on:** A future routine management UI being built.
 
 ---
 
@@ -194,6 +192,8 @@ Then assemble routines + exercises in Python (two-pass: build routine dict, appe
 
 **Depends on:** Cascading dropdown feature shipped ✓ (2026-05-15) — `exercise_muscles` table exists and is seeded with 314 rows. Ready to action.
 
+**SHIPPED 2026-05-16** — Route rewritten to LEFT JOIN exercise_muscles, Python groups muscle rows into list, template chips iterate over `exercise.muscles`. Two new tests added. 115/115 passing.
+
 ---
 
 ## TODO-EL-4: Remove muscle_primary and muscle_secondary columns from exercises table
@@ -210,7 +210,9 @@ Then assemble routines + exercises in Python (two-pass: build routine dict, appe
 
 **Where to start:** Pi SQLite is 3.51.2 (confirmed 2026-05-15) — use `ALTER TABLE exercises DROP COLUMN` directly (supported since 3.35). Add two migrations to `_MIGRATIONS` in `app/db.py`.
 
-**Depends on:** TODO-EL-3 shipped and validated (exercise detail page no longer reads these columns).
+**Depends on:** TODO-EL-3 shipped ✓ (2026-05-16). Ready to action.
+
+**SHIPPED 2026-05-16** — Two DROP COLUMN migrations added to `_MIGRATIONS`. UPDATE exercises seed statement trimmed to category/equipment/cue only. `muscle_primary`/`muscle_secondary` keys kept in exercises.py (still needed to seed exercise_muscles). test_db.py assertions updated. 115/115 passing.
 
 ---
 

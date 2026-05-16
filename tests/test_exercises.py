@@ -36,6 +36,23 @@ async def test_api_exercises_user_created_has_empty_muscles(client):
 
 
 @pytest.mark.asyncio
+async def test_exercise_detail_page_shows_muscles_from_join_table(client):
+    resp = await client.get("/api/exercises")
+    bench = next(e for e in resp.json()["exercises"] if e["name"] == "Bench Press")
+    page = await client.get(f"/exercises/{bench['id']}")
+    assert page.status_code == 200
+    assert "Chest" in page.text
+
+
+@pytest.mark.asyncio
+async def test_exercise_detail_page_user_created_no_crash(client):
+    ex = await client.post("/exercises", json={"name": "No Muscle Move"})
+    ex_id = ex.json()["id"]
+    page = await client.get(f"/exercises/{ex_id}")
+    assert page.status_code == 200
+
+
+@pytest.mark.asyncio
 async def test_create_exercise(client):
     resp = await client.post("/exercises", json={"name": "Test Bench Press"})
     assert resp.status_code == 201

@@ -25,6 +25,8 @@ _MIGRATIONS = [
     "ALTER TABLE exercises ADD COLUMN muscle_primary TEXT",
     "ALTER TABLE exercises ADD COLUMN muscle_secondary TEXT",
     "ALTER TABLE exercises ADD COLUMN cue TEXT",
+    "ALTER TABLE exercises DROP COLUMN muscle_primary",
+    "ALTER TABLE exercises DROP COLUMN muscle_secondary",
 ]
 
 
@@ -52,13 +54,11 @@ async def init_db(conn: aiosqlite.Connection) -> None:
         )
         await conn.execute(
             """UPDATE exercises
-               SET category=?, equipment=?, muscle_primary=?, muscle_secondary=?, cue=?
+               SET category=?, equipment=?, cue=?
                WHERE name=?""",
             (
                 ex["category"],
                 ex["equipment"],
-                ex["muscle_primary"],
-                ex.get("muscle_secondary"),
                 ex["cue"],
                 ex["name"],
             ),

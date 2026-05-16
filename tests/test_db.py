@@ -88,8 +88,10 @@ async def test_migration_columns_exist():
     try:
         async with conn.execute("PRAGMA table_info(exercises)") as cur:
             columns = {r["name"] for r in await cur.fetchall()}
-        for col in ("category", "equipment", "muscle_primary", "muscle_secondary", "cue"):
+        for col in ("category", "equipment", "cue"):
             assert col in columns, f"Column '{col}' missing from exercises table"
+        for col in ("muscle_primary", "muscle_secondary"):
+            assert col not in columns, f"Dead column '{col}' should have been dropped"
     finally:
         await conn.close()
 
