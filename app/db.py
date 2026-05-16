@@ -77,10 +77,17 @@ async def init_db(conn: aiosqlite.Connection) -> None:
                 m = m.strip()
                 if m:
                     muscles.append((ex_id, m, 0))
+            seen: dict = {}
             for (eid, muscle, is_p) in muscles:
+                if muscle not in seen:
+                    seen[muscle] = is_p
+            await conn.execute(
+                "DELETE FROM exercise_muscles WHERE exercise_id = ?", (ex_id,)
+            )
+            for muscle, is_p in seen.items():
                 await conn.execute(
-                    "INSERT OR IGNORE INTO exercise_muscles(exercise_id, muscle, is_primary) VALUES (?,?,?)",
-                    (eid, muscle, is_p),
+                    "INSERT INTO exercise_muscles(exercise_id, muscle, is_primary) VALUES (?,?,?)",
+                    (ex_id, muscle, is_p),
                 )
 
     for routine in ROUTINES:
