@@ -3,26 +3,40 @@
 A self-hosted fitness tracker for your Raspberry Pi. Log workouts, track PRs, own your data.
 
 ```bash
-cp .env.example .env   # fill in APP_PASSWORD and APP_SECRET
+cp .env.example .env   # set ADMIN_USERNAME, ADMIN_PASSWORD, APP_SECRET
 docker compose up -d
 ```
 
-Open `http://<your-pi-ip>:8000` — or your Tailscale address.
+Open `http://<your-pi-ip>:8000`
+
+---
+
+> **Would you run this on your Pi?** That's the one question I'm trying to answer before going wider.
+> If you try it, [open an issue](https://github.com/Storm-Raider/Fitness-Tracker/issues) or reply to the thread — even a one-liner helps.
+
+---
+
+## Screenshot
+
+*(coming soon — screenshot at ~1440px dashboard and ~375px workout form)*
 
 ---
 
 ## Features
 
-- **Log workouts** — exercise, sets, reps, weight. PR detected automatically on every set.
-- **Rest timer** — SVG ring countdown starts after each logged set. 90s default, adjustable.
-- **Workout notes** — session notes auto-save with localStorage fallback when offline.
-- **Volume tracking** — live kg total per session; 7-day volume on dashboard.
-- **Routines** — save a session as a named routine, reload exercises in one tap next time.
-- **Finish & summarise** — "Finish Workout" shows duration, set count, and total volume.
-- **52-week heatmap** — GitHub-style activity grid on the dashboard.
+- **Log workouts** — exercise, sets, reps, weight. PR flagged automatically on every set.
+- **Exercise library** — 105 exercises with category, equipment, and muscle group metadata.
+- **Cascading filter** — pick a routine → filter by muscle group → tap an exercise chip to select it.
+- **14 pre-built routines** — PPL, Full Body, Upper/Lower, Bro Split — visible to all users.
+- **Personal records** — PR table on the dashboard; gold badge on every set that beats your best.
+- **Exercise detail** — weight progression sparkline, session history, estimated 1RM.
+- **52-week heatmap** — GitHub-style activity grid. Streak badge next to it.
+- **Volume tracking** — live kg total per session; 7-day volume on the dashboard.
+- **Rest timer** — SVG ring countdown after each logged set. 90 s default, adjustable.
 - **Body metrics** — log weight and calories alongside workouts.
 - **CSV export / import** — one-click download; import history from Strong.
 - **Webhooks** — HTTP POST on PR and session complete. Wire to Home Assistant or n8n.
+- **Multi-user** — invite-gated registration; admin creates invite links, users self-register.
 - **PWA** — installable on Android/iOS home screen; works offline when the Pi is unreachable.
 
 No cloud. No subscription. No telemetry. SQLite file on your Pi.
@@ -53,7 +67,8 @@ cp .env.example .env
 
 Edit `.env`:
 ```
-APP_PASSWORD=choose-a-strong-password
+ADMIN_USERNAME=yourname
+ADMIN_PASSWORD=choose-a-strong-password
 APP_SECRET=run-python3-c-import-secrets-print-secrets.token_hex-32
 ```
 
@@ -67,7 +82,19 @@ python3 -c "import secrets; print(secrets.token_hex(32))"
 docker compose up -d
 ```
 
-**4. Open** `http://<your-pi-ip>:8000`
+**4. Open** `http://<your-pi-ip>:8000` and log in with the admin credentials you set.
+
+---
+
+## Adding more users
+
+FitTrack uses invite-only registration. As admin:
+
+1. Go to **Account → Invite** (or `/invite`)
+2. Generate an invite link (valid for 48 hours)
+3. Send it to the person — they click it, set a username and password, done
+
+Each user sees only their own workouts, PRs, and metrics. Global routines and the exercise library are shared.
 
 ---
 
@@ -77,8 +104,9 @@ All settings go in `.env` (copied from `.env.example`):
 
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
-| `APP_PASSWORD` | Yes | — | Password to log in |
-| `APP_SECRET` | Yes | — | Signing key for session cookies (≥32 chars) |
+| `ADMIN_USERNAME` | Yes | — | Username for the admin account (created on first start) |
+| `ADMIN_PASSWORD` | Yes | — | Admin password. Recommend ≥16 random chars. |
+| `APP_SECRET` | Yes | — | Signing key for session cookies (≥32 chars, never commit) |
 | `SESSION_DAYS` | No | `30` | How long a login session lasts (1–365) |
 | `DATABASE_PATH` | No | `/data/fitness.db` | SQLite file path inside container |
 | `WEBHOOK_URL` | No | *(empty)* | HTTP endpoint to notify on events |
@@ -99,8 +127,6 @@ sudo ufw enable
 
 ## API
 
-All routes return JSON by default. Add `Accept: text/html` for the HTML views.
-
 ```
 GET  /health                        → {"status": "ok"}
 GET  /                              → dashboard
@@ -111,16 +137,20 @@ PATCH /workouts/{id}                → update notes   → 204
 POST /workouts/{id}/finish          → finish workout  → {duration_minutes, set_count, volume_kg, …}
 POST /workouts/{id}/sets            → log set         → {id, is_pr, current_pr}
 DELETE /workouts/{id}/sets/{sid}    → delete set      → 204
-GET  /exercises                     → list exercises (includes last-session context)
+GET  /exercises                     → exercise browser
+GET  /exercises/{id}                → exercise detail (sparkline, 1RM, session history)
+GET  /api/exercises                 → exercise list JSON (includes muscles array)
 POST /exercises                     → create exercise → {id}
-GET  /routines                      → list routines
+GET  /routines                      → list routines (global + user-created)
 POST /routines                      → create routine  → {id}
 DELETE /routines/{id}               → delete routine  → 204
-GET  /metrics                       → list body metrics
+GET  /metrics                       → body metrics
 POST /metrics                       → log body weight/calories
 GET  /export/workouts.csv           → CSV download
 POST /import/csv                    → import Strong CSV
-GET  /webhooks                      → webhook config
+GET  /webhooks                      → webhook config (admin only)
+GET  /invite                        → invite management (admin only)
+POST /invite                        → generate invite link (admin only)
 ```
 
 ---
@@ -134,6 +164,8 @@ Set `WEBHOOK_URL` in `.env`. FitTrack will POST JSON to that URL on two events.
 ```json
 {
   "event": "pr_achieved",
+  "user_id": 1,
+  "username": "alice",
   "exercise_name": "Bench Press",
   "weight_kg": 100.0,
   "previous_pr_kg": 97.5,
@@ -147,6 +179,8 @@ Set `WEBHOOK_URL` in `.env`. FitTrack will POST JSON to that URL on two events.
 ```json
 {
   "event": "session_complete",
+  "user_id": 1,
+  "username": "alice",
   "workout_id": 42,
   "duration_minutes": 58.3,
   "set_count": 18,
@@ -155,7 +189,7 @@ Set `WEBHOOK_URL` in `.env`. FitTrack will POST JSON to that URL on two events.
 }
 ```
 
-Webhook delivery is a best-effort background task (5s timeout). If your endpoint is down, the event is dropped — no retry queue.
+Delivery is a best-effort background task (5 s timeout). If your endpoint is down, the event is dropped — no retry queue.
 
 ---
 
@@ -181,7 +215,7 @@ automation:
       data:
         title: "🏆 New PR!"
         message: >
-          {{ trigger.json.exercise_name }}:
+          {{ trigger.json.username }} — {{ trigger.json.exercise_name }}:
           {{ trigger.json.weight_kg }} kg
           (was {{ trigger.json.previous_pr_kg }} kg)
 
@@ -199,14 +233,13 @@ automation:
       data:
         title: "✅ Workout done"
         message: >
-          {{ trigger.json.duration_minutes | round }} min ·
-          {{ trigger.json.set_count }} sets ·
-          {{ trigger.json.volume_kg }} kg
+          {{ trigger.json.username }} — {{ trigger.json.duration_minutes | round }} min ·
+          {{ trigger.json.set_count }} sets · {{ trigger.json.volume_kg }} kg
 ```
 
 **2. Get the webhook URL from HA**
 
-Settings → Automations → your automation → copy the webhook URL. It looks like:
+Settings → Automations → your automation → copy the webhook URL:
 
 ```
 http://homeassistant.local:8123/api/webhook/fittrack
@@ -227,11 +260,11 @@ Then `docker compose restart`.
 **1. Create a Webhook node in n8n**
 
 - Add a **Webhook** node. Method: POST. Path: `fittrack`.
-- Copy the test or production URL (e.g. `https://n8n.yourdomain.com/webhook/fittrack`).
+- Copy the production URL (e.g. `https://n8n.yourdomain.com/webhook/fittrack`).
 
 **2. Branch on event type**
 
-Add a **Switch** node after the webhook:
+Add a **Switch** node:
 
 | Output | Condition |
 |--------|-----------|
@@ -240,25 +273,19 @@ Add a **Switch** node after the webhook:
 
 **3. Wire actions**
 
-**PR branch** — example: send an ntfy notification:
-- Add an **HTTP Request** node
-- Method: POST
-- URL: `https://ntfy.sh/your-topic`
-- Body (JSON):
-  ```json
-  {
-    "topic": "your-topic",
-    "title": "New PR — {{ $json.exercise_name }}",
-    "message": "{{ $json.weight_kg }} kg (was {{ $json.previous_pr_kg }} kg)",
-    "tags": ["trophy"]
-  }
-  ```
+PR → ntfy notification:
+```json
+{
+  "topic": "your-topic",
+  "title": "New PR — {{ $json.exercise_name }}",
+  "message": "{{ $json.username }}: {{ $json.weight_kg }} kg (was {{ $json.previous_pr_kg }} kg)",
+  "tags": ["trophy"]
+}
+```
 
-**Session complete branch** — example: append to Google Sheets:
-- Add a **Google Sheets** node → Append row
-- Map: Date = `{{ $json.timestamp }}`, Duration = `{{ $json.duration_minutes }}`, Sets = `{{ $json.set_count }}`, Volume = `{{ $json.volume_kg }}`
+Session complete → Google Sheets append: map `timestamp`, `duration_minutes`, `set_count`, `volume_kg`, `username`.
 
-**4. Set the webhook URL in `.env`:**
+**4. Set the URL in `.env`:**
 
 ```
 WEBHOOK_URL=https://n8n.yourdomain.com/webhook/fittrack
@@ -299,10 +326,10 @@ docker run --rm \
 ```bash
 pip install -r requirements.txt
 cp .env.example .env   # fill in test values
-uvicorn app.main:app --reload
+DATABASE_PATH=/tmp/fittrack.db uvicorn app.main:app --reload
 ```
 
-Tests (57 passing):
+Tests:
 ```bash
 pytest tests/ -v
 ```
@@ -315,7 +342,7 @@ On Android (Chrome): visit the app → three-dot menu → **Add to Home Screen**
 
 On iOS (Safari): visit the app → Share → **Add to Home Screen**.
 
-The app works offline for pages you've visited — when the Pi is unreachable you'll see a cached version instead of a blank error. Notes typed offline sync automatically when the Pi is back.
+Offline: cached pages show when the Pi is unreachable. Notes typed offline sync when the Pi is back.
 
 ---
 
