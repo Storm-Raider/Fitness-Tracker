@@ -24,6 +24,8 @@ Deferred work from engineering + design reviews. Each item has enough context to
 
 **Depends on:** Nothing. Create before first commit.
 
+**SHIPPED 2026-05-16** — `DEVIATIONS.md` exists and is current. Deviation #2 updated to reflect v0.3.0 auth reality (bcrypt + HMAC session tokens, not "no auth layer").
+
 ---
 
 ## TODO-2: Write README Before Code
