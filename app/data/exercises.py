@@ -19,8 +19,8 @@ EXERCISES = [
         "name": "Back Squat",
         "category": "Legs",
         "equipment": "Barbell",
-        "muscle_primary": "Quads",
-        "muscle_secondary": "Glutes, Hamstrings",
+        "muscle_primary": "Quads, Glutes",
+        "muscle_secondary": "Hamstrings",
         "cue": "Brace your core, sit between your knees, drive your elbows down to keep the torso upright.",
     },
     {
@@ -340,7 +340,7 @@ EXERCISES = [
         "category": "Full Body",
         "equipment": "Dumbbell",
         "muscle_primary": "Forearms, Traps",
-        "muscle_secondary": "Core, Quads",
+        "muscle_secondary": "Core, Shoulders",
         "cue": "Grip tight, stand tall with shoulders packed down and back, take short controlled steps.",
     },
     {
@@ -348,7 +348,7 @@ EXERCISES = [
         "category": "Push",
         "equipment": "Dumbbell",
         "muscle_primary": "Front Delts",
-        "muscle_secondary": "Side Delts, Chest",
+        "muscle_secondary": "Chest",
         "cue": "Lift with a slight elbow bend to shoulder height, controlled descent — avoid swinging or using momentum.",
     },
     {
@@ -452,7 +452,7 @@ EXERCISES = [
         "category": "Cardio",
         "equipment": "Bodyweight",
         "muscle_primary": "Calves, Quads",
-        "muscle_secondary": "Shoulders, Core",
+        "muscle_secondary": "Core",
         "cue": "Stay on the balls of your feet, keep jumps small (1-2 inches), turn the rope with your wrists not your arms.",
     },
     {
@@ -548,7 +548,7 @@ EXERCISES = [
         "category": "Push",
         "equipment": "Dumbbell",
         "muscle_primary": "Triceps",
-        "muscle_secondary": "Rear Delts",
+        "muscle_secondary": "",
         "cue": "Arms overhead, elbows pointing forward, lower the weight behind your head, extend fully — the long head gets the most stretch here.",
     },
     {
@@ -556,7 +556,7 @@ EXERCISES = [
         "category": "Core",
         "equipment": "Cable",
         "muscle_primary": "Abs, Obliques",
-        "muscle_secondary": "Shoulders, Glutes",
+        "muscle_secondary": "Shoulders",
         "cue": "Stand sideways to the pulley, resist rotation as you press the handle straight out and back — the cable pulls you toward it.",
     },
     {
@@ -667,7 +667,7 @@ EXERCISES = [
         "name": "Rowing Machine",
         "category": "Cardio",
         "equipment": "Cardio Machine",
-        "muscle_primary": "Upper Back, Quads",
+        "muscle_primary": "Upper Back, Lats, Quads",
         "muscle_secondary": "Core",
         "cue": "Legs-body-arms on the drive; arms-body-legs on the recovery. 60% power from the legs, keep your back upright.",
     },
@@ -724,7 +724,7 @@ EXERCISES = [
         "category": "Push",
         "equipment": "Barbell",
         "muscle_primary": "Triceps",
-        "muscle_secondary": "Front Delts",
+        "muscle_secondary": "",
         "cue": "Arms perpendicular to the floor, lower the bar to your forehead by bending only at the elbows, press to full extension.",
     },
     {
@@ -796,7 +796,7 @@ EXERCISES = [
         "category": "Push",
         "equipment": "Cable",
         "muscle_primary": "Triceps",
-        "muscle_secondary": "Rear Delts",
+        "muscle_secondary": "",
         "cue": "Elbows tucked at your sides, push the bar or rope down to full extension, hold the squeeze, let it rise with control.",
     },
     {
