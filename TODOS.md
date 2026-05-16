@@ -65,6 +65,8 @@ Deferred work from engineering + design reviews. Each item has enough context to
 
 **Depends on:** First template file being created (commit DESIGN.md alongside `app/templates/base.html`).
 
+**SHIPPED 2026-05-16** — Full DESIGN.md written from live `base.html` (not from stale gstack artifact). Correct fonts (Barlow + Syne + JetBrains Mono), correct color tokens, layout spec, components reference, touch targets table, interaction states table, accessibility notes.
+
 ---
 
 ## TODO-D2: HTMX Swap Target Map
