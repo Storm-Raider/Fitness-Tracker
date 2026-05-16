@@ -27,6 +27,16 @@ _MIGRATIONS = [
     "ALTER TABLE exercises ADD COLUMN cue TEXT",
     "ALTER TABLE exercises DROP COLUMN muscle_primary",
     "ALTER TABLE exercises DROP COLUMN muscle_secondary",
+    """CREATE TABLE IF NOT EXISTS cardio_logs (
+        id               INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id          INTEGER NOT NULL REFERENCES users(id),
+        exercise_id      INTEGER REFERENCES exercises(id),
+        logged_date      TEXT    NOT NULL DEFAULT (date('now','localtime')),
+        duration_minutes REAL    NOT NULL,
+        distance_km      REAL,
+        notes            TEXT,
+        created_at       TEXT    NOT NULL DEFAULT (datetime('now','localtime'))
+    )""",
 ]
 
 

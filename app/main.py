@@ -12,7 +12,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import RedirectResponse
 
 from app.db import open_db, set_db, clear_db
-from app.routes import dashboard, exercises, export, import_, metrics, routines, settings, webhooks, workouts
+from app.routes import cardio, dashboard, exercises, export, import_, metrics, routines, settings, webhooks, workouts
 from app.routes.auth import router as auth_router, COOKIE_NAME, _serializer, _hash_password, _verify_password
 from app.routes.workouts import set_http_client
 
@@ -163,6 +163,7 @@ if _static.exists():
     app.mount("/static", StaticFiles(directory=_static), name="static")
 
 app.include_router(auth_router)
+app.include_router(cardio.router)
 app.include_router(dashboard.router)
 app.include_router(workouts.router)
 app.include_router(exercises.router)
