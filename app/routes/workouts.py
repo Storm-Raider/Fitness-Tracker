@@ -205,6 +205,8 @@ async def add_set(
             ex_row = await cur.fetchone()
         payload = {
             "event": "pr_achieved",
+            "user_id": uid,
+            "username": current_user["username"],
             "exercise_name": ex_row["name"] if ex_row else str(body.exercise_id),
             "weight_kg": body.weight_kg,
             "previous_pr_kg": prior_max,
@@ -272,7 +274,7 @@ async def finish_workout(
     if webhook_url and _http_client is not None:
         background_tasks.add_task(
             _fire_webhook, _http_client, webhook_url,
-            {"event": "session_complete", **summary},
+            {"event": "session_complete", "user_id": uid, "username": current_user["username"], **summary},
         )
 
     return JSONResponse(summary)

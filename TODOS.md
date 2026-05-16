@@ -118,6 +118,8 @@ Deferred work from engineering + design reviews. Each item has enough context to
 
 **Depends on:** v0.3.0 multi-user auth shipped (user_id is available in route context after that PR).
 
+**SHIPPED 2026-05-16** — `user_id` and `username` added to both payloads. Two new tests assert the fields on mocked webhook calls. 117/117 passing.
+
 ---
 
 ## TODO-v2-1: Alembic Migration Setup

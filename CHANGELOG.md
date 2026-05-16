@@ -21,6 +21,7 @@ All notable changes to FitTrack are documented here.
 - `GET /routines` response shape: each routine's exercises now include `muscles:[{name,is_primary}]` array
 
 ### Changed (continued)
+- Webhook payloads now include `user_id` and `username` — both `pr_achieved` and `session_complete` events carry user identity so Home Assistant / n8n automations can distinguish who triggered the event
 - `GET /routines` rewritten from N+1 (1 + N per-routine queries) to a single cross-routine JOIN query; Python assembles the response in one pass — eliminates 14+ extra DB round-trips on every workout form load
 - `exercises` table: `muscle_primary` and `muscle_secondary` columns dropped via `ALTER TABLE … DROP COLUMN` migration; data is now exclusively in `exercise_muscles`
 - Exercise seeding: `UPDATE exercises` no longer writes to the dropped columns; `exercises.py` entries retain those keys to drive `exercise_muscles` seeding
