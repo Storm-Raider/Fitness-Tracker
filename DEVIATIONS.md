@@ -14,19 +14,21 @@ and `specs/backend_spec.yaml`. These are conscious decisions, not mistakes.
 
 **Why:** A Raspberry Pi 4 has 4GB RAM but SQLite + SQLAlchemy adds ~30MB of import overhead and ORM machinery that buys nothing for a single-user personal tool. Raw aiosqlite is ~5MB, is auditable (you read what executes), and has zero magic. For a project where "understand every layer" is an explicit goal, the ORM is the wrong layer.
 
-**Consequence:** No Alembic auto-migrations. Schema changes are `ALTER TABLE` statements in `schema.sql` or manual `sqlite3` commands on the Pi. Acceptable in v1; Alembic added in v2 when multi-user lands (see TODOS.md).
+**Consequence:** No Alembic auto-migrations. Schema changes are `ALTER TABLE` statements appended to `_MIGRATIONS` in `app/db.py`, run idempotently on every startup. Multi-user shipped in v0.3.0 using this pattern without Alembic. Alembic remains deferred until a migration becomes complex enough that the hand-rolled approach breaks down (see TODOS.md).
 
 ---
 
-## 2. Tailscale instead of JWT + bcrypt
+## 2. HMAC session tokens instead of JWT; Tailscale as network boundary
 
 **Spec says:** `tasks.yaml:implement_auth` — "Implement password hashing using bcrypt", "Implement JWT token generation", "Create /auth/register and /auth/login endpoints"
 
-**What we build:** No auth layer. Tailscale subnet router is the trust boundary.
+**What we build (v0.3.0):** bcrypt for password hashing ✓. `itsdangerous` HMAC-signed session tokens in an `httponly SameSite=Strict` cookie instead of JWT. `/login` and `/invite/accept` endpoints instead of `/auth/register` and `/auth/login`. Tailscale recommended as the network-layer trust boundary on top of app auth.
 
-**Why:** This is a single-user app running on a private Tailscale network. JWT adds two round-trips (register, login), key rotation complexity, and latency on every request — to protect data from... the one person with Tailscale access to the Pi. The authentication is handled at the network layer, not the application layer. This is the standard self-hosted pattern (see: Vaultwarden, Nextcloud with Tailscale).
+**Why no JWT:** JWT is stateless by design, which means token revocation requires a blocklist (extra DB query per request) or short expiry + refresh tokens (extra round-trips). For a self-hosted personal tool, a server-signed opaque session cookie achieves the same security with none of that complexity. The token is validated in one line (`URLSafeTimedSerializer.loads`), expires server-side by timestamp, and requires no extra table.
 
-**When this changes:** When a second user needs access, Tailscale ACL rules are the first control. JWT added in v2 alongside the `users` table and `user_id` FK constraints (the scaffold for which is already in the schema).
+**Why invite-only instead of open `/auth/register`:** This is a household or small-group app, not a public service. Invite-gated registration means the admin controls who can create an account — appropriate when the Pi is on a home network and Tailscale ACLs are the first line of defence.
+
+**Consequence:** Consumers that expect a JWT Bearer token in the `Authorization` header will not work. Session cookies are the only auth mechanism.
 
 ---
 
