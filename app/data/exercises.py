@@ -132,7 +132,7 @@ EXERCISES = [
         "category": "Push",
         "equipment": "Cable",
         "muscle_primary": "Triceps",
-        "muscle_secondary": "Rear Delts",
+        "muscle_secondary": "",
         "cue": "Hinge forward, pin upper arm parallel to the floor, extend only at the elbow — full lockout at the top.",
     },
     {
@@ -219,8 +219,8 @@ EXERCISES = [
         "name": "Cycling",
         "category": "Cardio",
         "equipment": "Cardio Machine",
-        "muscle_primary": "Quads, Calves",
-        "muscle_secondary": "Hamstrings, Glutes",
+        "muscle_primary": "Quads, Glutes, Calves",
+        "muscle_secondary": "Hamstrings",
         "cue": "Maintain a cadence of 80-100 RPM, push through the ball of your foot, slight bend at the knee at the bottom.",
     },
     {
