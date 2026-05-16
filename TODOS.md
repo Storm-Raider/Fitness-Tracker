@@ -86,6 +86,8 @@ Deferred work from engineering + design reviews. Each item has enough context to
 
 **Depends on:** Nothing. Can be specced before implementation.
 
+**SHIPPED 2026-05-16** — "HTMX Interaction Map" section added to DESIGN.md. Documents 3 true HTMX usages (invite generate, delete workout, delete metric) and 8 vanilla fetch() interactions on the workout form. Includes rationale for why the workout form uses fetch() instead of HTMX.
+
 ---
 
 ## TODO-v2-A: Pending Invite List for Admins
