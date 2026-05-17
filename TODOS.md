@@ -77,6 +77,8 @@ Deferred work from engineering + design reviews. Each item has enough context to
 
 **Depends on:** Nothing. Write before any implementation task.
 
+**SHIPPED 2026-05-17** — README updated: exercise count 105 → 120, routines 14 → 12, /stats page added to features and API table. All five TODO-2 requirements present.
+
 ---
 
 ## TODO-D1: Create DESIGN.md

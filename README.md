@@ -25,12 +25,13 @@ Open `http://<your-pi-ip>:8000`
 ## Features
 
 - **Log workouts** — exercise, sets, reps, weight. PR flagged automatically on every set.
-- **Exercise library** — 105 exercises with category, equipment, and muscle group metadata.
+- **Exercise library** — 120 exercises with category, equipment, and muscle group metadata.
 - **Cascading filter** — pick a routine → filter by muscle group → tap an exercise chip to select it.
-- **14 pre-built routines** — PPL, Full Body, Upper/Lower, Bro Split — visible to all users.
+- **12 pre-built routines** — PPL, Full Body, Upper/Lower, Bro Split — visible to all users.
 - **Personal records** — PR table on the dashboard; gold badge on every set that beats your best.
 - **Exercise detail** — weight progression sparkline, session history, estimated 1RM.
 - **52-week heatmap** — GitHub-style activity grid. Streak badge next to it.
+- **Stats page** — weekly volume sparkline (12 weeks), top exercises by set count, muscle coverage for the current week.
 - **Volume tracking** — live kg total per session; 7-day volume on the dashboard.
 - **Rest timer** — SVG ring countdown after each logged set. 90 s default, adjustable.
 - **Body metrics** — log weight and calories alongside workouts.
@@ -144,6 +145,7 @@ POST /exercises                     → create exercise → {id}
 GET  /routines                      → list routines (global + user-created)
 POST /routines                      → create routine  → {id}
 DELETE /routines/{id}               → delete routine  → 204
+GET  /stats                         → analytics (weekly volume, top exercises, muscle coverage)
 GET  /metrics                       → body metrics
 POST /metrics                       → log body weight/calories
 GET  /export/workouts.csv           → CSV download
