@@ -38,10 +38,12 @@ async def list_metrics(
         unit=" kg",
     )
 
+    latest_weight = metrics[0]["weight_kg"] if metrics else None
+
     return render(
         request,
         "metrics",
-        {"metrics": metrics, "chart_svg": chart_svg, "user": dict(current_user)},
+        {"metrics": metrics, "chart_svg": chart_svg, "user": dict(current_user), "latest_weight": latest_weight},
     )
 
 
