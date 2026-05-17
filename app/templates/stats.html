@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% block title %}Stats — FitStorm{% endblock %}
+{% block content %}
+<div style="margin-bottom:1.5rem;padding-top:0.5rem;">
+  <h1 style="font-size:1.4rem;font-weight:700;letter-spacing:-0.01em;">Stats</h1>
+  <p style="color:var(--muted);font-size:0.875rem;margin-top:0.25rem;">The arc of your training.</p>
+</div>
+
+<div style="margin-bottom:1.5rem;">
+  <div class="card">
+    <div class="section-title" style="margin-bottom:0.75rem;">Weekly volume — last 12 weeks</div>
+    {% if volume_sparkline %}
+    <div style="overflow-x:auto;">{{ volume_sparkline | safe }}</div>
+    {% else %}
+    <p style="color:var(--muted);font-size:0.875rem;">Not enough data yet — log at least 2 weeks of workouts.</p>
+    {% endif %}
+  </div>
+</div>
+
+<div class="grid-2" style="align-items:start;">
+  <div>
+    <div class="section-title" style="margin-bottom:0.75rem;">Top exercises (all time)</div>
+    <div class="card">
+      {% if top_exercises %}
+      <table>
+        <thead>
+          <tr><th>Exercise</th><th>Sets</th></tr>
+        </thead>
+        <tbody>
+          {% for ex in top_exercises %}
+          <tr>
+            <td>{{ ex.name }}</td>
+            <td>
+              <span style="font-variant-numeric:tabular-nums;font-weight:600;">{{ ex.set_count }}</span>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <p style="color:var(--muted);font-size:0.875rem;">No sets logged yet.</p>
+      {% endif %}
+    </div>
+  </div>
+
+  <div>
+    <div class="section-title" style="margin-bottom:0.75rem;">Muscle coverage — this week</div>
+    <div class="card">
+      {% if primary_muscles or secondary_muscles %}
+      {% if primary_muscles %}
+      <div style="margin-bottom:0.75rem;">
+        <div style="font-size:0.75rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:0.4rem;">Primary</div>
+        <div style="display:flex;flex-wrap:wrap;gap:0.4rem;">
+          {% for m in primary_muscles %}
+          <span class="badge" style="background:rgba(79,156,249,0.12);color:var(--accent);">{{ m }}</span>
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
+      {% if secondary_muscles %}
+      <div>
+        <div style="font-size:0.75rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:0.4rem;">Secondary</div>
+        <div style="display:flex;flex-wrap:wrap;gap:0.4rem;">
+          {% for m in secondary_muscles %}
+          <span class="badge" style="background:rgba(255,255,255,0.05);color:var(--muted);">{{ m }}</span>
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
+      {% else %}
+      <p style="color:var(--muted);font-size:0.875rem;">No workouts logged this week.</p>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}

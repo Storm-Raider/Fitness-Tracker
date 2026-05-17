@@ -32,6 +32,8 @@ Deferred work from engineering + design reviews. Each item has enough context to
 
 **Effort:** M (human ~2h / CC ~15min)
 
+**SHIPPED 2026-05-17** — `/stats` route + template. Weekly volume sparkline (last 12 weeks), top 5 exercises by set count, muscle coverage this week (primary/secondary chips). Nav link added. 134/134 passing.
+
 ---
 
 ## TODO-1: Create DEVIATIONS.md
