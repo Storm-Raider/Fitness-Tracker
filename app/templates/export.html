@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% block title %}Export & Import — FitStorm{% endblock %}
+{% block content %}
+<div style="padding-top:0.5rem; margin-bottom:1.5rem;">
+  <h1 style="font-size:1.5rem; font-weight:700;">Export & Import</h1>
+</div>
+
+<div style="display:flex; flex-direction:column; gap:1.5rem; max-width:480px;">
+
+  <div class="card">
+    <div class="section-title" style="margin-bottom:0.5rem;">Export workouts</div>
+    <p style="font-size:0.875rem; color:var(--muted); margin-bottom:1.25rem;">
+      Download all your sets as a CSV file — date, exercise, reps, weight, notes.
+    </p>
+    <a href="/export/workouts.csv" class="btn btn-primary" style="display:inline-block;">
+      Download workouts.csv
+    </a>
+  </div>
+
+  <div class="card">
+    <div class="section-title" style="margin-bottom:0.5rem;">Import from Strong</div>
+    <p style="font-size:0.875rem; color:var(--muted); margin-bottom:1.25rem;">
+      Upload a CSV exported from the Strong app. Exercises are created automatically.
+      Weights in lbs are converted to kg. Cardio rows are skipped.
+    </p>
+    <form id="import-form" enctype="multipart/form-data">
+      <div class="form-group">
+        <label for="csv-file">CSV file</label>
+        <input type="file" id="csv-file" accept=".csv" style="color:var(--text);">
+      </div>
+      <div id="import-error" class="flash flash-error" style="display:none;"></div>
+      <div id="import-success" class="flash flash-success" style="display:none;"></div>
+      <button type="button" class="btn btn-primary" onclick="runImport()">Import</button>
+    </form>
+  </div>
+
+</div>
+
+<script>
+async function runImport() {
+  const fileEl = document.getElementById('csv-file');
+  const errEl  = document.getElementById('import-error');
+  const okEl   = document.getElementById('import-success');
+  errEl.style.display = 'none';
+  okEl.style.display  = 'none';
+
+  if (!fileEl.files.length) {
+    errEl.textContent = 'Choose a CSV file first.';
+    errEl.style.display = 'block';
+    return;
+  }
+
+  const fd = new FormData();
+  fd.append('file', fileEl.files[0]);
+
+  const resp = await fetch('/import/csv', { method: 'POST', body: fd });
+  const data = await resp.json().catch(() => ({}));
+
+  if (resp.ok) {
+    okEl.textContent = `Imported ${data.imported} sets (${data.skipped} skipped).`;
+    okEl.style.display = 'block';
+    fileEl.value = '';
+  } else {
+    errEl.textContent = data.detail || 'Import failed.';
+    errEl.style.display = 'block';
+  }
+}
+</script>
+{% endblock %}

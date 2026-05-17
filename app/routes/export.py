@@ -3,13 +3,22 @@ import io
 from typing import AsyncGenerator
 
 import aiosqlite
-from fastapi import APIRouter, Depends
-from fastapi.responses import StreamingResponse
+from fastapi import APIRouter, Depends, Request
+from fastapi.responses import HTMLResponse, StreamingResponse
 
 from app.db import get_db
 from app.routes.auth import get_current_user
+from app.utils.render import render
 
 router = APIRouter()
+
+
+@router.get("/export", response_class=HTMLResponse)
+async def export_page(
+    request: Request,
+    current_user=Depends(get_current_user),
+):
+    return render(request, "export", {"user": dict(current_user)})
 
 
 async def _csv_rows(conn: aiosqlite.Connection, user_id: int) -> AsyncGenerator[str, None]:
