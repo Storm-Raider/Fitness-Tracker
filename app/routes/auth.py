@@ -8,7 +8,7 @@ from threading import Lock
 import aiosqlite
 import bcrypt
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from itsdangerous import URLSafeTimedSerializer
 
 from app.db import get_db
@@ -253,11 +253,30 @@ async def reset_password_post(
 @router.get("/invite", response_class=HTMLResponse)
 async def invite_get(
     request: Request,
+    conn: aiosqlite.Connection = Depends(get_db),
     user=Depends(require_admin),
 ):
+    async with conn.execute(
+        "SELECT token, created_at, expires_at FROM invite_tokens "
+        "WHERE used_at IS NULL AND expires_at > datetime('now','localtime') "
+        "ORDER BY created_at DESC"
+    ) as cur:
+        pending_invites = [dict(r) for r in await cur.fetchall()]
+    base = str(request.base_url).rstrip("/")
     return templates.TemplateResponse(
-        request, "invite.html", {"user": dict(user)}
+        request, "invite.html", {"user": dict(user), "pending_invites": pending_invites, "base_url": base}
     )
+
+
+@router.delete("/invite/{token}")
+async def invite_delete(
+    token: str,
+    conn: aiosqlite.Connection = Depends(get_db),
+    _user=Depends(require_admin),
+):
+    await conn.execute("DELETE FROM invite_tokens WHERE token = ?", (token,))
+    await conn.commit()
+    return Response(status_code=200)
 
 
 @router.post("/invite")

@@ -476,3 +476,52 @@ async def test_non_admin_does_not_see_invite_link_in_nav(client):
     resp = await client.get("/", headers={"Accept": "text/html"})
     assert resp.status_code == 200
     assert b"/invite" not in resp.content
+
+
+# ---------------------------------------------------------------------------
+# Pending invite list + revoke
+# ---------------------------------------------------------------------------
+
+@pytest.mark.asyncio
+async def test_invite_page_shows_pending_invite(admin_client, db_conn):
+    await db_conn.execute(
+        "INSERT INTO invite_tokens(token, created_by, expires_at) "
+        "VALUES ('tok-pending-list', 1, datetime('now','localtime','+48 hours'))"
+    )
+    await db_conn.commit()
+    resp = await admin_client.get("/invite", headers={"Accept": "text/html"})
+    assert resp.status_code == 200
+    assert b"tok-pend" in resp.content  # last 8 chars of token suffix shown
+
+
+@pytest.mark.asyncio
+async def test_invite_page_empty_state(admin_client):
+    resp = await admin_client.get("/invite", headers={"Accept": "text/html"})
+    assert resp.status_code == 200
+    assert b"No pending invites" in resp.content
+
+
+@pytest.mark.asyncio
+async def test_invite_revoke_deletes_token(admin_client, db_conn):
+    await db_conn.execute(
+        "INSERT INTO invite_tokens(token, created_by, expires_at) "
+        "VALUES ('tok-to-revoke', 1, datetime('now','localtime','+48 hours'))"
+    )
+    await db_conn.commit()
+    resp = await admin_client.delete("/invite/tok-to-revoke")
+    assert resp.status_code == 200
+    async with db_conn.execute(
+        "SELECT token FROM invite_tokens WHERE token = 'tok-to-revoke'"
+    ) as cur:
+        assert await cur.fetchone() is None
+
+
+@pytest.mark.asyncio
+async def test_invite_revoke_forbidden_for_non_admin(client, db_conn):
+    await db_conn.execute(
+        "INSERT INTO invite_tokens(token, created_by, expires_at) "
+        "VALUES ('tok-non-admin', 1, datetime('now','localtime','+48 hours'))"
+    )
+    await db_conn.commit()
+    resp = await client.delete("/invite/tok-non-admin")
+    assert resp.status_code == 403

@@ -140,6 +140,8 @@ Deferred work from engineering + design reviews. Each item has enough context to
 
 **Depends on:** v0.3.0 multi-user auth shipped and working.
 
+**SHIPPED 2026-05-17** — GET /invite queries pending tokens and passes them to template. DELETE /invite/{token} hard-deletes (admin-only). invite.html shows table with token suffix, created/expires timestamps, and HTMX Revoke button. Empty state "No pending invites." 4 new tests, 138/138 passing.
+
 ---
 
 ## TODO-v2-B: Add user_id/username to Webhook Payloads

@@ -2,10 +2,10 @@
 {% block title %}Invite User — FitStorm{% endblock %}
 
 {% block content %}
-<div style="max-width: 480px; margin: 2rem auto;">
+<div style="max-width: 600px; margin: 2rem auto;">
   <h1 style="font-size: 1.25rem; font-weight: 600; margin-bottom: 1.5rem;">Invite a new user</h1>
 
-  <div class="card">
+  <div class="card" style="margin-bottom: 1.5rem;">
     <p style="font-size: 0.875rem; color: var(--muted); margin-bottom: 1.25rem;">
       Generate a one-time invite link. It expires after 48 hours.
     </p>
@@ -17,6 +17,45 @@
       Generate invite link
     </button>
     <div id="invite-result" style="margin-top: 1rem;"></div>
+  </div>
+
+  <div class="section-title" style="margin-bottom: 0.75rem;">Pending invites</div>
+  <div class="card" style="padding: 0; overflow: hidden;">
+    {% if pending_invites %}
+    <table>
+      <thead>
+        <tr>
+          <th>Token</th>
+          <th>Created</th>
+          <th>Expires</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody id="pending-invites-body">
+        {% for inv in pending_invites %}
+        <tr>
+          <td>
+            <code style="font-family: var(--mono); font-size: 0.8rem; color: var(--muted);">…{{ inv.token[-8:] }}</code>
+          </td>
+          <td style="font-size: 0.8rem; color: var(--muted);">{{ inv.created_at[:16] }}</td>
+          <td style="font-size: 0.8rem; color: var(--muted);">{{ inv.expires_at[:16] }}</td>
+          <td style="text-align: right;">
+            <button class="btn btn-ghost"
+                    style="font-size: 0.8rem; color: #f87171;"
+                    hx-delete="/invite/{{ inv.token }}"
+                    hx-target="closest tr"
+                    hx-swap="outerHTML"
+                    hx-confirm="Revoke this invite link?">
+              Revoke
+            </button>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <p style="padding: 1rem; color: var(--muted); font-size: 0.875rem;">No pending invites.</p>
+    {% endif %}
   </div>
 </div>
 {% endblock %}
