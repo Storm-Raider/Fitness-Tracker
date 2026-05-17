@@ -80,3 +80,20 @@ async def test_list_exercises_includes_last_sets(client):
     data = resp.json()
     assert str(ex_id) in data["last_sets"]
     assert data["last_sets"][str(ex_id)]["weight_kg"] == 100.0
+
+
+@pytest.mark.asyncio
+async def test_last_sets_returns_most_recent_set(client):
+    ex = await client.post("/exercises", json={"name": "OL Squat"})
+    ex_id = ex.json()["id"]
+    w = await client.post("/workouts", json={"notes": None})
+    w_id = w.json()["id"]
+    await client.post(f"/workouts/{w_id}/sets",
+                      json={"exercise_id": ex_id, "reps": 5, "weight_kg": 80.0})
+    await client.post(f"/workouts/{w_id}/sets",
+                      json={"exercise_id": ex_id, "reps": 3, "weight_kg": 90.0})
+
+    data = (await client.get("/api/exercises")).json()
+    last = data["last_sets"][str(ex_id)]
+    assert last["weight_kg"] == 90.0
+    assert last["reps"] == 3
