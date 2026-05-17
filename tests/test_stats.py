@@ -22,6 +22,15 @@ async def test_stats_empty_state(client):
 
 
 @pytest.mark.asyncio
+async def test_stats_sparkline_empty_state(client):
+    resp = await client.get("/stats", headers={"Accept": "text/html"})
+    assert resp.status_code == 200
+    assert "training arc appears here" in resp.text
+    assert "Start a session" in resp.text
+    assert "<svg" not in resp.text
+
+
+@pytest.mark.asyncio
 async def test_stats_shows_top_exercise(client, db):
     ex = await client.post("/exercises", json={"name": "Stats Test Lift"})
     ex_id = ex.json()["id"]
