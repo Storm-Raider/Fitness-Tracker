@@ -34,6 +34,21 @@ const _activeWorkoutId = {{ active_workout.id }};
 const _activeWorkoutId = null;
 {% endif %}
 
+async function repeatWorkout(sourceId, btn) {
+  btn.disabled = true;
+  const resp = await fetch('/workouts', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({notes: null})
+  });
+  if (resp.ok) {
+    const data = await resp.json();
+    window.location.href = `/workouts/${data.id}?repeat=${sourceId}`;
+  } else {
+    btn.disabled = false;
+  }
+}
+
 async function startSession(btn) {
   if (_activeWorkoutId) {
     const go = confirm('You have a session in progress. Start a new one anyway?\n\nYour current session will remain open until you finish it.');

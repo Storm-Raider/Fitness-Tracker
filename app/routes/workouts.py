@@ -286,6 +286,33 @@ async def finish_workout(
     return JSONResponse(summary)
 
 
+@router.get("/api/workouts/{workout_id}/exercises")
+async def get_workout_exercise_order(
+    workout_id: int,
+    conn: aiosqlite.Connection = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    uid = current_user["id"]
+    async with conn.execute(
+        "SELECT id FROM workouts WHERE id = ? AND user_id = ?", (workout_id, uid)
+    ) as cur:
+        if not await cur.fetchone():
+            raise HTTPException(status_code=404, detail="Workout not found")
+    async with conn.execute(
+        """
+        SELECT s.exercise_id AS id, e.name, MIN(s.id) AS first_id
+        FROM sets s
+        JOIN exercises e ON e.id = s.exercise_id
+        WHERE s.workout_id = ? AND s.user_id = ?
+        GROUP BY s.exercise_id
+        ORDER BY first_id
+        """,
+        (workout_id, uid),
+    ) as cur:
+        exercises = [{"id": r["id"], "name": r["name"]} for r in await cur.fetchall()]
+    return JSONResponse(exercises)
+
+
 @router.delete("/workouts/{workout_id}", status_code=200)
 async def delete_workout(
     workout_id: int,

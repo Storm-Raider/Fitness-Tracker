@@ -143,3 +143,33 @@ async def test_dashboard_no_active_session_shows_start(client):
     assert resp.status_code == 200
     assert b"Start Session" in resp.content
     assert b"Session in progress" not in resp.content
+
+
+@pytest.mark.asyncio
+async def test_repeat_workout_exercise_order(client):
+    ex1 = await client.post("/exercises", json={"name": "Repeat Test A"})
+    ex2 = await client.post("/exercises", json={"name": "Repeat Test B"})
+    ex1_id, ex2_id = ex1.json()["id"], ex2.json()["id"]
+
+    w = await client.post("/workouts", json={"notes": None})
+    w_id = w.json()["id"]
+    # Log A, then B, then A again — endpoint should return [A, B] (deduplicated, original order)
+    await client.post(f"/workouts/{w_id}/sets",
+                      json={"exercise_id": ex1_id, "reps": 5, "weight_kg": 100.0})
+    await client.post(f"/workouts/{w_id}/sets",
+                      json={"exercise_id": ex2_id, "reps": 3, "weight_kg": 140.0})
+    await client.post(f"/workouts/{w_id}/sets",
+                      json={"exercise_id": ex1_id, "reps": 5, "weight_kg": 100.0})
+
+    resp = await client.get(f"/api/workouts/{w_id}/exercises")
+    assert resp.status_code == 200
+    exercises = resp.json()
+    assert [e["id"] for e in exercises] == [ex1_id, ex2_id]
+    assert exercises[0]["name"] == "Repeat Test A"
+    assert exercises[1]["name"] == "Repeat Test B"
+
+
+@pytest.mark.asyncio
+async def test_repeat_workout_404_for_missing(client):
+    resp = await client.get("/api/workouts/99999/exercises")
+    assert resp.status_code == 404

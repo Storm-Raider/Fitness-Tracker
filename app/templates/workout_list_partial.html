@@ -33,6 +33,15 @@
         </div>
       </div>
     </a>
+    {% if w.set_count > 0 and w.ended_at %}
+    <button onclick="repeatWorkout({{ w.id }}, this)"
+      style="flex-shrink:0;width:44px;background:transparent;border:none;border-left:1px solid var(--border);color:var(--muted);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:color 0.15s,background 0.15s;"
+      onmouseover="this.style.color='var(--accent)';this.style.background='var(--accent-dim)'"
+      onmouseout="this.style.color='var(--muted)';this.style.background='transparent'"
+      title="Repeat this workout">
+      <i data-lucide="repeat-2" style="width:15px;height:15px;pointer-events:none;"></i>
+    </button>
+    {% endif %}
     <button
       hx-delete="/workouts/{{ w.id }}"
       hx-target="#workout-{{ w.id }}"
