@@ -110,3 +110,36 @@ async def test_add_set_to_missing_workout(client):
     resp = await client.post("/workouts/99999/sets",
                              json={"exercise_id": ex.json()["id"], "reps": 10, "weight_kg": 20.0})
     assert resp.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_workout_list_shows_resume_when_active(client):
+    await client.post("/workouts", json={"notes": None})
+    resp = await client.get("/workouts", headers={"Accept": "text/html"})
+    assert resp.status_code == 200
+    assert b"Resume Session" in resp.content
+
+
+@pytest.mark.asyncio
+async def test_workout_list_shows_start_when_no_active(client):
+    resp = await client.get("/workouts", headers={"Accept": "text/html"})
+    assert resp.status_code == 200
+    assert b"Start Session" in resp.content
+    assert b"Resume Session" not in resp.content
+
+
+@pytest.mark.asyncio
+async def test_dashboard_shows_active_session_card(client):
+    await client.post("/workouts", json={"notes": None})
+    resp = await client.get("/", headers={"Accept": "text/html"})
+    assert resp.status_code == 200
+    assert b"Session in progress" in resp.content
+    assert b"Resume Session" in resp.content
+
+
+@pytest.mark.asyncio
+async def test_dashboard_no_active_session_shows_start(client):
+    resp = await client.get("/", headers={"Accept": "text/html"})
+    assert resp.status_code == 200
+    assert b"Start Session" in resp.content
+    assert b"Session in progress" not in resp.content

@@ -60,6 +60,7 @@ async def list_workouts(
     conn: aiosqlite.Connection = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
+    uid = current_user["id"]
     async with conn.execute(
         """
         SELECT w.id, w.started_at, w.ended_at, w.notes,
@@ -73,10 +74,12 @@ async def list_workouts(
         GROUP BY w.id
         ORDER BY w.started_at DESC
         """,
-        (current_user["id"], current_user["id"]),
+        (uid, uid),
     ) as cur:
         workouts = [dict(r) for r in await cur.fetchall()]
-    return render(request, "workout_list", {"workouts": workouts, "user": dict(current_user)})
+
+    active_workout = next((w for w in workouts if w["ended_at"] is None), None)
+    return render(request, "workout_list", {"workouts": workouts, "active_workout": active_workout, "user": dict(current_user)})
 
 
 @router.post("/workouts", status_code=201)

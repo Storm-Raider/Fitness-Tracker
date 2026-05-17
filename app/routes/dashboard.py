@@ -36,6 +36,22 @@ async def dashboard(
 
     async with conn.execute(
         """
+        SELECT w.id, w.started_at, COUNT(s.id) AS set_count,
+               CAST(ROUND((JULIANDAY('now','localtime') - JULIANDAY(w.started_at)) * 1440) AS INTEGER) AS elapsed_min
+        FROM workouts w
+        LEFT JOIN sets s ON s.workout_id = w.id AND s.user_id = ?
+        WHERE w.user_id = ? AND w.ended_at IS NULL
+        GROUP BY w.id
+        ORDER BY w.started_at DESC
+        LIMIT 1
+        """,
+        (uid, uid),
+    ) as cur:
+        active_workout = await cur.fetchone()
+        active_workout = dict(active_workout) if active_workout else None
+
+    async with conn.execute(
+        """
         SELECT e.id AS exercise_id, e.name AS exercise_name, MAX(s.weight_kg) AS pr_kg
         FROM sets s
         JOIN exercises e ON e.id = s.exercise_id
@@ -126,6 +142,7 @@ async def dashboard(
             "total_volume": total_volume,
             "avg_duration_min": avg_duration_min,
             "best_streak": best_streak,
+            "active_workout": active_workout,
             "user": dict(current_user),
         },
     )
