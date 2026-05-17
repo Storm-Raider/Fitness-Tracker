@@ -102,9 +102,20 @@
           </div>
         </div>
       </div>
-      <div class="form-group">
-        <label for="notes-input">Notes (optional)</label>
-        <input type="text" id="notes-input" placeholder="e.g. paused reps, felt easy">
+      <div class="grid-2">
+        <div class="form-group">
+          <label for="notes-input">Notes (optional)</label>
+          <input type="text" id="notes-input" placeholder="e.g. paused reps, felt easy">
+        </div>
+        <div class="form-group">
+          <label for="rpe-select">Effort / RPE (optional)</label>
+          <select id="rpe-select">
+            <option value="">—</option>
+            {% for n in range(1, 11) %}
+            <option value="{{ n }}">{{ n }}</option>
+            {% endfor %}
+          </select>
+        </div>
       </div>
       <div id="last-set-hint" style="font-size:0.8rem; color:var(--muted); margin-bottom:0.75rem; display:none;">
         Last session: <span id="last-set-text"></span>
@@ -124,7 +135,7 @@
         <div class="set-row" id="set-{{ s.id }}">
           <div class="set-meta">
             <div>{{ s.exercise_name }}</div>
-            <div class="set-detail">{{ s.weight_kg }} kg × {{ s.reps }} reps{% if s.notes %} · {{ s.notes }}{% endif %}</div>
+            <div class="set-detail">{{ s.weight_kg }} kg × {{ s.reps }} reps{% if s.rpe %} · RPE {{ s.rpe }}{% endif %}{% if s.notes %} · {{ s.notes }}{% endif %}</div>
           </div>
           <button class="btn btn-ghost" style="padding:0.2rem 0.5rem; font-size:0.75rem;"
                   onclick="deleteSet({{ s.id }}, this)"><i data-lucide="x" style="width:14px;height:14px;"></i></button>
@@ -623,11 +634,13 @@ async function logSet() {
   const weight = parseFloat(document.getElementById('weight-input').value);
   const reps = parseInt(document.getElementById('reps-input').value);
   const notes = document.getElementById('notes-input').value.trim() || null;
+  const rpeRaw = document.getElementById('rpe-select').value;
+  const rpe = rpeRaw ? parseInt(rpeRaw) : null;
 
   const resp = await fetch(`/workouts/${WORKOUT_ID}/sets`, {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({exercise_id: exerciseId, reps, weight_kg: weight, notes})
+    body: JSON.stringify({exercise_id: exerciseId, reps, weight_kg: weight, notes, rpe})
   });
 
   if (!resp.ok) { showErr('Failed to log set.'); return; }
@@ -657,13 +670,15 @@ async function logSet() {
   row.innerHTML = `
     <div class="set-meta">
       <div>${escHtml(exerciseName)}</div>
-      <div class="set-detail">${weight} kg × ${reps} reps — est. 1RM: ${epley1RM(weight, reps)} kg${notes ? ' · ' + escHtml(notes) : ''}${data.is_pr ? ' <span class="badge badge-pr">PR</span>' : ''}</div>
+      <div class="set-detail">${weight} kg × ${reps} reps${rpe ? ' · RPE ' + rpe : ''} — est. 1RM: ${epley1RM(weight, reps)} kg${notes ? ' · ' + escHtml(notes) : ''}${data.is_pr ? ' <span class="badge badge-pr">PR</span>' : ''}</div>
     </div>
     <button class="btn btn-ghost" style="padding:0.2rem 0.5rem; font-size:0.75rem;"
             onclick="deleteSet(${data.id}, this)"><i data-lucide="x" style="width:14px;height:14px;"></i></button>
   `;
   container.appendChild(row);
   lucide.createIcons();
+  document.getElementById('notes-input').value = '';
+  document.getElementById('rpe-select').value = '';
 }
 
 async function deleteSet(id, btn) {

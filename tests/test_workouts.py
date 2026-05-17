@@ -173,3 +173,44 @@ async def test_repeat_workout_exercise_order(client):
 async def test_repeat_workout_404_for_missing(client):
     resp = await client.get("/api/workouts/99999/exercises")
     assert resp.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_log_set_with_rpe(client):
+    ex = await client.post("/exercises", json={"name": "RPE Test Lift"})
+    ex_id = ex.json()["id"]
+    w = await client.post("/workouts", json={"notes": None})
+    w_id = w.json()["id"]
+
+    resp = await client.post(f"/workouts/{w_id}/sets",
+                             json={"exercise_id": ex_id, "reps": 5,
+                                   "weight_kg": 100.0, "rpe": 8})
+    assert resp.status_code == 201
+
+    page = await client.get(f"/workouts/{w_id}", headers={"Accept": "text/html"})
+    assert "RPE 8" in page.text
+
+
+@pytest.mark.asyncio
+async def test_log_set_rpe_optional(client):
+    ex = await client.post("/exercises", json={"name": "RPE Optional Test"})
+    ex_id = ex.json()["id"]
+    w = await client.post("/workouts", json={"notes": None})
+    w_id = w.json()["id"]
+
+    resp = await client.post(f"/workouts/{w_id}/sets",
+                             json={"exercise_id": ex_id, "reps": 5, "weight_kg": 80.0})
+    assert resp.status_code == 201
+
+
+@pytest.mark.asyncio
+async def test_log_set_rpe_out_of_range(client):
+    ex = await client.post("/exercises", json={"name": "RPE Range Test"})
+    ex_id = ex.json()["id"]
+    w = await client.post("/workouts", json={"notes": None})
+    w_id = w.json()["id"]
+
+    resp = await client.post(f"/workouts/{w_id}/sets",
+                             json={"exercise_id": ex_id, "reps": 5,
+                                   "weight_kg": 80.0, "rpe": 11})
+    assert resp.status_code == 422

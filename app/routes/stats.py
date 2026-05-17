@@ -72,6 +72,32 @@ async def stats(
     primary_muscles = [r["muscle"] for r in muscle_rows if r["is_primary"]]
     secondary_muscles = [r["muscle"] for r in muscle_rows if not r["is_primary"]]
 
+    # Plateau detection: exercises active in last 21 days with no weight improvement
+    async with conn.execute(
+        """
+        SELECT e.name,
+               MAX(s.weight_kg) AS pr_kg,
+               MAX(CASE WHEN DATE(w.started_at) >= DATE('now', '-21 days')
+                        THEN s.weight_kg END) AS recent_max,
+               MAX(CASE WHEN DATE(w.started_at) <  DATE('now', '-21 days')
+                        THEN s.weight_kg END) AS prior_max,
+               COUNT(DISTINCT DATE(w.started_at)) AS session_count
+        FROM sets s
+        JOIN exercises e ON e.id = s.exercise_id
+        JOIN workouts w ON w.id = s.workout_id AND w.ended_at IS NOT NULL
+        WHERE s.user_id = ?
+        GROUP BY s.exercise_id
+        HAVING recent_max IS NOT NULL
+           AND prior_max IS NOT NULL
+           AND session_count >= 3
+           AND recent_max <= prior_max
+        ORDER BY e.name
+        LIMIT 5
+        """,
+        (uid,),
+    ) as cur:
+        plateaus = [dict(r) for r in await cur.fetchall()]
+
     return render(
         request,
         "stats",
@@ -81,6 +107,7 @@ async def stats(
             "top_exercises": top_exercises,
             "primary_muscles": primary_muscles,
             "secondary_muscles": secondary_muscles,
+            "plateaus": plateaus,
             "user": dict(current_user),
         },
     )

@@ -27,6 +27,7 @@ _MIGRATIONS = [
     "ALTER TABLE exercises ADD COLUMN cue TEXT",
     "ALTER TABLE exercises DROP COLUMN muscle_primary",
     "ALTER TABLE exercises DROP COLUMN muscle_secondary",
+    "ALTER TABLE sets ADD COLUMN rpe INTEGER",
     """CREATE TABLE IF NOT EXISTS cardio_logs (
         id               INTEGER PRIMARY KEY AUTOINCREMENT,
         user_id          INTEGER NOT NULL REFERENCES users(id),

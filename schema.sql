@@ -26,6 +26,7 @@ CREATE TABLE IF NOT EXISTS sets (
     reps        INTEGER NOT NULL,
     weight_kg   REAL    NOT NULL,
     notes       TEXT,
+    rpe         INTEGER,
     user_id     INTEGER NULL DEFAULT 1
 );
 

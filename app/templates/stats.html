@@ -17,6 +17,28 @@
   </div>
 </div>
 
+{% if plateaus %}
+<div style="margin-bottom:1.5rem;">
+  <div class="section-title" style="margin-bottom:0.75rem;">Plateaus — no progress in 3+ weeks</div>
+  <div class="card">
+    <table>
+      <thead>
+        <tr><th>Exercise</th><th>Current max</th><th>Sessions</th></tr>
+      </thead>
+      <tbody>
+        {% for p in plateaus %}
+        <tr>
+          <td>{{ p.name }}</td>
+          <td><span class="num" style="color:var(--pr);">{{ p.pr_kg }} kg</span></td>
+          <td style="color:var(--muted);">{{ p.session_count }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
 <div class="grid-2" style="align-items:start;">
   <div>
     <div class="section-title" style="margin-bottom:0.75rem;">Top exercises (all time)</div>

@@ -52,6 +52,7 @@ class SetIn(BaseModel):
     reps: int = Field(ge=1, le=999)
     weight_kg: float = Field(ge=0.0, le=1000.0)
     notes: str | None = Field(default=None, max_length=500)
+    rpe: int | None = Field(default=None, ge=1, le=10)
 
 
 @router.get("/workouts")
@@ -117,7 +118,7 @@ async def get_workout(
 
     async with conn.execute(
         """
-        SELECT s.id, s.exercise_id, e.name AS exercise_name, s.reps, s.weight_kg, s.notes
+        SELECT s.id, s.exercise_id, e.name AS exercise_name, s.reps, s.weight_kg, s.notes, s.rpe
         FROM sets s
         JOIN exercises e ON e.id = s.exercise_id
         WHERE s.workout_id = ? AND s.user_id = ?
@@ -189,9 +190,9 @@ async def add_set(
         prior_max = prior_row["max_kg"] if prior_row and prior_row["max_kg"] else None
 
         async with conn.execute(
-            "INSERT INTO sets(workout_id, exercise_id, reps, weight_kg, notes, user_id) "
-            "VALUES (?, ?, ?, ?, ?, ?)",
-            (workout_id, body.exercise_id, body.reps, body.weight_kg, body.notes, uid),
+            "INSERT INTO sets(workout_id, exercise_id, reps, weight_kg, notes, rpe, user_id) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?)",
+            (workout_id, body.exercise_id, body.reps, body.weight_kg, body.notes, body.rpe, uid),
         ) as cur:
             set_id = cur.lastrowid
 
