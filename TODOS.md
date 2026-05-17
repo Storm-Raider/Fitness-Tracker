@@ -4,6 +4,36 @@ Deferred work from engineering + design reviews. Each item has enough context to
 
 ---
 
+## TODO-stats-1: /stats Analytics Page
+
+**What:** Build a dedicated `/stats` route and template with sparkline charts — weekly volume trend, top exercises by frequency, avg session duration over time, and muscle group coverage for the current week.
+
+**Why:** The dashboard has good at-a-glance numbers. `/stats` is for the user who wants to see the arc of their training — not just this week, but the last 12 weeks, which exercises dominate, and which muscle groups are being neglected. The dashboard stays clean; `/stats` becomes the deep-dive destination.
+
+**What already exists (do not rebuild):**
+- `app/utils/charts.py` — `generate_sparkline(values, labels, color, width, height, unit)` fully built, used by metrics and exercises routes. Zero callers from dashboard context — free to use.
+- `app/utils/heatmap.py` — heatmap generator already in use
+- `exercise_muscles` table — 314 rows, muscle/is_primary, ready for muscle-coverage queries
+- `streak.py` — `max_streak()` will exist after the FitStorm rename PR ships
+
+**Scope (minimum viable /stats):**
+1. New route `GET /stats` in `app/routes/` (or add to dashboard.py)
+2. Template `app/templates/stats.html` — card grid + sparkline charts
+3. Nav link added to `base.html` alongside Dashboard, Workouts, Exercises
+4. Queries:
+   - Weekly volume (last 12 weeks): `GROUP BY strftime('%Y-%W', started_at)`
+   - Top 5 exercises by set count (all time): `GROUP BY exercise_id ORDER BY COUNT(*) DESC LIMIT 5`
+   - Muscle coverage this week: `JOIN exercise_muscles WHERE DATE(w.started_at) >= date('now','-6 days')`
+5. Wire `generate_sparkline(weekly_volumes, weekly_labels, unit="kg")` for the volume trend chart
+
+**Where to start:** `app/routes/` — add `stats.py`. Copy query pattern from `dashboard.py`. Call `generate_sparkline()` for the weekly volume trend (it returns an inline SVG — same as the heatmap).
+
+**Depends on:** FitStorm rename PR shipped (for consistency). No schema changes needed.
+
+**Effort:** M (human ~2h / CC ~15min)
+
+---
+
 ## TODO-1: Create DEVIATIONS.md
 
 **What:** Create a `DEVIATIONS.md` file in the project root documenting intentional divergences from the original spec files.

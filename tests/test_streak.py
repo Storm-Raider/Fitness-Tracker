@@ -1,7 +1,7 @@
 from datetime import date, timedelta
 import pytest
 
-from app.utils.streak import compute_streak
+from app.utils.streak import compute_streak, max_streak
 
 
 def today():
@@ -39,3 +39,19 @@ def test_no_workout_today_returns_zero():
 def test_duplicates_handled():
     dates = [today(), today(), days_ago(1), days_ago(1)]
     assert compute_streak(dates) == 2
+
+
+def test_max_streak_empty():
+    assert max_streak([]) == 0
+
+
+def test_max_streak_single():
+    assert max_streak(["2026-01-01"]) == 1
+
+
+def test_max_streak_all_consecutive():
+    assert max_streak(["2020-06-01", "2020-06-02", "2020-06-03"]) == 3
+
+
+def test_max_streak_gap_resets():
+    assert max_streak(["2026-01-01", "2026-01-02", "2026-01-03", "2026-01-10"]) == 3

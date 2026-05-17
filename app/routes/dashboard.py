@@ -6,7 +6,7 @@ from app.db import get_db
 from app.routes.auth import get_current_user
 from app.utils.heatmap import generate_heatmap_svg
 from app.utils.render import render, templates
-from app.utils.streak import compute_streak
+from app.utils.streak import compute_streak, max_streak
 
 router = APIRouter()
 
@@ -73,6 +73,8 @@ async def dashboard(
         all_days = [r["day"] for r in await cur.fetchall()]
 
     streak = compute_streak(all_days)
+    # all_days must remain unbounded for max_streak() accuracy
+    best_streak = max_streak(all_days)
 
     async with conn.execute(
         """
@@ -87,6 +89,29 @@ async def dashboard(
     ) as cur:
         vol_row = dict(await cur.fetchone())
 
+    async with conn.execute(
+        "SELECT COUNT(*) AS total_workouts FROM workouts WHERE user_id = ?",
+        (uid,),
+    ) as cur:
+        total_workouts = (await cur.fetchone())["total_workouts"]
+
+    async with conn.execute(
+        "SELECT COALESCE(SUM(weight_kg * reps), 0) AS total_volume FROM sets WHERE user_id = ?",
+        (uid,),
+    ) as cur:
+        total_volume = (await cur.fetchone())["total_volume"]
+
+    async with conn.execute(
+        """
+        SELECT CAST(ROUND(AVG(
+            (JULIANDAY(ended_at) - JULIANDAY(started_at)) * 1440
+        )) AS INTEGER) AS avg_duration_min
+        FROM workouts WHERE user_id = ? AND ended_at IS NOT NULL
+        """,
+        (uid,),
+    ) as cur:
+        avg_duration_min = (await cur.fetchone())["avg_duration_min"]
+
     return render(
         request,
         "dashboard",
@@ -97,6 +122,10 @@ async def dashboard(
             "streak": streak,
             "weekly_volume": vol_row["weekly_volume"],
             "weekly_sessions": vol_row["weekly_sessions"],
+            "total_workouts": total_workouts,
+            "total_volume": total_volume,
+            "avg_duration_min": avg_duration_min,
+            "best_streak": best_streak,
             "user": dict(current_user),
         },
     )

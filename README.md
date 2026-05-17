@@ -1,4 +1,4 @@
-# FitTrack
+# FitStorm
 
 A self-hosted fitness tracker for your Raspberry Pi. Log workouts, track PRs, own your data.
 
@@ -88,7 +88,7 @@ docker compose up -d
 
 ## Adding more users
 
-FitTrack uses invite-only registration. As admin:
+FitStorm uses invite-only registration. As admin:
 
 1. Go to **Account → Invite** (or `/invite`)
 2. Generate an invite link (valid for 48 hours)
@@ -157,7 +157,7 @@ POST /invite                        → generate invite link (admin only)
 
 ## Webhooks
 
-Set `WEBHOOK_URL` in `.env`. FitTrack will POST JSON to that URL on two events.
+Set `WEBHOOK_URL` in `.env`. FitStorm will POST JSON to that URL on two events.
 
 ### `pr_achieved` — new personal record on a set
 
@@ -201,7 +201,7 @@ In `configuration.yaml` (or via the UI — Settings → Automations → New → 
 
 ```yaml
 automation:
-  - alias: FitTrack PR notification
+  - alias: FitStorm PR notification
     trigger:
       platform: webhook
       webhook_id: fittrack
@@ -219,7 +219,7 @@ automation:
           {{ trigger.json.weight_kg }} kg
           (was {{ trigger.json.previous_pr_kg }} kg)
 
-  - alias: FitTrack session complete
+  - alias: FitStorm session complete
     trigger:
       platform: webhook
       webhook_id: fittrack
@@ -298,7 +298,7 @@ Then `docker compose restart`.
 ## Importing from Strong
 
 1. In Strong: Profile → Export Data → email yourself the CSV
-2. In FitTrack: go to the import page and upload the file
+2. In FitStorm: go to the import page and upload the file
 3. Exercises are created from CSV names. Cardio rows are skipped. Weights in lbs are converted to kg automatically.
 
 ---
@@ -310,13 +310,13 @@ Then `docker compose restart`.
 docker run --rm \
   -v fitness-tracker_fitness_data:/data \
   -v $(pwd):/backup \
-  alpine tar czf /backup/fittrack-$(date +%Y%m%d).tar.gz /data
+  alpine tar czf /backup/fitstorm-$(date +%Y%m%d).tar.gz /data
 
 # Restore
 docker run --rm \
   -v fitness-tracker_fitness_data:/data \
   -v $(pwd):/backup \
-  alpine tar xzf /backup/fittrack-20260502.tar.gz -C /
+  alpine tar xzf /backup/fitstorm-20260502.tar.gz -C /
 ```
 
 ---
@@ -326,7 +326,7 @@ docker run --rm \
 ```bash
 pip install -r requirements.txt
 cp .env.example .env   # fill in test values
-DATABASE_PATH=/tmp/fittrack.db uvicorn app.main:app --reload
+DATABASE_PATH=/tmp/fitstorm.db uvicorn app.main:app --reload
 ```
 
 Tests:

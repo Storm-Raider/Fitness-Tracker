@@ -17,8 +17,8 @@ from app.utils.render import render, templates
 
 router = APIRouter()
 
-COOKIE_NAME = "fittrack_session"
-_SALT = "fittrack-session"
+COOKIE_NAME = "fitstorm_session"
+_SALT = "fitstorm-session"
 
 _USERNAME_RE = re.compile(r"^[a-zA-Z0-9_]{3,30}$")
 _EMAIL_RE = re.compile(r"^[^@\s]{1,64}@[^@\s]+\.[^@\s]{2,}$")
@@ -176,17 +176,17 @@ async def forgot_password_post(
         base = str(request.base_url).rstrip("/")
         reset_url = f"{base}/reset-password/{token}"
         body_text = (
-            f"Hi,\n\nClick the link below to reset your FitTrack password.\n"
+            f"Hi,\n\nClick the link below to reset your FitStorm password.\n"
             f"This link expires in 1 hour.\n\n{reset_url}\n\n"
             f"If you didn't request this, you can ignore this email."
         )
         body_html = (
-            f"<p>Click the link below to reset your FitTrack password.<br>"
+            f"<p>Click the link below to reset your FitStorm password.<br>"
             f"This link expires in 1 hour.</p>"
             f'<p><a href="{reset_url}">{reset_url}</a></p>'
             f"<p>If you didn't request this, you can ignore this email.</p>"
         )
-        await send_email(email, "Reset your FitTrack password", body_text, body_html)
+        await send_email(email, "Reset your FitStorm password", body_text, body_html)
 
     return templates.TemplateResponse(request, "forgot_password.html", {"sent": True, "error": None})
 

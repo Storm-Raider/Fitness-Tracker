@@ -100,7 +100,7 @@ async def test_delete_cardio_other_user_returns_404(client: AsyncClient, db_conn
     async with AsyncClient(
         transport=transport,
         base_url="http://test",
-        cookies={"fittrack_session": _test_session_token(user_id=intruder_id)},
+        cookies={"fitstorm_session": _test_session_token(user_id=intruder_id)},
     ) as intruder:
         r2 = await intruder.delete(f"/cardio/{log_id}")
     assert r2.status_code == 404

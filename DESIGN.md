@@ -1,4 +1,4 @@
-# FitTrack Design System
+# FitStorm Design System
 
 Source of truth: `app/templates/base.html`. This file is a human-readable extract — if there's a conflict, the CSS wins.
 

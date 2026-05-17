@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to FitTrack are documented here.
+All notable changes to FitStorm are documented here.
 
 ## [Unreleased]
 
@@ -81,4 +81,4 @@ All notable changes to FitTrack are documented here.
 ## [0.1.0] — 2026-04-xx
 
 ### Added
-- Initial FitTrack release — workout logging, exercise tracking, and basic dashboard
+- Initial FitStorm release — workout logging, exercise tracking, and basic dashboard

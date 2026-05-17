@@ -14,7 +14,7 @@ async def test_login_success_redirects_and_sets_cookie(anon_client):
     )
     assert resp.status_code == 303
     assert resp.headers["location"] == "/"
-    assert "fittrack_session" in resp.cookies
+    assert "fitstorm_session" in resp.cookies
 
 
 @pytest.mark.asyncio

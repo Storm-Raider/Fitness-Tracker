@@ -27,7 +27,7 @@ def _hash_test(password: str) -> str:
 
 def _test_session_token(user_id: int = 1) -> str:
     secret = os.environ["APP_SECRET"]
-    return URLSafeTimedSerializer(secret, salt="fittrack-session").dumps({"user_id": user_id})
+    return URLSafeTimedSerializer(secret, salt="fitstorm-session").dumps({"user_id": user_id})
 
 
 @pytest_asyncio.fixture
@@ -63,7 +63,7 @@ async def client(db_conn, seed_test_user):
     async with AsyncClient(
         transport=transport,
         base_url="http://test",
-        cookies={"fittrack_session": _test_session_token(user_id=1)},
+        cookies={"fitstorm_session": _test_session_token(user_id=1)},
     ) as ac:
         yield ac
 
@@ -96,7 +96,7 @@ async def admin_client(db_conn, admin_user):
     async with AsyncClient(
         transport=transport,
         base_url="http://test",
-        cookies={"fittrack_session": _test_session_token(user_id=3)},
+        cookies={"fitstorm_session": _test_session_token(user_id=3)},
     ) as ac:
         yield ac
 
@@ -119,6 +119,6 @@ async def user_b_client(db_conn, user_b):
     async with AsyncClient(
         transport=transport,
         base_url="http://test",
-        cookies={"fittrack_session": _test_session_token(user_id=2)},
+        cookies={"fitstorm_session": _test_session_token(user_id=2)},
     ) as ac:
         yield ac
