@@ -67,7 +67,10 @@ async def list_workouts(
                COUNT(s.id) AS set_count,
                CASE WHEN w.ended_at IS NOT NULL
                     THEN CAST(ROUND((JULIANDAY(w.ended_at) - JULIANDAY(w.started_at)) * 1440) AS INTEGER)
-                    ELSE NULL END AS duration_min
+                    ELSE NULL END AS duration_min,
+               CASE WHEN w.ended_at IS NULL
+                    THEN CAST(ROUND((JULIANDAY('now','localtime') - JULIANDAY(w.started_at)) * 1440) AS INTEGER)
+                    ELSE NULL END AS elapsed_min
         FROM workouts w
         LEFT JOIN sets s ON s.workout_id = w.id AND s.user_id = ?
         WHERE w.user_id = ?

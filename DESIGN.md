@@ -162,7 +162,14 @@ Lucide **v0.378.0** via CDN. Pinned — do not use `@latest`.
 | Metrics form | button → "Saving…" | — | Inline error | "Saved" (2 s flash) |
 | Exercise search | — | "No match" + "+ Add as new exercise" (JS-injected) | — | Name appears in field |
 | CSV export | Browser native | — | — | File downloads |
+| CSV import | button → "Importing…", disabled | — | Inline flash (detail from server) | "Imported N sets (M skipped)." flash |
 | HTMX partial swap | — (swap is instant) | — | — | Target element replaced |
+| Active session card | — (server-rendered) | Card hidden when no active session | — | — |
+| Active session (0 sets) | — | "Ready to log · X min elapsed" | — | — |
+| Stats — sparkline | — (server-rendered) | "Your training arc appears here…" + [Start Session →] link | — | — |
+| Stats — top exercises | — | "No sets logged yet." | — | — |
+| Stats — muscle coverage | — | "No workouts logged this week." | — | — |
+| Invite revoke | — (HTMX swap) | "No pending invites." in card | — | Row removed via outerHTML swap |
 
 **PR badge:** Shown immediately after `POST /sets` returns `{"is_pr": true}`. Gold (`--pr-dim` bg, `--pr` text, JetBrains Mono), appears inline on the set row. First set of any exercise always earns one.
 

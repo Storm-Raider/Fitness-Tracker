@@ -16,7 +16,7 @@ async def test_stats_renders(client):
 async def test_stats_empty_state(client):
     resp = await client.get("/stats", headers={"Accept": "text/html"})
     assert resp.status_code == 200
-    assert "Not enough data yet" in resp.text
+    assert "training arc appears here" in resp.text
     assert "No sets logged yet" in resp.text
     assert "No workouts logged this week" in resp.text
 

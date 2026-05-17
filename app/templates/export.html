@@ -5,7 +5,7 @@
   <h1 style="font-size:1.5rem; font-weight:700;">Export & Import</h1>
 </div>
 
-<div style="display:flex; flex-direction:column; gap:1.5rem; max-width:480px;">
+<div style="display:flex; flex-direction:column; gap:1.5rem; max-width:600px;">
 
   <div class="card">
     <div class="section-title" style="margin-bottom:0.5rem;">Export workouts</div>
@@ -30,14 +30,14 @@
       </div>
       <div id="import-error" class="flash flash-error" style="display:none;"></div>
       <div id="import-success" class="flash flash-success" style="display:none;"></div>
-      <button type="button" class="btn btn-primary" onclick="runImport()">Import</button>
+      <button type="button" id="import-btn" class="btn btn-primary" onclick="runImport(this)">Import</button>
     </form>
   </div>
 
 </div>
 
 <script>
-async function runImport() {
+async function runImport(btn) {
   const fileEl = document.getElementById('csv-file');
   const errEl  = document.getElementById('import-error');
   const okEl   = document.getElementById('import-success');
@@ -50,11 +50,17 @@ async function runImport() {
     return;
   }
 
+  btn.disabled = true;
+  btn.textContent = 'Importing…';
+
   const fd = new FormData();
   fd.append('file', fileEl.files[0]);
 
   const resp = await fetch('/import/csv', { method: 'POST', body: fd });
   const data = await resp.json().catch(() => ({}));
+
+  btn.disabled = false;
+  btn.textContent = 'Import';
 
   if (resp.ok) {
     okEl.textContent = `Imported ${data.imported} sets (${data.skipped} skipped).`;

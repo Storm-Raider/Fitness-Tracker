@@ -2,60 +2,67 @@
 {% block title %}Invite User — FitStorm{% endblock %}
 
 {% block content %}
-<div style="max-width: 600px; margin: 2rem auto;">
-  <h1 style="font-size: 1.25rem; font-weight: 600; margin-bottom: 1.5rem;">Invite a new user</h1>
+<div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:1.25rem; padding-top:0.5rem;">
+  <h1 style="font-size:1.4rem; font-weight:700; letter-spacing:-0.01em;">Invite a new user</h1>
+</div>
 
-  <div class="card" style="margin-bottom: 1.5rem;">
-    <p style="font-size: 0.875rem; color: var(--muted); margin-bottom: 1.25rem;">
-      Generate a one-time invite link. It expires after 48 hours.
-    </p>
-    <button class="btn btn-primary"
-            style="width: 100%;"
-            hx-post="/invite"
-            hx-target="#invite-result"
-            hx-swap="innerHTML">
-      Generate invite link
-    </button>
-    <div id="invite-result" style="margin-top: 1rem;"></div>
+<div class="grid-2" style="align-items:start;">
+  <div>
+    <div class="section-title" style="margin-bottom:0.75rem;">Generate link</div>
+    <div class="card">
+      <p style="font-size:0.875rem; color:var(--muted); margin-bottom:1.25rem;">
+        Generate a one-time invite link. It expires after 48 hours.
+      </p>
+      <button class="btn btn-primary"
+              style="width:100%;"
+              hx-post="/invite"
+              hx-target="#invite-result"
+              hx-swap="innerHTML">
+        Generate invite link
+      </button>
+      <div id="invite-result" style="margin-top:1rem;"></div>
+    </div>
   </div>
 
-  <div class="section-title" style="margin-bottom: 0.75rem;">Pending invites</div>
-  <div class="card" style="padding: 0; overflow: hidden;">
-    {% if pending_invites %}
-    <table>
-      <thead>
-        <tr>
-          <th>Token</th>
-          <th>Created</th>
-          <th>Expires</th>
-          <th></th>
-        </tr>
-      </thead>
-      <tbody id="pending-invites-body">
-        {% for inv in pending_invites %}
-        <tr>
-          <td>
-            <code style="font-family: var(--mono); font-size: 0.8rem; color: var(--muted);">…{{ inv.token[-8:] }}</code>
-          </td>
-          <td style="font-size: 0.8rem; color: var(--muted);">{{ inv.created_at[:16] }}</td>
-          <td style="font-size: 0.8rem; color: var(--muted);">{{ inv.expires_at[:16] }}</td>
-          <td style="text-align: right;">
-            <button class="btn btn-ghost"
-                    style="font-size: 0.8rem; color: #f87171;"
-                    hx-delete="/invite/{{ inv.token }}"
-                    hx-target="closest tr"
-                    hx-swap="outerHTML"
-                    hx-confirm="Revoke this invite link?">
-              Revoke
-            </button>
-          </td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-    {% else %}
-    <p style="padding: 1rem; color: var(--muted); font-size: 0.875rem;">No pending invites.</p>
-    {% endif %}
+  <div>
+    <div class="section-title" style="margin-bottom:0.75rem;">Pending invites</div>
+    <div class="card" style="padding:0; overflow:hidden;">
+      {% if pending_invites %}
+      <table>
+        <thead>
+          <tr>
+            <th>Token</th>
+            <th>Created</th>
+            <th>Expires</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="pending-invites-body">
+          {% for inv in pending_invites %}
+          <tr>
+            <td>
+              <code style="font-family:var(--mono); font-size:0.8rem; color:var(--muted);">…{{ inv.token[-8:] }}</code>
+            </td>
+            <td style="font-size:0.8rem; color:var(--muted);">{{ inv.created_at[:16] }}</td>
+            <td style="font-size:0.8rem; color:var(--muted);">{{ inv.expires_at[:16] }}</td>
+            <td style="text-align:right;">
+              <button class="btn btn-ghost"
+                      style="font-size:0.8rem; color:var(--danger);"
+                      hx-delete="/invite/{{ inv.token }}"
+                      hx-target="closest tr"
+                      hx-swap="outerHTML"
+                      hx-confirm="Revoke this invite link?">
+                Revoke
+              </button>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <p style="padding:1rem; color:var(--muted); font-size:0.875rem;">No pending invites.</p>
+      {% endif %}
+    </div>
   </div>
 </div>
 {% endblock %}
