@@ -741,6 +741,13 @@
   </div>
 </div>
 
+{% if workout.notes %}
+<div class="card card-accent" style="margin-bottom:1.25rem;padding:0.85rem 1.1rem;">
+  <div style="font-size:0.6rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted);margin-bottom:0.35rem;">Session notes</div>
+  <div style="font-size:0.875rem;color:var(--text);line-height:1.55;white-space:pre-wrap;">{{ workout.notes }}</div>
+</div>
+{% endif %}
+
 <div class="sets-hdr">
   <span class="sets-hdr-lbl">Sets</span>
 </div>
@@ -894,7 +901,17 @@
   </button>
   <div id="log-error" style="color:var(--danger);font-size:0.8rem;margin-top:0.35rem;display:none;"></div>
 
-  {# Rest timer #}
+  {# Session notes #}
+  <div class="form-group" style="margin-top:0.85rem;">
+    <label for="session-notes-input" style="font-size:0.65rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted);">
+      Session notes <span style="font-weight:400;text-transform:none;letter-spacing:0;">(optional)</span>
+    </label>
+    <textarea id="session-notes-input" rows="2"
+              placeholder="How did it feel? Any pain, PRs, energy level…"
+              style="resize:vertical;min-height:60px;font-size:0.85rem;line-height:1.5;"
+              oninput="scheduleNotesSave()" onblur="saveNotes()">{{ workout.notes or '' }}</textarea>
+    <div id="notes-save-indicator" style="font-size:0.72rem;color:var(--muted);margin-top:0.2rem;display:none;">Saved</div>
+  </div>
   <div id="rest-timer" class="rest-bar">
     <div class="rest-ring-wrap">
       <svg width="56" height="56" viewBox="0 0 56 56">
@@ -1243,6 +1260,29 @@ function updateTimerDisplay() {
     `${mins}:${String(secs).padStart(2, '0')}`;
   const progress = timerTotal > 0 ? timerRemaining / timerTotal : 0;
   document.getElementById('timer-ring').style.strokeDashoffset = RING_C * (1 - progress);
+}
+
+// ── Session notes auto-save ───────────────────────────────────
+let _notesSaveTimer = null;
+function scheduleNotesSave() {
+  clearTimeout(_notesSaveTimer);
+  _notesSaveTimer = setTimeout(saveNotes, 1800);
+}
+async function saveNotes() {
+  clearTimeout(_notesSaveTimer);
+  const el = document.getElementById('session-notes-input');
+  if (!el) return;
+  const notes = el.value || null;
+  await fetch(`/workouts/${WORKOUT_ID}`, {
+    method: 'PATCH',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({notes}),
+  });
+  const ind = document.getElementById('notes-save-indicator');
+  if (ind) {
+    ind.style.display = 'block';
+    setTimeout(() => { ind.style.display = 'none'; }, 1500);
+  }
 }
 
 // ── Muscle / routine filters ──────────────────────────────────
