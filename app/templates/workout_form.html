@@ -514,6 +514,81 @@
   transition: all 0.13s;
 }
 .set-del:hover { color: var(--danger); border-color: rgba(248,113,113,0.3); background: rgba(248,113,113,0.06); }
+.set-edit-btn {
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--muted);
+  cursor: pointer;
+  padding: 0.2rem 0.4rem;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  transition: all 0.13s;
+}
+.set-edit-btn:hover { color: var(--accent); border-color: rgba(79,156,249,0.3); background: rgba(79,156,249,0.06); }
+
+/* ── Exercise groups in session panel ────────────────────── */
+.ex-group-hdr {
+  display: flex;
+  align-items: stretch;
+  gap: 0.65rem;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid var(--border);
+}
+.ex-group-name {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--muted-hi);
+  letter-spacing: 0.02em;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  align-self: center;
+}
+.ex-group-badge {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.65rem;
+  color: var(--muted);
+  background: rgba(255,255,255,0.04);
+  border: 1px solid var(--border);
+  padding: 0.1rem 0.5rem;
+  border-radius: 100px;
+  white-space: nowrap;
+  align-self: center;
+}
+.ex-group .set-row { padding-left: 0.25rem; }
+
+/* ── Inline set edit ─────────────────────────────────────── */
+.set-edit-row {
+  display: none;
+  align-items: center;
+  gap: 0.4rem;
+  margin-top: 0.3rem;
+  flex-wrap: wrap;
+}
+.set-edit-row .edit-w,
+.set-edit-row .edit-r {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.8rem;
+  padding: 0.2rem 0.35rem;
+  border-radius: 6px;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid var(--border);
+  color: var(--text);
+  text-align: center;
+  outline: none;
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+.set-edit-row .edit-w::-webkit-inner-spin-button,
+.set-edit-row .edit-r::-webkit-inner-spin-button { display: none; }
+.set-edit-row .edit-w:focus,
+.set-edit-row .edit-r:focus { border-color: var(--accent); }
+.set-edit-row .edit-w { width: 68px; }
+.set-edit-row .edit-r { width: 52px; }
 
 /* ── Sticky footer ───────────────────────────────────────────── */
 .workout-footer {
@@ -672,14 +747,26 @@
 <div class="sets-card" id="sets-container">
   {% if sets or cardio_logs %}
     {% for s in sets %}
-    <div class="set-row" id="set-{{ s.id }}" data-exercise-id="{{ s.exercise_id }}">
+    <div class="set-row" id="set-{{ s.id }}" data-exercise-id="{{ s.exercise_id }}"
+         data-kg="{{ s.weight_kg }}" data-reps="{{ s.reps }}"
+         data-rpe="{{ s.rpe or '' }}" data-notes="{{ s.notes or '' }}">
       <div class="set-bar"></div>
       <div class="set-body">
         <div class="set-name">{{ s.exercise_name }}</div>
-        <div class="set-detail">
+        <div class="set-detail" id="detail-{{ s.id }}">
           <span class="weight-display" data-kg="{{ s.weight_kg }}">{{ s.weight_kg }}</span> × {{ s.reps }}{% if s.rpe %} · RPE {{ s.rpe }}{% endif %}{% if s.notes %} · {{ s.notes }}{% endif %}
         </div>
+        <div class="set-edit-row" id="edit-{{ s.id }}">
+          <input type="number" class="edit-w" step="0.5" min="0">
+          <span style="color:var(--muted);font-size:0.85rem;">×</span>
+          <input type="number" class="edit-r" step="1" min="1">
+          <button onclick="saveEdit({{ s.id }})" class="btn btn-ghost" style="font-size:0.72rem;padding:0.1rem 0.5rem;min-height:24px;">Save</button>
+          <button onclick="cancelEdit({{ s.id }})" class="btn btn-ghost" style="font-size:0.72rem;padding:0.1rem 0.4rem;min-height:24px;">✕</button>
+        </div>
       </div>
+      <button class="set-edit-btn" onclick="startEdit({{ s.id }})">
+        <i data-lucide="pencil" style="width:12px;height:12px;pointer-events:none;"></i>
+      </button>
       <button class="set-del" onclick="deleteSet({{ s.id }}, this)">
         <i data-lucide="x" style="width:13px;height:13px;pointer-events:none;"></i>
       </button>
@@ -878,14 +965,26 @@
   <div class="sets-card" id="sets-container">
     {% if sets or cardio_logs %}
       {% for s in sets %}
-      <div class="set-row" id="set-{{ s.id }}" data-exercise-id="{{ s.exercise_id }}">
+      <div class="set-row" id="set-{{ s.id }}" data-exercise-id="{{ s.exercise_id }}"
+           data-kg="{{ s.weight_kg }}" data-reps="{{ s.reps }}"
+           data-rpe="{{ s.rpe or '' }}" data-notes="{{ s.notes or '' }}">
         <div class="set-bar"></div>
         <div class="set-body">
           <div class="set-name">{{ s.exercise_name }}</div>
-          <div class="set-detail">
+          <div class="set-detail" id="detail-{{ s.id }}">
             <span class="weight-display" data-kg="{{ s.weight_kg }}">{{ s.weight_kg }}</span> × {{ s.reps }}{% if s.rpe %} · RPE {{ s.rpe }}{% endif %}{% if s.notes %} · {{ s.notes }}{% endif %}
           </div>
+          <div class="set-edit-row" id="edit-{{ s.id }}">
+            <input type="number" class="edit-w" step="0.5" min="0">
+            <span style="color:var(--muted);font-size:0.85rem;">×</span>
+            <input type="number" class="edit-r" step="1" min="1">
+            <button onclick="saveEdit({{ s.id }})" class="btn btn-ghost" style="font-size:0.72rem;padding:0.1rem 0.5rem;min-height:24px;">Save</button>
+            <button onclick="cancelEdit({{ s.id }})" class="btn btn-ghost" style="font-size:0.72rem;padding:0.1rem 0.4rem;min-height:24px;">✕</button>
+          </div>
         </div>
+        <button class="set-edit-btn" onclick="startEdit({{ s.id }})">
+          <i data-lucide="pencil" style="width:12px;height:12px;pointer-events:none;"></i>
+        </button>
         <button class="set-del" onclick="deleteSet({{ s.id }}, this)">
           <i data-lucide="x" style="width:13px;height:13px;pointer-events:none;"></i>
         </button>
@@ -987,13 +1086,9 @@ function exColor(exerciseId) {
   }
   return _exColorMap[exerciseId];
 }
-// Colorise server-rendered set bars on load
+// Group and colour server-rendered sets on load
 document.addEventListener('DOMContentLoaded', function() {
-  document.querySelectorAll('.set-row[data-exercise-id]').forEach(function(row) {
-    const id = parseInt(row.dataset.exerciseId);
-    const bar = row.querySelector('.set-bar');
-    if (bar && id) bar.style.background = exColor(id);
-  });
+  regroupSets();
 });
 
 function epley1RM(weight, reps) {
@@ -1531,19 +1626,33 @@ async function logSet() {
   const color = exColor(exerciseId);
   const row   = document.createElement('div');
   row.className = 'set-row'; row.id = 'set-' + data.id;
-  row.setAttribute('data-exercise-id', exerciseId);
+  row.dataset.exerciseId = exerciseId;
+  row.dataset.kg    = weightKg;
+  row.dataset.reps  = reps;
+  row.dataset.rpe   = rpe || '';
+  row.dataset.notes = notes || '';
   row.innerHTML = `
     <div class="set-bar" style="background:${color};"></div>
     <div class="set-body">
       <div class="set-name">${escHtml(exerciseName)}${data.is_pr ? ' <span class="badge badge-pr">PR</span>' : ''}</div>
-      <div class="set-detail">
+      <div class="set-detail" id="detail-${data.id}">
         <span class="weight-display" data-kg="${weightKg}">${displayWeight} ${unit}</span> × ${reps}${rpe ? ' · RPE ' + rpe : ''} · 1RM ${fmtWeight(epley1RM(weightKg, reps), unit)}${notes ? ' · ' + escHtml(notes) : ''}
       </div>
+      <div class="set-edit-row" id="edit-${data.id}">
+        <input type="number" class="edit-w" step="0.5" min="0">
+        <span style="color:var(--muted);font-size:0.85rem;">×</span>
+        <input type="number" class="edit-r" step="1" min="1">
+        <button onclick="saveEdit(${data.id})" class="btn btn-ghost" style="font-size:0.72rem;padding:0.1rem 0.5rem;min-height:24px;">Save</button>
+        <button onclick="cancelEdit(${data.id})" class="btn btn-ghost" style="font-size:0.72rem;padding:0.1rem 0.4rem;min-height:24px;">✕</button>
+      </div>
     </div>
+    <button class="set-edit-btn" onclick="startEdit(${data.id})">
+      <i data-lucide="pencil" style="width:12px;height:12px;pointer-events:none;"></i>
+    </button>
     <button class="set-del" onclick="deleteSet(${data.id},this)">
       <i data-lucide="x" style="width:13px;height:13px;pointer-events:none;"></i>
     </button>`;
-  container.appendChild(row);
+  addSetToGroup(row, exerciseId, exerciseName);
   lucide.createIcons();
   row.scrollIntoView({behavior: 'smooth', block: 'nearest'});
 
@@ -1553,11 +1662,154 @@ async function logSet() {
   updateSetsCountBadge();
 }
 
+// ── Exercise group helpers ─────────────────────────────────────
+function _makeGroupHdr(exerciseId, exerciseName) {
+  const color = exColor(exerciseId);
+  const hdr = document.createElement('div');
+  hdr.className = 'ex-group-hdr';
+  hdr.innerHTML =
+    `<div class="set-bar" style="background:${color};width:3px;border-radius:2px;min-height:28px;flex-shrink:0;align-self:stretch;"></div>` +
+    `<div class="ex-group-name">${escHtml(exerciseName)}</div>` +
+    `<span class="ex-group-badge">0 sets</span>`;
+  return hdr;
+}
+
+function _updateGroupBadge(group) {
+  const n = group.querySelectorAll('.set-row[id^="set-"]').length;
+  const badge = group.querySelector('.ex-group-badge');
+  if (badge) badge.textContent = n + ' set' + (n !== 1 ? 's' : '');
+}
+
+function regroupSets() {
+  const container = document.getElementById('sets-container');
+  if (!container) return;
+  const rows      = [...container.querySelectorAll('.set-row[id^="set-"]')];
+  const cardioRows = [...container.querySelectorAll('.set-row[id^="cardio-"]')];
+  if (!rows.length) { cardioRows.forEach(r => container.appendChild(r)); return; }
+  container.innerHTML = '';
+  let currentGroup = null, currentExId = null;
+  rows.forEach(row => {
+    const exId  = parseInt(row.dataset.exerciseId);
+    const setId = parseInt(row.id.replace('set-', ''));
+    const exName = (setExercises[setId] && setExercises[setId].name)
+      || row.querySelector('.set-name')?.textContent?.trim()
+      || 'Exercise';
+    if (exId !== currentExId) {
+      currentGroup = document.createElement('div');
+      currentGroup.className = 'ex-group';
+      currentGroup.dataset.exerciseId = exId;
+      currentGroup.appendChild(_makeGroupHdr(exId, exName));
+      container.appendChild(currentGroup);
+      currentExId = exId;
+    }
+    const nameEl = row.querySelector('.set-name');
+    if (nameEl) nameEl.style.display = 'none';
+    const bar = row.querySelector('.set-bar');
+    if (bar) bar.style.background = exColor(exId);
+    currentGroup.appendChild(row);
+  });
+  container.querySelectorAll('.ex-group').forEach(_updateGroupBadge);
+  cardioRows.forEach(r => container.appendChild(r));
+}
+
+function addSetToGroup(row, exerciseId, exerciseName) {
+  const container  = document.getElementById('sets-container');
+  const cardioRows = [...container.querySelectorAll('.set-row[id^="cardio-"]')];
+  cardioRows.forEach(r => r.remove());
+  const groups    = [...container.querySelectorAll('.ex-group')];
+  const lastGroup = groups.length ? groups[groups.length - 1] : null;
+  let group;
+  if (lastGroup && parseInt(lastGroup.dataset.exerciseId) === exerciseId) {
+    group = lastGroup;
+  } else {
+    group = document.createElement('div');
+    group.className = 'ex-group';
+    group.dataset.exerciseId = exerciseId;
+    group.appendChild(_makeGroupHdr(exerciseId, exerciseName));
+    container.appendChild(group);
+  }
+  const nameEl = row.querySelector('.set-name');
+  if (nameEl) nameEl.style.display = 'none';
+  group.appendChild(row);
+  _updateGroupBadge(group);
+  cardioRows.forEach(r => container.appendChild(r));
+}
+
+// ── Inline set edit ───────────────────────────────────────────
+function startEdit(id) {
+  const row    = document.getElementById('set-' + id);
+  const editEl = document.getElementById('edit-' + id);
+  if (!row || !editEl) return;
+  const kg   = parseFloat(row.dataset.kg) || 0;
+  const reps = parseInt(row.dataset.reps) || 1;
+  const unit = getAppUnit();
+  const displayW = unit === 'lbs' ? Math.round(kg * 2.2046 * 10) / 10 : kg;
+  const wIn = editEl.querySelector('.edit-w');
+  const rIn = editEl.querySelector('.edit-r');
+  wIn.value = displayW;
+  rIn.value = reps;
+  document.getElementById('detail-' + id).style.display = 'none';
+  editEl.style.display = 'flex';
+  wIn.focus(); wIn.select();
+  [wIn, rIn].forEach(inp => {
+    inp.onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); saveEdit(id); } };
+  });
+}
+
+function cancelEdit(id) {
+  document.getElementById('detail-' + id).style.display = '';
+  document.getElementById('edit-' + id).style.display = 'none';
+}
+
+async function saveEdit(id) {
+  const row    = document.getElementById('set-' + id);
+  const editEl = document.getElementById('edit-' + id);
+  if (!row || !editEl) return;
+  const unit     = getAppUnit();
+  const displayW = parseFloat(editEl.querySelector('.edit-w').value) || 0;
+  const reps     = parseInt(editEl.querySelector('.edit-r').value) || 0;
+  if (displayW <= 0 || reps < 1) return;
+  const weightKg = unit === 'lbs' ? displayW / 2.2046 : displayW;
+  const rpe   = row.dataset.rpe   ? parseInt(row.dataset.rpe)   : null;
+  const notes = row.dataset.notes || null;
+  const resp = await fetch(`/workouts/${WORKOUT_ID}/sets/${id}`, {
+    method: 'PATCH',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({reps, weight_kg: weightKg, notes: notes || null, rpe: rpe || null}),
+  });
+  if (!resp.ok) return;
+  row.dataset.kg   = weightKg;
+  row.dataset.reps = reps;
+  const oldVol = setVolumes[id] || 0;
+  const newVol = weightKg * reps;
+  sessionVolume = sessionVolume - oldVol + newVol;
+  setVolumes[id] = newVol;
+  updateVolumeDisplay();
+  const orm = epley1RM(weightKg, reps);
+  let html = `<span class="weight-display" data-kg="${weightKg}">${displayW} ${unit}</span> × ${reps}`;
+  if (rpe)   html += ` · RPE ${rpe}`;
+  html += ` · 1RM ${fmtWeight(orm, unit)}`;
+  if (notes) html += ` · ${escHtml(notes)}`;
+  document.getElementById('detail-' + id).innerHTML = html;
+  cancelEdit(id);
+}
+
 async function deleteSet(id, btn) {
   if (!confirm('Remove this set?')) return;
   const resp = await fetch(`/workouts/${WORKOUT_ID}/sets/${id}`, {method: 'DELETE'});
   if (resp.ok || resp.status === 204) {
-    document.getElementById('set-' + id)?.remove();
+    const row   = document.getElementById('set-' + id);
+    const group = row?.closest('.ex-group');
+    row?.remove();
+    if (group) {
+      const remaining = group.querySelectorAll('.set-row[id^="set-"]').length;
+      if (remaining === 0) {
+        group.remove();
+      } else {
+        const badge = group.querySelector('.ex-group-badge');
+        if (badge) badge.textContent = remaining + ' set' + (remaining !== 1 ? 's' : '');
+      }
+    }
     if (setVolumes[id] !== undefined) {
       sessionVolume -= setVolumes[id];
       delete setVolumes[id];

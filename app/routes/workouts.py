@@ -62,6 +62,13 @@ class SessionCardioIn(BaseModel):
     notes: str | None = Field(default=None, max_length=500)
 
 
+class SetPatch(BaseModel):
+    reps: int = Field(ge=1, le=999)
+    weight_kg: float = Field(ge=0.0, le=1000.0)
+    notes: str | None = Field(default=None, max_length=500)
+    rpe: int | None = Field(default=None, ge=1, le=10)
+
+
 @router.get("/workouts")
 async def list_workouts(
     request: Request,
@@ -408,6 +415,32 @@ async def delete_session_cardio(
         "DELETE FROM cardio_logs WHERE id = ? AND user_id = ?", (log_id, uid)
     )
     await conn.commit()
+
+
+@router.patch("/workouts/{workout_id}/sets/{set_id}")
+async def patch_set(
+    workout_id: int,
+    set_id: int,
+    body: SetPatch,
+    conn: aiosqlite.Connection = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    uid = current_user["id"]
+    async with conn.execute(
+        "SELECT id FROM sets WHERE id = ? AND workout_id = ? AND user_id = ?",
+        (set_id, workout_id, uid),
+    ) as cur:
+        if not await cur.fetchone():
+            raise HTTPException(status_code=404, detail="Set not found")
+    await conn.execute(
+        "UPDATE sets SET reps = ?, weight_kg = ?, notes = ?, rpe = ? WHERE id = ? AND user_id = ?",
+        (body.reps, body.weight_kg, body.notes, body.rpe, set_id, uid),
+    )
+    await conn.commit()
+    return JSONResponse({
+        "id": set_id, "reps": body.reps, "weight_kg": body.weight_kg,
+        "notes": body.notes, "rpe": body.rpe,
+    })
 
 
 @router.delete("/workouts/{workout_id}/sets/{set_id}", status_code=204)
