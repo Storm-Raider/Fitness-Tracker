@@ -46,13 +46,34 @@
   {% endif %}
 </div>
 
-{% if chart_svg %}
+{% if sessions %}
+<style>
+.metric-btn {
+  background: var(--surface); border: 1px solid var(--border); color: var(--muted);
+  border-radius: var(--radius-xs); cursor: pointer; font-family: inherit;
+  font-size: 0.72rem; font-weight: 600; letter-spacing: 0.02em;
+  padding: 0.2rem 0.65rem; min-height: 30px; transition: all 0.13s;
+}
+.metric-btn:hover { color: var(--text); border-color: var(--border-mid); }
+.metric-btn.active { background: var(--accent-dim); border-color: rgba(79,156,249,0.4); color: var(--accent); }
+</style>
 <div style="margin-bottom:1.5rem;">
-  <div class="section-title">Weight progression</div>
-  <div class="card" style="padding:1.25rem 1.5rem 0.75rem;">
-    {{ chart_svg | safe }}
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.6rem;flex-wrap:wrap;gap:0.5rem;">
+    <div class="section-title" style="margin-bottom:0;">Weight progression</div>
+    <div style="display:flex;gap:0.25rem;">
+      <button class="metric-btn active" data-metric="weight">Weight</button>
+      <button class="metric-btn" data-metric="orm">Est. 1RM</button>
+      <button class="metric-btn" data-metric="volume">Volume</button>
+    </div>
+  </div>
+  <div class="card" style="padding:0.85rem 1.25rem 0.65rem;">
+    <div id="ex-chart-inner" style="position:relative;">
+      <canvas id="ex-chart" style="display:block;width:100%;cursor:crosshair;"></canvas>
+      <div id="ex-chart-tip" style="display:none;position:absolute;top:4px;background:var(--surface-2);border:1px solid var(--border-mid);border-radius:var(--radius-xs);padding:0.4rem 0.6rem;pointer-events:none;z-index:10;white-space:nowrap;box-shadow:0 4px 16px rgba(0,0,0,0.4);"></div>
+    </div>
   </div>
 </div>
+
 {% endif %}
 
 {% if sessions %}
@@ -99,5 +120,185 @@
     <a href="/workouts" class="btn btn-primary" style="margin-top:0.25rem;">Start a workout</a>
   </div>
 </div>
+{% endif %}
+
+{% if sessions %}
+<script>
+(function () {
+  const RAW    = {{ sessions_json | safe }};
+  const PR_KG  = {{ pr_kg if pr_kg is not none else 'null' }};
+  if (!RAW.length) return;
+
+  const METRICS = {
+    weight: { color: '#f59e0b' },
+    orm:    { color: '#a78bfa' },
+    volume: { color: '#4f9cf9' },
+  };
+  let metric   = 'weight';
+  let hoverIdx = -1;
+
+  const canvas = document.getElementById('ex-chart');
+  const inner  = document.getElementById('ex-chart-inner');
+  const tip    = document.getElementById('ex-chart-tip');
+  const ctx    = canvas.getContext('2d');
+
+  const getUnit = () => window.getAppUnit ? window.getAppUnit() : 'kg';
+  const cvt     = v  => getUnit() === 'lbs' ? v * 2.20462 : v;
+
+  function getVals(m) {
+    return RAW.map(s => {
+      if (m === 'weight') return +cvt(s.max_kg).toFixed(1);
+      if (m === 'orm')    return +cvt(s.max_kg * (1 + ((s.max_reps || 1) / 30))).toFixed(1);
+      return +cvt(s.volume_kg).toFixed(0);
+    });
+  }
+
+  const PL = 48, PR = 16, PT = 14, PB = 24;
+
+  function xAt(i, W, n) {
+    const cW = W - PL - PR;
+    return PL + (n <= 1 ? cW / 2 : (i / (n - 1)) * cW);
+  }
+
+  function draw() {
+    const dpr = window.devicePixelRatio || 1;
+    const W   = canvas.offsetWidth || inner.clientWidth;
+    const H   = 200;
+    canvas.width  = W * dpr;
+    canvas.height = H * dpr;
+    canvas.style.height = H + 'px';
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+    const color = METRICS[metric].color;
+    const vs    = getVals(metric);
+    const n     = vs.length;
+    const cW    = W - PL - PR;
+    const cH    = H - PT - PB;
+
+    const vMin = Math.min(...vs), vMax = Math.max(...vs);
+    const span = vMax > vMin ? vMax - vMin : Math.max(Math.abs(vMax) * 0.1, 1);
+    const yMin = vMin - span * 0.18, yMax = vMax + span * 0.18;
+
+    const gx = i => xAt(i, W, n);
+    const gy = v => PT + (1 - (v - yMin) / (yMax - yMin)) * cH;
+
+    ctx.clearRect(0, 0, W, H);
+
+    // Grid + y-labels
+    [0, 0.5, 1].forEach(f => {
+      const gv = vMin + f * (vMax - vMin), y = gy(gv);
+      ctx.strokeStyle = '#1f2535'; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(PL, y); ctx.lineTo(PL + cW, y); ctx.stroke();
+      ctx.fillStyle = '#4a5568';
+      ctx.font = '10px Inter,system-ui,sans-serif';
+      ctx.textAlign = 'right';
+      ctx.fillText(gv >= 100 ? Math.round(gv) : gv.toFixed(1), PL - 4, y + 4);
+    });
+
+    // Area
+    if (n >= 2) {
+      ctx.beginPath();
+      ctx.moveTo(gx(0), gy(vs[0]));
+      for (let i = 1; i < n; i++) ctx.lineTo(gx(i), gy(vs[i]));
+      ctx.lineTo(gx(n - 1), PT + cH); ctx.lineTo(gx(0), PT + cH);
+      ctx.closePath(); ctx.fillStyle = color + '14'; ctx.fill();
+    }
+
+    // Hover crosshair
+    if (hoverIdx >= 0) {
+      ctx.strokeStyle = color + '38'; ctx.lineWidth = 1;
+      ctx.setLineDash([3, 3]);
+      ctx.beginPath(); ctx.moveTo(gx(hoverIdx), PT); ctx.lineTo(gx(hoverIdx), PT + cH); ctx.stroke();
+      ctx.setLineDash([]);
+    }
+
+    // Line
+    if (n >= 2) {
+      ctx.beginPath();
+      ctx.moveTo(gx(0), gy(vs[0]));
+      for (let i = 1; i < n; i++) ctx.lineTo(gx(i), gy(vs[i]));
+      ctx.strokeStyle = color; ctx.lineWidth = 2.2;
+      ctx.lineJoin = 'round'; ctx.lineCap = 'round'; ctx.stroke();
+    }
+
+    // Dots
+    vs.forEach((v, i) => {
+      const isHov = i === hoverIdx;
+      const r = isHov ? 5 : n <= 30 ? 2.8 : 0;
+      if (!r) return;
+      ctx.beginPath(); ctx.arc(gx(i), gy(v), r, 0, Math.PI * 2);
+      ctx.fillStyle = isHov ? color : color + 'b0'; ctx.fill();
+      if (isHov) { ctx.strokeStyle = '#0d1117'; ctx.lineWidth = 1.5; ctx.stroke(); }
+    });
+
+    // X-axis date labels
+    const dates = RAW.map(s => s.date.slice(5));
+    ctx.fillStyle = '#4a5568'; ctx.font = '9px JetBrains Mono,monospace';
+    const labelSet = n <= 8
+      ? dates.map((_, i) => i)
+      : [0, Math.round(n * 0.25), Math.round(n * 0.5), Math.round(n * 0.75), n - 1];
+    labelSet.forEach(i => {
+      ctx.textAlign = i === 0 ? 'left' : i === n - 1 ? 'right' : 'center';
+      ctx.fillText(dates[i], gx(i), H - 3);
+    });
+  }
+
+  function showTip(idx) {
+    const s  = RAW[idx];
+    const pu = getUnit();
+    const f  = pu === 'lbs' ? 2.20462 : 1;
+    const wt = (s.max_kg * f).toFixed(1);
+    const o  = (s.max_kg * (1 + ((s.max_reps || 1) / 30)) * f).toFixed(1);
+    const vl = Math.round(s.volume_kg * f);
+    const isPR = PR_KG !== null && s.max_kg >= PR_KG;
+    tip.innerHTML =
+      `<div style="font-size:0.7rem;color:var(--muted);margin-bottom:0.25rem;font-family:'JetBrains Mono',monospace;">${s.date}${isPR ? ' <span class="badge badge-pr" style="font-size:0.6rem;vertical-align:middle;padding:0.05rem 0.3rem;">PR</span>' : ''}</div>` +
+      `<div style="display:flex;flex-direction:column;gap:0.1rem;">` +
+      `<span style="color:#f59e0b;font-size:0.78rem;font-weight:600;">${wt} ${pu} top set</span>` +
+      `<span style="color:#a78bfa;font-size:0.78rem;font-weight:600;">${o} ${pu} est 1RM</span>` +
+      `<span style="color:#4f9cf9;font-size:0.78rem;font-weight:600;">${vl} ${pu} volume</span>` +
+      `</div>`;
+    tip.style.display = 'block';
+
+    const W  = canvas.offsetWidth;
+    const tw = tip.offsetWidth;
+    const x  = xAt(idx, W, RAW.length);
+    tip.style.left = Math.max(0, Math.min(W - tw, x - tw / 2)) + 'px';
+    tip.style.top  = '4px';
+  }
+
+  function processHover(clientX) {
+    const rect = canvas.getBoundingClientRect();
+    const mx   = clientX - rect.left;
+    const W    = canvas.offsetWidth;
+    const n    = RAW.length;
+    const frac = Math.max(0, Math.min(1, (mx - PL) / (W - PL - PR)));
+    const idx  = Math.max(0, Math.min(n - 1, Math.round(frac * (n - 1))));
+    if (idx !== hoverIdx) { hoverIdx = idx; draw(); }
+    showTip(idx);
+  }
+
+  function clearHover() { hoverIdx = -1; tip.style.display = 'none'; draw(); }
+
+  canvas.addEventListener('mousemove', e => processHover(e.clientX));
+  canvas.addEventListener('mouseleave', clearHover);
+  canvas.addEventListener('touchmove', e => { e.preventDefault(); processHover(e.touches[0].clientX); }, { passive: false });
+  canvas.addEventListener('touchend', clearHover);
+
+  window.addEventListener('unitchange', draw);
+  window.addEventListener('resize', clearHover);
+
+  document.querySelectorAll('[data-metric]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      metric = btn.dataset.metric;
+      clearHover();
+      document.querySelectorAll('[data-metric]').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+    });
+  });
+
+  requestAnimationFrame(draw);
+})();
+</script>
 {% endif %}
 {% endblock %}

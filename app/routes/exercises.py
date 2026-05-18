@@ -1,3 +1,5 @@
+import json
+
 import aiosqlite
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import HTMLResponse, JSONResponse
@@ -5,7 +7,6 @@ from pydantic import BaseModel, Field
 
 from app.db import get_db
 from app.routes.auth import get_current_user
-from app.utils.charts import generate_sparkline
 from app.utils.render import render, templates
 
 router = APIRouter()
@@ -176,10 +177,10 @@ async def exercise_detail(
         return templates.TemplateResponse(request, "exercise_detail.html", {
             "exercise": exercise,
             "sessions": [],
+            "sessions_json": "[]",
             "pr_kg": None,
             "total_sets": 0,
             "total_volume": 0,
-            "chart_svg": "",
             "user": dict(current_user),
         })
 
@@ -188,19 +189,13 @@ async def exercise_detail(
     total_volume = round(sum(s["volume_kg"] for s in sessions), 1)
 
     chrono = list(reversed(sessions))
-    chart_svg = generate_sparkline(
-        values=[s["max_kg"] for s in chrono],
-        labels=[s["date"] for s in chrono],
-        color="#f59e0b",
-        unit=" kg",
-    )
 
     return templates.TemplateResponse(request, "exercise_detail.html", {
         "exercise": exercise,
         "sessions": sessions,
+        "sessions_json": json.dumps(chrono),
         "pr_kg": pr_kg,
         "total_sets": total_sets,
         "total_volume": total_volume,
-        "chart_svg": chart_svg,
         "user": dict(current_user),
     })
