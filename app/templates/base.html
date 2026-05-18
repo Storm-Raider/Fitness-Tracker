@@ -424,6 +424,7 @@
     <div class="nav-links" id="nav-links">
       <a href="/">Dashboard</a>
       <a href="/stats">Stats</a>
+      <a href="/prs">Records</a>
       <a href="/workouts">Workouts</a>
       <a href="/exercises">Exercises</a>
       <a href="/cardio">Cardio</a>
@@ -442,6 +443,14 @@
         </form>
       </div>
     </div>
+    <button id="unit-toggle" onclick="toggleUnit()"
+            title="Switch between kg and lbs"
+            style="background:transparent;border:1px solid var(--border);color:var(--muted);
+                   cursor:pointer;padding:0.2rem 0.55rem;border-radius:6px;font-size:0.72rem;
+                   font-family:'JetBrains Mono',monospace;letter-spacing:0.04em;transition:all 0.15s;
+                   flex-shrink:0;"
+            onmouseover="this.style.color='var(--accent)';this.style.borderColor='var(--accent)'"
+            onmouseout="this.style.color='var(--muted)';this.style.borderColor='var(--border)'">kg</button>
     <div class="nav-user">
       <a href="/settings" class="username">{{ user.username }}</a>
       <form method="post" action="/logout" style="display:flex;align-items:center;">
@@ -463,6 +472,30 @@
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('/sw.js');
     }
+    // Unit preference (kg / lbs)
+    (function() {
+      const KEY = 'fitstorm_unit';
+      function getUnit() { return localStorage.getItem(KEY) || 'kg'; }
+      function fmtWeight(kg, unit) {
+        if (unit === 'lbs') return (Math.round(kg * 22046) / 10000) + ' lbs';
+        return kg + ' kg';
+      }
+      function applyUnit() {
+        const unit = getUnit();
+        document.querySelectorAll('.weight-display[data-kg]').forEach(function(el) {
+          el.textContent = fmtWeight(parseFloat(el.getAttribute('data-kg')), unit);
+        });
+        var btn = document.getElementById('unit-toggle');
+        if (btn) btn.textContent = unit;
+      }
+      window.toggleUnit = function() {
+        localStorage.setItem(KEY, getUnit() === 'kg' ? 'lbs' : 'kg');
+        applyUnit();
+      };
+      window.getAppUnit = getUnit;
+      window.fmtWeight = fmtWeight;
+      document.addEventListener('DOMContentLoaded', applyUnit);
+    })();
     document.querySelectorAll('.nav-links a').forEach(function(a) {
       if (a.closest('.nav-mobile-user')) return;
       var linkPath = new URL(a.href).pathname;

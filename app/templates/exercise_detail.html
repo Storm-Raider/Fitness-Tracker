@@ -12,7 +12,7 @@
   <div>
     <h1 style="font-size:1.5rem;font-weight:700;letter-spacing:-0.01em;margin-bottom:0.25rem;">{{ exercise.name }}</h1>
     {% if pr_kg %}
-    <span class="badge badge-pr" style="font-size:0.8rem;">PR: {{ pr_kg }} kg</span>
+    <span class="badge badge-pr" style="font-size:0.8rem;">PR: <span class="weight-display" data-kg="{{ pr_kg }}">{{ pr_kg }} kg</span></span>
     {% endif %}
     {% if exercise.category or exercise.equipment or exercise.muscles %}
     <div style="display:flex;gap:0.4rem;flex-wrap:wrap;margin-top:0.5rem;">
@@ -69,7 +69,7 @@
       <tr>
         <td style="font-weight:500;">{{ s.date }}</td>
         <td class="num">
-          {{ s.max_kg }} kg
+          <span class="weight-display" data-kg="{{ s.max_kg }}">{{ s.max_kg }} kg</span>
           {% if s.max_kg == pr_kg %}
           <span class="badge badge-pr" style="margin-left:0.35rem;font-size:0.65rem;vertical-align:middle;">PR</span>
           {% endif %}

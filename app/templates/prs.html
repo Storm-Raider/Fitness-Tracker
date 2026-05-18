@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block title %}Personal Records — FitStorm{% endblock %}
+{% block content %}
+<div style="margin-bottom:1.5rem;padding-top:0.5rem;">
+  <h1 style="font-size:1.4rem;font-weight:700;letter-spacing:-0.01em;">Personal Records</h1>
+  <p style="color:var(--muted);font-size:0.875rem;margin-top:0.25rem;">All-time bests, every lift.</p>
+</div>
+
+{% if records %}
+<div class="card">
+  <table>
+    <thead>
+      <tr>
+        <th>Exercise</th>
+        <th>PR</th>
+        <th>Est. 1RM</th>
+        <th>Sessions</th>
+        <th>Total sets</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for r in records %}
+      <tr>
+        <td><a href="/exercises/{{ r.id }}">{{ r.name }}</a></td>
+        <td><span class="num badge badge-pr weight-display" data-kg="{{ r.pr_kg }}">{{ r.pr_kg }} kg</span></td>
+        <td class="num" style="color:var(--muted);"><span class="weight-display" data-kg="{{ r.est_1rm }}">{{ r.est_1rm }} kg</span></td>
+        <td class="num">{{ r.sessions }}</td>
+        <td class="num" style="color:var(--muted);">{{ r.total_sets }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<div class="card" style="text-align:center;padding:3rem 1.25rem;">
+  <p style="color:var(--muted);font-size:0.9rem;">No sets logged yet — your records will appear here.</p>
+  <a href="/workouts" class="btn btn-primary" style="margin-top:1rem;">Start a workout</a>
+</div>
+{% endif %}
+{% endblock %}

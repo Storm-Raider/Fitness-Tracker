@@ -29,12 +29,31 @@
         {% for p in plateaus %}
         <tr>
           <td>{{ p.name }}</td>
-          <td><span class="num" style="color:var(--pr);">{{ p.pr_kg }} kg</span></td>
+          <td><span class="num weight-display" style="color:var(--pr);" data-kg="{{ p.pr_kg }}">{{ p.pr_kg }} kg</span></td>
           <td style="color:var(--muted);">{{ p.session_count }}</td>
         </tr>
         {% endfor %}
       </tbody>
     </table>
+  </div>
+</div>
+{% endif %}
+
+{% if weekly_muscle_sets %}
+<div style="margin-bottom:1.5rem;">
+  <div class="section-title" style="margin-bottom:0.75rem;">Sets per muscle — this week</div>
+  <div class="card">
+    <div style="display:flex;flex-direction:column;gap:0.5rem;">
+      {% for m in weekly_muscle_sets %}
+      <div style="display:flex;align-items:center;gap:0.75rem;">
+        <div style="width:9rem;font-size:0.8rem;color:var(--muted);flex-shrink:0;">{{ m.muscle }}</div>
+        <div style="flex:1;background:var(--surface-2);border-radius:4px;height:8px;overflow:hidden;">
+          <div style="height:100%;border-radius:4px;background:var(--accent);width:{{ (m.set_count / weekly_muscle_sets[0].set_count * 100) | round | int }}%;transition:width 0.3s;"></div>
+        </div>
+        <div class="num" style="font-size:0.8rem;font-weight:600;color:var(--text);width:2.5rem;text-align:right;flex-shrink:0;">{{ m.set_count }}</div>
+      </div>
+      {% endfor %}
+    </div>
   </div>
 </div>
 {% endif %}

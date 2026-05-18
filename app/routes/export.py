@@ -24,15 +24,17 @@ async def export_page(
 async def _csv_rows(conn: aiosqlite.Connection, user_id: int) -> AsyncGenerator[str, None]:
     buf = io.StringIO()
     writer = csv.writer(buf)
-    writer.writerow(["date", "exercise_name", "reps", "weight_kg", "notes"])
+    writer.writerow(["date", "workout_id", "exercise_name", "reps", "weight_kg", "rpe", "notes"])
     yield buf.getvalue()
 
     cur = await conn.execute(
         """
         SELECT DATE(w.started_at) AS date,
+               w.id               AS workout_id,
                e.name             AS exercise_name,
                s.reps,
                s.weight_kg,
+               s.rpe,
                s.notes
         FROM sets s
         JOIN workouts w  ON w.id = s.workout_id
@@ -46,8 +48,9 @@ async def _csv_rows(conn: aiosqlite.Connection, user_id: int) -> AsyncGenerator[
         async for row in cur:
             buf = io.StringIO()
             writer = csv.writer(buf)
-            writer.writerow([row["date"], row["exercise_name"], row["reps"],
-                             row["weight_kg"], row["notes"] or ""])
+            writer.writerow([row["date"], row["workout_id"], row["exercise_name"],
+                             row["reps"], row["weight_kg"], row["rpe"] or "",
+                             row["notes"] or ""])
             yield buf.getvalue()
     finally:
         await cur.close()

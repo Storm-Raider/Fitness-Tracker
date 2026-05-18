@@ -25,7 +25,7 @@
 <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:1.25rem;">
   <div>
     <h1 style="font-size:1.5rem; font-weight:700;">Workout</h1>
-    <p style="color:var(--muted); font-size:0.8rem;">{{ workout.started_at[:10] }}</p>
+    <p style="color:var(--muted); font-size:0.8rem;">{{ workout.started_at[:10] }} · <span id="elapsed-clock" style="font-variant-numeric:tabular-nums;"></span></p>
   </div>
   <div style="display:flex;align-items:center;gap:0.75rem;">
     <span id="pr-badge" class="badge badge-pr"><i data-lucide="trophy" style="width:12px;height:12px;margin-right:0.25rem;vertical-align:middle;"></i>New PR!</span>
@@ -677,8 +677,10 @@ async function logSet() {
   `;
   container.appendChild(row);
   lucide.createIcons();
+  row.scrollIntoView({behavior: 'smooth', block: 'nearest'});
   document.getElementById('notes-input').value = '';
   document.getElementById('rpe-select').value = '';
+  lastSets[String(exerciseId)] = {weight_kg: weight, reps: reps};
 }
 
 async function deleteSet(id, btn) {
@@ -711,6 +713,19 @@ function showErr(msg) {
   el.textContent = msg;
   el.style.display = 'block';
 }
+
+// Live elapsed timer
+(function() {
+  const start = new Date("{{ workout.started_at | replace(' ', 'T') }}");
+  function tick() {
+    const mins = Math.floor((Date.now() - start) / 60000);
+    const h = Math.floor(mins / 60), m = mins % 60;
+    const el = document.getElementById('elapsed-clock');
+    if (el) el.textContent = (h > 0 ? h + 'h ' : '') + m + 'm';
+  }
+  tick();
+  setInterval(tick, 60000);
+})();
 
 async function deleteWorkout() {
   const setCount = document.querySelectorAll('.set-row').length;

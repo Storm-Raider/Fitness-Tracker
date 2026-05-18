@@ -7,7 +7,7 @@ async def test_export_csv_empty(client):
     assert resp.status_code == 200
     assert "text/csv" in resp.headers["content-type"]
     lines = resp.text.strip().split("\n")
-    assert lines[0] == "date,exercise_name,reps,weight_kg,notes"
+    assert lines[0] == "date,workout_id,exercise_name,reps,weight_kg,rpe,notes"
     assert len(lines) == 1  # header only
 
 

@@ -72,6 +72,22 @@ async def stats(
     primary_muscles = [r["muscle"] for r in muscle_rows if r["is_primary"]]
     secondary_muscles = [r["muscle"] for r in muscle_rows if not r["is_primary"]]
 
+    # Weekly sets per primary muscle group (last 7 days)
+    async with conn.execute(
+        """
+        SELECT em.muscle, COUNT(s.id) AS set_count
+        FROM sets s
+        JOIN workouts w ON w.id = s.workout_id AND w.user_id = ?
+        JOIN exercise_muscles em ON em.exercise_id = s.exercise_id AND em.is_primary = 1
+        WHERE s.user_id = ?
+          AND DATE(w.started_at) >= DATE('now', '-6 days')
+        GROUP BY em.muscle
+        ORDER BY set_count DESC
+        """,
+        (uid, uid),
+    ) as cur:
+        weekly_muscle_sets = [dict(r) for r in await cur.fetchall()]
+
     # Plateau detection: exercises active in last 21 days with no weight improvement
     async with conn.execute(
         """
@@ -108,6 +124,7 @@ async def stats(
             "primary_muscles": primary_muscles,
             "secondary_muscles": secondary_muscles,
             "plateaus": plateaus,
+            "weekly_muscle_sets": weekly_muscle_sets,
             "user": dict(current_user),
         },
     )
