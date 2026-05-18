@@ -25,8 +25,14 @@
     {% endfor %}
   </div>
   {% else %}
-  <div class="card">
-    <p style="color:var(--muted);font-size:0.875rem;">No workouts logged yet. <a href="/workouts">Start one →</a></p>
+  <div class="card" style="text-align:center;">
+    <div style="display:flex;flex-direction:column;align-items:center;gap:0.65rem;padding:0.5rem 0;">
+      <div style="width:44px;height:44px;border-radius:50%;background:rgba(255,255,255,0.04);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;">
+        <i data-lucide="dumbbell" style="width:20px;height:20px;color:var(--muted-hi);pointer-events:none;"></i>
+      </div>
+      <p style="color:var(--muted);font-size:0.8rem;">No workouts yet.</p>
+      <a href="/workouts" class="btn btn-primary" style="font-size:0.8rem;min-height:34px;padding:0.35rem 0.875rem;">Start a session</a>
+    </div>
   </div>
   {% endif %}
 </div>

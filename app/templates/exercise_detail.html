@@ -90,9 +90,14 @@
   </table>
 </div>
 {% else %}
-<div class="card" style="text-align:center;padding:3.5rem 1.25rem;">
-  <p style="color:var(--muted);font-size:0.9rem;">No sets logged for this exercise yet.</p>
-  <a href="/workouts" class="btn btn-primary" style="margin-top:1.25rem;">Start a workout</a>
+<div class="card" style="text-align:center;padding:3rem 1.25rem;">
+  <div style="display:flex;flex-direction:column;align-items:center;gap:0.75rem;">
+    <div style="width:52px;height:52px;border-radius:50%;background:rgba(255,255,255,0.04);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;">
+      <i data-lucide="dumbbell" style="width:22px;height:22px;color:var(--muted-hi);pointer-events:none;"></i>
+    </div>
+    <p style="color:var(--muted);font-size:0.875rem;max-width:220px;line-height:1.5;">No sets logged for this exercise yet.</p>
+    <a href="/workouts" class="btn btn-primary" style="margin-top:0.25rem;">Start a workout</a>
+  </div>
 </div>
 {% endif %}
 {% endblock %}
