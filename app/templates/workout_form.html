@@ -38,13 +38,6 @@
   </div>
 </div>
 
-<div class="form-group" style="margin-bottom:1.25rem;">
-  <label for="workout-notes">Workout notes</label>
-  <textarea id="workout-notes" rows="2" placeholder="How did it feel? Any context…"
-            style="resize:vertical;">{{ workout.notes or '' }}</textarea>
-  <span id="notes-status" style="font-size:0.75rem; color:var(--muted); display:none;"></span>
-</div>
-
 <div class="grid-2" style="align-items:start; gap:1.5rem;">
   <!-- Log set form -->
   <div>
@@ -73,16 +66,15 @@
                   onclick="clearMuscleGroup()">Clear</button>
         </div>
       </div>
-      <div id="routine-plan" style="display:none; margin-bottom:0.75rem;">
-        <div id="routine-plan-label" style="font-size:0.75rem; color:var(--muted); margin-bottom:0.4rem;">Tap to select:</div>
-        <div id="routine-chips" style="display:flex; flex-wrap:wrap; gap:0.4rem;"></div>
-      </div>
-
       <div class="form-group">
         <label for="exercise-input">Exercise</label>
         <input id="exercise-input" list="exercise-list" placeholder="Search or type exercise…" autocomplete="off">
         <datalist id="exercise-list"></datalist>
         <input type="hidden" id="exercise-id" value="">
+      </div>
+      <div id="routine-plan" style="display:none; margin-bottom:0.75rem;">
+        <div id="routine-plan-label" style="font-size:0.75rem; color:var(--muted); margin-bottom:0.4rem;">Tap to select:</div>
+        <div id="routine-chips" style="display:flex; flex-wrap:wrap; gap:0.4rem;"></div>
       </div>
       <div class="grid-2">
         <div class="form-group">
@@ -238,7 +230,6 @@
 
 <script>
 const WORKOUT_ID = {{ workout.id }};
-const LS_KEY = `workout-notes-${WORKOUT_ID}`;
 let exercises = [];
 let lastSets = {};
 let selectedMuscleGroup = '';
@@ -310,53 +301,6 @@ function updateTimerDisplay() {
   document.getElementById('timer-ring').style.strokeDashoffset =
     RING_C * (1 - progress);
 }
-
-// Workout notes auto-save with localStorage fallback
-(function initNotes() {
-  const ta = document.getElementById('workout-notes');
-  const status = document.getElementById('notes-status');
-  let saveTimer = null;
-
-  // Restore any pending offline edit
-  const pending = localStorage.getItem(LS_KEY);
-  if (pending !== null && pending !== ta.value) {
-    ta.value = pending;
-    setStatus('Unsaved (offline)', 'var(--danger)');
-    saveNotes(pending);
-  }
-
-  ta.addEventListener('input', () => {
-    localStorage.setItem(LS_KEY, ta.value);
-    setStatus('Saving…', 'var(--muted)');
-    clearTimeout(saveTimer);
-    saveTimer = setTimeout(() => saveNotes(ta.value), 800);
-  });
-
-  async function saveNotes(value) {
-    try {
-      const resp = await fetch(`/workouts/${WORKOUT_ID}`, {
-        method: 'PATCH',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({notes: value || null}),
-      });
-      if (resp.ok) {
-        localStorage.removeItem(LS_KEY);
-        setStatus('Saved', 'var(--success)');
-        setTimeout(() => { status.style.display = 'none'; }, 1500);
-      } else {
-        setStatus('Save failed', 'var(--danger)');
-      }
-    } catch {
-      setStatus('Offline — will retry on reconnect', 'var(--danger)');
-    }
-  }
-
-  function setStatus(msg, color) {
-    status.textContent = msg;
-    status.style.color = color;
-    status.style.display = 'inline';
-  }
-})();
 
 // Cascading filter helpers
 function _musclesForExercise(ex) {
