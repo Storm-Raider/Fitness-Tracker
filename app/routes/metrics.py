@@ -14,6 +14,8 @@ router = APIRouter()
 class MetricIn(BaseModel):
     weight_kg: float = Field(ge=1.0, le=500.0)
     calories: int | None = Field(default=None, ge=0, le=50_000)
+    notes: str | None = Field(default=None, max_length=300)
+    entry_date: str | None = Field(default=None, pattern=r"^\d{4}-\d{2}-\d{2}$")
 
 
 @router.get("/metrics")
@@ -23,8 +25,9 @@ async def list_metrics(
     current_user=Depends(get_current_user),
 ):
     async with conn.execute(
-        "SELECT id, recorded_at, weight_kg, calories FROM body_metrics "
-        "WHERE user_id = ? ORDER BY recorded_at DESC",
+        "SELECT id, recorded_at, COALESCE(entry_date, DATE(recorded_at)) AS entry_date, "
+        "weight_kg, calories, notes FROM body_metrics "
+        "WHERE user_id = ? ORDER BY COALESCE(entry_date, DATE(recorded_at)) DESC, recorded_at DESC",
         (current_user["id"],),
     ) as cur:
         metrics = [dict(r) for r in await cur.fetchall()]
@@ -33,7 +36,7 @@ async def list_metrics(
     chrono = list(reversed(metrics))
     chart_svg = generate_sparkline(
         values=[m["weight_kg"] for m in chrono],
-        labels=[m["recorded_at"][:10] for m in chrono],
+        labels=[m["entry_date"] for m in chrono],
         color="#f59e0b",
         unit=" kg",
     )
@@ -73,9 +76,11 @@ async def create_metric(
     conn: aiosqlite.Connection = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
+    from datetime import date as _date
+    entry_date = body.entry_date or _date.today().isoformat()
     async with conn.execute(
-        "INSERT INTO body_metrics(weight_kg, calories, user_id) VALUES (?, ?, ?)",
-        (body.weight_kg, body.calories, current_user["id"]),
+        "INSERT INTO body_metrics(weight_kg, calories, notes, entry_date, user_id) VALUES (?, ?, ?, ?, ?)",
+        (body.weight_kg, body.calories, body.notes, entry_date, current_user["id"]),
     ) as cur:
         metric_id = cur.lastrowid
     await conn.commit()

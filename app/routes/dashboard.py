@@ -113,6 +113,14 @@ async def dashboard(
         total_workouts = (await cur.fetchone())["total_workouts"]
 
     async with conn.execute(
+        "SELECT weight_kg FROM body_metrics WHERE user_id = ? "
+        "ORDER BY COALESCE(entry_date, DATE(recorded_at)) DESC, recorded_at DESC LIMIT 1",
+        (uid,),
+    ) as cur:
+        _bw = await cur.fetchone()
+    latest_bodyweight = _bw["weight_kg"] if _bw else None
+
+    async with conn.execute(
         "SELECT COALESCE(SUM(weight_kg * reps), 0) AS total_volume FROM sets WHERE user_id = ?",
         (uid,),
     ) as cur:
@@ -244,6 +252,7 @@ async def dashboard(
             "muscle_bar_svg": muscle_bar_svg,
             "volume_delta_pct": volume_delta_pct,
             "last_week_sessions": last_week_sessions,
+            "latest_bodyweight": latest_bodyweight,
             "user": dict(current_user),
         },
     )

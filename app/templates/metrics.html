@@ -33,6 +33,14 @@
           <button type="button" class="stepper-btn" onclick="stepMetric(0.5)">+</button>
         </div>
       </div>
+      <div class="form-group">
+        <label for="metric-date">Date</label>
+        <input type="date" id="metric-date" style="height:42px;">
+      </div>
+      <div class="form-group">
+        <label for="metric-notes">Notes <span style="font-weight:400;color:var(--muted);text-transform:none;letter-spacing:0;">(optional)</span></label>
+        <input type="text" id="metric-notes" placeholder="e.g. morning, fasted, post-vacation…" maxlength="300">
+      </div>
       <div id="metric-error" class="flash flash-error" style="display:none;"></div>
       <div id="metric-success" class="flash flash-success" style="display:none;">Entry logged.</div>
       <button class="btn btn-primary" style="width:100%;min-height:48px;" onclick="logMetric()">Log Entry</button>
@@ -71,13 +79,14 @@
       {% if metrics %}
       <table>
         <thead>
-          <tr><th>Date</th><th>Weight</th><th style="width:44px;"></th></tr>
+          <tr><th>Date</th><th>Weight</th><th>Notes</th><th style="width:44px;"></th></tr>
         </thead>
         <tbody>
           {% for m in metrics %}
           <tr id="metric-{{ m.id }}">
-            <td style="font-weight:500;">{{ m.recorded_at[:10] }}</td>
-            <td class="num"><span class="weight-display" data-kg="{{ m.weight_kg }}">{{ m.weight_kg }} kg</span></td>
+            <td style="font-weight:500;white-space:nowrap;">{{ m.entry_date }}</td>
+            <td class="num" style="white-space:nowrap;"><span class="weight-display" data-kg="{{ m.weight_kg }}">{{ m.weight_kg }} kg</span></td>
+            <td style="font-size:0.8rem;color:var(--muted);">{{ m.notes or '' }}</td>
             <td style="padding:0.4rem 0.5rem;text-align:center;">
               <button
                 hx-delete="/metrics/{{ m.id }}"
@@ -157,8 +166,8 @@ function calcBmi() {
 }
 async function logMetric() {
   const weight = getWeightKg();
-  const errEl = document.getElementById('metric-error');
-  const okEl  = document.getElementById('metric-success');
+  const errEl  = document.getElementById('metric-error');
+  const okEl   = document.getElementById('metric-success');
   errEl.style.display = 'none';
   okEl.style.display  = 'none';
   if (isNaN(weight) || weight <= 0) {
@@ -166,10 +175,12 @@ async function logMetric() {
     errEl.style.display = 'block';
     return;
   }
+  const entry_date = document.getElementById('metric-date').value || null;
+  const notes      = document.getElementById('metric-notes').value.trim() || null;
   const resp = await fetch('/metrics', {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({weight_kg: weight, calories: null})
+    body: JSON.stringify({weight_kg: weight, calories: null, notes, entry_date})
   });
   if (resp.ok) {
     okEl.style.display = 'block';
@@ -181,6 +192,11 @@ async function logMetric() {
   }
 }
 (function() {
+  // Default date picker to today
+  const today = new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD
+  document.getElementById('metric-date').value = today;
+  document.getElementById('metric-date').max   = today;
+
   const saved = localStorage.getItem('bmi_height_cm');
   if (saved) document.getElementById('height-input').value = saved;
   calcBmi();

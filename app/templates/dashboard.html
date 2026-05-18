@@ -62,10 +62,18 @@
   {{ stat_card("dumbbell", "", "All-time volume", "var(--success)", "rgba(52,211,153,0.1)", kg_raw=total_volume) }}
 </div>
 
-<div class="grid-2" style="margin-bottom:1.5rem;">
+<div class="grid-2" style="margin-bottom:{% if latest_bodyweight %}1rem{% else %}1.5rem{% endif %};">
   {{ stat_card("clock", (avg_duration_min ~ "") if avg_duration_min is not none else "—", "Avg session length", "var(--text)", unit=(" min" if avg_duration_min is not none else "")) }}
   {{ stat_card("trophy", best_streak, "Best streak", "var(--pr)", "var(--pr-dim)", unit=" days") }}
 </div>
+
+{% if latest_bodyweight is not none %}
+<div class="grid-1" style="margin-bottom:1.5rem;">
+  <a href="/metrics" style="text-decoration:none;display:block;">
+    {{ stat_card("scale", "", "Current bodyweight", "var(--success)", "rgba(52,211,153,0.1)", kg_raw=latest_bodyweight) }}
+  </a>
+</div>
+{% endif %}
 
 <div style="margin-bottom:1.5rem;">
   <div class="section-title">Volume — last 7 days</div>
