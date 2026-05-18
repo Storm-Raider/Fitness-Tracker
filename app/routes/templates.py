@@ -5,6 +5,7 @@ from pydantic import BaseModel, Field
 
 from app.db import get_db
 from app.routes.auth import get_current_user
+from app.utils.db_utils import require_owns
 from app.utils.render import templates
 
 router = APIRouter()
@@ -52,12 +53,7 @@ async def create_template(
     current_user=Depends(get_current_user),
 ):
     uid = current_user["id"]
-    async with conn.execute(
-        "SELECT id FROM workouts WHERE id = ? AND user_id = ?",
-        (body.workout_id, uid),
-    ) as cur:
-        if not await cur.fetchone():
-            raise HTTPException(status_code=404, detail="Workout not found")
+    await require_owns(conn, "workouts", body.workout_id, uid)
 
     async with conn.execute(
         "INSERT INTO workout_templates(user_id, name) VALUES(?,?)",
@@ -89,12 +85,7 @@ async def delete_template(
     conn: aiosqlite.Connection = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
-    async with conn.execute(
-        "SELECT id FROM workout_templates WHERE id = ? AND user_id = ?",
-        (template_id, current_user["id"]),
-    ) as cur:
-        if not await cur.fetchone():
-            raise HTTPException(status_code=404)
+    await require_owns(conn, "workout_templates", template_id, current_user["id"])
     await conn.execute("DELETE FROM workout_templates WHERE id = ?", (template_id,))
     await conn.commit()
     return ""
@@ -107,12 +98,7 @@ async def start_from_template(
     current_user=Depends(get_current_user),
 ):
     uid = current_user["id"]
-    async with conn.execute(
-        "SELECT id FROM workout_templates WHERE id = ? AND user_id = ?",
-        (template_id, uid),
-    ) as cur:
-        if not await cur.fetchone():
-            raise HTTPException(status_code=404)
+    await require_owns(conn, "workout_templates", template_id, uid)
 
     async with conn.execute(
         "INSERT INTO workouts(user_id) VALUES(?)", (uid,)

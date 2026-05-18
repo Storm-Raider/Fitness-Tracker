@@ -191,20 +191,27 @@ async def forgot_password_post(
     return templates.TemplateResponse(request, "forgot_password.html", {"sent": True, "error": None})
 
 
+async def _fetch_valid_token(
+    conn: aiosqlite.Connection, table: str, token: str, detail: str
+) -> aiosqlite.Row:
+    async with conn.execute(
+        f"SELECT * FROM {table} WHERE token = ? AND used_at IS NULL"
+        f" AND expires_at > datetime('now','localtime')",
+        (token,),
+    ) as cur:
+        row = await cur.fetchone()
+    if not row:
+        raise HTTPException(status_code=400, detail=detail)
+    return row
+
+
 @router.get("/reset-password/{token}", response_class=HTMLResponse)
 async def reset_password_get(
     token: str,
     request: Request,
     conn: aiosqlite.Connection = Depends(get_db),
 ):
-    async with conn.execute(
-        "SELECT token FROM password_reset_tokens "
-        "WHERE token = ? AND used_at IS NULL AND expires_at > datetime('now','localtime')",
-        (token,),
-    ) as cur:
-        row = await cur.fetchone()
-    if not row:
-        raise HTTPException(status_code=400, detail="Invalid or expired password reset link")
+    await _fetch_valid_token(conn, "password_reset_tokens", token, "Invalid or expired password reset link")
     return templates.TemplateResponse(request, "reset_password.html", {"token": token, "errors": {}})
 
 
@@ -216,14 +223,7 @@ async def reset_password_post(
     password_confirm: str = Form(...),
     conn: aiosqlite.Connection = Depends(get_db),
 ):
-    async with conn.execute(
-        "SELECT token, user_id FROM password_reset_tokens "
-        "WHERE token = ? AND used_at IS NULL AND expires_at > datetime('now','localtime')",
-        (token,),
-    ) as cur:
-        row = await cur.fetchone()
-    if not row:
-        raise HTTPException(status_code=400, detail="Invalid or expired password reset link")
+    row = await _fetch_valid_token(conn, "password_reset_tokens", token, "Invalid or expired password reset link")
 
     errors = {}
     if len(password) < 8:
@@ -303,14 +303,7 @@ async def invite_accept_get(
     request: Request,
     conn: aiosqlite.Connection = Depends(get_db),
 ):
-    async with conn.execute(
-        "SELECT token FROM invite_tokens "
-        "WHERE token = ? AND used_at IS NULL AND expires_at > datetime('now','localtime')",
-        (token,),
-    ) as cur:
-        row = await cur.fetchone()
-    if not row:
-        raise HTTPException(status_code=400, detail="Invalid or expired invite link")
+    await _fetch_valid_token(conn, "invite_tokens", token, "Invalid or expired invite link")
     return templates.TemplateResponse(
         request, "invite_accept.html",
         {"token": token, "errors": {}, "form": {}},
@@ -327,14 +320,7 @@ async def invite_accept_post(
     password_confirm: str = Form(...),
     conn: aiosqlite.Connection = Depends(get_db),
 ):
-    async with conn.execute(
-        "SELECT token FROM invite_tokens "
-        "WHERE token = ? AND used_at IS NULL AND expires_at > datetime('now','localtime')",
-        (token,),
-    ) as cur:
-        row = await cur.fetchone()
-    if not row:
-        raise HTTPException(status_code=400, detail="Invalid or expired invite link")
+    await _fetch_valid_token(conn, "invite_tokens", token, "Invalid or expired invite link")
 
     email = email.strip().lower()
     errors = {}

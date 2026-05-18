@@ -6,6 +6,7 @@ from pydantic import BaseModel, Field
 
 from app.db import get_db
 from app.routes.auth import get_current_user
+from app.utils.db_utils import require_owns
 from app.utils.render import templates
 
 router = APIRouter()
@@ -75,12 +76,7 @@ async def patch_routine(
     current_user=Depends(get_current_user),
 ):
     uid = current_user["id"]
-    async with conn.execute(
-        "SELECT id FROM routines WHERE id = ? AND user_id = ?",
-        (routine_id, uid),
-    ) as cur:
-        if not await cur.fetchone():
-            raise HTTPException(status_code=404, detail="Routine not found")
+    await require_owns(conn, "routines", routine_id, uid)
     name = body.name.strip()
     await conn.execute(
         "UPDATE routines SET name = ? WHERE id = ? AND user_id = ?",
@@ -162,12 +158,7 @@ async def delete_routine(
     conn: aiosqlite.Connection = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
-    async with conn.execute(
-        "SELECT id FROM routines WHERE id = ? AND user_id = ?",
-        (routine_id, current_user["id"]),
-    ) as cur:
-        if not await cur.fetchone():
-            raise HTTPException(status_code=404, detail="Routine not found")
+    await require_owns(conn, "routines", routine_id, current_user["id"])
     await conn.execute(
         "DELETE FROM routines WHERE id = ? AND user_id = ?",
         (routine_id, current_user["id"]),

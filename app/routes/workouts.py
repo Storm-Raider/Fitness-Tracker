@@ -10,6 +10,7 @@ from pydantic import BaseModel, Field
 
 from app.db import get_db
 from app.routes.auth import get_current_user
+from app.utils.db_utils import require_owns
 from app.utils.render import render, templates
 
 logger = logging.getLogger(__name__)
@@ -195,12 +196,7 @@ async def patch_workout(
     conn: aiosqlite.Connection = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
-    async with conn.execute(
-        "SELECT id FROM workouts WHERE id = ? AND user_id = ?",
-        (workout_id, current_user["id"]),
-    ) as cur:
-        if not await cur.fetchone():
-            raise HTTPException(status_code=404, detail="Workout not found")
+    await require_owns(conn, "workouts", workout_id, current_user["id"])
     await conn.execute(
         "UPDATE workouts SET notes = ? WHERE id = ?", (body.notes, workout_id)
     )
@@ -217,11 +213,7 @@ async def add_set(
 ):
     uid = current_user["id"]
 
-    async with conn.execute(
-        "SELECT id FROM workouts WHERE id = ? AND user_id = ?", (workout_id, uid)
-    ) as cur:
-        if not await cur.fetchone():
-            raise HTTPException(status_code=404, detail="Workout not found")
+    await require_owns(conn, "workouts", workout_id, uid)
 
     async with conn.execute(
         "SELECT id FROM exercises WHERE id = ?", (body.exercise_id,)
@@ -345,11 +337,7 @@ async def get_workout_exercise_order(
     current_user=Depends(get_current_user),
 ):
     uid = current_user["id"]
-    async with conn.execute(
-        "SELECT id FROM workouts WHERE id = ? AND user_id = ?", (workout_id, uid)
-    ) as cur:
-        if not await cur.fetchone():
-            raise HTTPException(status_code=404, detail="Workout not found")
+    await require_owns(conn, "workouts", workout_id, uid)
     async with conn.execute(
         """
         SELECT s.exercise_id AS id, e.name, MIN(s.id) AS first_id
@@ -372,11 +360,7 @@ async def delete_workout(
     current_user=Depends(get_current_user),
 ):
     uid = current_user["id"]
-    async with conn.execute(
-        "SELECT id FROM workouts WHERE id = ? AND user_id = ?", (workout_id, uid)
-    ) as cur:
-        if not await cur.fetchone():
-            raise HTTPException(status_code=404, detail="Workout not found")
+    await require_owns(conn, "workouts", workout_id, uid)
     await conn.execute("DELETE FROM sets WHERE workout_id = ? AND user_id = ?", (workout_id, uid))
     await conn.execute("DELETE FROM workouts WHERE id = ? AND user_id = ?", (workout_id, uid))
     await conn.commit()
@@ -391,11 +375,7 @@ async def add_session_cardio(
     current_user=Depends(get_current_user),
 ):
     uid = current_user["id"]
-    async with conn.execute(
-        "SELECT id FROM workouts WHERE id = ? AND user_id = ?", (workout_id, uid)
-    ) as cur:
-        if not await cur.fetchone():
-            raise HTTPException(status_code=404, detail="Workout not found")
+    await require_owns(conn, "workouts", workout_id, uid)
     async with conn.execute(
         "SELECT id FROM exercises WHERE id = ? AND category = 'Cardio'", (body.exercise_id,)
     ) as cur:

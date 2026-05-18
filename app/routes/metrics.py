@@ -7,6 +7,7 @@ from pydantic import BaseModel, Field
 
 from app.db import get_db
 from app.routes.auth import get_current_user
+from app.utils.db_utils import require_owns
 from app.utils.render import render
 
 router = APIRouter()
@@ -50,12 +51,7 @@ async def delete_metric(
     conn: aiosqlite.Connection = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
-    async with conn.execute(
-        "SELECT id FROM body_metrics WHERE id = ? AND user_id = ?",
-        (metric_id, current_user["id"]),
-    ) as cur:
-        if not await cur.fetchone():
-            raise HTTPException(status_code=404, detail="Entry not found")
+    await require_owns(conn, "body_metrics", metric_id, current_user["id"])
     await conn.execute(
         "DELETE FROM body_metrics WHERE id = ? AND user_id = ?",
         (metric_id, current_user["id"]),
