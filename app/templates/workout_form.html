@@ -48,8 +48,8 @@
 
 <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:1.25rem;">
   <div>
-    <h1 style="font-size:1.5rem; font-weight:700;">Workout</h1>
-    <p style="color:var(--muted); font-size:0.8rem;">{{ workout.started_at[:10] }} · <span id="elapsed-clock" style="font-variant-numeric:tabular-nums;"></span></p>
+    <h1 style="font-size:1.5rem; font-weight:700;">{% if is_finished %}Finished Workout{% else %}Workout{% endif %}</h1>
+    <p style="color:var(--muted); font-size:0.8rem;">{{ workout.started_at[:10] }} · {% if is_finished %}<span style="color:var(--success);">✓ {{ duration_min }} min</span>{% else %}<span id="elapsed-clock" style="font-variant-numeric:tabular-nums;"></span>{% endif %}</p>
   </div>
   <div style="display:flex;align-items:center;gap:0.75rem;">
     <span id="pr-badge" class="badge badge-pr"><i data-lucide="trophy" style="width:12px;height:12px;margin-right:0.25rem;vertical-align:middle;"></i>New PR!</span>
@@ -62,6 +62,42 @@
   </div>
 </div>
 
+{% if is_finished %}
+<!-- Finished workout — summary stats + sets only -->
+<div class="card" style="margin-bottom:1.5rem;">
+  <div class="grid-3" style="text-align:center;">
+    <div>
+      <div class="num" style="font-size:1.8rem; font-weight:700; color:var(--accent);">{{ duration_min }}</div>
+      <div class="section-title" style="margin:0.2rem 0 0;">minutes</div>
+    </div>
+    <div>
+      <div class="num" style="font-size:1.8rem; font-weight:700;">{{ sets|length }}</div>
+      <div class="section-title" style="margin:0.2rem 0 0;">sets</div>
+    </div>
+    <div>
+      <div class="num" style="font-size:1.8rem; font-weight:700; color:var(--accent);"><span class="weight-display" data-kg="{{ session_volume }}">{{ "{:,.0f}".format(session_volume) }} kg</span></div>
+      <div class="section-title" style="margin:0.2rem 0 0;">volume</div>
+    </div>
+  </div>
+</div>
+<div class="section-title">Sets</div>
+<div class="card" id="sets-container">
+  {% if sets %}
+    {% for s in sets %}
+    <div class="set-row" id="set-{{ s.id }}">
+      <div class="set-meta">
+        <div>{{ s.exercise_name }}</div>
+        <div class="set-detail"><span class="weight-display" data-kg="{{ s.weight_kg }}">{{ s.weight_kg }} kg</span> × {{ s.reps }} reps{% if s.rpe %} · RPE {{ s.rpe }}{% endif %}{% if s.notes %} · {{ s.notes }}{% endif %}</div>
+      </div>
+      <button class="btn btn-ghost" style="padding:0.2rem 0.5rem; font-size:0.75rem;"
+              onclick="deleteSet({{ s.id }}, this)"><i data-lucide="x" style="width:14px;height:14px;"></i></button>
+    </div>
+    {% endfor %}
+  {% else %}
+    <p style="color:var(--muted); font-size:0.875rem;">No sets recorded.</p>
+  {% endif %}
+</div>
+{% else %}
 <div class="grid-2" style="align-items:start; gap:1.5rem;">
   <!-- Log set form -->
   <div>
@@ -163,7 +199,9 @@
     </div>
   </div>
 </div>
+{% endif %}
 
+{% if not is_finished %}
 <!-- Save as routine modal -->
 <div id="routine-save-modal"
      style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.75);
@@ -225,7 +263,7 @@
     </svg>
     <span id="timer-display"
           style="font-size:1.4rem; font-weight:700; font-variant-numeric:tabular-nums; min-width:3.5rem;">
-      1:30
+      2:00
     </span>
     <div style="display:flex; gap:0.4rem;">
       <button class="btn btn-ghost" style="padding:0.25rem 0.6rem; min-height:36px; font-size:0.8rem;"
@@ -251,6 +289,7 @@
     Finish Workout
   </button>
 </div>
+{% endif %}
 
 <script>
 const WORKOUT_ID = {{ workout.id }};
@@ -274,10 +313,11 @@ setExercises[{{ s.id }}] = {id: {{ s.exercise_id }}, name: {{ s.exercise_name | 
 {% endfor %}
 
 function updateVolumeDisplay() {
+  var el = document.getElementById('session-volume');
+  if (!el) return;
   var unit = getAppUnit();
   var vol = unit === 'lbs' ? sessionVolume * 2.2046 : sessionVolume;
-  document.getElementById('session-volume').textContent =
-    vol.toLocaleString('en', {maximumFractionDigits: 1}) + ' ' + unit;
+  el.textContent = vol.toLocaleString('en', {maximumFractionDigits: 1}) + ' ' + unit;
 }
 
 function stepWeight(dir) {
@@ -291,19 +331,22 @@ function stepWeight(dir) {
 window.addEventListener('unitchange', function(e) {
   var unit = e.detail.unit;
   var oldUnit = e.detail.oldUnit;
-  document.getElementById('weight-label').textContent = 'Weight (' + unit + ')';
+  var label = document.getElementById('weight-label');
+  if (label) label.textContent = 'Weight (' + unit + ')';
   var input = document.getElementById('weight-input');
-  var val = parseFloat(input.value || 0);
-  if (oldUnit !== unit) {
-    input.value = unit === 'lbs'
-      ? Math.round(val * 2.2046 * 10) / 10
-      : Math.round(val / 2.2046 * 10) / 10;
+  if (input) {
+    var val = parseFloat(input.value || 0);
+    if (oldUnit !== unit) {
+      input.value = unit === 'lbs'
+        ? Math.round(val * 2.2046 * 10) / 10
+        : Math.round(val / 2.2046 * 10) / 10;
+    }
   }
   updateVolumeDisplay();
 });
 
 // Rest timer
-const TIMER_DEFAULT = 90;
+const TIMER_DEFAULT = 120;
 const TIMER_MAX = 600;
 const RING_C = 2 * Math.PI * 18; // circumference for r=18 ≈ 113.1
 let timerTotal = TIMER_DEFAULT;
@@ -435,7 +478,7 @@ async function loadRoutines() {
     sel.appendChild(opt);
   });
 }
-loadRoutines();
+{% if not is_finished %}loadRoutines();{% endif %}
 
 function onRoutineSelect(val) {
   selectedMuscleGroup = '';
@@ -526,7 +569,7 @@ async function loadExercises() {
   } catch { /* network error — user can still type a new exercise name */ }
   await initRepeatMode();
 }
-loadExercises();
+{% if not is_finished %}loadExercises();{% endif %}
 
 async function initRepeatMode() {
   const repeatId = new URLSearchParams(window.location.search).get('repeat');
@@ -591,7 +634,7 @@ function selectExercise(id, name) {
   applyExerciseSelection(ex);
 }
 
-(function initExerciseAutocomplete() {
+{% if not is_finished %}(function initExerciseAutocomplete() {
   const input = document.getElementById('exercise-input');
   const dropdown = document.getElementById('exercise-dropdown');
   let activeIdx = -1;
@@ -663,7 +706,7 @@ function selectExercise(id, name) {
   input.addEventListener('focus', function() {
     if (this.value.trim()) this.dispatchEvent(new Event('input'));
   });
-})();
+})();{% endif %}
 
 function escHtml(s) {
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
@@ -771,6 +814,12 @@ async function deleteSet(id, btn) {
 }
 
 async function finishWorkout() {
+  if (Object.keys(setVolumes).length === 0) {
+    if (!confirm('No sets logged — discard this session?')) return;
+    await fetch(`/workouts/${WORKOUT_ID}`, {method: 'DELETE'});
+    window.location.href = '/workouts';
+    return;
+  }
   const resp = await fetch(`/workouts/${WORKOUT_ID}/finish`, {method: 'POST'});
   if (!resp.ok) { window.location.href = '/workouts'; return; }
   const data = await resp.json();
@@ -787,6 +836,7 @@ function showErr(msg) {
   el.style.display = 'block';
 }
 
+{% if not is_finished %}
 // Live elapsed timer
 (function() {
   const start = new Date("{{ workout.started_at | replace(' ', 'T') }}");
@@ -799,6 +849,7 @@ function showErr(msg) {
   tick();
   setInterval(tick, 60000);
 })();
+{% endif %}
 
 async function deleteWorkout() {
   const setCount = document.querySelectorAll('.set-row').length;

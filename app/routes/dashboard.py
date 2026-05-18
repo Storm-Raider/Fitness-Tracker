@@ -123,6 +123,7 @@ async def dashboard(
             (JULIANDAY(ended_at) - JULIANDAY(started_at)) * 1440
         )) AS INTEGER) AS avg_duration_min
         FROM workouts WHERE user_id = ? AND ended_at IS NOT NULL
+        AND ROUND((JULIANDAY(ended_at) - JULIANDAY(started_at)) * 1440) <= 720
         """,
         (uid,),
     ) as cur:

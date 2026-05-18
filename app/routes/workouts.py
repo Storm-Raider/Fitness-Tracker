@@ -76,6 +76,7 @@ async def list_workouts(
         LEFT JOIN sets s ON s.workout_id = w.id AND s.user_id = ?
         WHERE w.user_id = ?
         GROUP BY w.id
+        HAVING w.ended_at IS NULL OR COUNT(s.id) > 0
         ORDER BY w.started_at DESC
         """,
         (uid, uid),
@@ -129,11 +130,19 @@ async def get_workout(
         sets = [dict(r) for r in await cur.fetchall()]
 
     session_volume = sum(s["weight_kg"] * s["reps"] for s in sets)
+    is_finished = row["ended_at"] is not None
+    duration_min = None
+    if is_finished:
+        started = datetime.fromisoformat(row["started_at"])
+        ended = datetime.fromisoformat(row["ended_at"])
+        duration_min = round((ended - started).total_seconds() / 60)
     return templates.TemplateResponse(request, "workout_form.html", {
         "workout": dict(row),
         "sets": sets,
         "session_volume": session_volume,
         "user": dict(current_user),
+        "is_finished": is_finished,
+        "duration_min": duration_min,
     })
 
 

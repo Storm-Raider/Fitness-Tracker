@@ -96,7 +96,53 @@
       background: var(--border);
       flex-shrink: 0;
     }
-    nav .nav-links { display: flex; gap: 0; }
+    nav .nav-links { display: flex; gap: 0; align-items: center; }
+    /* More dropdown */
+    .nav-more { position: relative; }
+    .nav-more-btn {
+      color: var(--muted);
+      font-size: 0.875rem;
+      font-weight: 500;
+      padding: 0 0.875rem;
+      height: 52px;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.3rem;
+      white-space: nowrap;
+      cursor: pointer;
+      background: transparent;
+      border: none;
+      font-family: 'Barlow', inherit;
+      transition: color 0.15s;
+    }
+    .nav-more-btn:hover { color: var(--text); }
+    .nav-more-btn.active { color: var(--text); }
+    .nav-more-dropdown {
+      display: none;
+      position: absolute;
+      top: 100%;
+      left: 0;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      box-shadow: var(--shadow);
+      min-width: 160px;
+      z-index: 200;
+      overflow: hidden;
+    }
+    .nav-more-dropdown a {
+      display: block;
+      color: var(--muted);
+      font-size: 0.875rem;
+      font-weight: 500;
+      padding: 0.65rem 1rem;
+      height: auto;
+      white-space: nowrap;
+      transition: color 0.15s, background 0.15s;
+    }
+    .nav-more-dropdown a:hover { color: var(--text); background: var(--surface-hover); }
+    .nav-more-dropdown a.active { color: var(--accent); background: var(--accent-dim); }
+    .nav-more.open .nav-more-dropdown { display: block; }
     nav .nav-links a {
       color: var(--muted);
       font-size: 0.875rem;
@@ -163,6 +209,14 @@
     .nav-hamburger:hover { border-color: var(--accent); color: var(--accent); }
     /* Mobile user row inside dropdown */
     .nav-mobile-user { display: none; }
+
+    /* Mobile-only links hidden on desktop */
+    .nav-more-mobile-link { display: none; }
+    /* Hide the More dropdown wrapper on mobile */
+    @media (max-width: 767px) {
+      .nav-more { display: none; }
+      .nav-more-mobile-link { display: flex; }
+    }
 
     @media (max-width: 767px) {
       nav {
@@ -427,12 +481,21 @@
       <a href="/prs">Records</a>
       <a href="/workouts">Workouts</a>
       <a href="/exercises">Exercises</a>
-      <a href="/cardio">Cardio</a>
-      <a href="/metrics">Body Metrics</a>
-      <a href="/export">Export</a>
-      {% if user.is_admin %}
-      <a href="/invite">Invite</a>
-      {% endif %}
+      <!-- More dropdown (desktop) -->
+      <div class="nav-more" id="nav-more">
+        <button class="nav-more-btn" onclick="toggleMoreMenu()" aria-haspopup="true">More <i data-lucide="chevron-down" style="width:13px;height:13px;"></i></button>
+        <div class="nav-more-dropdown" id="nav-more-dropdown">
+          <a href="/cardio">Cardio</a>
+          <a href="/metrics">Body Metrics</a>
+          <a href="/export">Export</a>
+          {% if user.is_admin %}<a href="/invite">Invite</a>{% endif %}
+        </div>
+      </div>
+      <!-- Mobile-only flat links (hamburger menu) -->
+      <a href="/cardio" class="nav-more-mobile-link">Cardio</a>
+      <a href="/metrics" class="nav-more-mobile-link">Body Metrics</a>
+      <a href="/export" class="nav-more-mobile-link">Export</a>
+      {% if user.is_admin %}<a href="/invite" class="nav-more-mobile-link">Invite</a>{% endif %}
       <div class="nav-mobile-user">
         <a href="/settings" class="username">{{ user.username }}</a>
         <form method="post" action="/logout">
@@ -504,8 +567,26 @@
       window.fmtWeight = fmtWeight;
       document.addEventListener('DOMContentLoaded', function() { applyUnit('kg'); });
     })();
+    function toggleMoreMenu() {
+      document.getElementById('nav-more').classList.toggle('open');
+    }
+    document.addEventListener('click', function(e) {
+      var nm = document.getElementById('nav-more');
+      if (nm && !nm.contains(e.target)) nm.classList.remove('open');
+    });
+    // Mark active in the More dropdown too
+    document.querySelectorAll('#nav-more-dropdown a').forEach(function(a) {
+      var linkPath = new URL(a.href).pathname;
+      var here = location.pathname;
+      if (here === linkPath || here.startsWith(linkPath + '/')) {
+        a.classList.add('active');
+        var btn = document.querySelector('.nav-more-btn');
+        if (btn) btn.classList.add('active');
+      }
+    });
     document.querySelectorAll('.nav-links a').forEach(function(a) {
       if (a.closest('.nav-mobile-user')) return;
+      if (a.closest('#nav-more-dropdown')) return;
       var linkPath = new URL(a.href).pathname;
       var here = location.pathname;
       if (linkPath === '/' ? here === '/' : here === linkPath || here.startsWith(linkPath + '/')) {
