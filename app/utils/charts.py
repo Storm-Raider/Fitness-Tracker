@@ -75,11 +75,12 @@ def generate_sparkline(
         for x, y in (points[0], points[-1]):
             parts.append(f'<circle cx="{x:.1f}" cy="{y:.1f}" r="3" fill="{color}"/>')
 
-    # Current value label above last dot
+    # Current value label above last dot — anchor end near right edge to avoid clipping
     lx, ly = points[-1]
+    label_anchor = "end" if lx > pad_l + cw * 0.7 else "middle"
     parts.append(
         f'<text x="{lx:.1f}" y="{ly - 9:.1f}" font-size="11" fill="{color}" '
-        f'font-family="{font}" text-anchor="middle" font-weight="600">'
+        f'font-family="{font}" text-anchor="{label_anchor}" font-weight="600">'
         f'{values[-1]:.1f}{unit}</text>'
     )
 

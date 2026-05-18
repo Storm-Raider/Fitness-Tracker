@@ -151,6 +151,14 @@ async def exercise_detail(
         SELECT
             DATE(w.started_at)               AS date,
             MAX(s.weight_kg)                 AS max_kg,
+            (
+                SELECT s2.reps FROM sets s2
+                JOIN workouts w2 ON w2.id = s2.workout_id
+                WHERE s2.exercise_id = s.exercise_id
+                  AND s2.user_id = s.user_id
+                  AND DATE(w2.started_at) = DATE(w.started_at)
+                ORDER BY s2.weight_kg DESC LIMIT 1
+            )                                AS max_reps,
             COUNT(s.id)                      AS set_count,
             ROUND(SUM(s.weight_kg * s.reps), 1) AS volume_kg
         FROM sets s

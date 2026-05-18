@@ -1569,7 +1569,7 @@ async function finishWorkout() {
   const resp = await fetch(`/workouts/${WORKOUT_ID}/finish`, {method: 'POST'});
   if (!resp.ok) { window.location.href = '/workouts'; return; }
   const data = await resp.json();
-  document.getElementById('modal-duration').textContent = data.duration_minutes;
+  document.getElementById('modal-duration').textContent = Math.round(data.duration_minutes);
   document.getElementById('modal-sets').textContent     = data.set_count;
   document.getElementById('modal-volume').textContent   =
     data.volume_kg.toLocaleString('en', {maximumFractionDigits: 1});

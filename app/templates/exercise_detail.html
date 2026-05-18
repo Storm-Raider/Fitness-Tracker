@@ -70,7 +70,7 @@
     </thead>
     <tbody>
       {% for s in sessions %}
-      {% set one_rm = (s.max_kg * (1 + 1 / 30)) | round(1) %}
+      {% set one_rm = (s.max_kg * (1 + (s.max_reps or 1) / 30)) | round(1) %}
       <tr>
         <td style="font-weight:500;">{{ s.date }}</td>
         <td class="num">
@@ -79,7 +79,7 @@
           <span class="badge badge-pr" style="margin-left:0.35rem;font-size:0.65rem;vertical-align:middle;">PR</span>
           {% endif %}
         </td>
-        <td class="num" style="color:var(--pr);">{{ one_rm }} kg</td>
+        <td class="num" style="color:var(--pr);"><span class="weight-display" data-kg="{{ one_rm }}">{{ one_rm }} kg</span></td>
         <td class="num">{{ s.set_count }}</td>
         <td class="num" style="color:var(--muted);">
           <span class="weight-display" data-kg="{{ s.volume_kg }}">{{ "{:,.0f}".format(s.volume_kg) }} kg</span>
