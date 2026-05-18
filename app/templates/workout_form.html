@@ -7,6 +7,30 @@
   .set-meta { flex:1; font-size:0.875rem; }
   .set-detail { color:var(--muted); font-size:0.85rem; font-family:'JetBrains Mono',monospace; }
   #pr-badge { display:none; }
+  #exercise-dropdown {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    max-height: 220px;
+    overflow-y: auto;
+    z-index: 50;
+    margin-top: 3px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+    display: none;
+  }
+  .ex-option {
+    padding: 0.6rem 0.85rem;
+    font-size: 0.875rem;
+    cursor: pointer;
+    border-bottom: 1px solid var(--border);
+  }
+  .ex-option:last-child { border-bottom: none; }
+  .ex-option:hover, .ex-option.ex-active { background: var(--surface-hover); }
+  .ex-option mark { background: transparent; color: var(--accent); font-weight: 600; }
   .sticky-footer {
     position: sticky;
     bottom: 0;
@@ -66,11 +90,11 @@
                   onclick="clearMuscleGroup()">Clear</button>
         </div>
       </div>
-      <div class="form-group">
+      <div class="form-group" style="position:relative;">
         <label for="exercise-input">Exercise</label>
-        <input id="exercise-input" list="exercise-list" placeholder="Search or type exercise…" autocomplete="off">
-        <datalist id="exercise-list"></datalist>
+        <input id="exercise-input" placeholder="Search or type exercise…" autocomplete="off">
         <input type="hidden" id="exercise-id" value="">
+        <div id="exercise-dropdown"></div>
       </div>
       <div id="routine-plan" style="display:none; margin-bottom:0.75rem;">
         <div id="routine-plan-label" style="font-size:0.75rem; color:var(--muted); margin-bottom:0.4rem;">Tap to select:</div>
@@ -233,6 +257,7 @@ const WORKOUT_ID = {{ workout.id }};
 let exercises = [];
 let lastSets = {};
 let selectedMuscleGroup = '';
+let _filteredPool = [];
 
 function epley1RM(weight, reps) {
   if (reps <= 1) return weight;
@@ -361,10 +386,7 @@ function _updateChipsAndDatalist() {
     planEl.style.display = 'none';
   }
 
-  const dl = document.getElementById('exercise-list');
-  dl.innerHTML = filtered.map(e =>
-    `<option value="${escHtml(e.name)}" data-id="${e.id}">`
-  ).join('');
+  _filteredPool = filtered;
 }
 
 // Routine load
@@ -420,19 +442,7 @@ function clearMuscleGroup() {
 }
 
 function selectExerciseFromRoutine(id, name) {
-  document.getElementById('exercise-input').value = name;
-  document.getElementById('exercise-id').value = id;
-  const last = lastSets[String(id)];
-  const hint = document.getElementById('last-set-hint');
-  if (last) {
-    document.getElementById('last-set-text').textContent = `${last.weight_kg} kg × ${last.reps} reps`;
-    document.getElementById('last-1rm').textContent = `· est. 1RM: ${epley1RM(last.weight_kg, last.reps)} kg`;
-    document.getElementById('weight-input').value = last.weight_kg;
-    document.getElementById('reps-input').value   = last.reps;
-    hint.style.display = 'block';
-  } else {
-    hint.style.display = 'none';
-  }
+  selectExercise(id, name);
   document.getElementById('exercise-input').scrollIntoView({behavior:'smooth', block:'nearest'});
   document.getElementById('exercise-input').focus();
 }
@@ -514,18 +524,23 @@ async function initRepeatMode() {
   } catch { /* ignore — repeat is a convenience, not critical */ }
 }
 
-document.getElementById('exercise-input').addEventListener('input', function() {
-  const val = this.value.trim();
-  const match = exercises.find(e => e.name.toLowerCase() === val.toLowerCase());
+function _highlight(name, q) {
+  if (!q) return escHtml(name);
+  const idx = name.toLowerCase().indexOf(q.toLowerCase());
+  if (idx === -1) return escHtml(name);
+  return escHtml(name.slice(0, idx))
+    + '<mark>' + escHtml(name.slice(idx, idx + q.length)) + '</mark>'
+    + escHtml(name.slice(idx + q.length));
+}
+
+function applyExerciseSelection(ex) {
   const hint = document.getElementById('last-set-hint');
-  if (match) {
-    document.getElementById('exercise-id').value = match.id;
-    const last = lastSets[String(match.id)];
+  if (ex) {
+    document.getElementById('exercise-id').value = ex.id;
+    const last = lastSets[String(ex.id)];
     if (last) {
-      document.getElementById('last-set-text').textContent =
-        `${last.weight_kg} kg × ${last.reps} reps`;
-      document.getElementById('last-1rm').textContent =
-        `· est. 1RM: ${epley1RM(last.weight_kg, last.reps)} kg`;
+      document.getElementById('last-set-text').textContent = `${last.weight_kg} kg × ${last.reps} reps`;
+      document.getElementById('last-1rm').textContent = `· est. 1RM: ${epley1RM(last.weight_kg, last.reps)} kg`;
       document.getElementById('weight-input').value = last.weight_kg;
       document.getElementById('reps-input').value = last.reps;
       hint.style.display = 'block';
@@ -536,7 +551,83 @@ document.getElementById('exercise-input').addEventListener('input', function() {
     document.getElementById('exercise-id').value = '';
     hint.style.display = 'none';
   }
-});
+}
+
+function selectExercise(id, name) {
+  document.getElementById('exercise-input').value = name;
+  document.getElementById('exercise-dropdown').style.display = 'none';
+  const ex = exercises.find(e => e.id === id) || {id, name};
+  applyExerciseSelection(ex);
+}
+
+(function initExerciseAutocomplete() {
+  const input = document.getElementById('exercise-input');
+  const dropdown = document.getElementById('exercise-dropdown');
+  let activeIdx = -1;
+
+  function renderDropdown(matches, q) {
+    if (!matches.length) { dropdown.style.display = 'none'; return; }
+    dropdown.innerHTML = matches.slice(0, 10).map((e, i) =>
+      `<div class="ex-option" data-id="${e.id}" data-name="${escHtml(e.name)}">${_highlight(e.name, q)}</div>`
+    ).join('');
+    activeIdx = -1;
+    dropdown.style.display = 'block';
+    dropdown.querySelectorAll('.ex-option').forEach(el => {
+      el.addEventListener('mousedown', ev => {
+        ev.preventDefault();
+        selectExercise(parseInt(el.dataset.id), el.dataset.name);
+      });
+      el.addEventListener('touchstart', ev => {
+        ev.preventDefault();
+        selectExercise(parseInt(el.dataset.id), el.dataset.name);
+      }, {passive: false});
+    });
+  }
+
+  function setActive(items, idx) {
+    items.forEach((el, i) => el.classList.toggle('ex-active', i === idx));
+    if (idx >= 0) items[idx].scrollIntoView({block: 'nearest'});
+  }
+
+  input.addEventListener('input', function() {
+    const q = this.value.trim();
+    const pool = _filteredPool.length ? _filteredPool : exercises;
+    if (!q) {
+      dropdown.style.display = 'none';
+      applyExerciseSelection(null);
+      return;
+    }
+    const matches = pool.filter(e => e.name.toLowerCase().includes(q.toLowerCase()));
+    renderDropdown(matches, q);
+    const exact = exercises.find(e => e.name.toLowerCase() === q.toLowerCase());
+    applyExerciseSelection(exact || null);
+  });
+
+  input.addEventListener('keydown', function(e) {
+    const items = [...dropdown.querySelectorAll('.ex-option')];
+    if (!items.length) return;
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      activeIdx = Math.min(activeIdx + 1, items.length - 1);
+      setActive(items, activeIdx);
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      activeIdx = Math.max(activeIdx - 1, 0);
+      setActive(items, activeIdx);
+    } else if (e.key === 'Enter' && activeIdx >= 0) {
+      e.preventDefault();
+      const el = items[activeIdx];
+      selectExercise(parseInt(el.dataset.id), el.dataset.name);
+    } else if (e.key === 'Escape') {
+      dropdown.style.display = 'none';
+    }
+  });
+
+  input.addEventListener('blur', () => setTimeout(() => { dropdown.style.display = 'none'; }, 150));
+  input.addEventListener('focus', function() {
+    if (this.value.trim()) this.dispatchEvent(new Event('input'));
+  });
+})();
 
 function escHtml(s) {
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
