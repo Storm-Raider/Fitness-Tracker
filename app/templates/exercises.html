@@ -56,6 +56,30 @@
     padding: 2rem 0;
     text-align: center;
   }
+  .filter-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    margin-bottom: 1rem;
+  }
+  .chip {
+    padding: 0.3rem 0.75rem;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--muted-hi);
+    font-size: 0.775rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.12s, border-color 0.12s, color 0.12s;
+    user-select: none;
+  }
+  .chip:hover { border-color: var(--border-mid); color: var(--text); }
+  .chip.active {
+    background: var(--accent-dim);
+    border-color: var(--accent);
+    color: var(--accent);
+  }
 </style>
 {% endblock %}
 {% block content %}
@@ -67,6 +91,17 @@
 </div>
 
 <input class="ex-search" type="search" id="ex-search" placeholder="Search exercises…" autocomplete="off">
+
+<div class="filter-chips" id="filter-chips">
+  <span class="chip active" data-cat="">All</span>
+  <span class="chip" data-cat="Push">Push</span>
+  <span class="chip" data-cat="Pull">Pull</span>
+  <span class="chip" data-cat="Legs">Legs</span>
+  <span class="chip" data-cat="Core">Core</span>
+  <span class="chip" data-cat="Full Body">Full Body</span>
+  <span class="chip" data-cat="Cardio">Cardio</span>
+  <span class="chip" data-cat="Olympic">Olympic</span>
+</div>
 
 <div id="ex-groups">
 {% set ns = namespace(current_letter='') %}
@@ -81,7 +116,7 @@
     <div class="ex-letter">{{ letter }}</div>
     <div class="ex-list">
   {% endif %}
-  <a class="ex-item" href="/exercises/{{ ex.id }}" data-name="{{ ex.name | lower }}">
+  <a class="ex-item" href="/exercises/{{ ex.id }}" data-name="{{ ex.name | lower }}" data-cat="{{ ex.category or '' }}">
     <span>{{ ex.name }}</span>
     {% if ex.pr_kg is not none %}
     <span class="badge badge-pr num">PR <span class="weight-display" data-kg="{{ ex.pr_kg }}">{{ ex.pr_kg }} kg</span></span>
@@ -96,18 +131,21 @@
 <p class="no-results" id="no-results" style="display:none;"></p>
 
 <script>
-const searchEl = document.getElementById('ex-search');
-const countEl = document.getElementById('ex-count');
+const searchEl  = document.getElementById('ex-search');
+const countEl   = document.getElementById('ex-count');
 const noResults = document.getElementById('no-results');
+let activeCat   = '';
 
-searchEl.addEventListener('input', () => {
+function applyFilters() {
   const q = searchEl.value.trim().toLowerCase();
   let visible = 0;
 
   document.querySelectorAll('.ex-item').forEach(item => {
-    const match = !q || item.dataset.name.includes(q);
-    item.style.display = match ? '' : 'none';
-    if (match) visible++;
+    const nameMatch = !q || item.dataset.name.includes(q);
+    const catMatch  = !activeCat || item.dataset.cat === activeCat;
+    const show = nameMatch && catMatch;
+    item.style.display = show ? '' : 'none';
+    if (show) visible++;
   });
 
   document.querySelectorAll('.ex-group').forEach(group => {
@@ -116,8 +154,20 @@ searchEl.addEventListener('input', () => {
   });
 
   countEl.textContent = visible;
-  noResults.style.display = visible === 0 && q ? '' : 'none';
-  noResults.textContent = q ? `No exercises match "${q}".` : '';
+  const hasFilter = q || activeCat;
+  noResults.style.display = visible === 0 && hasFilter ? '' : 'none';
+  noResults.textContent   = visible === 0 && hasFilter ? 'No exercises match.' : '';
+}
+
+searchEl.addEventListener('input', applyFilters);
+
+document.getElementById('filter-chips').addEventListener('click', e => {
+  const chip = e.target.closest('.chip');
+  if (!chip) return;
+  document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+  chip.classList.add('active');
+  activeCat = chip.dataset.cat;
+  applyFilters();
 });
 </script>
 {% endblock %}

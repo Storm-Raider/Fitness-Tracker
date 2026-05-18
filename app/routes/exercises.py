@@ -23,10 +23,10 @@ async def exercises_page(
 ):
     async with conn.execute(
         """
-        SELECT e.id, e.name, MAX(s.weight_kg) AS pr_kg
+        SELECT e.id, e.name, e.category, MAX(s.weight_kg) AS pr_kg
         FROM exercises e
         LEFT JOIN sets s ON s.exercise_id = e.id AND s.user_id = ?
-        GROUP BY e.id, e.name
+        GROUP BY e.id, e.name, e.category
         ORDER BY e.name
         """,
         (current_user["id"],),
