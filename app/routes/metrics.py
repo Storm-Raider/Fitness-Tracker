@@ -1,3 +1,5 @@
+import json
+
 import aiosqlite
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import JSONResponse
@@ -5,7 +7,6 @@ from pydantic import BaseModel, Field
 
 from app.db import get_db
 from app.routes.auth import get_current_user
-from app.utils.charts import generate_sparkline
 from app.utils.render import render
 
 router = APIRouter()
@@ -32,21 +33,14 @@ async def list_metrics(
     ) as cur:
         metrics = [dict(r) for r in await cur.fetchall()]
 
-    # Build chart from chronological order (oldest first)
     chrono = list(reversed(metrics))
-    chart_svg = generate_sparkline(
-        values=[m["weight_kg"] for m in chrono],
-        labels=[m["entry_date"] for m in chrono],
-        color="#f59e0b",
-        unit=" kg",
-    )
-
+    metrics_json = json.dumps([{"date": m["entry_date"], "weight_kg": m["weight_kg"]} for m in chrono])
     latest_weight = metrics[0]["weight_kg"] if metrics else None
 
     return render(
         request,
         "metrics",
-        {"metrics": metrics, "chart_svg": chart_svg, "user": dict(current_user), "latest_weight": latest_weight},
+        {"metrics": metrics, "metrics_json": metrics_json, "user": dict(current_user), "latest_weight": latest_weight},
     )
 
 

@@ -164,6 +164,18 @@ async def get_workout(
         started = datetime.fromisoformat(row["started_at"])
         ended = datetime.fromisoformat(row["ended_at"])
         duration_min = round((ended - started).total_seconds() / 60)
+
+    template_exercises = []
+    tpl_id = request.query_params.get("tpl")
+    if tpl_id and not is_finished:
+        async with conn.execute(
+            """SELECT e.id, e.name FROM workout_template_exercises wte
+               JOIN exercises e ON e.id = wte.exercise_id
+               WHERE wte.template_id = ? ORDER BY wte.order_idx""",
+            (tpl_id,),
+        ) as cur:
+            template_exercises = [dict(r) for r in await cur.fetchall()]
+
     return templates.TemplateResponse(request, "workout_form.html", {
         "workout": dict(row),
         "sets": sets,
@@ -172,6 +184,7 @@ async def get_workout(
         "user": dict(current_user),
         "is_finished": is_finished,
         "duration_min": duration_min,
+        "template_exercises": template_exercises,
     })
 
 

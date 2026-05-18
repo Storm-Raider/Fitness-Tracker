@@ -16,6 +16,10 @@ class ExerciseIn(BaseModel):
     name: str = Field(min_length=1, max_length=100)
 
 
+class GoalIn(BaseModel):
+    target_kg: float = Field(gt=0, le=1000)
+
+
 @router.get("/exercises", response_class=HTMLResponse)
 async def exercises_page(
     request: Request,
@@ -148,6 +152,13 @@ async def exercise_detail(
     uid = current_user["id"]
 
     async with conn.execute(
+        "SELECT target_kg FROM exercise_goals WHERE user_id = ? AND exercise_id = ?",
+        (uid, exercise_id),
+    ) as cur:
+        _goal = await cur.fetchone()
+    exercise_goal_kg = _goal["target_kg"] if _goal else None
+
+    async with conn.execute(
         """
         SELECT
             DATE(w.started_at)               AS date,
@@ -181,6 +192,7 @@ async def exercise_detail(
             "pr_kg": None,
             "total_sets": 0,
             "total_volume": 0,
+            "exercise_goal_kg": exercise_goal_kg,
             "user": dict(current_user),
         })
 
@@ -197,5 +209,35 @@ async def exercise_detail(
         "pr_kg": pr_kg,
         "total_sets": total_sets,
         "total_volume": total_volume,
+        "exercise_goal_kg": exercise_goal_kg,
         "user": dict(current_user),
     })
+
+
+@router.put("/exercises/{exercise_id}/goal", status_code=200)
+async def set_exercise_goal(
+    exercise_id: int,
+    body: GoalIn,
+    conn: aiosqlite.Connection = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    await conn.execute(
+        "INSERT INTO exercise_goals(user_id, exercise_id, target_kg) VALUES(?,?,?) "
+        "ON CONFLICT(user_id, exercise_id) DO UPDATE SET target_kg=excluded.target_kg",
+        (current_user["id"], exercise_id, body.target_kg),
+    )
+    await conn.commit()
+    return JSONResponse({"target_kg": body.target_kg})
+
+
+@router.delete("/exercises/{exercise_id}/goal", status_code=204)
+async def delete_exercise_goal(
+    exercise_id: int,
+    conn: aiosqlite.Connection = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    await conn.execute(
+        "DELETE FROM exercise_goals WHERE user_id = ? AND exercise_id = ?",
+        (current_user["id"], exercise_id),
+    )
+    await conn.commit()

@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block title %}Templates — FitStorm{% endblock %}
+{% block content %}
+<div class="page-hd">
+  <div>
+    <h1>Workout Templates</h1>
+    <div class="subtitle">{{ workout_templates | length }} saved template{{ 's' if workout_templates | length != 1 }}</div>
+  </div>
+  <a href="/workouts" class="btn btn-primary">New session</a>
+</div>
+
+{% if workout_templates %}
+<div style="display:flex;flex-direction:column;gap:0.75rem;">
+  {% for t in workout_templates %}
+  <div id="tpl-{{ t.id }}" class="card" style="padding:1rem 1.25rem;display:flex;align-items:center;gap:1rem;flex-wrap:wrap;">
+    <div style="flex:1;min-width:0;">
+      <div style="font-weight:600;font-size:0.95rem;margin-bottom:0.35rem;">{{ t.name }}</div>
+      {% if t.exercises %}
+      <div style="display:flex;flex-wrap:wrap;gap:0.3rem;">
+        {% for ex in t.exercises %}
+        <span style="background:var(--surface-2);border:1px solid var(--border);border-radius:var(--radius-xs);padding:0.15rem 0.5rem;font-size:0.72rem;color:var(--muted-hi);">{{ ex }}</span>
+        {% endfor %}
+      </div>
+      {% else %}
+      <span style="font-size:0.8rem;color:var(--muted);">No exercises</span>
+      {% endif %}
+      <div style="font-size:0.7rem;color:var(--muted);margin-top:0.4rem;font-family:'JetBrains Mono',monospace;">{{ t.created_at[:10] }}</div>
+    </div>
+    <div style="display:flex;gap:0.5rem;flex-shrink:0;">
+      <form method="post" action="/workouts/from-template/{{ t.id }}" style="margin:0;">
+        <button type="submit" class="btn btn-primary" style="font-size:0.82rem;min-height:36px;padding:0.3rem 0.85rem;">
+          <i data-lucide="play" style="width:13px;height:13px;pointer-events:none;"></i>
+          Start
+        </button>
+      </form>
+      <button
+        hx-delete="/templates/{{ t.id }}"
+        hx-target="#tpl-{{ t.id }}"
+        hx-swap="outerHTML"
+        hx-confirm="Delete template '{{ t.name }}'?"
+        style="background:transparent;border:1px solid var(--border);color:var(--muted);border-radius:var(--radius-xs);cursor:pointer;padding:0.3rem 0.55rem;display:flex;align-items:center;transition:all 0.13s;"
+        onmouseover="this.style.color='var(--danger)';this.style.borderColor='rgba(248,113,113,0.35)';this.style.background='rgba(248,113,113,0.06)'"
+        onmouseout="this.style.color='var(--muted)';this.style.borderColor='var(--border)';this.style.background='transparent'"
+        title="Delete template">
+        <i data-lucide="trash-2" style="width:14px;height:14px;pointer-events:none;"></i>
+      </button>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<div class="card" style="text-align:center;padding:3rem 1.25rem;">
+  <div style="display:flex;flex-direction:column;align-items:center;gap:0.75rem;">
+    <div style="width:52px;height:52px;border-radius:50%;background:rgba(255,255,255,0.04);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;">
+      <i data-lucide="layout-template" style="width:22px;height:22px;color:var(--muted-hi);pointer-events:none;"></i>
+    </div>
+    <p style="color:var(--muted);font-size:0.875rem;max-width:260px;line-height:1.5;">No templates yet — finish a workout and save it as a template to reuse it later.</p>
+    <a href="/workouts" class="btn btn-primary" style="margin-top:0.25rem;">Start a workout</a>
+  </div>
+</div>
+{% endif %}
+{% endblock %}

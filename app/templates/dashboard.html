@@ -75,6 +75,62 @@
 </div>
 {% endif %}
 
+<div style="margin-bottom:1rem;" id="goal-widget">
+  {% if weekly_goal %}
+  <div class="card" style="padding:0.85rem 1.25rem;display:flex;align-items:center;gap:1rem;flex-wrap:wrap;">
+    <div style="flex:1;min-width:160px;">
+      <div style="font-size:0.62rem;font-weight:700;letter-spacing:0.09em;text-transform:uppercase;color:var(--muted);margin-bottom:0.45rem;">Weekly goal</div>
+      <div style="display:flex;align-items:center;gap:0.75rem;">
+        <div style="flex:1;height:6px;background:var(--surface-2);border-radius:3px;overflow:hidden;">
+          <div id="goal-bar" style="height:100%;width:{{ [[weekly_sessions / weekly_goal * 100, 0]|max, 100]|min|int }}%;background:{% if weekly_sessions >= weekly_goal %}var(--success){% else %}var(--accent){% endif %};border-radius:3px;transition:width 0.4s;"></div>
+        </div>
+        <span class="num" id="goal-count" style="font-size:0.95rem;font-weight:700;color:{% if weekly_sessions >= weekly_goal %}var(--success){% else %}var(--text){% endif %};white-space:nowrap;">{{ weekly_sessions }}/{{ weekly_goal }}</span>
+      </div>
+    </div>
+    <div style="display:flex;gap:0.4rem;align-items:center;flex-shrink:0;">
+      <div id="goal-edit-form" style="display:none;display:flex;align-items:center;gap:0.4rem;">
+        <input id="goal-input" type="number" min="1" max="14" value="{{ weekly_goal }}" style="width:52px;text-align:center;padding:0.25rem 0.4rem;font-family:'JetBrains Mono',monospace;font-size:0.9rem;border-radius:var(--radius-xs);border:1px solid var(--border);background:var(--surface-2);color:var(--text);">
+        <button onclick="saveGoal()" class="btn btn-ghost" style="font-size:0.75rem;min-height:30px;padding:0.2rem 0.55rem;">Save</button>
+      </div>
+      <button id="goal-edit-btn" onclick="toggleGoalEdit()" style="background:transparent;border:1px solid var(--border);color:var(--muted);border-radius:var(--radius-xs);cursor:pointer;padding:0.25rem 0.5rem;font-size:0.72rem;font-family:inherit;transition:all 0.13s;" onmouseover="this.style.color='var(--text)'" onmouseout="this.style.color='var(--muted)'">Edit</button>
+      <button onclick="deleteGoal()" style="background:transparent;border:none;color:var(--muted);cursor:pointer;font-size:0.72rem;font-family:inherit;padding:0.25rem 0.3rem;transition:color 0.13s;" onmouseover="this.style.color='var(--danger)'" onmouseout="this.style.color='var(--muted)'" title="Remove goal">✕</button>
+    </div>
+  </div>
+  {% else %}
+  <button onclick="toggleGoalEdit()" style="display:flex;align-items:center;gap:0.5rem;background:transparent;border:1px dashed var(--border);color:var(--muted);border-radius:var(--radius);cursor:pointer;padding:0.65rem 1.1rem;font-family:inherit;font-size:0.8rem;width:100%;transition:all 0.15s;" onmouseover="this.style.borderColor='var(--border-mid)';this.style.color='var(--text)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">
+    <i data-lucide="target" style="width:14px;height:14px;flex-shrink:0;pointer-events:none;"></i>
+    Set a weekly session goal
+    <span id="goal-set-form" style="display:none;margin-left:0.5rem;display:flex;align-items:center;gap:0.4rem;">
+      <input id="goal-input" type="number" min="1" max="14" value="4" onclick="event.stopPropagation()" style="width:48px;text-align:center;padding:0.2rem;font-family:'JetBrains Mono',monospace;font-size:0.9rem;border-radius:var(--radius-xs);border:1px solid var(--border);background:var(--surface);color:var(--text);">
+      <button onclick="event.stopPropagation();saveGoal()" class="btn btn-primary" style="font-size:0.75rem;min-height:28px;padding:0.2rem 0.6rem;">Set</button>
+    </span>
+  </button>
+  {% endif %}
+</div>
+<script>
+function toggleGoalEdit() {
+  const form = document.getElementById('goal-edit-form') || document.getElementById('goal-set-form');
+  if (!form) return;
+  const vis = form.style.display === 'none' || form.style.display === '';
+  form.style.display = vis ? 'flex' : 'none';
+  const btn = document.getElementById('goal-edit-btn');
+  if (btn) btn.textContent = vis ? 'Cancel' : 'Edit';
+  if (vis) { const inp=document.getElementById('goal-input'); if(inp){inp.focus();inp.select();} }
+}
+async function saveGoal() {
+  const val = parseInt(document.getElementById('goal-input')?.value);
+  if (!val || val < 1 || val > 14) return;
+  await fetch('/settings/goal', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({sessions:val})});
+  location.reload();
+}
+async function deleteGoal() {
+  if (!confirm('Remove weekly goal?')) return;
+  await fetch('/settings/goal', {method:'DELETE'});
+  location.reload();
+}
+document.getElementById('goal-input')?.addEventListener('keydown', e => { if (e.key==='Enter') saveGoal(); });
+</script>
+
 <div style="margin-bottom:1.5rem;">
   <div class="section-title">Volume — last 7 days</div>
   <div class="card" style="padding:1rem 1.25rem 0.75rem;">

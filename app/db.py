@@ -41,6 +41,30 @@ _MIGRATIONS = [
     "ALTER TABLE cardio_logs ADD COLUMN workout_id INTEGER REFERENCES workouts(id)",
     "ALTER TABLE body_metrics ADD COLUMN notes TEXT",
     "ALTER TABLE body_metrics ADD COLUMN entry_date TEXT",
+    """CREATE TABLE IF NOT EXISTS user_settings (
+        user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+        weekly_goal_sessions INTEGER
+    )""",
+    """CREATE TABLE IF NOT EXISTS exercise_goals (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        exercise_id INTEGER NOT NULL REFERENCES exercises(id),
+        target_kg REAL NOT NULL,
+        created_at TEXT DEFAULT (datetime('now')),
+        UNIQUE(user_id, exercise_id)
+    )""",
+    """CREATE TABLE IF NOT EXISTS workout_templates (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        name TEXT NOT NULL,
+        created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    )""",
+    """CREATE TABLE IF NOT EXISTS workout_template_exercises (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        template_id INTEGER NOT NULL REFERENCES workout_templates(id) ON DELETE CASCADE,
+        exercise_id INTEGER NOT NULL REFERENCES exercises(id),
+        order_idx INTEGER NOT NULL DEFAULT 0
+    )""",
 ]
 
 

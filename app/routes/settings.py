@@ -2,7 +2,8 @@ import re
 
 import aiosqlite
 from fastapi import APIRouter, Depends, Form, Request
-from fastapi.responses import RedirectResponse
+from fastapi.responses import JSONResponse, RedirectResponse
+from pydantic import BaseModel, Field
 
 from app.db import get_db
 from app.routes.auth import (
@@ -14,6 +15,36 @@ from app.routes.auth import (
 from app.utils.render import templates
 
 router = APIRouter()
+
+
+class GoalIn(BaseModel):
+    sessions: int = Field(ge=1, le=14)
+
+
+@router.post("/settings/goal")
+async def set_weekly_goal(
+    body: GoalIn,
+    conn: aiosqlite.Connection = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    await conn.execute(
+        "INSERT INTO user_settings(user_id, weekly_goal_sessions) VALUES(?,?) "
+        "ON CONFLICT(user_id) DO UPDATE SET weekly_goal_sessions=excluded.weekly_goal_sessions",
+        (current_user["id"], body.sessions),
+    )
+    await conn.commit()
+    return JSONResponse({"sessions": body.sessions})
+
+
+@router.delete("/settings/goal", status_code=204)
+async def delete_weekly_goal(
+    conn: aiosqlite.Connection = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    await conn.execute(
+        "DELETE FROM user_settings WHERE user_id = ?", (current_user["id"],)
+    )
+    await conn.commit()
 
 
 @router.get("/settings")

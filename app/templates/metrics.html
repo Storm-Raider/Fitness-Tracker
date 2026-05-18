@@ -8,13 +8,161 @@
   </div>
 </div>
 
-{% if chart_svg %}
+{% if metrics %}
 <div style="margin-bottom:1.5rem;">
   <div class="section-title">Weight trend</div>
-  <div class="card" style="padding:1.25rem 1.5rem 0.75rem;">
-    {{ chart_svg | safe }}
+  <div class="card" style="padding:0.85rem 1.25rem 0.65rem;">
+    <div id="bw-chart-inner" style="position:relative;">
+      <canvas id="bw-chart" style="display:block;width:100%;cursor:crosshair;"></canvas>
+      <div id="bw-chart-tip" style="display:none;position:absolute;top:4px;background:var(--surface-2);border:1px solid var(--border-mid);border-radius:var(--radius-xs);padding:0.4rem 0.6rem;pointer-events:none;z-index:10;white-space:nowrap;box-shadow:0 4px 16px rgba(0,0,0,0.4);"></div>
+    </div>
   </div>
 </div>
+<script>
+(function () {
+  const RAW = {{ metrics_json | safe }};
+  if (!RAW.length) return;
+
+  const canvas = document.getElementById('bw-chart');
+  const tip    = document.getElementById('bw-chart-tip');
+  const ctx    = canvas.getContext('2d');
+  let hoverIdx = -1;
+
+  const getUnit = () => window.getAppUnit ? window.getAppUnit() : 'kg';
+  const cvt     = v  => getUnit() === 'lbs' ? v * 2.20462 : v;
+
+  function movingAvg(arr, w) {
+    return arr.map((_, i) => {
+      const sl = arr.slice(Math.max(0, i - w + 1), i + 1);
+      return sl.reduce((a, b) => a + b, 0) / sl.length;
+    });
+  }
+
+  const PL = 48, PR = 16, PT = 14, PB = 24;
+
+  function xAt(i, W, n) { return PL + (n <= 1 ? (W-PL-PR)/2 : (i/(n-1))*(W-PL-PR)); }
+
+  function draw() {
+    const dpr = window.devicePixelRatio || 1;
+    const W   = canvas.offsetWidth || 600;
+    const H   = 200;
+    canvas.width  = W * dpr; canvas.height = H * dpr;
+    canvas.style.height = H + 'px';
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+    const vs  = RAW.map(r => cvt(r.weight_kg));
+    const avg = movingAvg(vs, 7);
+    const n   = vs.length;
+    const cW  = W - PL - PR, cH = H - PT - PB;
+
+    const vMin = Math.min(...vs), vMax = Math.max(...vs);
+    const span = vMax > vMin ? vMax - vMin : Math.max(Math.abs(vMax)*0.05, 1);
+    const yMin = vMin - span*0.2, yMax = vMax + span*0.2;
+
+    const gx = i => xAt(i, W, n);
+    const gy = v => PT + (1 - (v-yMin)/(yMax-yMin)) * cH;
+
+    ctx.clearRect(0, 0, W, H);
+
+    // Grid
+    [0, 0.5, 1].forEach(f => {
+      const gv = vMin + f*(vMax-vMin), y = gy(gv);
+      ctx.strokeStyle='#1f2535'; ctx.lineWidth=1;
+      ctx.beginPath(); ctx.moveTo(PL,y); ctx.lineTo(PL+cW,y); ctx.stroke();
+      ctx.fillStyle='#4a5568'; ctx.font='10px Inter,system-ui,sans-serif'; ctx.textAlign='right';
+      ctx.fillText(gv>=100?Math.round(gv):gv.toFixed(1), PL-4, y+4);
+    });
+
+    // Area under raw line
+    if (n >= 2) {
+      ctx.beginPath(); ctx.moveTo(gx(0), gy(vs[0]));
+      for (let i=1;i<n;i++) ctx.lineTo(gx(i), gy(vs[i]));
+      ctx.lineTo(gx(n-1), PT+cH); ctx.lineTo(gx(0), PT+cH);
+      ctx.closePath(); ctx.fillStyle='#34d39910'; ctx.fill();
+    }
+
+    // Hover crosshair
+    if (hoverIdx >= 0) {
+      ctx.strokeStyle='#34d39938'; ctx.lineWidth=1; ctx.setLineDash([3,3]);
+      ctx.beginPath(); ctx.moveTo(gx(hoverIdx),PT); ctx.lineTo(gx(hoverIdx),PT+cH); ctx.stroke();
+      ctx.setLineDash([]);
+    }
+
+    // Moving average line (blue, if >= 3 entries)
+    if (n >= 3) {
+      ctx.beginPath(); ctx.moveTo(gx(0), gy(avg[0]));
+      for (let i=1;i<n;i++) ctx.lineTo(gx(i), gy(avg[i]));
+      ctx.strokeStyle='#4f9cf9'; ctx.lineWidth=1.5;
+      ctx.setLineDash([4,3]); ctx.stroke(); ctx.setLineDash([]);
+    }
+
+    // Raw weight line
+    if (n >= 2) {
+      ctx.beginPath(); ctx.moveTo(gx(0), gy(vs[0]));
+      for (let i=1;i<n;i++) ctx.lineTo(gx(i), gy(vs[i]));
+      ctx.strokeStyle='#34d399'; ctx.lineWidth=2.2;
+      ctx.lineJoin='round'; ctx.lineCap='round'; ctx.stroke();
+    }
+
+    // Dots
+    vs.forEach((v, i) => {
+      const isH = i===hoverIdx, r = isH?5:n<=40?2.8:0;
+      if (!r) return;
+      ctx.beginPath(); ctx.arc(gx(i), gy(v), r, 0, Math.PI*2);
+      ctx.fillStyle = isH?'#34d399':'#34d399b0'; ctx.fill();
+      if (isH) { ctx.strokeStyle='#0d1117'; ctx.lineWidth=1.5; ctx.stroke(); }
+    });
+
+    // X-axis labels
+    const dates = RAW.map(r => r.date.slice(5));
+    ctx.fillStyle='#4a5568'; ctx.font='9px JetBrains Mono,monospace';
+    const lbls = n<=8 ? dates.map((_,i)=>i) : [0,Math.round(n*.25),Math.round(n*.5),Math.round(n*.75),n-1];
+    lbls.forEach(i => {
+      ctx.textAlign = i===0?'left':i===n-1?'right':'center';
+      ctx.fillText(dates[i], gx(i), H-3);
+    });
+
+    // Legend
+    if (n >= 3) {
+      ctx.fillStyle='#34d399'; ctx.font='bold 9px Inter,system-ui,sans-serif';
+      ctx.textAlign='left'; ctx.fillText('● Weight', PL, PT-2);
+      ctx.fillStyle='#4f9cf9'; ctx.fillText('- 7-entry avg', PL+58, PT-2);
+    }
+  }
+
+  function showTip(idx) {
+    const r  = RAW[idx];
+    const u  = getUnit();
+    const w  = cvt(r.weight_kg).toFixed(1);
+    tip.innerHTML =
+      `<div style="font-size:0.7rem;color:var(--muted);margin-bottom:0.2rem;font-family:'JetBrains Mono',monospace;">${r.date}</div>` +
+      `<span style="color:#34d399;font-size:0.82rem;font-weight:700;">${w} ${u}</span>`;
+    tip.style.display='block';
+    const W=canvas.offsetWidth, tw=tip.offsetWidth;
+    const x=xAt(idx,W,RAW.length);
+    tip.style.left=Math.max(0,Math.min(W-tw,x-tw/2))+'px';
+    tip.style.top='4px';
+  }
+
+  function processHover(cx) {
+    const rect=canvas.getBoundingClientRect(), mx=cx-rect.left;
+    const W=canvas.offsetWidth, n=RAW.length;
+    const frac=Math.max(0,Math.min(1,(mx-PL)/(W-PL-PR)));
+    const idx=Math.max(0,Math.min(n-1,Math.round(frac*(n-1))));
+    if (idx!==hoverIdx) { hoverIdx=idx; draw(); }
+    showTip(idx);
+  }
+  function clearH() { hoverIdx=-1; tip.style.display='none'; draw(); }
+
+  canvas.addEventListener('mousemove', e=>processHover(e.clientX));
+  canvas.addEventListener('mouseleave', clearH);
+  canvas.addEventListener('touchmove', e=>{e.preventDefault();processHover(e.touches[0].clientX);},{passive:false});
+  canvas.addEventListener('touchend', clearH);
+  window.addEventListener('unitchange', draw);
+  window.addEventListener('resize', clearH);
+  requestAnimationFrame(draw);
+})();
+</script>
 {% endif %}
 
 <div class="grid-2" style="align-items:start;gap:1.5rem;">

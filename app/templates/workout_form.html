@@ -820,6 +820,57 @@
   {% endif %}
 </div>
 
+{% if sets %}
+<div style="margin-top:1rem;" id="save-tpl-wrap">
+  <button onclick="showSaveTpl()" id="save-tpl-btn" style="display:flex;align-items:center;gap:0.5rem;background:transparent;border:1px dashed var(--border);color:var(--muted);border-radius:var(--radius);cursor:pointer;padding:0.6rem 1.1rem;font-family:inherit;font-size:0.82rem;width:100%;transition:all 0.15s;" onmouseover="this.style.borderColor='var(--border-mid)';this.style.color='var(--text)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">
+    <i data-lucide="layout-template" style="width:14px;height:14px;flex-shrink:0;pointer-events:none;"></i>
+    Save as template
+  </button>
+  <div id="save-tpl-form" style="display:none;margin-top:0.5rem;" class="card">
+    <div style="padding:1rem 1.25rem;">
+      <div style="font-size:0.75rem;font-weight:600;color:var(--muted);margin-bottom:0.6rem;text-transform:uppercase;letter-spacing:0.07em;">Template name</div>
+      <div style="display:flex;gap:0.5rem;flex-wrap:wrap;">
+        <input type="text" id="tpl-name-input" placeholder="e.g. Push Day" maxlength="80" autocomplete="off"
+               style="flex:1;min-width:140px;padding:0.4rem 0.65rem;border-radius:var(--radius-xs);border:1px solid var(--border);background:var(--surface-2);color:var(--text);font-family:inherit;font-size:0.875rem;">
+        <button onclick="doSaveTpl()" class="btn btn-primary" style="font-size:0.82rem;min-height:38px;">Save</button>
+        <button onclick="hideSaveTpl()" class="btn btn-ghost" style="font-size:0.82rem;min-height:38px;">Cancel</button>
+      </div>
+      <div id="tpl-save-ok" style="display:none;margin-top:0.5rem;font-size:0.8rem;color:var(--success);">Saved! <a href="/templates" style="color:var(--accent);">View templates →</a></div>
+      <div id="tpl-save-err" style="display:none;margin-top:0.5rem;font-size:0.8rem;color:var(--danger);"></div>
+    </div>
+  </div>
+</div>
+<script>
+function showSaveTpl() {
+  document.getElementById('save-tpl-btn').style.display='none';
+  document.getElementById('save-tpl-form').style.display='block';
+  document.getElementById('tpl-name-input').focus();
+}
+function hideSaveTpl() {
+  document.getElementById('save-tpl-btn').style.display='flex';
+  document.getElementById('save-tpl-form').style.display='none';
+}
+async function doSaveTpl() {
+  const name = document.getElementById('tpl-name-input').value.trim();
+  const errEl = document.getElementById('tpl-save-err');
+  errEl.style.display='none';
+  if (!name) { errEl.textContent='Enter a name.'; errEl.style.display='block'; return; }
+  const resp = await fetch('/templates', {
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({name, workout_id: {{ workout.id }} })
+  });
+  if (resp.ok) {
+    document.getElementById('tpl-save-ok').style.display='block';
+    document.getElementById('tpl-name-input').disabled=true;
+  } else {
+    errEl.textContent='Failed to save.'; errEl.style.display='block';
+  }
+}
+document.getElementById('tpl-name-input')?.addEventListener('keydown', e => { if(e.key==='Enter') doSaveTpl(); });
+</script>
+{% endif %}
+
 {% else %}
 {# ══ ACTIVE WORKOUT VIEW ══ #}
 
@@ -842,6 +893,24 @@
       </select>
       <button type="button" class="filter-clear" onclick="clearMuscleGroup()" title="Clear muscle">×</button>
     </div>
+
+    {# Template exercise chips #}
+    {% if template_exercises %}
+    <div style="margin-bottom:0.65rem;">
+      <div style="font-size:0.65rem;color:var(--accent);text-transform:uppercase;letter-spacing:0.08em;font-weight:700;margin-bottom:0.4rem;display:flex;align-items:center;gap:0.35rem;">
+        <i data-lucide="layout-template" style="width:11px;height:11px;pointer-events:none;"></i>Template exercises:
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:0.35rem;">
+        {% for ex in template_exercises %}
+        <button type="button"
+                onclick="selectExercise({{ ex.id }}, {{ ex.name | tojson }})"
+                style="background:var(--accent-dim);border:1px solid rgba(79,156,249,0.3);color:var(--accent);border-radius:var(--radius-xs);padding:0.2rem 0.6rem;font-size:0.75rem;font-family:inherit;font-weight:600;cursor:pointer;transition:all 0.13s;"
+                onmouseover="this.style.background='rgba(79,156,249,0.2)'"
+                onmouseout="this.style.background='var(--accent-dim)'">{{ ex.name }}</button>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
 
     {# Routine quick-select chips #}
     <div id="routine-plan" style="display:none; margin-bottom:0.65rem;">

@@ -46,6 +46,84 @@
   {% endif %}
 </div>
 
+{% set goal_pct = ((pr_kg / exercise_goal_kg * 100) | round | int) if exercise_goal_kg and pr_kg else 0 %}
+{% if exercise_goal_kg %}
+<div class="card" style="padding:0.85rem 1.25rem;margin-bottom:1rem;" id="goal-card">
+  <div style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap;">
+    <div style="flex:1;min-width:160px;">
+      <div style="font-size:0.62rem;font-weight:700;letter-spacing:0.09em;text-transform:uppercase;color:var(--muted);margin-bottom:0.45rem;">Weight goal</div>
+      <div style="display:flex;align-items:center;gap:0.75rem;">
+        <div style="flex:1;height:6px;background:var(--surface-2);border-radius:3px;overflow:hidden;">
+          <div style="height:100%;width:{{ [goal_pct, 100]|min }}%;background:{% if goal_pct >= 100 %}var(--success){% else %}var(--pr){% endif %};border-radius:3px;"></div>
+        </div>
+        <span class="num" style="font-size:0.9rem;font-weight:700;white-space:nowrap;color:{% if goal_pct >= 100 %}var(--success){% else %}var(--text){% endif %};">
+          <span class="weight-display" data-kg="{{ pr_kg or 0 }}">{{ pr_kg or 0 }} kg</span>
+          / <span class="weight-display" data-kg="{{ exercise_goal_kg }}">{{ exercise_goal_kg }} kg</span>
+          <span style="color:var(--muted);font-size:0.78rem;">({{ goal_pct }}%)</span>
+        </span>
+      </div>
+    </div>
+    <div style="display:flex;gap:0.4rem;align-items:center;flex-shrink:0;" id="goal-actions">
+      <div id="goal-edit-form" style="display:none;align-items:center;gap:0.4rem;">
+        <input id="goal-input" type="number" min="0.5" max="1000" step="0.5" value="{{ exercise_goal_kg }}" style="width:72px;text-align:center;padding:0.25rem 0.4rem;font-family:'JetBrains Mono',monospace;font-size:0.9rem;border-radius:var(--radius-xs);border:1px solid var(--border);background:var(--surface-2);color:var(--text);">
+        <span style="font-size:0.78rem;color:var(--muted);" id="goal-unit-lbl">kg</span>
+        <button onclick="saveExGoal()" class="btn btn-ghost" style="font-size:0.75rem;min-height:30px;padding:0.2rem 0.55rem;">Save</button>
+      </div>
+      <button id="goal-edit-btn" onclick="toggleExGoal()" style="background:transparent;border:1px solid var(--border);color:var(--muted);border-radius:var(--radius-xs);cursor:pointer;padding:0.25rem 0.55rem;font-size:0.72rem;font-family:inherit;transition:all 0.13s;" onmouseover="this.style.color='var(--text)'" onmouseout="this.style.color='var(--muted)'">Edit</button>
+      <button onclick="deleteExGoal()" style="background:transparent;border:none;color:var(--muted);cursor:pointer;font-size:0.72rem;font-family:inherit;padding:0.25rem 0.3rem;transition:color 0.13s;" onmouseover="this.style.color='var(--danger)'" onmouseout="this.style.color='var(--muted)'" title="Remove goal">✕</button>
+    </div>
+  </div>
+</div>
+{% else %}
+<div style="margin-bottom:1rem;">
+  <button onclick="toggleExGoal()" id="goal-set-trigger" style="display:flex;align-items:center;gap:0.5rem;background:transparent;border:1px dashed var(--border);color:var(--muted);border-radius:var(--radius);cursor:pointer;padding:0.55rem 1rem;font-family:inherit;font-size:0.8rem;width:100%;transition:all 0.15s;" onmouseover="this.style.borderColor='var(--border-mid)';this.style.color='var(--text)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">
+    <i data-lucide="target" style="width:14px;height:14px;flex-shrink:0;pointer-events:none;"></i>
+    Set a weight goal for this exercise
+  </button>
+  <div id="goal-edit-form" style="display:none;margin-top:0.5rem;align-items:center;gap:0.5rem;flex-wrap:wrap;" class="card" style="padding:0.75rem 1rem;">
+    <span style="font-size:0.82rem;color:var(--muted);">Target:</span>
+    <input id="goal-input" type="number" min="0.5" max="1000" step="0.5" value="{{ pr_kg or 100 }}" style="width:80px;text-align:center;padding:0.3rem 0.4rem;font-family:'JetBrains Mono',monospace;font-size:0.9rem;border-radius:var(--radius-xs);border:1px solid var(--border);background:var(--surface-2);color:var(--text);">
+    <span style="font-size:0.78rem;color:var(--muted);" id="goal-unit-lbl">kg</span>
+    <button onclick="saveExGoal()" class="btn btn-primary" style="font-size:0.8rem;min-height:34px;padding:0.25rem 0.75rem;">Set goal</button>
+    <button onclick="toggleExGoal()" class="btn btn-ghost" style="font-size:0.8rem;min-height:34px;">Cancel</button>
+  </div>
+</div>
+{% endif %}
+<script>
+const EX_ID = {{ exercise.id }};
+function toggleExGoal() {
+  const form = document.getElementById('goal-edit-form');
+  const trigger = document.getElementById('goal-set-trigger');
+  const btn = document.getElementById('goal-edit-btn');
+  const vis = form.style.display === 'none' || form.style.display === '';
+  form.style.display = vis ? 'flex' : 'none';
+  if (trigger) trigger.style.display = vis ? 'none' : 'flex';
+  if (btn) btn.textContent = vis ? 'Cancel' : 'Edit';
+  if (vis) { const inp=document.getElementById('goal-input'); if(inp){inp.focus();inp.select();} }
+}
+async function saveExGoal() {
+  const inp = document.getElementById('goal-input');
+  const unit = window.getAppUnit ? window.getAppUnit() : 'kg';
+  let val = parseFloat(inp?.value);
+  if (!val || val <= 0) return;
+  if (unit === 'lbs') val = val / 2.20462;
+  val = Math.round(val * 4) / 4;
+  await fetch(`/exercises/${EX_ID}/goal`, {method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify({target_kg:val})});
+  location.reload();
+}
+async function deleteExGoal() {
+  if (!confirm('Remove goal?')) return;
+  await fetch(`/exercises/${EX_ID}/goal`, {method:'DELETE'});
+  location.reload();
+}
+document.getElementById('goal-input')?.addEventListener('keydown', e => { if(e.key==='Enter') saveExGoal(); });
+// Sync unit label
+(function() {
+  function syncLbl() { const l=document.getElementById('goal-unit-lbl'); if(l) l.textContent=window.getAppUnit?window.getAppUnit():'kg'; }
+  syncLbl(); window.addEventListener('unitchange', syncLbl);
+})();
+</script>
+
 {% if sessions %}
 <style>
 .metric-btn {

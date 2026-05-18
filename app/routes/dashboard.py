@@ -121,6 +121,12 @@ async def dashboard(
     latest_bodyweight = _bw["weight_kg"] if _bw else None
 
     async with conn.execute(
+        "SELECT weekly_goal_sessions FROM user_settings WHERE user_id = ?", (uid,)
+    ) as cur:
+        _gs = await cur.fetchone()
+    weekly_goal = _gs["weekly_goal_sessions"] if _gs else None
+
+    async with conn.execute(
         "SELECT COALESCE(SUM(weight_kg * reps), 0) AS total_volume FROM sets WHERE user_id = ?",
         (uid,),
     ) as cur:
@@ -253,6 +259,7 @@ async def dashboard(
             "volume_delta_pct": volume_delta_pct,
             "last_week_sessions": last_week_sessions,
             "latest_bodyweight": latest_bodyweight,
+            "weekly_goal": weekly_goal,
             "user": dict(current_user),
         },
     )
