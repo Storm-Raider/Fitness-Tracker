@@ -220,5 +220,10 @@
     </div>
     <p class="hint">Need access? Ask your server admin for an invite link.</p>
   </div>
+  <script>
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js');
+    }
+  </script>
 </body>
 </html>
