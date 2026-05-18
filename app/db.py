@@ -38,6 +38,7 @@ _MIGRATIONS = [
         notes            TEXT,
         created_at       TEXT    NOT NULL DEFAULT (datetime('now','localtime'))
     )""",
+    "ALTER TABLE cardio_logs ADD COLUMN workout_id INTEGER REFERENCES workouts(id)",
 ]
 
 

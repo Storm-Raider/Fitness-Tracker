@@ -96,6 +96,21 @@
   {% else %}
     <p style="color:var(--muted); font-size:0.875rem;">No sets recorded.</p>
   {% endif %}
+  {% for c in cardio_logs %}
+  <div class="set-row" id="cardio-{{ c.id }}" style="background:rgba(79,156,249,0.04);">
+    <div class="set-meta">
+      <div style="display:flex;align-items:center;gap:0.4rem;">
+        <i data-lucide="activity" style="width:13px;height:13px;color:var(--accent);flex-shrink:0;"></i>
+        {{ c.exercise_name }}
+      </div>
+      <div class="set-detail">
+        {{ c.duration_minutes | int }} min{% if c.distance_km %} · <span class="cardio-distance" data-km="{{ c.distance_km }}">{{ c.distance_km }} km</span>{% endif %}{% if c.notes %} · {{ c.notes }}{% endif %}
+      </div>
+    </div>
+    <button class="btn btn-ghost" style="padding:0.2rem 0.5rem; font-size:0.75rem;"
+            onclick="deleteCardio({{ c.id }}, this)"><i data-lucide="x" style="width:14px;height:14px;"></i></button>
+  </div>
+  {% endfor %}
 </div>
 {% else %}
 <div class="grid-2" style="align-items:start; gap:1.5rem;">
@@ -175,6 +190,44 @@
       </div>
       <button class="btn btn-primary" style="width:100%;" onclick="logSet()">Log Set</button>
       <div id="log-error" style="color:var(--danger); font-size:0.8rem; margin-top:0.5rem; display:none;"></div>
+
+      <!-- Cardio section -->
+      <div style="margin-top:0.75rem; border-top:1px solid var(--border); padding-top:0.75rem;">
+        <button type="button" onclick="toggleCardioForm()"
+                style="background:transparent; border:none; color:var(--muted); font-size:0.8rem;
+                       cursor:pointer; font-family:inherit; display:flex; align-items:center; gap:0.35rem; padding:0;">
+          <i data-lucide="plus-circle" style="width:14px;height:14px;"></i>
+          <span id="cardio-toggle-label">Add cardio</span>
+        </button>
+        <div id="cardio-form" style="display:none; margin-top:0.75rem;">
+          <div class="form-group">
+            <label for="cardio-exercise-select">Cardio exercise</label>
+            <select id="cardio-exercise-select">
+              <option value="">— select —</option>
+            </select>
+          </div>
+          <div class="grid-2">
+            <div class="form-group">
+              <label>Duration (min)</label>
+              <div class="stepper-group">
+                <button type="button" class="stepper-btn" onclick="stepCardio('duration', -5)">−</button>
+                <input type="number" id="cardio-duration" class="num" value="20" min="1" step="1">
+                <button type="button" class="stepper-btn" onclick="stepCardio('duration', 5)">+</button>
+              </div>
+            </div>
+            <div class="form-group">
+              <label id="cardio-distance-label">Distance (km)</label>
+              <input type="number" id="cardio-distance" class="num" placeholder="optional" min="0" step="0.1">
+            </div>
+          </div>
+          <div class="form-group">
+            <label for="cardio-notes">Notes (optional)</label>
+            <input type="text" id="cardio-notes" placeholder="e.g. treadmill, easy pace">
+          </div>
+          <button class="btn btn-ghost" style="width:100%; font-size:0.85rem;" onclick="logCardio()">Log Cardio</button>
+          <div id="cardio-error" style="color:var(--danger); font-size:0.8rem; margin-top:0.5rem; display:none;"></div>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -196,6 +249,21 @@
       {% else %}
         <p id="empty-msg" style="color:var(--muted); font-size:0.875rem;">No sets yet.</p>
       {% endif %}
+      {% for c in cardio_logs %}
+      <div class="set-row" id="cardio-{{ c.id }}" style="background:rgba(79,156,249,0.04);">
+        <div class="set-meta">
+          <div style="display:flex;align-items:center;gap:0.4rem;">
+            <i data-lucide="activity" style="width:13px;height:13px;color:var(--accent);flex-shrink:0;"></i>
+            {{ c.exercise_name }}
+          </div>
+          <div class="set-detail">
+            {{ c.duration_minutes | int }} min{% if c.distance_km %} · <span class="cardio-distance" data-km="{{ c.distance_km }}">{{ c.distance_km }} km</span>{% endif %}{% if c.notes %} · {{ c.notes }}{% endif %}
+          </div>
+        </div>
+        <button class="btn btn-ghost" style="padding:0.2rem 0.5rem; font-size:0.75rem;"
+                onclick="deleteCardio({{ c.id }}, this)"><i data-lucide="x" style="width:14px;height:14px;"></i></button>
+      </div>
+      {% endfor %}
     </div>
   </div>
 </div>
@@ -569,7 +637,92 @@ async function loadExercises() {
   } catch { /* network error — user can still type a new exercise name */ }
   await initRepeatMode();
 }
-{% if not is_finished %}loadExercises();{% endif %}
+{% if not is_finished %}
+loadExercises();
+
+// Cardio
+let cardioExercises = [];
+
+async function loadCardioExercises() {
+  try {
+    const resp = await fetch('/api/exercises?category=Cardio');
+    if (!resp.ok) return;
+    const data = await resp.json();
+    cardioExercises = data.exercises || [];
+    const sel = document.getElementById('cardio-exercise-select');
+    if (!sel) return;
+    cardioExercises.forEach(e => {
+      const opt = document.createElement('option');
+      opt.value = e.id;
+      opt.textContent = e.name;
+      sel.appendChild(opt);
+    });
+  } catch {}
+}
+loadCardioExercises();
+
+function toggleCardioForm() {
+  const form = document.getElementById('cardio-form');
+  const label = document.getElementById('cardio-toggle-label');
+  const open = form.style.display === 'none';
+  form.style.display = open ? 'block' : 'none';
+  label.textContent = open ? 'Hide cardio' : 'Add cardio';
+  lucide.createIcons();
+}
+
+function stepCardio(field, delta) {
+  const el = document.getElementById('cardio-' + field);
+  el.value = Math.max(1, parseFloat(el.value || 0) + delta);
+}
+
+async function logCardio() {
+  const errEl = document.getElementById('cardio-error');
+  errEl.style.display = 'none';
+  const exerciseId = parseInt(document.getElementById('cardio-exercise-select').value);
+  if (!exerciseId) { errEl.textContent = 'Select a cardio exercise.'; errEl.style.display = 'block'; return; }
+  const duration = parseFloat(document.getElementById('cardio-duration').value);
+  if (!duration || duration < 1) { errEl.textContent = 'Enter a duration.'; errEl.style.display = 'block'; return; }
+  const unit = getAppUnit();
+  const distRaw = parseFloat(document.getElementById('cardio-distance').value) || null;
+  const distKm = distRaw ? (unit === 'lbs' ? distRaw * 1.60934 : distRaw) : null;
+  const notes = document.getElementById('cardio-notes').value.trim() || null;
+
+  const resp = await fetch(`/workouts/${WORKOUT_ID}/cardio`, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({exercise_id: exerciseId, duration_minutes: duration, distance_km: distKm, notes}),
+  });
+  if (!resp.ok) { errEl.textContent = 'Failed to log cardio.'; errEl.style.display = 'block'; return; }
+  const data = await resp.json();
+
+  const exName = cardioExercises.find(e => e.id === exerciseId)?.name || 'Cardio';
+  const distDisplay = distRaw ? ` · ${distRaw} ${unit === 'lbs' ? 'mi' : 'km'}` : '';
+  const container = document.getElementById('sets-container');
+  const emptyMsg = document.getElementById('empty-msg');
+  if (emptyMsg) emptyMsg.remove();
+
+  const row = document.createElement('div');
+  row.className = 'set-row';
+  row.id = 'cardio-' + data.id;
+  row.style.background = 'rgba(79,156,249,0.04)';
+  row.innerHTML = `
+    <div class="set-meta">
+      <div style="display:flex;align-items:center;gap:0.4rem;">
+        <i data-lucide="activity" style="width:13px;height:13px;color:var(--accent);flex-shrink:0;"></i>
+        ${escHtml(exName)}
+      </div>
+      <div class="set-detail">${duration} min${distDisplay}${notes ? ' · ' + escHtml(notes) : ''}</div>
+    </div>
+    <button class="btn btn-ghost" style="padding:0.2rem 0.5rem;font-size:0.75rem;"
+            onclick="deleteCardio(${data.id},this)"><i data-lucide="x" style="width:14px;height:14px;"></i></button>
+  `;
+  container.appendChild(row);
+  lucide.createIcons();
+  row.scrollIntoView({behavior: 'smooth', block: 'nearest'});
+  document.getElementById('cardio-distance').value = '';
+  document.getElementById('cardio-notes').value = '';
+}
+{% endif %}
 
 async function initRepeatMode() {
   const repeatId = new URLSearchParams(window.location.search).get('repeat');
@@ -850,6 +1003,14 @@ function showErr(msg) {
   setInterval(tick, 60000);
 })();
 {% endif %}
+
+async function deleteCardio(id, btn) {
+  if (!confirm('Remove this cardio entry?')) return;
+  const resp = await fetch(`/workouts/${WORKOUT_ID}/cardio/${id}`, {method: 'DELETE'});
+  if (resp.ok || resp.status === 204) {
+    document.getElementById('cardio-' + id)?.remove();
+  }
+}
 
 async function deleteWorkout() {
   const setCount = document.querySelectorAll('.set-row').length;

@@ -55,6 +55,13 @@ class SetIn(BaseModel):
     rpe: int | None = Field(default=None, ge=1, le=10)
 
 
+class SessionCardioIn(BaseModel):
+    exercise_id: int = Field(gt=0)
+    duration_minutes: float = Field(gt=0, le=1440)
+    distance_km: float | None = Field(default=None, ge=0, le=10_000)
+    notes: str | None = Field(default=None, max_length=500)
+
+
 @router.get("/workouts")
 async def list_workouts(
     request: Request,
@@ -129,6 +136,19 @@ async def get_workout(
     ) as cur:
         sets = [dict(r) for r in await cur.fetchall()]
 
+    async with conn.execute(
+        """
+        SELECT cl.id, cl.exercise_id, e.name AS exercise_name,
+               cl.duration_minutes, cl.distance_km, cl.notes
+        FROM cardio_logs cl
+        JOIN exercises e ON e.id = cl.exercise_id
+        WHERE cl.workout_id = ? AND cl.user_id = ?
+        ORDER BY cl.id
+        """,
+        (workout_id, current_user["id"]),
+    ) as cur:
+        cardio_logs = [dict(r) for r in await cur.fetchall()]
+
     session_volume = sum(s["weight_kg"] * s["reps"] for s in sets)
     is_finished = row["ended_at"] is not None
     duration_min = None
@@ -139,6 +159,7 @@ async def get_workout(
     return templates.TemplateResponse(request, "workout_form.html", {
         "workout": dict(row),
         "sets": sets,
+        "cardio_logs": cardio_logs,
         "session_volume": session_volume,
         "user": dict(current_user),
         "is_finished": is_finished,
@@ -339,6 +360,54 @@ async def delete_workout(
     await conn.execute("DELETE FROM workouts WHERE id = ? AND user_id = ?", (workout_id, uid))
     await conn.commit()
     return ""
+
+
+@router.post("/workouts/{workout_id}/cardio", status_code=201)
+async def add_session_cardio(
+    workout_id: int,
+    body: SessionCardioIn,
+    conn: aiosqlite.Connection = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    uid = current_user["id"]
+    async with conn.execute(
+        "SELECT id FROM workouts WHERE id = ? AND user_id = ?", (workout_id, uid)
+    ) as cur:
+        if not await cur.fetchone():
+            raise HTTPException(status_code=404, detail="Workout not found")
+    async with conn.execute(
+        "SELECT id FROM exercises WHERE id = ? AND category = 'Cardio'", (body.exercise_id,)
+    ) as cur:
+        if not await cur.fetchone():
+            raise HTTPException(status_code=400, detail="Invalid cardio exercise")
+    async with conn.execute(
+        """INSERT INTO cardio_logs(user_id, exercise_id, workout_id, logged_date, duration_minutes, distance_km, notes)
+           VALUES (?, ?, ?, date('now','localtime'), ?, ?, ?)""",
+        (uid, body.exercise_id, workout_id, body.duration_minutes, body.distance_km, body.notes),
+    ) as cur:
+        log_id = cur.lastrowid
+    await conn.commit()
+    return JSONResponse({"id": log_id}, status_code=201)
+
+
+@router.delete("/workouts/{workout_id}/cardio/{log_id}", status_code=204)
+async def delete_session_cardio(
+    workout_id: int,
+    log_id: int,
+    conn: aiosqlite.Connection = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    uid = current_user["id"]
+    async with conn.execute(
+        "SELECT id FROM cardio_logs WHERE id = ? AND workout_id = ? AND user_id = ?",
+        (log_id, workout_id, uid),
+    ) as cur:
+        if not await cur.fetchone():
+            raise HTTPException(status_code=404, detail="Cardio entry not found")
+    await conn.execute(
+        "DELETE FROM cardio_logs WHERE id = ? AND user_id = ?", (log_id, uid)
+    )
+    await conn.commit()
 
 
 @router.delete("/workouts/{workout_id}/sets/{set_id}", status_code=204)

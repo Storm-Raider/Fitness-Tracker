@@ -43,7 +43,16 @@ async def exercises_page(
 async def list_exercises_json(
     conn: aiosqlite.Connection = Depends(get_db),
     current_user=Depends(get_current_user),
+    category: str | None = None,
 ):
+    if category:
+        async with conn.execute(
+            "SELECT id, name FROM exercises WHERE category = ? ORDER BY name",
+            (category,),
+        ) as cur:
+            rows_cat = await cur.fetchall()
+        return JSONResponse({"exercises": [{"id": r["id"], "name": r["name"], "muscles": []} for r in rows_cat]})
+
     async with conn.execute(
         """
         SELECT e.id, e.name, em.muscle, em.is_primary
