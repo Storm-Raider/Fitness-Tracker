@@ -1,0 +1,4 @@
+# Exclude QA tool artifacts and generated files
+.gstack/
+graphify-out/
+fittrack.db

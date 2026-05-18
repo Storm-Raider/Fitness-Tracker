@@ -1,3 +1,5 @@
+from datetime import date, timedelta
+
 import aiosqlite
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import HTMLResponse
@@ -6,6 +8,7 @@ from app.db import get_db
 from app.routes.auth import get_current_user
 from app.utils.charts import generate_muscle_bars, generate_weekly_bar_chart
 from app.utils.heatmap import generate_heatmap_svg
+from app.utils.pr_utils import fetch_prs
 from app.utils.render import render, templates
 from app.utils.streak import compute_streak, max_streak
 
@@ -19,6 +22,14 @@ async def dashboard(
     current_user=Depends(get_current_user),
 ):
     uid = current_user["id"]
+
+    prs = await fetch_prs(conn, uid)
+    today = date.today()
+    recent_prs = sorted(
+        [r for r in prs if r["pr_date"] and (today - date.fromisoformat(r["pr_date"])).days <= 30],
+        key=lambda r: r["pr_date"],
+        reverse=True,
+    )[:8]
 
     async with conn.execute(
         """
@@ -50,19 +61,6 @@ async def dashboard(
     ) as cur:
         active_workout = await cur.fetchone()
         active_workout = dict(active_workout) if active_workout else None
-
-    async with conn.execute(
-        """
-        SELECT e.id AS exercise_id, e.name AS exercise_name, MAX(s.weight_kg) AS pr_kg
-        FROM sets s
-        JOIN exercises e ON e.id = s.exercise_id
-        WHERE s.user_id = ?
-        GROUP BY s.exercise_id
-        ORDER BY e.name
-        """,
-        (uid,),
-    ) as cur:
-        prs = [dict(r) for r in await cur.fetchall()]
 
     async with conn.execute(
         """
@@ -145,7 +143,6 @@ async def dashboard(
         avg_duration_min = (await cur.fetchone())["avg_duration_min"]
 
     # 7-day daily volume for bar chart
-    from datetime import date, timedelta
     today = date.today()
     window = [(today - timedelta(days=6 - i)).isoformat() for i in range(7)]
     async with conn.execute(
@@ -206,37 +203,6 @@ async def dashboard(
     ) as cur:
         muscle_vols = [(r["muscle"], r["volume_kg"]) for r in await cur.fetchall()]
     muscle_bar_svg = generate_muscle_bars(muscle_vols)
-
-    # Recent PRs — exercises where the all-time max was matched within the last 30 days
-    async with conn.execute(
-        """
-        WITH all_prs AS (
-            SELECT exercise_id, MAX(weight_kg) AS max_weight
-            FROM sets WHERE user_id = ?
-            GROUP BY exercise_id
-        ),
-        recent_sets AS (
-            SELECT s.exercise_id,
-                   MAX(s.weight_kg)               AS recent_max,
-                   MAX(DATE(w.started_at, 'localtime')) AS pr_date
-            FROM sets s
-            JOIN workouts w ON w.id = s.workout_id
-            WHERE s.user_id = ?
-              AND DATE(w.started_at, 'localtime') >= DATE('now', '-30 days', 'localtime')
-            GROUP BY s.exercise_id
-        )
-        SELECT e.id AS exercise_id, e.name AS exercise_name,
-               rs.recent_max AS pr_kg, rs.pr_date
-        FROM recent_sets rs
-        JOIN all_prs ap ON ap.exercise_id = rs.exercise_id
-                        AND ap.max_weight  = rs.recent_max
-        JOIN exercises e ON e.id = rs.exercise_id
-        ORDER BY rs.pr_date DESC
-        LIMIT 8
-        """,
-        (uid, uid),
-    ) as cur:
-        recent_prs = [dict(r) for r in await cur.fetchall()]
 
     return render(
         request,
