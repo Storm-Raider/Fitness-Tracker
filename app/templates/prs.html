@@ -1,28 +1,65 @@
 {% extends "base.html" %}
 {% block title %}Personal Records — FitStorm{% endblock %}
 {% block content %}
-<div class="page-hd">
+<div class="page-hd" style="flex-wrap:wrap;gap:0.75rem;">
   <div>
     <h1>Personal Records</h1>
-    <div class="subtitle">All-time bests, every lift</div>
+    <div class="subtitle">{{ records | length }} exercise{{ 's' if records | length != 1 }} tracked</div>
   </div>
+  {% if records %}
+  <div style="display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;margin-left:auto;">
+    <div style="position:relative;">
+      <i data-lucide="search" style="position:absolute;left:0.65rem;top:50%;transform:translateY(-50%);width:13px;height:13px;color:var(--muted);pointer-events:none;"></i>
+      <input id="pr-search" type="search" placeholder="Filter exercises…"
+             oninput="filterPRs()"
+             style="padding:0.3rem 0.75rem 0.3rem 2.1rem;height:36px;font-size:0.8rem;border-radius:var(--radius-xs);min-width:180px;">
+    </div>
+    <div style="display:flex;gap:0.25rem;">
+      <button class="sort-btn active" data-sort="name" onclick="sortPRs('name', this)" style="font-size:0.75rem;padding:0.25rem 0.65rem;min-height:36px;">A–Z</button>
+      <button class="sort-btn" data-sort="date" onclick="sortPRs('date', this)" style="font-size:0.75rem;padding:0.25rem 0.65rem;min-height:36px;">Recent</button>
+      <button class="sort-btn" data-sort="weight" onclick="sortPRs('weight', this)" style="font-size:0.75rem;padding:0.25rem 0.65rem;min-height:36px;">Heaviest</button>
+    </div>
+  </div>
+  {% endif %}
 </div>
+
+<style>
+.sort-btn {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--muted);
+  border-radius: var(--radius-xs);
+  cursor: pointer;
+  font-family: inherit;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  transition: all 0.13s;
+}
+.sort-btn:hover { color: var(--text); border-color: var(--border-mid); }
+.sort-btn.active { background: var(--accent-dim); border-color: rgba(79,156,249,0.4); color: var(--accent); }
+.pr-age-fresh { color: var(--success); }
+.pr-age-mid   { color: var(--accent); }
+.pr-age-old   { color: var(--muted); }
+</style>
 
 {% if records %}
 <div class="card" style="padding:0;overflow:hidden;">
-  <table>
+  <table id="pr-table">
     <thead>
       <tr>
         <th>Exercise</th>
         <th>PR weight</th>
         <th>Est. 1RM</th>
         <th>Sessions</th>
-        <th>Total sets</th>
+        <th>Sets</th>
+        <th>PR set</th>
       </tr>
     </thead>
-    <tbody>
+    <tbody id="pr-tbody">
       {% for r in records %}
-      <tr>
+      <tr data-name="{{ r.name | lower }}"
+          data-weight="{{ r.pr_kg }}"
+          data-days="{{ r.days_ago if r.days_ago is not none else 99999 }}">
         <td style="font-weight:500;">
           <a href="/exercises/{{ r.id }}" style="color:inherit;text-decoration:none;"
              onmouseover="this.style.color='var(--accent)'"
@@ -36,11 +73,51 @@
         </td>
         <td class="num">{{ r.sessions }}</td>
         <td class="num" style="color:var(--muted);">{{ r.total_sets }}</td>
+        <td style="white-space:nowrap;">
+          <span class="{% if r.days_ago is not none and r.days_ago <= 30 %}pr-age-fresh{% elif r.days_ago is not none and r.days_ago <= 90 %}pr-age-mid{% else %}pr-age-old{% endif %}"
+                style="font-family:'JetBrains Mono',monospace;font-size:0.78rem;font-weight:600;"
+                title="{{ r.pr_date or '' }}">{{ r.time_ago }}</span>
+        </td>
       </tr>
       {% endfor %}
     </tbody>
   </table>
 </div>
+<div id="pr-empty" style="display:none;text-align:center;padding:1.5rem;color:var(--muted);font-size:0.875rem;">
+  No exercises match your search.
+</div>
+
+<script>
+function filterPRs() {
+  const q = document.getElementById('pr-search').value.toLowerCase();
+  let visible = 0;
+  document.querySelectorAll('#pr-tbody tr').forEach(row => {
+    const match = !q || row.dataset.name.includes(q);
+    row.style.display = match ? '' : 'none';
+    if (match) visible++;
+  });
+  document.getElementById('pr-empty').style.display = visible === 0 ? 'block' : 'none';
+}
+
+function sortPRs(key, btn) {
+  document.querySelectorAll('.sort-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  const tbody = document.getElementById('pr-tbody');
+  const rows  = [...tbody.querySelectorAll('tr')];
+  rows.sort((a, b) => {
+    if (key === 'name')   return a.dataset.name.localeCompare(b.dataset.name);
+    if (key === 'weight') return parseFloat(b.dataset.weight) - parseFloat(a.dataset.weight);
+    if (key === 'date')   return parseInt(a.dataset.days) - parseInt(b.dataset.days);
+    return 0;
+  });
+  rows.forEach(r => tbody.appendChild(r));
+}
+
+document.getElementById('pr-search').addEventListener('keydown', e => {
+  if (e.key === 'Escape') { e.target.value = ''; filterPRs(); }
+});
+</script>
+
 {% else %}
 <div class="card" style="text-align:center;padding:3rem 1.25rem;">
   <div style="display:flex;flex-direction:column;align-items:center;gap:0.75rem;">
