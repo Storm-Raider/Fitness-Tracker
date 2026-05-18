@@ -477,24 +477,32 @@
       const KEY = 'fitstorm_unit';
       function getUnit() { return localStorage.getItem(KEY) || 'kg'; }
       function fmtWeight(kg, unit) {
-        if (unit === 'lbs') return (Math.round(kg * 22046) / 10000) + ' lbs';
-        return kg + ' kg';
+        var val = parseFloat(kg);
+        if (unit === 'lbs') {
+          var lbs = Math.round(val * 2.2046 * 10) / 10;
+          return lbs.toLocaleString('en', {maximumFractionDigits: 1}) + ' lbs';
+        }
+        return val.toLocaleString('en', {maximumFractionDigits: 1}) + ' kg';
       }
-      function applyUnit() {
-        const unit = getUnit();
+      function applyUnit(fromUnit) {
+        var unit = getUnit();
         document.querySelectorAll('.weight-display[data-kg]').forEach(function(el) {
           el.textContent = fmtWeight(parseFloat(el.getAttribute('data-kg')), unit);
         });
         var btn = document.getElementById('unit-toggle');
         if (btn) btn.textContent = unit;
+        window.dispatchEvent(new CustomEvent('unitchange', {
+          detail: { unit: unit, oldUnit: fromUnit || 'kg' }
+        }));
       }
       window.toggleUnit = function() {
-        localStorage.setItem(KEY, getUnit() === 'kg' ? 'lbs' : 'kg');
-        applyUnit();
+        var oldUnit = getUnit();
+        localStorage.setItem(KEY, oldUnit === 'kg' ? 'lbs' : 'kg');
+        applyUnit(oldUnit);
       };
       window.getAppUnit = getUnit;
       window.fmtWeight = fmtWeight;
-      document.addEventListener('DOMContentLoaded', applyUnit);
+      document.addEventListener('DOMContentLoaded', function() { applyUnit('kg'); });
     })();
     document.querySelectorAll('.nav-links a').forEach(function(a) {
       if (a.closest('.nav-mobile-user')) return;

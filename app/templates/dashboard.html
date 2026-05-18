@@ -2,13 +2,15 @@
 {% block title %}Dashboard — FitStorm{% endblock %}
 {% block content %}
 
-{% macro stat_card(icon, value, label, color="var(--accent)", bg="rgba(79,156,249,0.12)", unit="") %}
+{% macro stat_card(icon, value, label, color="var(--accent)", bg="rgba(79,156,249,0.12)", unit="", kg_raw=none) %}
 <div class="card" style="display:flex;align-items:center;gap:1rem;">
   <div style="width:42px;height:42px;border-radius:10px;background:{{ bg }};display:flex;align-items:center;justify-content:center;flex-shrink:0;color:{{ color }};">
     <i data-lucide="{{ icon }}" style="width:20px;height:20px;"></i>
   </div>
   <div>
-    <div class="num" style="font-size:clamp(1.5rem,4vw,2.25rem);font-weight:700;letter-spacing:-0.02em;line-height:1;color:{{ color }};">{{ value }}{% if unit %}<span style="font-size:1rem;font-weight:500;color:var(--muted);">{{ unit }}</span>{% endif %}</div>
+    <div class="num" style="font-size:clamp(1.5rem,4vw,2.25rem);font-weight:700;letter-spacing:-0.02em;line-height:1;color:{{ color }};">
+      {% if kg_raw is not none %}<span class="weight-display" data-kg="{{ kg_raw }}">{{ "{:,.0f}".format(kg_raw) }} kg</span>{% else %}{{ value }}{% if unit %}<span style="font-size:1rem;font-weight:500;color:var(--muted);">{{ unit }}</span>{% endif %}{% endif %}
+    </div>
     <div class="section-title" style="margin:0.2rem 0 0;">{{ label }}</div>
   </div>
 </div>
@@ -43,13 +45,13 @@
 
 <div class="grid-3" style="margin-bottom:1.5rem;">
   {{ stat_card("calendar-days", weekly_sessions, "Sessions (7 days)", "inherit") }}
-  {{ stat_card("dumbbell", "{:,.0f}".format(weekly_volume), "Volume (7 days)", unit=" kg") }}
+  {{ stat_card("dumbbell", "", "Volume (7 days)", kg_raw=weekly_volume) }}
   {{ stat_card("activity", prs | length, "Exercises tracked", "var(--pr)", "var(--pr-dim)") }}
 </div>
 
 <div class="grid-2" style="margin-bottom:1.5rem;">
   {{ stat_card("calendar-check", total_workouts, "Total workouts", "inherit") }}
-  {{ stat_card("dumbbell", "{:,.0f}".format(total_volume), "Total volume (all-time)", unit=" kg") }}
+  {{ stat_card("dumbbell", "", "Total volume (all-time)", kg_raw=total_volume) }}
 </div>
 
 <div class="grid-2" style="margin-bottom:1.5rem;">
@@ -81,7 +83,7 @@
           {% for pr in prs %}
           <tr>
             <td><a href="/exercises/{{ pr.exercise_id }}" style="color:inherit;text-decoration:none;" onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='inherit'">{{ pr.exercise_name }}</a></td>
-            <td><span class="badge badge-pr">{{ pr.pr_kg }} kg</span></td>
+            <td><span class="badge badge-pr weight-display" data-kg="{{ pr.pr_kg }}">{{ pr.pr_kg }} kg</span></td>
           </tr>
           {% endfor %}
         </tbody>

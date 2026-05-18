@@ -102,11 +102,11 @@
       </div>
       <div class="grid-2">
         <div class="form-group">
-          <label>Weight (kg)</label>
+          <label id="weight-label">Weight (kg)</label>
           <div class="stepper-group">
-            <button type="button" class="stepper-btn" onclick="step('weight', -2.5)">−</button>
+            <button type="button" class="stepper-btn" onclick="stepWeight(-1)">−</button>
             <input type="number" id="weight-input" class="num" value="60" step="0.5" min="0">
-            <button type="button" class="stepper-btn" onclick="step('weight', 2.5)">+</button>
+            <button type="button" class="stepper-btn" onclick="stepWeight(1)">+</button>
           </div>
         </div>
         <div class="form-group">
@@ -151,7 +151,7 @@
         <div class="set-row" id="set-{{ s.id }}">
           <div class="set-meta">
             <div>{{ s.exercise_name }}</div>
-            <div class="set-detail">{{ s.weight_kg }} kg × {{ s.reps }} reps{% if s.rpe %} · RPE {{ s.rpe }}{% endif %}{% if s.notes %} · {{ s.notes }}{% endif %}</div>
+            <div class="set-detail"><span class="weight-display" data-kg="{{ s.weight_kg }}">{{ s.weight_kg }} kg</span> × {{ s.reps }} reps{% if s.rpe %} · RPE {{ s.rpe }}{% endif %}{% if s.notes %} · {{ s.notes }}{% endif %}</div>
           </div>
           <button class="btn btn-ghost" style="padding:0.2rem 0.5rem; font-size:0.75rem;"
                   onclick="deleteSet({{ s.id }}, this)"><i data-lucide="x" style="width:14px;height:14px;"></i></button>
@@ -274,9 +274,33 @@ setExercises[{{ s.id }}] = {id: {{ s.exercise_id }}, name: {{ s.exercise_name | 
 {% endfor %}
 
 function updateVolumeDisplay() {
+  var unit = getAppUnit();
+  var vol = unit === 'lbs' ? sessionVolume * 2.2046 : sessionVolume;
   document.getElementById('session-volume').textContent =
-    sessionVolume.toLocaleString('en', {maximumFractionDigits: 1}) + ' kg';
+    vol.toLocaleString('en', {maximumFractionDigits: 1}) + ' ' + unit;
 }
+
+function stepWeight(dir) {
+  var unit = getAppUnit();
+  var delta = unit === 'lbs' ? 5 : 2.5;
+  var el = document.getElementById('weight-input');
+  el.value = Math.max(0, parseFloat(el.value || 0) + dir * delta);
+}
+
+// React to unit changes: update label, convert weight input, refresh volume
+window.addEventListener('unitchange', function(e) {
+  var unit = e.detail.unit;
+  var oldUnit = e.detail.oldUnit;
+  document.getElementById('weight-label').textContent = 'Weight (' + unit + ')';
+  var input = document.getElementById('weight-input');
+  var val = parseFloat(input.value || 0);
+  if (oldUnit !== unit) {
+    input.value = unit === 'lbs'
+      ? Math.round(val * 2.2046 * 10) / 10
+      : Math.round(val / 2.2046 * 10) / 10;
+  }
+  updateVolumeDisplay();
+});
 
 // Rest timer
 const TIMER_DEFAULT = 90;
@@ -539,9 +563,16 @@ function applyExerciseSelection(ex) {
     document.getElementById('exercise-id').value = ex.id;
     const last = lastSets[String(ex.id)];
     if (last) {
-      document.getElementById('last-set-text').textContent = `${last.weight_kg} kg × ${last.reps} reps`;
-      document.getElementById('last-1rm').textContent = `· est. 1RM: ${epley1RM(last.weight_kg, last.reps)} kg`;
-      document.getElementById('weight-input').value = last.weight_kg;
+      const unit = getAppUnit();
+      const displayW = unit === 'lbs'
+        ? Math.round(last.weight_kg * 2.2046 * 10) / 10
+        : last.weight_kg;
+      const display1rm = unit === 'lbs'
+        ? Math.round(epley1RM(last.weight_kg, last.reps) * 2.2046 * 10) / 10
+        : epley1RM(last.weight_kg, last.reps);
+      document.getElementById('last-set-text').textContent = `${displayW} ${unit} × ${last.reps} reps`;
+      document.getElementById('last-1rm').textContent = `· est. 1RM: ${display1rm} ${unit}`;
+      document.getElementById('weight-input').value = displayW;
       document.getElementById('reps-input').value = last.reps;
       hint.style.display = 'block';
     } else {
@@ -671,7 +702,9 @@ async function logSet() {
     }
   }
 
-  const weight = parseFloat(document.getElementById('weight-input').value);
+  const unit = getAppUnit();
+  const displayWeight = parseFloat(document.getElementById('weight-input').value);
+  const weightKg = unit === 'lbs' ? displayWeight / 2.2046 : displayWeight;
   const reps = parseInt(document.getElementById('reps-input').value);
   const notes = document.getElementById('notes-input').value.trim() || null;
   const rpeRaw = document.getElementById('rpe-select').value;
@@ -680,7 +713,7 @@ async function logSet() {
   const resp = await fetch(`/workouts/${WORKOUT_ID}/sets`, {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({exercise_id: exerciseId, reps, weight_kg: weight, notes, rpe})
+    body: JSON.stringify({exercise_id: exerciseId, reps, weight_kg: weightKg, notes, rpe})
   });
 
   if (!resp.ok) { showErr('Failed to log set.'); return; }
@@ -688,7 +721,7 @@ async function logSet() {
 
   startTimer();
 
-  const setVol = weight * reps;
+  const setVol = weightKg * reps;
   setVolumes[data.id]   = setVol;
   setExercises[data.id] = {id: exerciseId, name: exerciseName};
   sessionVolume += setVol;
@@ -710,7 +743,7 @@ async function logSet() {
   row.innerHTML = `
     <div class="set-meta">
       <div>${escHtml(exerciseName)}</div>
-      <div class="set-detail">${weight} kg × ${reps} reps${rpe ? ' · RPE ' + rpe : ''} — est. 1RM: ${epley1RM(weight, reps)} kg${notes ? ' · ' + escHtml(notes) : ''}${data.is_pr ? ' <span class="badge badge-pr">PR</span>' : ''}</div>
+      <div class="set-detail"><span class="weight-display" data-kg="${weightKg}">${displayWeight} ${unit}</span> × ${reps} reps${rpe ? ' · RPE ' + rpe : ''} — est. 1RM: ${fmtWeight(epley1RM(weightKg, reps), unit)}${notes ? ' · ' + escHtml(notes) : ''}${data.is_pr ? ' <span class="badge badge-pr">PR</span>' : ''}</div>
     </div>
     <button class="btn btn-ghost" style="padding:0.2rem 0.5rem; font-size:0.75rem;"
             onclick="deleteSet(${data.id}, this)"><i data-lucide="x" style="width:14px;height:14px;"></i></button>
@@ -720,7 +753,7 @@ async function logSet() {
   row.scrollIntoView({behavior: 'smooth', block: 'nearest'});
   document.getElementById('notes-input').value = '';
   document.getElementById('rpe-select').value = '';
-  lastSets[String(exerciseId)] = {weight_kg: weight, reps: reps};
+  lastSets[String(exerciseId)] = {weight_kg: weightKg, reps: reps};
 }
 
 async function deleteSet(id, btn) {

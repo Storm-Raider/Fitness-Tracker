@@ -32,7 +32,7 @@
       <div class="section-title" style="margin:0;">Total sets</div>
     </div>
     <div style="text-align:right;">
-      <div class="num" style="font-size:1.6rem;font-weight:700;letter-spacing:-0.02em;color:var(--accent);">{{ "{:,.0f}".format(total_volume) }} <span style="font-size:0.9rem;font-weight:500;color:var(--muted);">kg</span></div>
+      <div class="num" style="font-size:1.6rem;font-weight:700;letter-spacing:-0.02em;color:var(--accent);"><span class="weight-display" data-kg="{{ total_volume }}">{{ "{:,.0f}".format(total_volume) }} kg</span></div>
       <div class="section-title" style="margin:0;">Total volume</div>
     </div>
     <div style="text-align:right;">
@@ -76,7 +76,7 @@
         </td>
         <td class="num" style="color:var(--pr);">{{ one_rm }} kg</td>
         <td class="num">{{ s.set_count }}</td>
-        <td class="num" style="color:var(--muted);">{{ "{:,.0f}".format(s.volume_kg) }} kg</td>
+        <td class="num" style="color:var(--muted);"><span class="weight-display" data-kg="{{ s.volume_kg }}">{{ "{:,.0f}".format(s.volume_kg) }} kg</span></td>
       </tr>
       {% endfor %}
     </tbody>
