@@ -1,3 +1,65 @@
+def generate_weekly_bar_chart(
+    day_volumes: list[tuple[str, float]],
+    color: str = "#4f9cf9",
+) -> str:
+    """Return an inline SVG bar chart for 7-day volume. day_volumes is [(date_str, volume_kg), ...]."""
+    from datetime import date as _date
+
+    if not day_volumes:
+        return ""
+
+    W, H = 420, 88
+    pad_l, pad_r, pad_t, pad_b = 6, 6, 6, 18
+    n = len(day_volumes)
+    gap = 5
+    bar_w = (W - pad_l - pad_r - gap * (n - 1)) / n
+    chart_h = H - pad_t - pad_b
+
+    max_vol = max((v for _, v in day_volumes), default=0) or 1
+    today_str = _date.today().isoformat()
+    font = "JetBrains Mono,monospace"
+    day_chars = "MTWTFSS"
+
+    parts = [
+        f'<svg viewBox="0 0 {W} {H}" xmlns="http://www.w3.org/2000/svg" '
+        f'style="width:100%;height:auto;display:block;">'
+    ]
+
+    for i, (d, vol) in enumerate(day_volumes):
+        x = pad_l + i * (bar_w + gap)
+        cx = x + bar_w / 2
+        is_today = d == today_str
+        weekday = _date.fromisoformat(d).weekday()
+        label = day_chars[weekday]
+
+        if vol > 0:
+            bar_h = max(4.0, (vol / max_vol) * chart_h)
+            bar_y = pad_t + chart_h - bar_h
+            opacity = "1" if is_today else "0.48"
+            vol_tip = f"{vol:,.0f} kg"
+            parts.append(
+                f'<rect x="{x:.1f}" y="{bar_y:.1f}" width="{bar_w:.1f}" '
+                f'height="{bar_h:.1f}" rx="3" fill="{color}" opacity="{opacity}">'
+                f'<title>{vol_tip}</title></rect>'
+            )
+        else:
+            stub_y = pad_t + chart_h - 3
+            parts.append(
+                f'<rect x="{x:.1f}" y="{stub_y:.1f}" width="{bar_w:.1f}" '
+                f'height="3" rx="1.5" fill="#1e2334" opacity="0.9"/>'
+            )
+
+        day_fill = color if is_today else "#5a6a82"
+        day_fw = "600" if is_today else "400"
+        parts.append(
+            f'<text x="{cx:.1f}" y="{H - 3}" text-anchor="middle" font-size="9" '
+            f'font-family="{font}" fill="{day_fill}" font-weight="{day_fw}">{label}</text>'
+        )
+
+    parts.append("</svg>")
+    return "".join(parts)
+
+
 def generate_sparkline(
     values: list[float],
     labels: list[str] | None = None,

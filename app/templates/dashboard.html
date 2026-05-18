@@ -68,6 +68,40 @@
 </div>
 
 <div style="margin-bottom:1.5rem;">
+  <div class="section-title">Volume — last 7 days</div>
+  <div class="card" style="padding:1rem 1.25rem 0.75rem;">
+    <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:0.75rem;flex-wrap:wrap;gap:0.5rem;">
+      <div style="display:flex;align-items:baseline;gap:0.65rem;">
+        <span style="font-family:'JetBrains Mono',monospace;font-size:1.3rem;font-weight:700;color:var(--accent);">
+          <span class="weight-display" data-kg="{{ weekly_volume }}">{{ "{:,.0f}".format(weekly_volume) }} kg</span>
+        </span>
+        {% if volume_delta_pct is not none %}
+          {% if volume_delta_pct > 0 %}
+          <span style="font-size:0.8rem;color:var(--success);font-weight:600;">▲ +{{ volume_delta_pct }}%</span>
+          {% elif volume_delta_pct < 0 %}
+          <span style="font-size:0.8rem;color:var(--danger);font-weight:600;">▼ {{ volume_delta_pct }}%</span>
+          {% else %}
+          <span style="font-size:0.8rem;color:var(--muted);">= same</span>
+          {% endif %}
+          <span style="font-size:0.75rem;color:var(--muted);">vs last week</span>
+        {% endif %}
+      </div>
+      <span style="font-size:0.78rem;color:var(--muted);">
+        {{ weekly_sessions }} session{{ 's' if weekly_sessions != 1 else '' }}
+        {% if last_week_sessions is not none and last_week_sessions > 0 %}
+          <span style="color:var(--border-mid);">·</span>
+          {% set sdiff = weekly_sessions - last_week_sessions %}
+          {% if sdiff > 0 %}<span style="color:var(--success);">+{{ sdiff }} vs last wk</span>
+          {% elif sdiff < 0 %}<span style="color:var(--danger);">{{ sdiff }} vs last wk</span>
+          {% endif %}
+        {% endif %}
+      </span>
+    </div>
+    {{ weekly_bar_svg | safe }}
+  </div>
+</div>
+
+<div style="margin-bottom:1.5rem;">
   <div class="section-title">Activity — last 52 weeks</div>
   <div class="card">
     <div style="overflow-x:auto;">{{ heatmap_svg | safe }}</div>
@@ -80,15 +114,19 @@
     {% include "dashboard_partial.html" %}
   </div>
   <div>
-    <div class="section-title">Personal records</div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.6rem;">
+      <div class="section-title" style="margin-bottom:0;">Recent PRs</div>
+      <a href="/prs" style="font-size:0.75rem;color:var(--muted);transition:color 0.15s;"
+         onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='var(--muted)'">All records →</a>
+    </div>
     <div class="card" style="padding:0;overflow:hidden;">
-      {% if prs %}
+      {% if recent_prs %}
       <table>
         <thead>
-          <tr><th>Exercise</th><th>PR weight</th></tr>
+          <tr><th>Exercise</th><th>Weight</th><th style="font-size:0.68rem;text-align:right;">Date</th></tr>
         </thead>
         <tbody>
-          {% for pr in prs %}
+          {% for pr in recent_prs %}
           <tr>
             <td>
               <a href="/exercises/{{ pr.exercise_id }}"
@@ -99,6 +137,9 @@
             <td>
               <span class="badge badge-pr weight-display" data-kg="{{ pr.pr_kg }}">{{ pr.pr_kg }} kg</span>
             </td>
+            <td style="text-align:right;font-size:0.75rem;color:var(--muted);font-family:'JetBrains Mono',monospace;">
+              {{ pr.pr_date[5:] }}
+            </td>
           </tr>
           {% endfor %}
         </tbody>
@@ -108,7 +149,8 @@
         <div style="width:40px;height:40px;border-radius:50%;background:rgba(255,255,255,0.04);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;">
           <i data-lucide="trophy" style="width:18px;height:18px;color:var(--muted);pointer-events:none;"></i>
         </div>
-        <p style="color:var(--muted);font-size:0.8rem;">Log your first set to see records here.</p>
+        <p style="color:var(--muted);font-size:0.8rem;">No new PRs in the last 30 days.</p>
+        <a href="/prs" style="font-size:0.8rem;color:var(--accent);">View all records →</a>
       </div>
       {% endif %}
     </div>

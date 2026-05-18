@@ -4,6 +4,7 @@ from fastapi.responses import HTMLResponse
 
 from app.db import get_db
 from app.routes.auth import get_current_user
+from app.utils.charts import generate_weekly_bar_chart
 from app.utils.heatmap import generate_heatmap_svg
 from app.utils.render import render, templates
 from app.utils.streak import compute_streak, max_streak
@@ -129,21 +130,101 @@ async def dashboard(
     ) as cur:
         avg_duration_min = (await cur.fetchone())["avg_duration_min"]
 
+    # 7-day daily volume for bar chart
+    from datetime import date, timedelta
+    today = date.today()
+    window = [(today - timedelta(days=6 - i)).isoformat() for i in range(7)]
+    async with conn.execute(
+        """
+        SELECT DATE(w.started_at, 'localtime') AS day,
+               ROUND(SUM(s.weight_kg * s.reps), 1) AS volume_kg
+        FROM sets s
+        JOIN workouts w ON w.id = s.workout_id
+        WHERE s.user_id = ?
+          AND DATE(w.started_at, 'localtime') >= DATE('now', '-6 days', 'localtime')
+        GROUP BY DATE(w.started_at, 'localtime')
+        """,
+        (uid,),
+    ) as cur:
+        _daily = {r["day"]: r["volume_kg"] for r in await cur.fetchall()}
+    day_volumes = [(d, _daily.get(d, 0.0)) for d in window]
+    weekly_bar_svg = generate_weekly_bar_chart(day_volumes)
+
+    # Last-week aggregate for delta comparison
+    async with conn.execute(
+        """
+        SELECT COALESCE(SUM(s.weight_kg * s.reps), 0) AS volume,
+               COUNT(DISTINCT s.workout_id) AS sessions
+        FROM sets s
+        JOIN workouts w ON w.id = s.workout_id
+        WHERE s.user_id = ?
+          AND DATE(w.started_at, 'localtime') >= DATE('now', '-13 days', 'localtime')
+          AND DATE(w.started_at, 'localtime') <  DATE('now', '-6 days',  'localtime')
+        """,
+        (uid,),
+    ) as cur:
+        _lw = dict(await cur.fetchone())
+    last_week_volume   = _lw["volume"]
+    last_week_sessions = _lw["sessions"]
+
+    weekly_volume = vol_row["weekly_volume"]
+    if last_week_volume and last_week_volume > 0:
+        volume_delta_pct = round((weekly_volume - last_week_volume) / last_week_volume * 100)
+    elif weekly_volume > 0:
+        volume_delta_pct = None  # no prior data to compare
+    else:
+        volume_delta_pct = None
+
+    # Recent PRs — exercises where the all-time max was matched within the last 30 days
+    async with conn.execute(
+        """
+        WITH all_prs AS (
+            SELECT exercise_id, MAX(weight_kg) AS max_weight
+            FROM sets WHERE user_id = ?
+            GROUP BY exercise_id
+        ),
+        recent_sets AS (
+            SELECT s.exercise_id,
+                   MAX(s.weight_kg)               AS recent_max,
+                   MAX(DATE(w.started_at, 'localtime')) AS pr_date
+            FROM sets s
+            JOIN workouts w ON w.id = s.workout_id
+            WHERE s.user_id = ?
+              AND DATE(w.started_at, 'localtime') >= DATE('now', '-30 days', 'localtime')
+            GROUP BY s.exercise_id
+        )
+        SELECT e.id AS exercise_id, e.name AS exercise_name,
+               rs.recent_max AS pr_kg, rs.pr_date
+        FROM recent_sets rs
+        JOIN all_prs ap ON ap.exercise_id = rs.exercise_id
+                        AND ap.max_weight  = rs.recent_max
+        JOIN exercises e ON e.id = rs.exercise_id
+        ORDER BY rs.pr_date DESC
+        LIMIT 8
+        """,
+        (uid, uid),
+    ) as cur:
+        recent_prs = [dict(r) for r in await cur.fetchall()]
+
     return render(
         request,
         "dashboard",
         {
             "workouts": workouts,
             "prs": prs,
+            "recent_prs": recent_prs,
             "heatmap_svg": heatmap_svg,
             "streak": streak,
-            "weekly_volume": vol_row["weekly_volume"],
+            "weekly_volume": weekly_volume,
             "weekly_sessions": vol_row["weekly_sessions"],
             "total_workouts": total_workouts,
             "total_volume": total_volume,
             "avg_duration_min": avg_duration_min,
             "best_streak": best_streak,
             "active_workout": active_workout,
+            "weekly_bar_svg": weekly_bar_svg,
+            "volume_delta_pct": volume_delta_pct,
+            "last_week_sessions": last_week_sessions,
             "user": dict(current_user),
         },
     )
