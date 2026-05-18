@@ -1,0 +1,172 @@
+{% extends "base.html" %}
+{% block title %}Routines — FitStorm{% endblock %}
+{% block content %}
+{% set own_routines = routines | selectattr('is_own') | list %}
+{% set lib_routines = routines | rejectattr('is_own') | list %}
+
+<div class="page-hd">
+  <div>
+    <h1>Routines</h1>
+    <div class="subtitle">
+      {{ own_routines | length }} saved
+      {%- if lib_routines %} · {{ lib_routines | length }} library{% endif %}
+    </div>
+  </div>
+  <a href="/workouts" class="btn btn-primary">Start Session</a>
+</div>
+
+{% if not routines %}
+<div class="card" style="display:flex;flex-direction:column;align-items:center;text-align:center;padding:2.5rem 1.5rem;gap:0.75rem;">
+  <div style="width:48px;height:48px;border-radius:50%;background:rgba(255,255,255,0.04);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;">
+    <i data-lucide="bookmark" style="width:22px;height:22px;color:var(--muted-hi);pointer-events:none;"></i>
+  </div>
+  <p style="font-weight:600;font-size:0.95rem;">No routines yet</p>
+  <p style="color:var(--muted);font-size:0.82rem;max-width:280px;line-height:1.5;">
+    Use the <strong style="color:var(--muted-hi);">Save Routine</strong> button inside an active session to bookmark your exercise order.
+  </p>
+  <a href="/workouts" class="btn btn-primary" style="margin-top:0.25rem;">Start a Session</a>
+</div>
+
+{% else %}
+
+{% if own_routines %}
+<div class="section-title" style="margin-bottom:0.65rem;">My Routines</div>
+<div style="display:flex;flex-direction:column;gap:0.65rem;margin-bottom:1.75rem;" id="my-routines">
+  {% for r in own_routines %}
+  <div class="card" id="routine-{{ r.id }}" style="padding:1rem 1.25rem;">
+    <div style="display:flex;align-items:flex-start;gap:0.75rem;flex-wrap:wrap;">
+
+      <div style="flex:1;min-width:0;">
+        <div id="name-row-{{ r.id }}" style="margin-bottom:0.45rem;">
+          <span id="rname-{{ r.id }}"
+                onclick="startRename({{ r.id }})"
+                title="Click to rename"
+                style="font-weight:700;font-size:0.95rem;cursor:pointer;border-bottom:1px dashed var(--border);padding-bottom:1px;transition:border-color 0.15s;"
+                onmouseover="this.style.borderColor='var(--muted)'"
+                onmouseout="this.style.borderColor='var(--border)'">{{ r.name }}</span>
+        </div>
+        <div id="rename-row-{{ r.id }}" style="display:none;align-items:center;gap:0.4rem;margin-bottom:0.45rem;">
+          <input type="text" id="rename-input-{{ r.id }}" value="{{ r.name | e }}"
+                 onkeydown="onRenameKey(event,{{ r.id }})"
+                 style="font-size:0.9rem;font-weight:700;background:var(--surface-2);border:1px solid var(--accent);box-shadow:var(--glow);border-radius:6px;padding:0.2rem 0.5rem;color:var(--text);outline:none;width:100%;max-width:260px;">
+          <button onclick="saveRename({{ r.id }})" class="btn btn-ghost" style="font-size:0.72rem;padding:0.15rem 0.5rem;min-height:26px;">Save</button>
+          <button onclick="cancelRename({{ r.id }})" class="btn btn-ghost" style="font-size:0.72rem;padding:0.15rem 0.4rem;min-height:26px;">✕</button>
+        </div>
+
+        <div style="display:flex;flex-wrap:wrap;gap:0.3rem;">
+          {% for ex in r.exercises %}
+          <span style="font-size:0.72rem;color:var(--muted);background:var(--surface-2);border:1px solid var(--border);border-radius:100px;padding:0.1rem 0.6rem;white-space:nowrap;">{{ ex.name }}</span>
+          {% else %}
+          <span style="font-size:0.75rem;color:var(--muted);">No exercises recorded</span>
+          {% endfor %}
+        </div>
+      </div>
+
+      <div style="display:flex;gap:0.4rem;flex-shrink:0;align-items:center;">
+        <button class="btn btn-primary" style="font-size:0.78rem;padding:0.3rem 0.75rem;min-height:34px;"
+                onclick="startFromRoutine({{ r.id }}, this)">Start</button>
+        <button style="background:transparent;border:1px solid transparent;color:var(--muted);cursor:pointer;padding:0.3rem 0.45rem;border-radius:6px;display:flex;align-items:center;transition:all 0.13s;min-height:34px;"
+                onmouseover="this.style.color='var(--danger)';this.style.borderColor='rgba(248,113,113,0.3)';this.style.background='rgba(248,113,113,0.06)'"
+                onmouseout="this.style.color='var(--muted)';this.style.borderColor='transparent';this.style.background='transparent'"
+                onclick="deleteRoutine({{ r.id }})" title="Delete routine">
+          <i data-lucide="trash-2" style="width:13px;height:13px;pointer-events:none;"></i>
+        </button>
+      </div>
+
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+{% if lib_routines %}
+<div class="section-title" style="margin-bottom:0.65rem;">Library</div>
+<p style="font-size:0.8rem;color:var(--muted);margin-bottom:0.85rem;">Pre-built plans — start one to load its exercises into a new session.</p>
+<div style="display:flex;flex-direction:column;gap:0.65rem;">
+  {% for r in lib_routines %}
+  <div class="card" id="routine-{{ r.id }}" style="padding:1rem 1.25rem;">
+    <div style="display:flex;align-items:flex-start;gap:0.75rem;flex-wrap:wrap;">
+      <div style="flex:1;min-width:0;">
+        <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.45rem;flex-wrap:wrap;">
+          <span style="font-weight:700;font-size:0.95rem;">{{ r.name }}</span>
+          <span class="badge" style="background:rgba(255,255,255,0.04);color:var(--muted);border:1px solid var(--border);font-size:0.6rem;letter-spacing:0.07em;text-transform:uppercase;">library</span>
+        </div>
+        <div style="display:flex;flex-wrap:wrap;gap:0.3rem;">
+          {% for ex in r.exercises %}
+          <span style="font-size:0.72rem;color:var(--muted);background:var(--surface-2);border:1px solid var(--border);border-radius:100px;padding:0.1rem 0.6rem;white-space:nowrap;">{{ ex.name }}</span>
+          {% endfor %}
+        </div>
+      </div>
+      <button class="btn btn-ghost" style="font-size:0.78rem;padding:0.3rem 0.75rem;min-height:34px;flex-shrink:0;"
+              onclick="startFromRoutine({{ r.id }}, this)">Start</button>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+{% endif %}
+
+<script>
+async function startFromRoutine(routineId, btn) {
+  btn.disabled = true;
+  const orig = btn.textContent;
+  btn.textContent = '…';
+  const resp = await fetch('/workouts', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({notes: null}),
+  });
+  if (resp.ok) {
+    const data = await resp.json();
+    window.location.href = `/workouts/${data.id}?routine=${routineId}`;
+  } else {
+    btn.disabled = false;
+    btn.textContent = orig;
+  }
+}
+
+async function deleteRoutine(id) {
+  if (!confirm('Delete this routine? This cannot be undone.')) return;
+  const resp = await fetch(`/routines/${id}`, {method: 'DELETE'});
+  if (resp.ok || resp.status === 204) {
+    document.getElementById('routine-' + id)?.remove();
+    if (!document.querySelector('#my-routines .card')) location.reload();
+  }
+}
+
+function startRename(id) {
+  document.getElementById('name-row-' + id).style.display = 'none';
+  const row = document.getElementById('rename-row-' + id);
+  row.style.display = 'flex';
+  const inp = document.getElementById('rename-input-' + id);
+  inp.focus(); inp.select();
+}
+
+function cancelRename(id) {
+  document.getElementById('name-row-' + id).style.display = '';
+  document.getElementById('rename-row-' + id).style.display = 'none';
+}
+
+function onRenameKey(e, id) {
+  if (e.key === 'Enter') { e.preventDefault(); saveRename(id); }
+  if (e.key === 'Escape') { cancelRename(id); }
+}
+
+async function saveRename(id) {
+  const inp  = document.getElementById('rename-input-' + id);
+  const name = inp.value.trim();
+  if (!name) return;
+  const resp = await fetch(`/routines/${id}`, {
+    method: 'PATCH',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({name}),
+  });
+  if (resp.ok) {
+    document.getElementById('rname-' + id).textContent = name;
+    inp.value = name;
+    cancelRename(id);
+  }
+}
+</script>
+{% endblock %}

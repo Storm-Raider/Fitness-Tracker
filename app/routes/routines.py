@@ -1,11 +1,12 @@
 import json
 import aiosqlite
-from fastapi import APIRouter, Depends, HTTPException
-from fastapi.responses import JSONResponse
-from pydantic import BaseModel
+from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi.responses import HTMLResponse, JSONResponse
+from pydantic import BaseModel, Field
 
 from app.db import get_db
 from app.routes.auth import get_current_user
+from app.utils.render import templates
 
 router = APIRouter()
 
@@ -13,6 +14,80 @@ router = APIRouter()
 class RoutineIn(BaseModel):
     name: str
     exercise_ids: list[int]
+
+
+class RoutinePatch(BaseModel):
+    name: str = Field(min_length=1, max_length=100)
+
+
+@router.get("/routines/manage", response_class=HTMLResponse)
+async def routines_page(
+    request: Request,
+    conn: aiosqlite.Connection = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    uid = current_user["id"]
+    async with conn.execute(
+        """
+        SELECT r.id, r.name, r.user_id,
+               e.id AS ex_id, e.name AS ex_name,
+               MIN(re.order_idx) AS ord
+        FROM routines r
+        LEFT JOIN routine_exercises re ON re.routine_id = r.id
+        LEFT JOIN exercises e ON e.id = re.exercise_id
+        WHERE r.user_id = ? OR r.user_id IS NULL
+        GROUP BY r.id, e.id
+        ORDER BY
+            CASE WHEN r.user_id = ? THEN 0 ELSE 1 END,
+            r.name, ord
+        """,
+        (uid, uid),
+    ) as cur:
+        rows = await cur.fetchall()
+
+    routines_map: dict = {}
+    for row in rows:
+        r_id = row["id"]
+        if r_id not in routines_map:
+            routines_map[r_id] = {
+                "id": r_id,
+                "name": row["name"],
+                "is_own": row["user_id"] == uid,
+                "exercises": [],
+            }
+        if row["ex_id"] is not None:
+            routines_map[r_id]["exercises"].append({
+                "id": row["ex_id"],
+                "name": row["ex_name"],
+            })
+
+    return templates.TemplateResponse(request, "routines.html", {
+        "routines": list(routines_map.values()),
+        "user": dict(current_user),
+    })
+
+
+@router.patch("/routines/{routine_id}")
+async def patch_routine(
+    routine_id: int,
+    body: RoutinePatch,
+    conn: aiosqlite.Connection = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    uid = current_user["id"]
+    async with conn.execute(
+        "SELECT id FROM routines WHERE id = ? AND user_id = ?",
+        (routine_id, uid),
+    ) as cur:
+        if not await cur.fetchone():
+            raise HTTPException(status_code=404, detail="Routine not found")
+    name = body.name.strip()
+    await conn.execute(
+        "UPDATE routines SET name = ? WHERE id = ? AND user_id = ?",
+        (name, routine_id, uid),
+    )
+    await conn.commit()
+    return JSONResponse({"id": routine_id, "name": name})
 
 
 @router.get("/routines")

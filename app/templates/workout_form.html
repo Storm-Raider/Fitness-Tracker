@@ -1291,6 +1291,12 @@ async function loadRoutines() {
     opt.value = i; opt.textContent = r.name;
     sel.appendChild(opt);
   });
+  // Auto-select routine if ?routine=ID is in the URL
+  const routineId = parseInt(new URLSearchParams(window.location.search).get('routine') || '0');
+  if (routineId) {
+    const idx = _routines.findIndex(r => r.id === routineId);
+    if (idx >= 0) { sel.value = idx; onRoutineSelect(String(idx)); }
+  }
 }
 {% if not is_finished %}loadRoutines();{% endif %}
 
