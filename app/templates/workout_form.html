@@ -1453,6 +1453,14 @@ function selectExercise(id, name) {
   });
 })();{% endif %}
 
+// ── Enter key on weight / reps submits the set ────────────────
+['weight-input', 'reps-input'].forEach(id => {
+  const el = document.getElementById(id);
+  if (el) el.addEventListener('keydown', e => {
+    if (e.key === 'Enter') { e.preventDefault(); logSet(); }
+  });
+});
+
 // ── Utilities ─────────────────────────────────────────────────
 function escHtml(s) {
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');

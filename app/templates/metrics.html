@@ -23,12 +23,13 @@
     <div class="card">
       <div class="section-title">Log entry</div>
       <div class="form-group">
-        <label>Weight (kg)</label>
+        <label id="weight-label">Weight (kg)</label>
         <div class="stepper-group">
           <button type="button" class="stepper-btn" onclick="stepMetric(-0.5)">−</button>
           <input type="number" id="weight-input" class="num"
                  value="{{ latest_weight if latest_weight is not none else 75 }}"
-                 step="0.1" min="0" oninput="calcBmi()" style="text-align:center;">
+                 data-kg="{{ latest_weight if latest_weight is not none else 75 }}"
+                 step="0.1" min="0" oninput="onWeightInput()" style="text-align:center;">
           <button type="button" class="stepper-btn" onclick="stepMetric(0.5)">+</button>
         </div>
       </div>
@@ -76,7 +77,7 @@
           {% for m in metrics %}
           <tr id="metric-{{ m.id }}">
             <td style="font-weight:500;">{{ m.recorded_at[:10] }}</td>
-            <td class="num">{{ m.weight_kg }} <span style="color:var(--muted);font-size:0.8em;">kg</span></td>
+            <td class="num"><span class="weight-display" data-kg="{{ m.weight_kg }}">{{ m.weight_kg }} kg</span></td>
             <td style="padding:0.4rem 0.5rem;text-align:center;">
               <button
                 hx-delete="/metrics/{{ m.id }}"
@@ -109,10 +110,20 @@
 <script>
 const BMI_MIN = 15, BMI_MAX = 40;
 
+function getWeightKg() {
+  const val = parseFloat(document.getElementById('weight-input').value) || 0;
+  return window.getAppUnit && window.getAppUnit() === 'lbs' ? val / 2.2046 : val;
+}
+function onWeightInput() {
+  document.getElementById('weight-input').dataset.kg = getWeightKg();
+  calcBmi();
+}
 function stepMetric(delta) {
   const el = document.getElementById('weight-input');
-  el.value = Math.max(0, Math.round((parseFloat(el.value || 0) + delta) * 10) / 10);
-  calcBmi();
+  const isLbs = window.getAppUnit && window.getAppUnit() === 'lbs';
+  const step = isLbs ? delta * 2.2046 : delta;
+  el.value = Math.max(0, Math.round((parseFloat(el.value || 0) + step) * 10) / 10);
+  onWeightInput();
 }
 function stepHeight(delta) {
   const el = document.getElementById('height-input');
@@ -125,7 +136,7 @@ function saveAndCalcBmi() {
   calcBmi();
 }
 function calcBmi() {
-  const w = parseFloat(document.getElementById('weight-input').value);
+  const w = getWeightKg();
   const hCm = parseFloat(document.getElementById('height-input').value);
   const resultEl = document.getElementById('bmi-result');
   const markerEl = document.getElementById('bmi-marker');
@@ -145,7 +156,7 @@ function calcBmi() {
     '<span class="badge" style="background:' + bg + ';color:' + color + ';font-size:0.8rem;border:1px solid ' + color + '33;">' + cat + '</span>';
 }
 async function logMetric() {
-  const weight = parseFloat(document.getElementById('weight-input').value);
+  const weight = getWeightKg();
   const errEl = document.getElementById('metric-error');
   const okEl  = document.getElementById('metric-success');
   errEl.style.display = 'none';
@@ -173,6 +184,23 @@ async function logMetric() {
   const saved = localStorage.getItem('bmi_height_cm');
   if (saved) document.getElementById('height-input').value = saved;
   calcBmi();
+  // Enter key submits log entry
+  document.getElementById('weight-input').addEventListener('keydown', e => {
+    if (e.key === 'Enter') { e.preventDefault(); logMetric(); }
+  });
+  // Sync label + input value when unit toggles
+  window.addEventListener('unitchange', function(e) {
+    const unit = e.detail.unit;
+    const label = document.getElementById('weight-label');
+    if (label) label.textContent = 'Weight (' + unit + ')';
+    const input = document.getElementById('weight-input');
+    if (input && e.detail.oldUnit !== unit) {
+      const kg = parseFloat(input.dataset.kg) || parseFloat(input.value) || 0;
+      input.value = unit === 'lbs'
+        ? Math.round(kg * 2.2046 * 10) / 10
+        : Math.round(kg * 10) / 10;
+    }
+  });
 })();
 </script>
 {% endblock %}
