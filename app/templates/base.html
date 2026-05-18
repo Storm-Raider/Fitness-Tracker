@@ -290,6 +290,174 @@
       }
     }
 
+    /* ── Mobile bottom tab bar ──────────────────────── */
+    .mob-tab-bar { display: none; }
+    .mob-more-backdrop { display: none; }
+    /* Sheet always stays fixed & off-screen; only visible at mobile breakpoint via .open */
+    .mob-more-sheet {
+      position: fixed;
+      bottom: 0; left: 0; right: 0;
+      z-index: 150;
+      visibility: hidden;
+      transform: translateY(100%);
+    }
+
+    @media (max-width: 767px) {
+      /* Replace hamburger with bottom tab bar */
+      .nav-hamburger { display: none !important; }
+      nav .nav-links { display: none !important; }
+      nav { min-height: 48px; }
+
+      /* Pad content above tab bar */
+      .container {
+        padding-bottom: calc(1rem + 58px + env(safe-area-inset-bottom, 0px));
+      }
+
+      /* Tab bar */
+      .mob-tab-bar {
+        display: flex;
+        position: fixed;
+        bottom: 0; left: 0; right: 0;
+        height: calc(58px + env(safe-area-inset-bottom, 0px));
+        padding-bottom: env(safe-area-inset-bottom, 0px);
+        background: rgba(9,11,16,0.95);
+        backdrop-filter: blur(20px) saturate(160%);
+        -webkit-backdrop-filter: blur(20px) saturate(160%);
+        border-top: 1px solid rgba(30,35,52,0.9);
+        box-shadow: 0 -1px 14px rgba(0,0,0,0.55);
+        z-index: 100;
+        align-items: stretch;
+      }
+      .mob-tab-bar::before {
+        content: '';
+        position: absolute;
+        top: 0; left: 0; right: 0;
+        height: 1px;
+        background: linear-gradient(90deg,
+          var(--pr) 0%,
+          rgba(245,158,11,0.35) 30%,
+          transparent 65%
+        );
+        pointer-events: none;
+      }
+      .mob-tab {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 3px;
+        color: var(--muted);
+        font-size: 0.58rem;
+        font-weight: 700;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        background: transparent;
+        border: none;
+        cursor: pointer;
+        font-family: 'Barlow', inherit;
+        padding: 8px 2px 4px;
+        transition: color 0.15s;
+        position: relative;
+        text-decoration: none;
+        -webkit-tap-highlight-color: transparent;
+      }
+      .mob-tab:hover { color: var(--text); }
+      .mob-tab.active { color: var(--accent); }
+      .mob-tab.active::after {
+        content: '';
+        position: absolute;
+        top: 0; left: 20%; right: 20%;
+        height: 2px;
+        background: var(--accent);
+        border-radius: 0 0 2px 2px;
+      }
+      .mob-tab-icon { width: 20px; height: 20px; pointer-events: none; }
+
+      /* Backdrop */
+      .mob-more-backdrop {
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: rgba(0,0,0,0.6);
+        z-index: 140;
+      }
+      .mob-more-backdrop.open { display: block; }
+
+      /* More sheet — add visual styling + transitions at mobile breakpoint */
+      .mob-more-sheet {
+        background: var(--surface);
+        border-top: 1px solid var(--border-mid);
+        border-radius: 18px 18px 0 0;
+        box-shadow: 0 -8px 32px rgba(0,0,0,0.5);
+        padding-bottom: calc(58px + env(safe-area-inset-bottom, 0px));
+        transition: transform 0.28s cubic-bezier(0.32, 0.72, 0, 1),
+                    visibility 0s linear 0.28s;
+      }
+      .mob-more-sheet.open {
+        visibility: visible;
+        transform: translateY(0);
+        transition: transform 0.28s cubic-bezier(0.32, 0.72, 0, 1), visibility 0s;
+      }
+      .mob-more-handle {
+        width: 36px; height: 4px;
+        background: var(--border-mid);
+        border-radius: 2px;
+        margin: 0.75rem auto 0.875rem;
+      }
+      .mob-more-title {
+        font-size: 0.68rem;
+        font-weight: 700;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        color: var(--muted);
+        padding: 0 1.25rem 0.75rem;
+        border-bottom: 1px solid var(--border);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      }
+      .mob-more-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 0.625rem;
+        padding: 1rem 1.25rem;
+      }
+      .mob-more-item {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 0.45rem;
+        padding: 0.875rem 0.5rem 0.75rem;
+        border-radius: var(--radius-sm);
+        background: var(--surface-2);
+        border: 1px solid var(--border);
+        color: var(--text);
+        font-size: 0.65rem;
+        font-weight: 700;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+        text-align: center;
+        transition: background 0.15s, border-color 0.15s;
+        line-height: 1.25;
+        -webkit-tap-highlight-color: transparent;
+      }
+      .mob-more-item:hover { background: var(--surface-hover); border-color: var(--border-mid); color: var(--text); }
+      .mob-more-item.mob-more-active {
+        border-color: var(--accent);
+        color: var(--accent);
+        background: var(--accent-dim);
+      }
+      .mob-more-icon {
+        width: 28px; height: 28px;
+        display: flex; align-items: center; justify-content: center;
+        background: rgba(255,255,255,0.05);
+        border-radius: 8px;
+      }
+      .mob-more-icon i { width: 16px; height: 16px; pointer-events: none; }
+      .mob-more-signout { padding: 0 1.25rem 0.75rem; }
+    }
+
     /* ── Layout ──────────────────────────────────────── */
     .container {
       max-width: 1100px;
@@ -667,6 +835,75 @@
       <i data-lucide="menu" style="width:20px;height:20px;pointer-events:none;"></i>
     </button>
   </nav>
+  <!-- Mobile bottom tab bar -->
+  <nav class="mob-tab-bar" aria-label="Mobile navigation">
+    <a href="/" class="mob-tab" data-mob-path="/" data-mob-exact="1">
+      <i data-lucide="home" class="mob-tab-icon"></i>
+      <span>Home</span>
+    </a>
+    <a href="/workouts" class="mob-tab" data-mob-path="/workouts">
+      <i data-lucide="dumbbell" class="mob-tab-icon"></i>
+      <span>Workouts</span>
+    </a>
+    <a href="/prs" class="mob-tab" data-mob-path="/prs">
+      <i data-lucide="trophy" class="mob-tab-icon"></i>
+      <span>Records</span>
+    </a>
+    <a href="/stats" class="mob-tab" data-mob-path="/stats">
+      <i data-lucide="bar-chart-2" class="mob-tab-icon"></i>
+      <span>Stats</span>
+    </a>
+    <button class="mob-tab" id="mob-more-btn" onclick="openMobMore()" aria-haspopup="true">
+      <i data-lucide="layout-grid" class="mob-tab-icon"></i>
+      <span>More</span>
+    </button>
+  </nav>
+
+  <!-- More sheet backdrop -->
+  <div class="mob-more-backdrop" id="mob-more-backdrop" onclick="closeMobMore()"></div>
+
+  <!-- More sheet -->
+  <div class="mob-more-sheet" id="mob-more-sheet">
+    <div class="mob-more-handle"></div>
+    <div class="mob-more-title">
+      <span>Navigation</span>
+      <span style="color:var(--muted-hi);font-weight:500;letter-spacing:0;text-transform:none;font-size:0.8rem;">{{ user.username }}</span>
+    </div>
+    <div class="mob-more-grid">
+      <a href="/exercises" class="mob-more-item" data-mob-more-path="/exercises" onclick="closeMobMore()">
+        <div class="mob-more-icon"><i data-lucide="layers"></i></div>
+        <span>Exercises</span>
+      </a>
+      <a href="/cardio" class="mob-more-item" data-mob-more-path="/cardio" onclick="closeMobMore()">
+        <div class="mob-more-icon"><i data-lucide="activity"></i></div>
+        <span>Cardio</span>
+      </a>
+      <a href="/metrics" class="mob-more-item" data-mob-more-path="/metrics" onclick="closeMobMore()">
+        <div class="mob-more-icon"><i data-lucide="scale"></i></div>
+        <span>Body Metrics</span>
+      </a>
+      <a href="/export" class="mob-more-item" data-mob-more-path="/export" onclick="closeMobMore()">
+        <div class="mob-more-icon"><i data-lucide="download"></i></div>
+        <span>Export</span>
+      </a>
+      {% if user.is_admin %}
+      <a href="/invite" class="mob-more-item" data-mob-more-path="/invite" onclick="closeMobMore()">
+        <div class="mob-more-icon"><i data-lucide="user-plus"></i></div>
+        <span>Invite</span>
+      </a>
+      {% endif %}
+      <a href="/settings" class="mob-more-item" data-mob-more-path="/settings" onclick="closeMobMore()">
+        <div class="mob-more-icon"><i data-lucide="settings"></i></div>
+        <span>Settings</span>
+      </a>
+    </div>
+    <div class="mob-more-signout">
+      <form method="post" action="/logout">
+        <button type="submit" class="btn btn-ghost" style="width:100%;justify-content:center;">Sign out</button>
+      </form>
+    </div>
+  </div>
+
   <div class="container">
     {% block content %}{% endblock %}
   </div>
@@ -742,6 +979,37 @@
         document.getElementById('nav-links').classList.remove('nav-open');
       });
     });
+    // Mobile More sheet
+    function openMobMore() {
+      document.getElementById('mob-more-backdrop').classList.add('open');
+      document.getElementById('mob-more-sheet').classList.add('open');
+    }
+    function closeMobMore() {
+      document.getElementById('mob-more-backdrop').classList.remove('open');
+      document.getElementById('mob-more-sheet').classList.remove('open');
+    }
+    // Mobile tab + More sheet active states
+    (function() {
+      var here = location.pathname;
+      var morePaths = ['/exercises', '/cardio', '/metrics', '/export', '/invite', '/settings'];
+      document.querySelectorAll('.mob-tab[data-mob-path]').forEach(function(tab) {
+        var p = tab.getAttribute('data-mob-path');
+        var exact = tab.getAttribute('data-mob-exact');
+        if (exact ? here === p : (here === p || here.startsWith(p + '/'))) {
+          tab.classList.add('active');
+        }
+      });
+      if (morePaths.some(function(p) { return here === p || here.startsWith(p + '/'); })) {
+        var moreBtn = document.getElementById('mob-more-btn');
+        if (moreBtn) moreBtn.classList.add('active');
+      }
+      document.querySelectorAll('.mob-more-item[data-mob-more-path]').forEach(function(item) {
+        var p = item.getAttribute('data-mob-more-path');
+        if (here === p || here.startsWith(p + '/')) {
+          item.classList.add('mob-more-active');
+        }
+      });
+    })();
     document.addEventListener('DOMContentLoaded', () => lucide.createIcons());
     document.addEventListener('htmx:afterSwap', () => lucide.createIcons());
   </script>
