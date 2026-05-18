@@ -6,12 +6,12 @@
     width: 100%;
     background: var(--bg);
     border: 1px solid var(--border);
-    border-radius: 8px;
+    border-radius: var(--radius-xs);
     color: var(--text);
-    padding: 0.6rem 1rem;
+    padding: 0.65rem 1rem;
     font-size: 0.9rem;
     font-family: inherit;
-    margin-bottom: 1.25rem;
+    margin-bottom: 1.5rem;
     transition: border-color 0.15s, box-shadow 0.15s;
   }
   .ex-search:focus {
@@ -21,21 +21,22 @@
   }
   .ex-group { margin-bottom: 1.5rem; }
   .ex-letter {
-    font-size: 0.7rem;
+    font-size: 0.68rem;
     font-weight: 700;
     text-transform: uppercase;
-    letter-spacing: 0.1em;
+    letter-spacing: 0.12em;
     color: var(--muted);
-    padding: 0 0.25rem;
+    padding: 0 0.15rem;
     margin-bottom: 0.4rem;
+    font-family: 'JetBrains Mono', monospace;
   }
   .ex-list { display: flex; flex-direction: column; gap: 2px; }
   .ex-item {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 0.6rem 0.85rem;
-    border-radius: 7px;
+    padding: 0.65rem 0.9rem;
+    border-radius: var(--radius-xs);
     background: var(--surface);
     border: 1px solid var(--border);
     text-decoration: none;
@@ -46,7 +47,7 @@
   }
   .ex-item:hover {
     background: var(--surface-hover);
-    border-color: #3d4459;
+    border-color: var(--border-mid);
     color: var(--text);
   }
   .no-results {
@@ -58,12 +59,10 @@
 </style>
 {% endblock %}
 {% block content %}
-<div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:1.25rem; padding-top:0.5rem;">
+<div class="page-hd">
   <div>
-    <h1 style="font-size:1.5rem; font-weight:700;">Exercises</h1>
-    <p style="color:var(--muted); font-size:0.825rem; margin-top:0.2rem;">
-      <span class="num" id="ex-count">{{ exercises | length }}</span> exercises in library
-    </p>
+    <h1>Exercises</h1>
+    <div class="subtitle"><span class="num" id="ex-count">{{ exercises | length }}</span> exercises in library</div>
   </div>
 </div>
 
@@ -94,7 +93,7 @@
 {% endif %}
 </div>
 
-<p class="no-results" id="no-results" style="display:none;">No exercises match "{{ '' }}".</p>
+<p class="no-results" id="no-results" style="display:none;"></p>
 
 <script>
 const searchEl = document.getElementById('ex-search');
@@ -117,7 +116,7 @@ searchEl.addEventListener('input', () => {
   });
 
   countEl.textContent = visible;
-  noResults.style.display = visible === 0 ? '' : 'none';
+  noResults.style.display = visible === 0 && q ? '' : 'none';
   noResults.textContent = q ? `No exercises match "${q}".` : '';
 });
 </script>

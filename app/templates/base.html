@@ -3,9 +3,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>{% block title %}Fitness Tracker{% endblock %}</title>
+  <title>{% block title %}FitStorm{% endblock %}</title>
   <link rel="manifest" href="/static/manifest.json">
-  <meta name="theme-color" content="#0d0f14">
+  <meta name="theme-color" content="#090b10">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <link rel="apple-touch-icon" href="/static/icon-192.png">
@@ -20,26 +20,37 @@
       --surface-2:    #161b24;
       --surface-hover:#1c2230;
       --border:       #1e2334;
+      --border-mid:   #2a3248;
       --text:         #e4eaf2;
       --muted:        #5a6a82;
+      --muted-hi:     #7a8da8;
       --accent:       #4f9cf9;
       --accent-hover: #7ab8fc;
       --accent-dim:   rgba(79,156,249,0.09);
       --danger:       #f87171;
+      --danger-dim:   rgba(248,113,113,0.08);
       --success:      #34d399;
+      --success-dim:  rgba(52,211,153,0.08);
       --pr:           #f59e0b;
-      --pr-dim:       rgba(245,158,11,0.12);
-      --shadow-sm:    0 1px 3px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,255,255,0.04);
-      --shadow:       0 6px 20px rgba(0,0,0,0.6);
+      --pr-dim:       rgba(245,158,11,0.1);
+      --shadow-sm:    0 1px 3px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,255,255,0.035);
+      --shadow:       0 6px 24px rgba(0,0,0,0.65);
+      --shadow-lg:    0 12px 40px rgba(0,0,0,0.7);
       --glow:         0 0 0 3px rgba(79,156,249,0.22);
       --glow-pr:      0 0 0 3px rgba(245,158,11,0.2);
+      --radius:       14px;
+      --radius-sm:    10px;
+      --radius-xs:    7px;
     }
     * { box-sizing: border-box; margin: 0; padding: 0; }
     html { font-family: 'Barlow', system-ui, sans-serif; }
     body {
       background: var(--bg);
-      background-image: radial-gradient(circle at 1px 1px, rgba(255,255,255,0.05) 1px, transparent 0);
-      background-size: 28px 28px;
+      background-image:
+        radial-gradient(ellipse 110% 42% at 50% 0%, rgba(79,156,249,0.07) 0%, transparent 55%),
+        radial-gradient(ellipse 45% 28% at 92% 95%, rgba(245,158,11,0.03) 0%, transparent 55%),
+        radial-gradient(circle at 1px 1px, rgba(255,255,255,0.038) 1px, transparent 0);
+      background-size: auto, auto, 28px 28px;
       color: var(--text);
       font-family: 'Barlow', system-ui, sans-serif;
       font-size: 15px;
@@ -56,9 +67,11 @@
 
     /* ── Nav ─────────────────────────────────────────── */
     nav {
-      background: var(--surface);
-      border-bottom: 1px solid var(--border);
-      box-shadow: 0 1px 12px rgba(0,0,0,0.5);
+      background: rgba(9,11,16,0.9);
+      backdrop-filter: blur(18px) saturate(160%);
+      -webkit-backdrop-filter: blur(18px) saturate(160%);
+      border-bottom: 1px solid rgba(30,35,52,0.65);
+      box-shadow: 0 1px 18px rgba(0,0,0,0.5), 0 0 0 0.5px rgba(255,255,255,0.03);
       padding: 0 1.5rem;
       display: flex;
       align-items: center;
@@ -66,29 +79,42 @@
       position: sticky;
       top: 0;
       z-index: 50;
-      min-height: 52px;
+      min-height: 56px;
       flex-wrap: wrap;
+    }
+    nav::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 2px;
+      background: linear-gradient(90deg,
+        var(--pr) 0%,
+        rgba(245,158,11,0.55) 25%,
+        rgba(245,158,11,0.18) 55%,
+        transparent 100%
+      );
+      pointer-events: none;
     }
     nav .brand {
       font-family: 'Syne', system-ui, sans-serif;
       font-weight: 700;
-      font-size: 1.05rem;
-      letter-spacing: -0.02em;
+      font-size: 1.08rem;
+      letter-spacing: -0.03em;
       color: var(--text);
       white-space: nowrap;
       flex-shrink: 0;
       display: flex;
       align-items: center;
       gap: 0.45rem;
-      height: 52px;
+      height: 56px;
     }
     nav .brand-dot {
-      width: 6px;
-      height: 6px;
+      width: 7px;
+      height: 7px;
       background: var(--pr);
       border-radius: 50%;
       flex-shrink: 0;
-      box-shadow: 0 0 10px rgba(245,158,11,0.7);
+      box-shadow: 0 0 12px rgba(245,158,11,0.85), 0 0 4px rgba(245,158,11,0.6);
     }
     nav .nav-sep {
       width: 1px;
@@ -97,6 +123,7 @@
       flex-shrink: 0;
     }
     nav .nav-links { display: flex; gap: 0; align-items: center; }
+
     /* More dropdown */
     .nav-more { position: relative; }
     .nav-more-btn {
@@ -104,7 +131,7 @@
       font-size: 0.875rem;
       font-weight: 500;
       padding: 0 0.875rem;
-      height: 52px;
+      height: 56px;
       display: inline-flex;
       align-items: center;
       gap: 0.3rem;
@@ -113,20 +140,20 @@
       background: transparent;
       border: none;
       font-family: 'Barlow', inherit;
-      transition: color 0.15s;
+      transition: color 0.15s, background 0.15s;
     }
     .nav-more-btn:hover { color: var(--text); }
-    .nav-more-btn.active { color: var(--text); }
+    .nav-more-btn.active { color: var(--text); background: rgba(255,255,255,0.03); }
     .nav-more-dropdown {
       display: none;
       position: absolute;
-      top: 100%;
+      top: calc(100% + 4px);
       left: 0;
       background: var(--surface);
       border: 1px solid var(--border);
-      border-radius: 10px;
+      border-radius: var(--radius-sm);
       box-shadow: var(--shadow);
-      min-width: 160px;
+      min-width: 168px;
       z-index: 200;
       overflow: hidden;
     }
@@ -138,23 +165,30 @@
       padding: 0.65rem 1rem;
       height: auto;
       white-space: nowrap;
-      transition: color 0.15s, background 0.15s;
+      transition: color 0.12s, background 0.12s;
     }
     .nav-more-dropdown a:hover { color: var(--text); background: var(--surface-hover); }
     .nav-more-dropdown a.active { color: var(--accent); background: var(--accent-dim); }
     .nav-more.open .nav-more-dropdown { display: block; }
+
     nav .nav-links a {
       color: var(--muted);
       font-size: 0.875rem;
       font-weight: 500;
       padding: 0 0.875rem;
-      height: 52px;
+      height: 56px;
       display: inline-flex;
       align-items: center;
       white-space: nowrap;
       position: relative;
-      transition: color 0.15s;
+      transition: color 0.15s, background 0.15s;
     }
+    nav .nav-links a:hover { color: var(--text); background: rgba(255,255,255,0.025); }
+    nav .nav-links a.active {
+      color: var(--accent);
+      background: rgba(79,156,249,0.08);
+    }
+    /* Slim bottom indicator on active */
     nav .nav-links a::after {
       content: '';
       position: absolute;
@@ -165,13 +199,10 @@
       background: var(--accent);
       border-radius: 1px 1px 0 0;
       transform: scaleX(0);
-      opacity: 0.5;
-      transition: transform 0.2s ease, opacity 0.15s;
+      transition: transform 0.2s ease;
     }
-    nav .nav-links a:hover { color: var(--text); }
-    nav .nav-links a:hover::after { transform: scaleX(1); }
-    nav .nav-links a.active { color: var(--text); }
-    nav .nav-links a.active::after { transform: scaleX(1); opacity: 1; }
+    nav .nav-links a.active::after { transform: scaleX(1); }
+
     nav .nav-user {
       margin-left: auto;
       display: flex;
@@ -179,8 +210,8 @@
       gap: 0.5rem;
       flex-shrink: 0;
       background: var(--surface-2);
-      border: 1px solid #2a3248;
-      border-radius: 10px;
+      border: 1px solid var(--border-mid);
+      border-radius: var(--radius-sm);
       padding: 0.2rem 0.2rem 0.2rem 0.75rem;
     }
     nav .nav-user .username {
@@ -191,13 +222,14 @@
       transition: color 0.15s;
     }
     nav .nav-user .username:hover { color: var(--accent); }
-    /* Hamburger — hidden on desktop */
+
+    /* Hamburger */
     .nav-hamburger {
       display: none;
       margin-left: auto;
       background: transparent;
       border: 1px solid var(--border);
-      border-radius: 8px;
+      border-radius: var(--radius-xs);
       color: var(--text);
       cursor: pointer;
       padding: 0.35rem;
@@ -207,17 +239,13 @@
       transition: border-color 0.15s, color 0.15s;
     }
     .nav-hamburger:hover { border-color: var(--accent); color: var(--accent); }
-    /* Mobile user row inside dropdown */
     .nav-mobile-user { display: none; }
-
-    /* Mobile-only links hidden on desktop */
     .nav-more-mobile-link { display: none; }
-    /* Hide the More dropdown wrapper on mobile */
+
     @media (max-width: 767px) {
       .nav-more { display: none; }
       .nav-more-mobile-link { display: flex; }
     }
-
     @media (max-width: 767px) {
       nav {
         padding: 0 1rem;
@@ -267,13 +295,13 @@
       max-width: 1100px;
       margin: 0 auto;
       padding: 1.5rem;
-      animation: fadeUp 0.25s ease both;
+      animation: fadeUp 0.22s ease both;
     }
     @media (max-width: 480px) {
       .container { padding: 1rem 0.75rem; }
     }
     @keyframes fadeUp {
-      from { opacity: 0; transform: translateY(6px); }
+      from { opacity: 0; transform: translateY(8px); }
       to   { opacity: 1; transform: translateY(0); }
     }
     @keyframes pulse {
@@ -286,7 +314,7 @@
     .card {
       background: var(--surface);
       border: 1px solid var(--border);
-      border-radius: 12px;
+      border-radius: var(--radius);
       padding: 1.25rem;
       box-shadow: var(--shadow-sm);
       position: relative;
@@ -295,9 +323,64 @@
       content: '';
       position: absolute;
       inset: 0;
-      background: linear-gradient(135deg, rgba(255,255,255,0.025) 0%, transparent 55%);
+      background: linear-gradient(145deg, rgba(255,255,255,0.028) 0%, transparent 52%);
       pointer-events: none;
       border-radius: inherit;
+    }
+    /* Highlighted card with left accent edge */
+    .card-accent {
+      border-left: 3px solid var(--accent);
+      padding-left: calc(1.25rem - 2px);
+    }
+    .card-accent-pr {
+      border-left: 3px solid var(--pr);
+      padding-left: calc(1.25rem - 2px);
+    }
+
+    /* ── KPI Stat Cards ──────────────────────────────── */
+    .kpi {
+      display: flex;
+      flex-direction: column;
+      gap: 0.6rem;
+      overflow: hidden;
+    }
+    .kpi-head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 0.5rem;
+    }
+    .kpi-label {
+      font-size: 0.68rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--muted);
+      line-height: 1.3;
+      padding-top: 0.1rem;
+    }
+    .kpi-icon {
+      width: 32px;
+      height: 32px;
+      border-radius: var(--radius-xs);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    .kpi-val {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: clamp(1.7rem, 4.5vw, 2.4rem);
+      font-weight: 700;
+      letter-spacing: -0.03em;
+      line-height: 1;
+    }
+    .kpi-foot {
+      position: absolute;
+      bottom: 0; left: 0; right: 0;
+      height: 2px;
+      opacity: 0.22;
+      border-radius: 0 0 var(--radius) var(--radius);
     }
 
     /* ── Buttons ─────────────────────────────────────── */
@@ -307,7 +390,7 @@
       gap: 0.4rem;
       padding: 0.5rem 1rem;
       min-height: 38px;
-      border-radius: 8px;
+      border-radius: var(--radius-xs);
       border: none;
       cursor: pointer;
       font-size: 0.875rem;
@@ -315,17 +398,27 @@
       font-family: 'Barlow', inherit;
       letter-spacing: 0.01em;
       transition: all 0.15s;
+      white-space: nowrap;
     }
     .btn-primary {
-      background: linear-gradient(135deg, #4f9cf9 0%, #3b82f6 100%);
+      background: linear-gradient(135deg, #4f9cf9 0%, #3278e4 100%);
       color: #fff;
     }
     .btn-primary:hover {
-      background: linear-gradient(135deg, #7ab8fc 0%, #4f9cf9 100%);
-      box-shadow: 0 4px 16px rgba(79,156,249,0.35);
+      background: linear-gradient(135deg, #72b4fb 0%, #4f9cf9 100%);
+      box-shadow: 0 4px 18px rgba(79,156,249,0.38), 0 1px 4px rgba(0,0,0,0.3);
+      transform: translateY(-1px);
+      color: #fff;
+    }
+    .btn-danger {
+      background: var(--danger);
+      color: #fff;
+    }
+    .btn-danger:hover {
+      background: #fb8f8f;
+      box-shadow: 0 4px 14px rgba(248,113,113,0.35);
       transform: translateY(-1px);
     }
-    .btn-danger { background: var(--danger); color: #fff; }
     .btn-ghost {
       background: transparent;
       color: var(--muted);
@@ -333,7 +426,7 @@
     }
     .btn-ghost:hover {
       color: var(--text);
-      border-color: #2a3248;
+      border-color: var(--border-mid);
       background: rgba(255,255,255,0.04);
     }
 
@@ -341,9 +434,9 @@
     input, select, textarea {
       background: var(--bg);
       border: 1px solid var(--border);
-      border-radius: 8px;
+      border-radius: var(--radius-xs);
       color: var(--text);
-      padding: 0.5rem 0.75rem;
+      padding: 0.55rem 0.8rem;
       font-size: 0.875rem;
       font-family: 'Barlow', inherit;
       width: 100%;
@@ -361,7 +454,7 @@
       letter-spacing: 0.06em;
       text-transform: uppercase;
       display: block;
-      margin-bottom: 0.35rem;
+      margin-bottom: 0.4rem;
     }
     .form-group { margin-bottom: 1rem; }
 
@@ -375,14 +468,20 @@
       font-size: 0.68rem;
       text-transform: uppercase;
       letter-spacing: 0.08em;
-      padding: 0.5rem 0.75rem;
+      padding: 0.65rem 0.9rem;
       border-bottom: 1px solid var(--border);
+      background: rgba(255,255,255,0.015);
     }
-    td { padding: 0.65rem 0.75rem; border-bottom: 1px solid var(--border); }
+    td {
+      padding: 0.75rem 0.9rem;
+      border-bottom: 1px solid rgba(30,35,52,0.65);
+    }
     td a { display: block; }
     tr:last-child td { border-bottom: none; }
     tbody tr { transition: background 0.1s; }
-    tbody tr:hover td { background: rgba(255,255,255,0.025); }
+    tbody tr:hover td { background: rgba(255,255,255,0.022); }
+    /* PR cell highlight */
+    td.cell-pr { color: var(--pr); }
 
     /* ── Badges ──────────────────────────────────────── */
     .badge {
@@ -395,13 +494,18 @@
     .badge-pr {
       background: var(--pr-dim);
       color: var(--pr);
-      border: 1px solid rgba(245,158,11,0.3);
+      border: 1px solid rgba(245,158,11,0.28);
       font-family: 'JetBrains Mono', monospace;
     }
     .badge-streak {
       background: rgba(52,211,153,0.1);
       color: var(--success);
-      border: 1px solid rgba(52,211,153,0.25);
+      border: 1px solid rgba(52,211,153,0.28);
+    }
+    .badge-blue {
+      background: var(--accent-dim);
+      color: var(--accent);
+      border: 1px solid rgba(79,156,249,0.25);
     }
 
     /* ── Grids ───────────────────────────────────────── */
@@ -419,6 +523,30 @@
       letter-spacing: 0.1em;
       color: var(--muted);
       margin-bottom: 0.75rem;
+      padding-left: 0.65rem;
+      border-left: 2px solid rgba(79,156,249,0.45);
+      line-height: 1.4;
+    }
+
+    /* ── Page header ─────────────────────────────────── */
+    .page-hd {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+      padding-top: 0.5rem;
+      flex-wrap: wrap;
+    }
+    .page-hd h1 {
+      font-size: 1.45rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+    }
+    .page-hd .subtitle {
+      font-size: 0.825rem;
+      color: var(--muted);
+      margin-top: 0.2rem;
     }
 
     /* ── Steppers ────────────────────────────────────── */
@@ -427,7 +555,7 @@
     .stepper-btn {
       width: 40px;
       height: 40px;
-      border-radius: 8px;
+      border-radius: var(--radius-xs);
       border: 1px solid var(--border);
       background: var(--surface);
       color: var(--text);
@@ -450,21 +578,30 @@
 
     /* ── Flash messages ──────────────────────────────── */
     .flash {
-      padding: 0.75rem 1rem;
-      border-radius: 8px;
+      padding: 0.875rem 1.1rem;
+      border-radius: var(--radius-sm);
       margin-bottom: 1rem;
       font-size: 0.875rem;
+      line-height: 1.5;
     }
     .flash-success {
-      background: rgba(52,211,153,0.08);
-      border: 1px solid rgba(52,211,153,0.25);
+      background: var(--success-dim);
+      border: 1px solid rgba(52,211,153,0.22);
       color: var(--success);
     }
     .flash-error {
-      background: rgba(248,113,113,0.08);
-      border: 1px solid rgba(248,113,113,0.25);
+      background: var(--danger-dim);
+      border: 1px solid rgba(248,113,113,0.22);
       color: var(--danger);
     }
+
+    /* ── Utility ─────────────────────────────────────── */
+    .text-muted { color: var(--muted); }
+    .text-accent { color: var(--accent); }
+    .text-pr     { color: var(--pr); }
+    .text-success{ color: var(--success); }
+    .text-danger { color: var(--danger); }
+    .truncate { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   </style>
   {% block head %}{% endblock %}
 </head>
@@ -489,6 +626,7 @@
           <a href="/metrics">Body Metrics</a>
           <a href="/export">Export</a>
           {% if user.is_admin %}<a href="/invite">Invite</a>{% endif %}
+          <a href="/settings">Settings</a>
         </div>
       </div>
       <!-- Mobile-only flat links (hamburger menu) -->
@@ -496,6 +634,7 @@
       <a href="/metrics" class="nav-more-mobile-link">Body Metrics</a>
       <a href="/export" class="nav-more-mobile-link">Export</a>
       {% if user.is_admin %}<a href="/invite" class="nav-more-mobile-link">Invite</a>{% endif %}
+      <a href="/settings" class="nav-more-mobile-link">Settings</a>
       <div class="nav-mobile-user">
         <a href="/settings" class="username">{{ user.username }}</a>
         <form method="post" action="/logout">
@@ -509,7 +648,7 @@
     <button id="unit-toggle" onclick="toggleUnit()"
             title="Switch between kg and lbs"
             style="background:transparent;border:1px solid var(--border);color:var(--muted);
-                   cursor:pointer;padding:0.2rem 0.55rem;border-radius:6px;font-size:0.72rem;
+                   cursor:pointer;padding:0.2rem 0.6rem;border-radius:var(--radius-xs);font-size:0.72rem;
                    font-family:'JetBrains Mono',monospace;letter-spacing:0.04em;transition:all 0.15s;
                    flex-shrink:0;"
             onmouseover="this.style.color='var(--accent)';this.style.borderColor='var(--accent)'"
@@ -518,7 +657,7 @@
       <a href="/settings" class="username">{{ user.username }}</a>
       <form method="post" action="/logout" style="display:flex;align-items:center;">
         <button type="submit" class="btn btn-ghost"
-                style="min-height:30px;padding:0.3rem 0.7rem;font-size:0.78rem;white-space:nowrap;border-color:#2a3248;color:var(--text);">
+                style="min-height:30px;padding:0.3rem 0.7rem;font-size:0.78rem;white-space:nowrap;border-color:var(--border-mid);color:var(--text);">
           Sign out
         </button>
       </form>
@@ -574,7 +713,6 @@
       var nm = document.getElementById('nav-more');
       if (nm && !nm.contains(e.target)) nm.classList.remove('open');
     });
-    // Mark active in the More dropdown too
     document.querySelectorAll('#nav-more-dropdown a').forEach(function(a) {
       var linkPath = new URL(a.href).pathname;
       var here = location.pathname;
@@ -599,7 +737,6 @@
       var open = links.classList.toggle('nav-open');
       btn.setAttribute('aria-expanded', open);
     }
-    // Close menu when a nav link is tapped on mobile
     document.querySelectorAll('#nav-links a').forEach(function(a) {
       a.addEventListener('click', function() {
         document.getElementById('nav-links').classList.remove('nav-open');

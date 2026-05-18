@@ -2,23 +2,31 @@
 {% block title %}Dashboard — FitStorm{% endblock %}
 {% block content %}
 
-{% macro stat_card(icon, value, label, color="var(--accent)", bg="rgba(79,156,249,0.12)", unit="", kg_raw=none) %}
-<div class="card" style="display:flex;align-items:center;gap:1rem;">
-  <div style="width:42px;height:42px;border-radius:10px;background:{{ bg }};display:flex;align-items:center;justify-content:center;flex-shrink:0;color:{{ color }};">
-    <i data-lucide="{{ icon }}" style="width:20px;height:20px;"></i>
-  </div>
-  <div>
-    <div class="num" style="font-size:clamp(1.5rem,4vw,2.25rem);font-weight:700;letter-spacing:-0.02em;line-height:1;color:{{ color }};">
-      {% if kg_raw is not none %}<span class="weight-display" data-kg="{{ kg_raw }}">{{ "{:,.0f}".format(kg_raw) }} kg</span>{% else %}{{ value }}{% if unit %}<span style="font-size:1rem;font-weight:500;color:var(--muted);">{{ unit }}</span>{% endif %}{% endif %}
+{% macro stat_card(icon, value, label, color="var(--accent)", bg="rgba(79,156,249,0.1)", unit="", kg_raw=none) %}
+<div class="card kpi" style="padding:1.25rem;position:relative;overflow:hidden;">
+  <div class="kpi-foot" style="background:{{ color }};"></div>
+  <div class="kpi-head">
+    <div class="kpi-label">{{ label }}</div>
+    <div class="kpi-icon" style="background:{{ bg }};color:{{ color }};">
+      <i data-lucide="{{ icon }}" style="width:15px;height:15px;"></i>
     </div>
-    <div class="section-title" style="margin:0.2rem 0 0;">{{ label }}</div>
+  </div>
+  <div class="kpi-val" style="color:{{ color }};">
+    {% if kg_raw is not none %}
+      <span class="weight-display" data-kg="{{ kg_raw }}">{{ "{:,.0f}".format(kg_raw) }} kg</span>
+    {% else %}
+      {{ value }}{% if unit %}<span style="font-size:1rem;font-weight:500;color:var(--muted);margin-left:0.2rem;">{{ unit }}</span>{% endif %}
+    {% endif %}
   </div>
 </div>
 {% endmacro %}
 
-<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.5rem;padding-top:0.5rem;">
-  <h1 style="font-size:1.4rem;font-weight:700;letter-spacing:-0.01em;">Dashboard</h1>
-  <div style="display:flex;gap:0.75rem;align-items:center;">
+<div class="page-hd">
+  <div>
+    <h1>Dashboard</h1>
+    <div class="subtitle">Your training at a glance</div>
+  </div>
+  <div style="display:flex;gap:0.75rem;align-items:center;flex-wrap:wrap;">
     {% if streak > 0 %}
     <span class="badge badge-streak">🔥 {{ streak }}-day streak</span>
     {% endif %}
@@ -31,65 +39,72 @@
 </div>
 
 {% if active_workout %}
-<div class="card" style="margin-bottom:1.5rem; display:flex; align-items:center; justify-content:space-between; gap:1rem;">
-  <div style="display:flex; align-items:center; gap:0.75rem;">
-    <span class="session-dot" style="width:8px; height:8px; border-radius:50%; background:var(--accent); flex-shrink:0;"></span>
+<div class="card card-accent" style="margin-bottom:1.5rem;display:flex;align-items:center;justify-content:space-between;gap:1rem;padding:1rem 1.25rem;">
+  <div style="display:flex;align-items:center;gap:0.75rem;">
+    <span class="session-dot" style="width:8px;height:8px;border-radius:50%;background:var(--accent);flex-shrink:0;"></span>
     <div>
-      <div style="font-size:0.875rem; font-weight:600;">Session in progress</div>
-      <div style="font-size:0.8rem; color:var(--muted);">{{ 'Ready to log' if active_workout.set_count == 0 else (active_workout.set_count ~ ' set' ~ ('s' if active_workout.set_count != 1 else '')) }} · {{ active_workout.elapsed_min }} min elapsed</div>
+      <div style="font-size:0.875rem;font-weight:600;">Session in progress</div>
+      <div style="font-size:0.8rem;color:var(--muted);margin-top:0.1rem;">{{ 'Ready to log' if active_workout.set_count == 0 else (active_workout.set_count ~ ' set' ~ ('s' if active_workout.set_count != 1 else '')) }} · {{ active_workout.elapsed_min }} min elapsed</div>
     </div>
   </div>
-  <a href="/workouts/{{ active_workout.id }}" class="btn btn-ghost" style="flex-shrink:0; font-size:0.8rem; min-height:44px;">Continue →</a>
+  <a href="/workouts/{{ active_workout.id }}" class="btn btn-ghost" style="flex-shrink:0;font-size:0.825rem;min-height:40px;">Continue →</a>
 </div>
 {% endif %}
 
-<div class="grid-3" style="margin-bottom:1.5rem;">
-  {{ stat_card("calendar-days", weekly_sessions, "Sessions (7 days)", "inherit") }}
-  {{ stat_card("dumbbell", "", "Volume (7 days)", kg_raw=weekly_volume) }}
+<div class="grid-3" style="margin-bottom:1rem;">
+  {{ stat_card("calendar-days", weekly_sessions, "Sessions this week", "var(--text)") }}
+  {{ stat_card("dumbbell", "", "Volume this week", "var(--accent)", "rgba(79,156,249,0.1)", kg_raw=weekly_volume) }}
   {{ stat_card("activity", prs | length, "Exercises tracked", "var(--pr)", "var(--pr-dim)") }}
 </div>
 
-<div class="grid-2" style="margin-bottom:1.5rem;">
-  {{ stat_card("calendar-check", total_workouts, "Total workouts", "inherit") }}
-  {{ stat_card("dumbbell", "", "Total volume (all-time)", kg_raw=total_volume) }}
+<div class="grid-2" style="margin-bottom:1rem;">
+  {{ stat_card("calendar-check", total_workouts, "Total workouts", "var(--text)") }}
+  {{ stat_card("dumbbell", "", "All-time volume", "var(--success)", "rgba(52,211,153,0.1)", kg_raw=total_volume) }}
 </div>
 
 <div class="grid-2" style="margin-bottom:1.5rem;">
-  {{ stat_card("clock", (avg_duration_min ~ "") if avg_duration_min is not none else "—", "Avg duration (completed)", "inherit", unit=(" min" if avg_duration_min is not none else "")) }}
-  {{ stat_card("trophy", best_streak, "Best streak (all-time)", "inherit", unit=" days") }}
+  {{ stat_card("clock", (avg_duration_min ~ "") if avg_duration_min is not none else "—", "Avg session length", "var(--text)", unit=(" min" if avg_duration_min is not none else "")) }}
+  {{ stat_card("trophy", best_streak, "Best streak", "var(--pr)", "var(--pr-dim)", unit=" days") }}
 </div>
 
 <div style="margin-bottom:1.5rem;">
+  <div class="section-title">Activity — last 52 weeks</div>
   <div class="card">
-    <div class="section-title">Activity — last 52 weeks</div>
     <div style="overflow-x:auto;">{{ heatmap_svg | safe }}</div>
   </div>
 </div>
 
 <div class="grid-2" style="align-items:start;">
   <div>
-    <div class="section-title">Recent Workouts</div>
+    <div class="section-title">Recent workouts</div>
     {% include "dashboard_partial.html" %}
   </div>
   <div>
-    <div class="section-title">Personal Records</div>
-    <div class="card">
+    <div class="section-title">Personal records</div>
+    <div class="card" style="padding:0;overflow:hidden;">
       {% if prs %}
       <table>
         <thead>
-          <tr><th>Exercise</th><th>PR</th></tr>
+          <tr><th>Exercise</th><th>PR weight</th></tr>
         </thead>
         <tbody>
           {% for pr in prs %}
           <tr>
-            <td><a href="/exercises/{{ pr.exercise_id }}" style="color:inherit;text-decoration:none;" onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='inherit'">{{ pr.exercise_name }}</a></td>
-            <td><span class="badge badge-pr weight-display" data-kg="{{ pr.pr_kg }}">{{ pr.pr_kg }} kg</span></td>
+            <td>
+              <a href="/exercises/{{ pr.exercise_id }}"
+                 style="color:inherit;text-decoration:none;font-weight:500;"
+                 onmouseover="this.style.color='var(--accent)'"
+                 onmouseout="this.style.color='inherit'">{{ pr.exercise_name }}</a>
+            </td>
+            <td>
+              <span class="badge badge-pr weight-display" data-kg="{{ pr.pr_kg }}">{{ pr.pr_kg }} kg</span>
+            </td>
           </tr>
           {% endfor %}
         </tbody>
       </table>
       {% else %}
-      <p style="color:var(--muted);font-size:0.875rem;">No sets logged yet.</p>
+      <p style="color:var(--muted);font-size:0.875rem;padding:1.25rem;">No sets logged yet.</p>
       {% endif %}
     </div>
   </div>

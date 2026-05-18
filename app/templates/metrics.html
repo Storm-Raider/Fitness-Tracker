@@ -1,62 +1,66 @@
 {% extends "base.html" %}
 {% block title %}Body Metrics — FitStorm{% endblock %}
 {% block content %}
-<div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:1.25rem; padding-top:0.5rem;">
-  <h1 style="font-size:1.5rem; font-weight:700;">Body Metrics</h1>
+<div class="page-hd">
+  <div>
+    <h1>Body Metrics</h1>
+    <div class="subtitle">Weight & BMI tracking</div>
+  </div>
 </div>
 
 {% if chart_svg %}
-<div class="card" style="margin-bottom:1.5rem;padding:1.25rem 1.5rem 0.75rem;">
-  <div class="section-title" style="margin-bottom:0.75rem;">Weight trend</div>
-  {{ chart_svg | safe }}
+<div style="margin-bottom:1.5rem;">
+  <div class="section-title">Weight trend</div>
+  <div class="card" style="padding:1.25rem 1.5rem 0.75rem;">
+    {{ chart_svg | safe }}
+  </div>
 </div>
 {% endif %}
 
-<div class="grid-2" style="align-items:start; gap:1.5rem;">
-  <div>
+<div class="grid-2" style="align-items:start;gap:1.5rem;">
+  <div style="display:flex;flex-direction:column;gap:1rem;">
+
     <div class="card">
-      <div class="section-title" style="margin-bottom:1rem;">Log Entry</div>
+      <div class="section-title">Log entry</div>
       <div class="form-group">
         <label>Weight (kg)</label>
         <div class="stepper-group">
           <button type="button" class="stepper-btn" onclick="stepMetric(-0.5)">−</button>
           <input type="number" id="weight-input" class="num"
                  value="{{ latest_weight if latest_weight is not none else 75 }}"
-                 step="0.1" min="0" oninput="calcBmi()">
+                 step="0.1" min="0" oninput="calcBmi()" style="text-align:center;">
           <button type="button" class="stepper-btn" onclick="stepMetric(0.5)">+</button>
         </div>
       </div>
       <div id="metric-error" class="flash flash-error" style="display:none;"></div>
       <div id="metric-success" class="flash flash-success" style="display:none;">Entry logged.</div>
-      <button class="btn btn-primary" style="width:100%;" onclick="logMetric()">Log Entry</button>
+      <button class="btn btn-primary" style="width:100%;min-height:48px;" onclick="logMetric()">Log Entry</button>
     </div>
 
-    <div class="card" style="margin-top:1rem;">
-      <div class="section-title" style="margin-bottom:1rem;">BMI</div>
-      <div class="form-group" style="margin-bottom:0.75rem;">
+    <div class="card">
+      <div class="section-title">BMI calculator</div>
+      <div class="form-group" style="margin-bottom:1rem;">
         <label>Height (cm)</label>
         <div class="stepper-group">
           <button type="button" class="stepper-btn" onclick="stepHeight(-1)">−</button>
-          <input type="number" id="height-input" class="num" value="170" step="1" min="100" max="250" oninput="saveAndCalcBmi()">
+          <input type="number" id="height-input" class="num" value="170" step="1" min="100" max="250" oninput="saveAndCalcBmi()" style="text-align:center;">
           <button type="button" class="stepper-btn" onclick="stepHeight(1)">+</button>
         </div>
       </div>
 
-      <!-- Gradient range bar: 15–40, zones at 18.5, 25, 30 -->
-      <div style="margin:1rem 0 0.25rem; position:relative;">
-        <div style="height:8px; border-radius:4px; background:linear-gradient(to right, #60a5fa 0% 14%, #4ade80 14% 40%, #f59e0b 40% 60%, #f87171 60% 100%); position:relative;">
-          <div id="bmi-marker" style="position:absolute; top:50%; width:14px; height:14px; border-radius:50%; background:#fff; border:2px solid #888; transform:translate(-50%,-50%); transition:left 0.15s ease; display:none;"></div>
+      <div style="margin:0.5rem 0 0.35rem;position:relative;">
+        <div style="height:8px;border-radius:4px;background:linear-gradient(to right,#60a5fa 0% 14%,#4ade80 14% 40%,#f59e0b 40% 60%,#f87171 60% 100%);position:relative;">
+          <div id="bmi-marker" style="position:absolute;top:50%;width:14px;height:14px;border-radius:50%;background:#fff;border:2.5px solid #888;transform:translate(-50%,-50%);transition:left 0.2s ease;display:none;box-shadow:0 2px 6px rgba(0,0,0,0.5);"></div>
         </div>
-        <div style="display:flex; justify-content:space-between; margin-top:0.3rem; font-size:0.7rem; color:var(--muted); position:relative;">
-          <span style="position:absolute; left:0%;">15</span>
-          <span style="position:absolute; left:14%;">18.5</span>
-          <span style="position:absolute; left:40%;">25</span>
-          <span style="position:absolute; left:60%;">30</span>
-          <span style="position:absolute; right:0;">40+</span>
+        <div style="display:flex;justify-content:space-between;margin-top:0.35rem;font-size:0.68rem;color:var(--muted);font-family:'JetBrains Mono',monospace;position:relative;height:1.2rem;">
+          <span style="position:absolute;left:0%;">15</span>
+          <span style="position:absolute;left:14%;">18.5</span>
+          <span style="position:absolute;left:40%;">25</span>
+          <span style="position:absolute;left:60%;">30</span>
+          <span style="position:absolute;right:0;">40</span>
         </div>
       </div>
-
-      <div id="bmi-result" style="margin-top:1.75rem; text-align:center; min-height:3.5rem; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:0.35rem;"></div>
+      <div id="bmi-result" style="margin-top:1.75rem;text-align:center;min-height:4rem;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0.4rem;"></div>
     </div>
   </div>
 
@@ -66,13 +70,13 @@
       {% if metrics %}
       <table>
         <thead>
-          <tr><th>Date</th><th>Weight (kg)</th><th style="width:40px;"></th></tr>
+          <tr><th>Date</th><th>Weight</th><th style="width:44px;"></th></tr>
         </thead>
         <tbody>
           {% for m in metrics %}
           <tr id="metric-{{ m.id }}">
-            <td>{{ m.recorded_at[:10] }}</td>
-            <td class="num">{{ m.weight_kg }}</td>
+            <td style="font-weight:500;">{{ m.recorded_at[:10] }}</td>
+            <td class="num">{{ m.weight_kg }} <span style="color:var(--muted);font-size:0.8em;">kg</span></td>
             <td style="padding:0.4rem 0.5rem;text-align:center;">
               <button
                 hx-delete="/metrics/{{ m.id }}"
@@ -91,14 +95,13 @@
         </tbody>
       </table>
       {% else %}
-      <p style="color:var(--muted); font-size:0.875rem; padding:1.25rem;">No entries yet.</p>
+      <p style="color:var(--muted);font-size:0.875rem;padding:1.25rem;">No entries yet.</p>
       {% endif %}
     </div>
   </div>
 </div>
 
 <script>
-// BMI range: 15–40 (25 units). Zone boundaries at 18.5→14%, 25→40%, 30→60%
 const BMI_MIN = 15, BMI_MAX = 40;
 
 function stepMetric(delta) {
@@ -106,71 +109,52 @@ function stepMetric(delta) {
   el.value = Math.max(0, Math.round((parseFloat(el.value || 0) + delta) * 10) / 10);
   calcBmi();
 }
-
 function stepHeight(delta) {
   const el = document.getElementById('height-input');
   el.value = Math.min(250, Math.max(100, parseInt(el.value || 170) + delta));
   saveAndCalcBmi();
 }
-
 function saveAndCalcBmi() {
   const h = document.getElementById('height-input').value;
   if (h) localStorage.setItem('bmi_height_cm', h);
   calcBmi();
 }
-
 function calcBmi() {
   const w = parseFloat(document.getElementById('weight-input').value);
   const hCm = parseFloat(document.getElementById('height-input').value);
   const resultEl = document.getElementById('bmi-result');
   const markerEl = document.getElementById('bmi-marker');
-
-  if (!w || !hCm || hCm <= 0) {
-    resultEl.innerHTML = '';
-    markerEl.style.display = 'none';
-    return;
-  }
-
+  if (!w || !hCm || hCm <= 0) { resultEl.innerHTML = ''; markerEl.style.display = 'none'; return; }
   const bmi = w / Math.pow(hCm / 100, 2);
   const pct = Math.min(100, Math.max(0, (bmi - BMI_MIN) / (BMI_MAX - BMI_MIN) * 100));
-
-  // Position marker
   markerEl.style.left = pct + '%';
   markerEl.style.display = 'block';
-
   let cat, color, bg;
   if (bmi < 18.5)      { cat = 'Underweight'; color = '#60a5fa'; bg = 'rgba(96,165,250,0.12)'; }
   else if (bmi < 25.0) { cat = 'Normal';      color = '#4ade80'; bg = 'rgba(74,222,128,0.12)'; }
   else if (bmi < 30.0) { cat = 'Overweight';  color = '#f59e0b'; bg = 'rgba(245,158,11,0.12)'; }
   else                  { cat = 'Obese';       color = '#f87171'; bg = 'rgba(248,113,113,0.12)'; }
-
-  // Tint the marker to match zone
   markerEl.style.borderColor = color;
-
   resultEl.innerHTML =
-    '<div class="num" style="font-size:2.25rem;font-weight:700;color:' + color + ';line-height:1;">' + bmi.toFixed(1) + '</div>' +
-    '<span class="badge" style="background:' + bg + ';color:' + color + ';font-size:0.8rem;">' + cat + '</span>';
+    '<div class="num" style="font-size:2.4rem;font-weight:700;color:' + color + ';line-height:1;letter-spacing:-0.03em;">' + bmi.toFixed(1) + '</div>' +
+    '<span class="badge" style="background:' + bg + ';color:' + color + ';font-size:0.8rem;border:1px solid ' + color + '33;">' + cat + '</span>';
 }
-
 async function logMetric() {
   const weight = parseFloat(document.getElementById('weight-input').value);
   const errEl = document.getElementById('metric-error');
   const okEl  = document.getElementById('metric-success');
   errEl.style.display = 'none';
   okEl.style.display  = 'none';
-
   if (isNaN(weight) || weight <= 0) {
     errEl.textContent = 'Enter a valid weight.';
     errEl.style.display = 'block';
     return;
   }
-
   const resp = await fetch('/metrics', {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
     body: JSON.stringify({weight_kg: weight, calories: null})
   });
-
   if (resp.ok) {
     okEl.style.display = 'block';
     setTimeout(() => { okEl.style.display = 'none'; }, 3000);
@@ -180,8 +164,6 @@ async function logMetric() {
     errEl.style.display = 'block';
   }
 }
-
-// Restore saved height on load
 (function() {
   const saved = localStorage.getItem('bmi_height_cm');
   if (saved) document.getElementById('height-input').value = saved;

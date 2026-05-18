@@ -1,14 +1,17 @@
 {% extends "base.html" %}
 {% block title %}Cardio — FitStorm{% endblock %}
 {% block content %}
-<div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:1.25rem; padding-top:0.5rem;">
-  <h1 style="font-size:1.5rem; font-weight:700;">Cardio</h1>
+<div class="page-hd">
+  <div>
+    <h1>Cardio</h1>
+    <div class="subtitle">Endurance sessions</div>
+  </div>
 </div>
 
-<div class="grid-2" style="align-items:start; gap:1.5rem;">
+<div class="grid-2" style="align-items:start;gap:1.5rem;">
   <div>
     <div class="card">
-      <div class="section-title" style="margin-bottom:1rem;">Log Session</div>
+      <div class="section-title" style="margin-bottom:1.25rem;">Log session</div>
 
       <div class="form-group">
         <label>Activity</label>
@@ -22,41 +25,41 @@
 
       <div class="form-group">
         <label>Date</label>
-        <input type="date" id="date-input" />
+        <input type="date" id="date-input">
       </div>
 
       <div class="form-group">
         <label>Duration (minutes)</label>
         <div class="stepper-group">
           <button type="button" class="stepper-btn" onclick="stepField('duration', -5)">−</button>
-          <input type="number" id="duration-input" class="num" value="30" min="1" max="1440" step="1">
+          <input type="number" id="duration-input" class="num" value="30" min="1" max="1440" step="1" style="text-align:center;">
           <button type="button" class="stepper-btn" onclick="stepField('duration', 5)">+</button>
         </div>
       </div>
 
       <div class="form-group">
-        <label>Distance — km <span style="color:var(--muted); font-weight:400;">(optional)</span></label>
+        <label>Distance — km <span style="color:var(--muted);font-weight:400;">(optional)</span></label>
         <div class="stepper-group">
           <button type="button" class="stepper-btn" onclick="stepField('distance', -0.5)">−</button>
-          <input type="number" id="distance-input" class="num" placeholder="0.0" min="0" step="0.1">
+          <input type="number" id="distance-input" class="num" placeholder="0.0" min="0" step="0.1" style="text-align:center;">
           <button type="button" class="stepper-btn" onclick="stepField('distance', 0.5)">+</button>
         </div>
       </div>
 
       <div class="form-group">
-        <label>Notes <span style="color:var(--muted); font-weight:400;">(optional)</span></label>
+        <label>Notes <span style="color:var(--muted);font-weight:400;">(optional)</span></label>
         <input type="text" id="notes-input" placeholder="e.g. felt strong, zone 2">
       </div>
 
       <div id="cardio-error" class="flash flash-error" style="display:none;"></div>
       <div id="cardio-success" class="flash flash-success" style="display:none;">Session logged.</div>
-      <button class="btn btn-primary" style="width:100%; min-height:56px;" onclick="logCardio()">Log Session</button>
+      <button class="btn btn-primary" style="width:100%;min-height:52px;" onclick="logCardio()">Log Session</button>
     </div>
   </div>
 
   <div>
-    <div class="section-title" style="margin-bottom:0.75rem;">History</div>
-    <div class="card" style="padding:0; overflow:hidden;">
+    <div class="section-title">History</div>
+    <div class="card" style="padding:0;overflow:hidden;">
       {% if logs %}
       <table>
         <thead>
@@ -66,24 +69,24 @@
             <th>Duration</th>
             <th>Distance</th>
             <th>Pace</th>
-            <th style="width:40px;"></th>
+            <th style="width:44px;"></th>
           </tr>
         </thead>
         <tbody>
           {% for log in logs %}
           <tr id="cardio-{{ log.id }}">
-            <td>{{ log.logged_date }}</td>
+            <td style="font-weight:500;">{{ log.logged_date }}</td>
             <td>{{ log.exercise_name }}</td>
             <td class="num">{{ log.duration_minutes | int }}m</td>
             <td class="num">
               {% if log.distance_km %}{{ "%.1f"|format(log.distance_km) }} km{% else %}—{% endif %}
             </td>
-            <td class="num">
+            <td class="num" style="color:var(--muted);">
               {% if log.distance_km and log.distance_km > 0 %}
                 {{ "%d:%02d"|format((log.duration_minutes / log.distance_km) | int, (((log.duration_minutes / log.distance_km) % 1) * 60) | int) }}/km
               {% else %}—{% endif %}
             </td>
-            <td style="padding:0.4rem 0.5rem; text-align:center;">
+            <td style="padding:0.4rem 0.5rem;text-align:center;">
               <button
                 hx-delete="/cardio/{{ log.id }}"
                 hx-target="#cardio-{{ log.id }}"
@@ -99,7 +102,7 @@
           </tr>
           {% if log.notes %}
           <tr id="cardio-note-{{ log.id }}" style="background:transparent;">
-            <td colspan="6" style="padding-top:0; padding-bottom:0.6rem; color:var(--muted); font-size:0.8rem; font-style:italic;">
+            <td colspan="6" style="padding-top:0;padding-bottom:0.65rem;color:var(--muted);font-size:0.8rem;font-style:italic;">
               {{ log.notes }}
             </td>
           </tr>
@@ -108,14 +111,13 @@
         </tbody>
       </table>
       {% else %}
-      <p style="color:var(--muted); font-size:0.875rem; padding:1.25rem;">No sessions logged yet.</p>
+      <p style="color:var(--muted);font-size:0.875rem;padding:1.25rem;">No sessions logged yet.</p>
       {% endif %}
     </div>
   </div>
 </div>
 
 <script>
-// Default date to today
 document.getElementById('date-input').value = new Date().toISOString().slice(0, 10);
 
 function stepField(field, delta) {

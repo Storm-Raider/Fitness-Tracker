@@ -1,36 +1,34 @@
 {% if workouts %}
 <div style="display:flex;flex-direction:column;gap:0.5rem;">
   {% for w in workouts %}
-  <div id="workout-{{ w.id }}" class="card" style="padding:0;display:flex;align-items:stretch;overflow:hidden;transition:border-color 0.15s,box-shadow 0.15s;"
-       onmouseover="this.style.borderColor='#3d4459';this.style.boxShadow='0 4px 16px rgba(0,0,0,0.4)'"
-       onmouseout="this.style.borderColor='';this.style.boxShadow=''">
-    <a href="/workouts/{{ w.id }}" style="flex:1;min-width:0;text-decoration:none;color:inherit;display:block;padding:1rem 1.25rem;">
-      <div style="display:flex;align-items:center;justify-content:space-between;gap:1rem;">
-        <div style="min-width:0;">
-          <div style="font-weight:600;font-size:0.9rem;margin-bottom:0.2rem;">{{ w.started_at[:10] }}</div>
-          {% if w.notes %}
-          <div style="color:var(--muted);font-size:0.8rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ w.notes }}</div>
-          {% endif %}
+  <div id="workout-{{ w.id }}" style="display:flex;align-items:stretch;border-radius:var(--radius);border:1px solid var(--border);background:var(--surface);overflow:hidden;transition:border-color 0.15s,box-shadow 0.15s;position:relative;"
+       onmouseover="this.style.borderColor='var(--border-mid)';this.style.boxShadow='0 4px 18px rgba(0,0,0,0.45)'"
+       onmouseout="this.style.borderColor='var(--border)';this.style.boxShadow=''">
+    <!-- Left status edge -->
+    <div style="width:3px;flex-shrink:0;background:{% if w.ended_at %}var(--border-mid){% else %}var(--accent){% endif %};"></div>
+    <a href="/workouts/{{ w.id }}" style="flex:1;min-width:0;text-decoration:none;color:inherit;display:flex;align-items:center;padding:0.9rem 1.1rem;gap:1rem;">
+      <div style="flex:1;min-width:0;">
+        <div style="font-weight:600;font-size:0.9rem;letter-spacing:-0.01em;">{{ w.started_at[:10] }}</div>
+        {% if w.notes %}
+        <div style="color:var(--muted);font-size:0.8rem;margin-top:0.1rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ w.notes }}</div>
+        {% elif not w.ended_at %}
+        <div style="color:var(--accent);font-size:0.78rem;margin-top:0.1rem;">In progress</div>
+        {% endif %}
+      </div>
+      <div style="display:flex;align-items:center;gap:1.25rem;flex-shrink:0;">
+        {% if w.set_count > 0 %}
+        <div style="text-align:right;">
+          <div class="num" style="font-size:1.05rem;font-weight:700;letter-spacing:-0.02em;">{{ w.set_count }}</div>
+          <div style="font-size:0.65rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;">sets</div>
         </div>
-        <div style="display:flex;align-items:center;gap:1rem;flex-shrink:0;">
-          {% if w.set_count > 0 %}
-          <div style="text-align:right;">
-            <div class="num" style="font-size:1rem;font-weight:700;">{{ w.set_count }}</div>
-            <div style="font-size:0.7rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.05em;">sets</div>
-          </div>
-          {% endif %}
-          {% if w.duration_min is not none %}
-          <div style="text-align:right;">
-            <div class="num" style="font-size:1rem;font-weight:700;color:var(--accent);">{{ w.duration_min }}</div>
-            <div style="font-size:0.7rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.05em;">min</div>
-          </div>
-          {% elif w.set_count == 0 %}
-          <div style="font-size:0.8rem;color:var(--muted);">In progress</div>
-          {% endif %}
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <polyline points="9 18 15 12 9 6"/>
-          </svg>
+        {% endif %}
+        {% if w.duration_min is not none %}
+        <div style="text-align:right;">
+          <div class="num" style="font-size:1.05rem;font-weight:700;letter-spacing:-0.02em;color:var(--accent);">{{ w.duration_min }}</div>
+          <div style="font-size:0.65rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;">min</div>
         </div>
+        {% endif %}
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--border-mid)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
       </div>
     </a>
     {% if w.set_count > 0 and w.ended_at %}
@@ -57,7 +55,7 @@
   {% endfor %}
 </div>
 {% else %}
-<div class="card">
-  <p style="color:var(--muted);font-size:0.875rem;">No workouts yet. Hit <strong>+ New Workout</strong> to begin.</p>
+<div class="card" style="text-align:center;padding:2.5rem 1.25rem;">
+  <p style="color:var(--muted);font-size:0.875rem;">No workouts logged yet. Hit <strong>Start Session</strong> to begin.</p>
 </div>
 {% endif %}

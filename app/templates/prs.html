@@ -1,18 +1,20 @@
 {% extends "base.html" %}
 {% block title %}Personal Records — FitStorm{% endblock %}
 {% block content %}
-<div style="margin-bottom:1.5rem;padding-top:0.5rem;">
-  <h1 style="font-size:1.4rem;font-weight:700;letter-spacing:-0.01em;">Personal Records</h1>
-  <p style="color:var(--muted);font-size:0.875rem;margin-top:0.25rem;">All-time bests, every lift.</p>
+<div class="page-hd">
+  <div>
+    <h1>Personal Records</h1>
+    <div class="subtitle">All-time bests, every lift</div>
+  </div>
 </div>
 
 {% if records %}
-<div class="card">
+<div class="card" style="padding:0;overflow:hidden;">
   <table>
     <thead>
       <tr>
         <th>Exercise</th>
-        <th>PR</th>
+        <th>PR weight</th>
         <th>Est. 1RM</th>
         <th>Sessions</th>
         <th>Total sets</th>
@@ -21,9 +23,17 @@
     <tbody>
       {% for r in records %}
       <tr>
-        <td><a href="/exercises/{{ r.id }}">{{ r.name }}</a></td>
-        <td><span class="num badge badge-pr weight-display" data-kg="{{ r.pr_kg }}">{{ r.pr_kg }} kg</span></td>
-        <td class="num" style="color:var(--muted);"><span class="weight-display" data-kg="{{ r.est_1rm }}">{{ r.est_1rm }} kg</span></td>
+        <td style="font-weight:500;">
+          <a href="/exercises/{{ r.id }}" style="color:inherit;text-decoration:none;"
+             onmouseover="this.style.color='var(--accent)'"
+             onmouseout="this.style.color='inherit'">{{ r.name }}</a>
+        </td>
+        <td>
+          <span class="badge badge-pr num weight-display" data-kg="{{ r.pr_kg }}">{{ r.pr_kg }} kg</span>
+        </td>
+        <td class="num" style="color:var(--muted);">
+          <span class="weight-display" data-kg="{{ r.est_1rm }}">{{ r.est_1rm }} kg</span>
+        </td>
         <td class="num">{{ r.sessions }}</td>
         <td class="num" style="color:var(--muted);">{{ r.total_sets }}</td>
       </tr>
@@ -32,9 +42,10 @@
   </table>
 </div>
 {% else %}
-<div class="card" style="text-align:center;padding:3rem 1.25rem;">
-  <p style="color:var(--muted);font-size:0.9rem;">No sets logged yet — your records will appear here.</p>
-  <a href="/workouts" class="btn btn-primary" style="margin-top:1rem;">Start a workout</a>
+<div class="card" style="text-align:center;padding:3.5rem 1.25rem;">
+  <i data-lucide="trophy" style="width:36px;height:36px;color:var(--muted);margin-bottom:1rem;"></i>
+  <p style="color:var(--muted);font-size:0.9rem;">No sets logged yet — your records appear here.</p>
+  <a href="/workouts" class="btn btn-primary" style="margin-top:1.25rem;">Start a workout</a>
 </div>
 {% endif %}
 {% endblock %}

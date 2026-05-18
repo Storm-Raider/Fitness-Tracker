@@ -1,24 +1,24 @@
 <div id="recent-workouts">
   {% if workouts %}
-  <div style="display:flex;flex-direction:column;gap:0.5rem;">
+  <div style="display:flex;flex-direction:column;gap:0.4rem;">
     {% for w in workouts %}
     <a href="/workouts/{{ w.id }}" style="display:block;text-decoration:none;color:inherit;">
-      <div class="card" style="padding:0.875rem 1rem;transition:border-color 0.15s,box-shadow 0.15s;"
-           onmouseover="this.style.borderColor='#3d4459';this.style.boxShadow='0 4px 16px rgba(0,0,0,0.4)'"
-           onmouseout="this.style.borderColor='';this.style.boxShadow=''">
-        <div style="display:flex;align-items:center;justify-content:space-between;gap:0.75rem;">
-          <div style="font-weight:600;font-size:0.875rem;">{{ w.started_at[:10] }}</div>
-          <div style="display:flex;align-items:center;gap:0.75rem;flex-shrink:0;">
-            {% if w.set_count > 0 %}
-            <span style="font-size:0.8rem;color:var(--muted);">{{ w.set_count }} sets</span>
-            {% endif %}
-            {% if w.notes %}
-            <span style="font-size:0.8rem;color:var(--muted);max-width:120px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ w.notes }}</span>
-            {% endif %}
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <polyline points="9 18 15 12 9 6"/>
-            </svg>
-          </div>
+      <div style="display:flex;align-items:center;gap:0.85rem;padding:0.85rem 1rem;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);transition:border-color 0.15s,background 0.15s;position:relative;overflow:hidden;"
+           onmouseover="this.style.borderColor='var(--border-mid)';this.style.background='var(--surface-hover)'"
+           onmouseout="this.style.borderColor='var(--border)';this.style.background='var(--surface)'">
+        <!-- Left accent -->
+        <div style="position:absolute;left:0;top:0;bottom:0;width:3px;background:{% if w.ended_at %}var(--border-mid){% else %}var(--accent){% endif %};"></div>
+        <div style="padding-left:0.25rem;flex:1;min-width:0;">
+          <div style="font-weight:600;font-size:0.875rem;letter-spacing:-0.01em;">{{ w.started_at[:10] }}</div>
+          {% if w.notes %}
+          <div style="font-size:0.78rem;color:var(--muted);margin-top:0.1rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ w.notes }}</div>
+          {% endif %}
+        </div>
+        <div style="display:flex;align-items:center;gap:0.75rem;flex-shrink:0;">
+          {% if w.set_count > 0 %}
+          <span style="font-size:0.8rem;color:var(--muted);">{{ w.set_count }} sets</span>
+          {% endif %}
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--border-mid)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
         </div>
       </div>
     </a>
@@ -26,7 +26,7 @@
   </div>
   {% else %}
   <div class="card">
-    <p style="color:var(--muted);font-size:0.875rem;">No workouts logged yet. <a href="/workouts">Start one!</a></p>
+    <p style="color:var(--muted);font-size:0.875rem;">No workouts logged yet. <a href="/workouts">Start one →</a></p>
   </div>
   {% endif %}
 </div>

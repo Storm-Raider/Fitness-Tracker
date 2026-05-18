@@ -1,26 +1,28 @@
 {% extends "base.html" %}
 {% block title %}Stats — FitStorm{% endblock %}
 {% block content %}
-<div style="margin-bottom:1.5rem;padding-top:0.5rem;">
-  <h1 style="font-size:1.4rem;font-weight:700;letter-spacing:-0.01em;">Stats</h1>
-  <p style="color:var(--muted);font-size:0.875rem;margin-top:0.25rem;">The arc of your training.</p>
+<div class="page-hd">
+  <div>
+    <h1>Stats</h1>
+    <div class="subtitle">The arc of your training</div>
+  </div>
 </div>
 
 <div style="margin-bottom:1.5rem;">
+  <div class="section-title">Weekly volume — last 12 weeks</div>
   <div class="card">
-    <div class="section-title" style="margin-bottom:0.75rem;">Weekly volume — last 12 weeks</div>
     {% if volume_sparkline %}
     <div style="overflow-x:auto;">{{ volume_sparkline | safe }}</div>
     {% else %}
-    <p style="color:var(--muted);font-size:0.875rem;">Your training arc appears here after a couple of weeks of sessions. <a href="/workouts" style="color:var(--accent);">Start a session →</a></p>
+    <p style="color:var(--muted);font-size:0.875rem;padding:0.25rem 0;">Your training arc appears here after a couple of weeks of sessions. <a href="/workouts">Start a session →</a></p>
     {% endif %}
   </div>
 </div>
 
 {% if plateaus %}
 <div style="margin-bottom:1.5rem;">
-  <div class="section-title" style="margin-bottom:0.75rem;">Plateaus — no progress in 3+ weeks</div>
-  <div class="card">
+  <div class="section-title">Plateaus — no progress in 3+ weeks</div>
+  <div class="card" style="padding:0;overflow:hidden;">
     <table>
       <thead>
         <tr><th>Exercise</th><th>Current max</th><th>Sessions</th></tr>
@@ -28,9 +30,11 @@
       <tbody>
         {% for p in plateaus %}
         <tr>
-          <td>{{ p.name }}</td>
-          <td><span class="num weight-display" style="color:var(--pr);" data-kg="{{ p.pr_kg }}">{{ p.pr_kg }} kg</span></td>
-          <td style="color:var(--muted);">{{ p.session_count }}</td>
+          <td style="font-weight:500;">{{ p.name }}</td>
+          <td class="num" style="color:var(--pr);">
+            <span class="weight-display" data-kg="{{ p.pr_kg }}">{{ p.pr_kg }} kg</span>
+          </td>
+          <td class="num" style="color:var(--muted);">{{ p.session_count }}</td>
         </tr>
         {% endfor %}
       </tbody>
@@ -41,16 +45,16 @@
 
 {% if weekly_muscle_sets %}
 <div style="margin-bottom:1.5rem;">
-  <div class="section-title" style="margin-bottom:0.75rem;">Sets per muscle — this week</div>
+  <div class="section-title">Sets per muscle — this week</div>
   <div class="card">
-    <div style="display:flex;flex-direction:column;gap:0.5rem;">
+    <div style="display:flex;flex-direction:column;gap:0.7rem;">
       {% for m in weekly_muscle_sets %}
-      <div style="display:flex;align-items:center;gap:0.75rem;">
-        <div style="width:9rem;font-size:0.8rem;color:var(--muted);flex-shrink:0;">{{ m.muscle }}</div>
-        <div style="flex:1;background:var(--surface-2);border-radius:4px;height:8px;overflow:hidden;">
-          <div style="height:100%;border-radius:4px;background:var(--accent);width:{{ (m.set_count / weekly_muscle_sets[0].set_count * 100) | round | int }}%;transition:width 0.3s;"></div>
+      <div style="display:flex;align-items:center;gap:0.9rem;">
+        <div style="width:8.5rem;font-size:0.8rem;color:var(--muted-hi);flex-shrink:0;font-weight:500;">{{ m.muscle }}</div>
+        <div style="flex:1;background:var(--surface-2);border-radius:4px;height:7px;overflow:hidden;">
+          <div style="height:100%;border-radius:4px;background:linear-gradient(90deg,var(--accent),rgba(79,156,249,0.6));width:{{ (m.set_count / weekly_muscle_sets[0].set_count * 100) | round | int }}%;transition:width 0.4s ease;"></div>
         </div>
-        <div class="num" style="font-size:0.8rem;font-weight:600;color:var(--text);width:2.5rem;text-align:right;flex-shrink:0;">{{ m.set_count }}</div>
+        <div class="num" style="font-size:0.82rem;font-weight:700;color:var(--text);width:2rem;text-align:right;flex-shrink:0;">{{ m.set_count }}</div>
       </div>
       {% endfor %}
     </div>
@@ -60,8 +64,8 @@
 
 <div class="grid-2" style="align-items:start;">
   <div>
-    <div class="section-title" style="margin-bottom:0.75rem;">Top exercises (all time)</div>
-    <div class="card">
+    <div class="section-title">Top exercises — all time</div>
+    <div class="card" style="padding:0;overflow:hidden;">
       {% if top_exercises %}
       <table>
         <thead>
@@ -70,44 +74,42 @@
         <tbody>
           {% for ex in top_exercises %}
           <tr>
-            <td>{{ ex.name }}</td>
-            <td>
-              <span style="font-variant-numeric:tabular-nums;font-weight:600;">{{ ex.set_count }}</span>
-            </td>
+            <td style="font-weight:500;">{{ ex.name }}</td>
+            <td class="num" style="font-weight:600;">{{ ex.set_count }}</td>
           </tr>
           {% endfor %}
         </tbody>
       </table>
       {% else %}
-      <p style="color:var(--muted);font-size:0.875rem;">No sets logged yet.</p>
+      <p style="color:var(--muted);font-size:0.875rem;padding:1.25rem;">No sets logged yet.</p>
       {% endif %}
     </div>
   </div>
 
   <div>
-    <div class="section-title" style="margin-bottom:0.75rem;">Muscle coverage — this week</div>
+    <div class="section-title">Muscle coverage — this week</div>
     <div class="card">
       {% if primary_muscles or secondary_muscles %}
-      {% if primary_muscles %}
-      <div style="margin-bottom:0.75rem;">
-        <div style="font-size:0.75rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:0.4rem;">Primary</div>
-        <div style="display:flex;flex-wrap:wrap;gap:0.4rem;">
-          {% for m in primary_muscles %}
-          <span class="badge" style="background:rgba(79,156,249,0.12);color:var(--accent);">{{ m }}</span>
-          {% endfor %}
+        {% if primary_muscles %}
+        <div style="margin-bottom:0.9rem;">
+          <div style="font-size:0.68rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.07em;margin-bottom:0.45rem;font-weight:700;">Primary</div>
+          <div style="display:flex;flex-wrap:wrap;gap:0.4rem;">
+            {% for m in primary_muscles %}
+            <span class="badge badge-blue">{{ m }}</span>
+            {% endfor %}
+          </div>
         </div>
-      </div>
-      {% endif %}
-      {% if secondary_muscles %}
-      <div>
-        <div style="font-size:0.75rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:0.4rem;">Secondary</div>
-        <div style="display:flex;flex-wrap:wrap;gap:0.4rem;">
-          {% for m in secondary_muscles %}
-          <span class="badge" style="background:rgba(255,255,255,0.05);color:var(--muted);">{{ m }}</span>
-          {% endfor %}
+        {% endif %}
+        {% if secondary_muscles %}
+        <div>
+          <div style="font-size:0.68rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.07em;margin-bottom:0.45rem;font-weight:700;">Secondary</div>
+          <div style="display:flex;flex-wrap:wrap;gap:0.4rem;">
+            {% for m in secondary_muscles %}
+            <span class="badge" style="background:rgba(255,255,255,0.05);color:var(--muted);">{{ m }}</span>
+            {% endfor %}
+          </div>
         </div>
-      </div>
-      {% endif %}
+        {% endif %}
       {% else %}
       <p style="color:var(--muted);font-size:0.875rem;">No workouts logged this week.</p>
       {% endif %}
