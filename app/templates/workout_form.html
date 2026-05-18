@@ -564,6 +564,11 @@ function selectExercise(id, name) {
   const input = document.getElementById('exercise-input');
   const dropdown = document.getElementById('exercise-dropdown');
   let activeIdx = -1;
+  let _touching = false; // true while pointer is inside dropdown
+
+  // Prevent blur from closing dropdown when user is scrolling or tapping inside it
+  dropdown.addEventListener('mousedown', () => { _touching = true; });
+  dropdown.addEventListener('touchstart', () => { _touching = true; }, {passive: true});
 
   function renderDropdown(matches, q) {
     if (!matches.length) { dropdown.style.display = 'none'; return; }
@@ -573,14 +578,9 @@ function selectExercise(id, name) {
     activeIdx = -1;
     dropdown.style.display = 'block';
     dropdown.querySelectorAll('.ex-option').forEach(el => {
-      el.addEventListener('mousedown', ev => {
-        ev.preventDefault();
+      el.addEventListener('click', () => {
         selectExercise(parseInt(el.dataset.id), el.dataset.name);
       });
-      el.addEventListener('touchstart', ev => {
-        ev.preventDefault();
-        selectExercise(parseInt(el.dataset.id), el.dataset.name);
-      }, {passive: false});
     });
   }
 
@@ -623,7 +623,12 @@ function selectExercise(id, name) {
     }
   });
 
-  input.addEventListener('blur', () => setTimeout(() => { dropdown.style.display = 'none'; }, 150));
+  input.addEventListener('blur', () => {
+    setTimeout(() => {
+      if (!_touching) dropdown.style.display = 'none';
+      _touching = false;
+    }, 200);
+  });
   input.addEventListener('focus', function() {
     if (this.value.trim()) this.dispatchEvent(new Event('input'));
   });
