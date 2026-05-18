@@ -1174,15 +1174,37 @@ window.addEventListener('unitchange', function(e) {
 });
 
 // ── Rest timer ────────────────────────────────────────────────
-const TIMER_DEFAULT = 120;
-const TIMER_MAX     = 600;
-const RING_C        = 2 * Math.PI * 22; // r=22 → ≈138.23
-let timerTotal      = TIMER_DEFAULT;
-let timerRemaining  = TIMER_DEFAULT;
-let timerInterval   = null;
+const TIMER_KEY = 'fitstorm_rest_s';
+const TIMER_MAX = 600;
+const RING_C    = 2 * Math.PI * 22; // r=22 → ≈138.23
+let timerTotal     = 120;
+let timerRemaining = 120;
+let timerInterval  = null;
+
+function _timerDefault() {
+  return Math.min(TIMER_MAX, Math.max(10, parseInt(localStorage.getItem(TIMER_KEY) || '120')));
+}
+
+function _beep() {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    [0, 0.22, 0.44].forEach(t => {
+      const osc  = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain); gain.connect(ctx.destination);
+      osc.type = 'sine'; osc.frequency.value = 880;
+      gain.gain.setValueAtTime(0, ctx.currentTime + t);
+      gain.gain.linearRampToValueAtTime(0.35, ctx.currentTime + t + 0.025);
+      gain.gain.linearRampToValueAtTime(0, ctx.currentTime + t + 0.18);
+      osc.start(ctx.currentTime + t);
+      osc.stop(ctx.currentTime + t + 0.2);
+    });
+  } catch {}
+  if (navigator.vibrate) navigator.vibrate([180, 90, 180, 90, 180]);
+}
 
 function startTimer() {
-  timerTotal = timerRemaining = TIMER_DEFAULT;
+  timerTotal = timerRemaining = _timerDefault();
   const bar = document.getElementById('rest-timer');
   bar.style.display = 'flex';
   document.getElementById('timer-ring').style.stroke = 'var(--accent)';
@@ -1193,9 +1215,10 @@ function startTimer() {
     updateTimerDisplay();
     if (timerRemaining === 0) {
       clearInterval(timerInterval);
+      _beep();
       document.getElementById('timer-ring').style.stroke = 'var(--success)';
       document.getElementById('timer-display').textContent = 'Done!';
-      setTimeout(stopTimer, 2000);
+      setTimeout(stopTimer, 2500);
     }
   }, 1000);
 }
@@ -1206,8 +1229,9 @@ function stopTimer() {
 }
 
 function adjustTimer(delta) {
-  timerRemaining = Math.min(TIMER_MAX, Math.max(0, timerRemaining + delta));
+  timerRemaining = Math.min(TIMER_MAX, Math.max(10, timerRemaining + delta));
   timerTotal     = timerRemaining;
+  localStorage.setItem(TIMER_KEY, timerRemaining);
   document.getElementById('timer-ring').style.stroke = 'var(--accent)';
   updateTimerDisplay();
 }
