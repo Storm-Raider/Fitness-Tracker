@@ -101,6 +101,15 @@
   </div>
 </div>
 
+{% if muscle_bar_svg %}
+<div style="margin-bottom:1.5rem;">
+  <div class="section-title">Muscle split — this week</div>
+  <div class="card" style="padding:1.1rem 1.25rem;">
+    {{ muscle_bar_svg | safe }}
+  </div>
+</div>
+{% endif %}
+
 <div style="margin-bottom:1.5rem;">
   <div class="section-title">Activity — last 52 weeks</div>
   <div class="card">

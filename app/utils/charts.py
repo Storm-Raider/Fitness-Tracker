@@ -60,6 +60,60 @@ def generate_weekly_bar_chart(
     return "".join(parts)
 
 
+def generate_muscle_bars(muscle_volumes: list[tuple[str, float]]) -> str:
+    """Return an inline SVG horizontal bar chart for muscle group volume breakdown."""
+    if not muscle_volumes:
+        return ""
+
+    COLORS = ["#4f9cf9", "#f59e0b", "#34d399", "#f472b6", "#a78bfa", "#fb923c", "#67e8f9", "#86efac"]
+    W      = 420
+    ROW_H  = 22
+    GAP    = 8
+    PAD_L  = 108
+    PAD_R  = 52
+    n      = len(muscle_volumes)
+    H      = n * (ROW_H + GAP) - GAP
+    bar_W  = W - PAD_L - PAD_R
+    max_v  = max(v for _, v in muscle_volumes) or 1
+    total  = sum(v for _, v in muscle_volumes) or 1
+    font   = "Inter,system-ui,sans-serif"
+    mono   = "JetBrains Mono,monospace"
+
+    parts = [
+        f'<svg viewBox="0 0 {W} {H}" xmlns="http://www.w3.org/2000/svg" '
+        f'style="width:100%;height:auto;display:block;">'
+    ]
+
+    for i, (muscle, vol) in enumerate(muscle_volumes):
+        cy   = i * (ROW_H + GAP) + ROW_H / 2
+        bar_y = cy - 7
+        fill_w = max(4.0, (vol / max_v) * bar_W)
+        pct   = round(vol / total * 100)
+        color = COLORS[i % len(COLORS)]
+
+        parts.append(
+            f'<text x="{PAD_L - 8}" y="{cy:.1f}" font-size="10" fill="#7a8a9a" '
+            f'font-family="{font}" text-anchor="end" dominant-baseline="middle">'
+            f'{muscle}</text>'
+        )
+        parts.append(
+            f'<rect x="{PAD_L}" y="{bar_y:.1f}" width="{bar_W}" height="14" '
+            f'rx="3" fill="#151c2c"/>'
+        )
+        parts.append(
+            f'<rect x="{PAD_L}" y="{bar_y:.1f}" width="{fill_w:.1f}" height="14" '
+            f'rx="3" fill="{color}" opacity="0.82">'
+            f'<title>{muscle}: {vol:,.0f} kg</title></rect>'
+        )
+        parts.append(
+            f'<text x="{PAD_L + bar_W + 8}" y="{cy:.1f}" font-size="9.5" fill="#7a8a9a" '
+            f'font-family="{mono}" dominant-baseline="middle">{pct}%</text>'
+        )
+
+    parts.append("</svg>")
+    return "".join(parts)
+
+
 def generate_sparkline(
     values: list[float],
     labels: list[str] | None = None,

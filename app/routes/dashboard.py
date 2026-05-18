@@ -4,7 +4,7 @@ from fastapi.responses import HTMLResponse
 
 from app.db import get_db
 from app.routes.auth import get_current_user
-from app.utils.charts import generate_weekly_bar_chart
+from app.utils.charts import generate_muscle_bars, generate_weekly_bar_chart
 from app.utils.heatmap import generate_heatmap_svg
 from app.utils.render import render, templates
 from app.utils.streak import compute_streak, max_streak
@@ -175,6 +175,24 @@ async def dashboard(
     else:
         volume_delta_pct = None
 
+    # Muscle group volume breakdown for the past 7 days
+    async with conn.execute(
+        """
+        SELECT em.muscle, ROUND(SUM(s.weight_kg * s.reps), 1) AS volume_kg
+        FROM sets s
+        JOIN workouts w  ON w.id  = s.workout_id
+        JOIN exercise_muscles em ON em.exercise_id = s.exercise_id AND em.is_primary = 1
+        WHERE s.user_id = ?
+          AND DATE(w.started_at, 'localtime') >= DATE('now', '-6 days', 'localtime')
+        GROUP BY em.muscle
+        ORDER BY volume_kg DESC
+        LIMIT 8
+        """,
+        (uid,),
+    ) as cur:
+        muscle_vols = [(r["muscle"], r["volume_kg"]) for r in await cur.fetchall()]
+    muscle_bar_svg = generate_muscle_bars(muscle_vols)
+
     # Recent PRs — exercises where the all-time max was matched within the last 30 days
     async with conn.execute(
         """
@@ -223,6 +241,7 @@ async def dashboard(
             "best_streak": best_streak,
             "active_workout": active_workout,
             "weekly_bar_svg": weekly_bar_svg,
+            "muscle_bar_svg": muscle_bar_svg,
             "volume_delta_pct": volume_delta_pct,
             "last_week_sessions": last_week_sessions,
             "user": dict(current_user),
