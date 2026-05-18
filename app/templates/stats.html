@@ -4,15 +4,23 @@
 <div class="page-hd">
   <div>
     <h1>Stats</h1>
-    <div class="subtitle">The arc of your training</div>
+    <div class="subtitle">
+      {{ weekly_rows | length }} week{{ 's' if weekly_rows | length != 1 }}
+      {% if pr_timeline %} · {{ pr_timeline | length }}{% if pr_timeline | length == 120 %}+{% endif %} PRs{% endif %}
+      {% if muscle_recovery %} · {{ muscle_recovery | length }} muscles tracked{% endif %}
+    </div>
   </div>
 </div>
 
+{# ── 1. Volume trend ─────────────────────────────────────────────── #}
 <div style="margin-bottom:1.5rem;">
-  <div class="section-title">Weekly volume — last 12 weeks</div>
-  <div class="card">
-    {% if volume_sparkline %}
-    <div style="overflow-x:auto;">{{ volume_sparkline | safe }}</div>
+  <div class="section-title">Volume — last 12 weeks</div>
+  <div class="card" style="padding:0.85rem 1.25rem 0.65rem;">
+    {% if weekly_rows %}
+    <div id="vol-chart-wrap" style="position:relative;">
+      <canvas id="vol-chart" style="display:block;width:100%;cursor:crosshair;"></canvas>
+      <div id="vol-chart-tip" style="display:none;position:absolute;top:4px;background:var(--surface-2);border:1px solid var(--border-mid);border-radius:var(--radius-xs);padding:0.4rem 0.6rem;pointer-events:none;z-index:10;white-space:nowrap;box-shadow:0 4px 16px rgba(0,0,0,0.4);"></div>
+    </div>
     {% else %}
     <div style="display:flex;flex-direction:column;align-items:center;text-align:center;padding:1.5rem 0 0.75rem;gap:0.7rem;">
       <div style="width:48px;height:48px;border-radius:50%;background:rgba(255,255,255,0.04);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;">
@@ -25,22 +33,136 @@
   </div>
 </div>
 
-{% if plateaus %}
+{# ── 2. Muscle recovery ──────────────────────────────────────────── #}
+{% if muscle_recovery %}
 <div style="margin-bottom:1.5rem;">
-  <div class="section-title">Plateaus — no progress in 3+ weeks</div>
+  <div class="section-title">Muscle recovery</div>
+  <div class="card" style="padding:1rem 1.25rem;">
+    <div style="display:flex;flex-wrap:wrap;gap:0.5rem;">
+      {% for m in muscle_recovery %}
+      {% if m.days_ago <= 1 %}
+        {% set bg = "rgba(248,113,113,0.1)" %}
+        {% set border = "rgba(248,113,113,0.3)" %}
+        {% set color = "var(--danger)" %}
+        {% set label = "fatigued" %}
+      {% elif m.days_ago <= 3 %}
+        {% set bg = "rgba(245,158,11,0.1)" %}
+        {% set border = "rgba(245,158,11,0.3)" %}
+        {% set color = "#f59e0b" %}
+        {% set label = "recovering" %}
+      {% else %}
+        {% set bg = "rgba(52,211,153,0.1)" %}
+        {% set border = "rgba(52,211,153,0.3)" %}
+        {% set color = "var(--success)" %}
+        {% set label = "fresh" %}
+      {% endif %}
+      <div style="background:{{ bg }};border:1px solid {{ border }};border-radius:var(--radius-xs);padding:0.35rem 0.7rem;display:flex;flex-direction:column;align-items:center;gap:0.1rem;min-width:72px;"
+           title="{{ m.muscle }}: last trained {{ m.last_date }}">
+        <span style="font-size:0.78rem;font-weight:600;color:{{ color }};">{{ m.muscle }}</span>
+        <span style="font-size:0.65rem;color:{{ color }};opacity:0.8;font-family:'JetBrains Mono',monospace;">
+          {% if m.days_ago == 0 %}today{% elif m.days_ago == 1 %}1 day{% else %}{{ m.days_ago }}d{% endif %}
+        </span>
+      </div>
+      {% endfor %}
+    </div>
+    <div style="display:flex;gap:1.25rem;margin-top:0.85rem;flex-wrap:wrap;">
+      <span style="font-size:0.7rem;color:var(--success);display:flex;align-items:center;gap:0.3rem;"><span style="width:8px;height:8px;background:rgba(52,211,153,0.6);border-radius:50%;display:inline-block;"></span>Fresh (4+ days)</span>
+      <span style="font-size:0.7rem;color:#f59e0b;display:flex;align-items:center;gap:0.3rem;"><span style="width:8px;height:8px;background:rgba(245,158,11,0.6);border-radius:50%;display:inline-block;"></span>Recovering (2–3 days)</span>
+      <span style="font-size:0.7rem;color:var(--danger);display:flex;align-items:center;gap:0.3rem;"><span style="width:8px;height:8px;background:rgba(248,113,113,0.6);border-radius:50%;display:inline-block;"></span>Fatigued (0–1 days)</span>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+{# ── 3. PR timeline ──────────────────────────────────────────────── #}
+{% if pr_timeline %}
+<div style="margin-bottom:1.5rem;">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.6rem;flex-wrap:wrap;gap:0.5rem;">
+    <div class="section-title" style="margin-bottom:0;">PR timeline</div>
+    <div style="position:relative;">
+      <i data-lucide="search" style="position:absolute;left:0.6rem;top:50%;transform:translateY(-50%);width:12px;height:12px;color:var(--muted);pointer-events:none;"></i>
+      <input id="pr-tl-search" type="search" placeholder="Filter exercise…"
+             oninput="filterTimeline()"
+             style="padding:0.28rem 0.7rem 0.28rem 2rem;font-size:0.78rem;border-radius:var(--radius-xs);min-width:170px;height:32px;">
+    </div>
+  </div>
+  <div class="card" style="padding:0;overflow:hidden;">
+    <table id="pr-tl-table">
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th>Exercise</th>
+          <th>Weight</th>
+        </tr>
+      </thead>
+      <tbody id="pr-tl-tbody">
+        {% for pr in pr_timeline %}
+        <tr data-name="{{ pr.exercise_name | lower }}">
+          <td style="white-space:nowrap;font-family:'JetBrains Mono',monospace;font-size:0.78rem;color:var(--muted);">{{ pr.date }}</td>
+          <td style="font-weight:500;">
+            <a href="/exercises/{{ pr.exercise_id }}" style="color:inherit;text-decoration:none;"
+               onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='inherit'">{{ pr.exercise_name }}</a>
+          </td>
+          <td>
+            <span class="badge badge-pr weight-display" data-kg="{{ pr.max_kg }}">{{ pr.max_kg }} kg</span>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    <div id="pr-tl-empty" style="display:none;text-align:center;padding:1.25rem;color:var(--muted);font-size:0.875rem;">No PRs match your search.</div>
+  </div>
+</div>
+<script>
+function filterTimeline() {
+  const q = document.getElementById('pr-tl-search').value.toLowerCase();
+  let vis = 0;
+  document.querySelectorAll('#pr-tl-tbody tr').forEach(row => {
+    const show = !q || row.dataset.name.includes(q);
+    row.style.display = show ? '' : 'none';
+    if (show) vis++;
+  });
+  document.getElementById('pr-tl-empty').style.display = vis === 0 ? 'block' : 'none';
+}
+document.getElementById('pr-tl-search').addEventListener('keydown', e => {
+  if (e.key === 'Escape') { e.target.value = ''; filterTimeline(); }
+});
+</script>
+{% endif %}
+
+{# ── 4. Stalled exercises ────────────────────────────────────────── #}
+{% if stalled %}
+<div style="margin-bottom:1.5rem;">
+  <div class="section-title">Stalled — no 1RM gain in 4 weeks</div>
   <div class="card" style="padding:0;overflow:hidden;">
     <table>
       <thead>
-        <tr><th>Exercise</th><th>Current max</th><th>Sessions</th></tr>
+        <tr>
+          <th>Exercise</th>
+          <th>Recent 1RM</th>
+          <th>Previous best</th>
+          <th>Δ</th>
+          <th>Sessions</th>
+        </tr>
       </thead>
       <tbody>
-        {% for p in plateaus %}
+        {% for s in stalled %}
+        {% set delta = (s.recent_1rm - s.prior_1rm) | round(1) %}
         <tr>
-          <td style="font-weight:500;">{{ p.name }}</td>
-          <td class="num" style="color:var(--pr);">
-            <span class="weight-display" data-kg="{{ p.pr_kg }}">{{ p.pr_kg }} kg</span>
+          <td style="font-weight:500;">
+            <a href="/exercises/{{ s.id }}" style="color:inherit;text-decoration:none;"
+               onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='inherit'">{{ s.name }}</a>
           </td>
-          <td class="num" style="color:var(--muted);">{{ p.session_count }}</td>
+          <td class="num">
+            <span class="weight-display" data-kg="{{ s.recent_1rm }}">{{ s.recent_1rm }} kg</span>
+          </td>
+          <td class="num" style="color:var(--muted);">
+            <span class="weight-display" data-kg="{{ s.prior_1rm }}">{{ s.prior_1rm }} kg</span>
+          </td>
+          <td class="num" style="color:{% if delta < 0 %}var(--danger){% else %}var(--muted){% endif %};font-weight:600;">
+            <span class="weight-display" data-kg="{{ delta }}" data-prefix="{% if delta > 0 %}+{% endif %}">{% if delta > 0 %}+{% endif %}{{ delta }} kg</span>
+          </td>
+          <td class="num" style="color:var(--muted);">{{ s.session_count }}</td>
         </tr>
         {% endfor %}
       </tbody>
@@ -49,6 +171,7 @@
 </div>
 {% endif %}
 
+{# ── 5. Sets per muscle this week ────────────────────────────────── #}
 {% if weekly_muscle_sets %}
 <div style="margin-bottom:1.5rem;">
   <div class="section-title">Sets per muscle — this week</div>
@@ -58,7 +181,7 @@
       <div style="display:flex;align-items:center;gap:0.9rem;">
         <div style="width:8.5rem;font-size:0.8rem;color:var(--muted-hi);flex-shrink:0;font-weight:500;">{{ m.muscle }}</div>
         <div style="flex:1;background:var(--surface-2);border-radius:4px;height:7px;overflow:hidden;">
-          <div style="height:100%;border-radius:4px;background:linear-gradient(90deg,var(--accent),rgba(79,156,249,0.6));width:{{ (m.set_count / weekly_muscle_sets[0].set_count * 100) | round | int }}%;transition:width 0.4s ease;"></div>
+          <div style="height:100%;border-radius:4px;background:linear-gradient(90deg,var(--accent),rgba(79,156,249,0.55));width:{{ (m.set_count / weekly_muscle_sets[0].set_count * 100) | round | int }}%;transition:width 0.4s;"></div>
         </div>
         <div class="num" style="font-size:0.82rem;font-weight:700;color:var(--text);width:2rem;text-align:right;flex-shrink:0;">{{ m.set_count }}</div>
       </div>
@@ -68,68 +191,147 @@
 </div>
 {% endif %}
 
-<div class="grid-2" style="align-items:start;">
-  <div>
-    <div class="section-title">Top exercises — all time</div>
-    <div class="card" style="padding:0;overflow:hidden;">
-      {% if top_exercises %}
-      <table>
-        <thead>
-          <tr><th>Exercise</th><th>Sets</th></tr>
-        </thead>
-        <tbody>
-          {% for ex in top_exercises %}
-          <tr>
-            <td style="font-weight:500;">{{ ex.name }}</td>
-            <td class="num" style="font-weight:600;">{{ ex.set_count }}</td>
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
-      {% else %}
-      <div style="display:flex;flex-direction:column;align-items:center;text-align:center;padding:1.75rem 1.25rem;gap:0.6rem;">
-        <div style="width:40px;height:40px;border-radius:50%;background:rgba(255,255,255,0.04);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;">
-          <i data-lucide="dumbbell" style="width:18px;height:18px;color:var(--muted);pointer-events:none;"></i>
-        </div>
-        <p style="color:var(--muted);font-size:0.8rem;">Log some sets to see your most-used exercises.</p>
-      </div>
-      {% endif %}
-    </div>
-  </div>
-
-  <div>
-    <div class="section-title">Muscle coverage — this week</div>
-    <div class="card">
-      {% if primary_muscles or secondary_muscles %}
-        {% if primary_muscles %}
-        <div style="margin-bottom:0.9rem;">
-          <div style="font-size:0.68rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.07em;margin-bottom:0.45rem;font-weight:700;">Primary</div>
-          <div style="display:flex;flex-wrap:wrap;gap:0.4rem;">
-            {% for m in primary_muscles %}
-            <span class="badge badge-blue">{{ m }}</span>
-            {% endfor %}
-          </div>
-        </div>
-        {% endif %}
-        {% if secondary_muscles %}
-        <div>
-          <div style="font-size:0.68rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.07em;margin-bottom:0.45rem;font-weight:700;">Secondary</div>
-          <div style="display:flex;flex-wrap:wrap;gap:0.4rem;">
-            {% for m in secondary_muscles %}
-            <span class="badge" style="background:rgba(255,255,255,0.05);color:var(--muted);">{{ m }}</span>
-            {% endfor %}
-          </div>
-        </div>
-        {% endif %}
-      {% else %}
-      <div style="display:flex;flex-direction:column;align-items:center;text-align:center;padding:1.5rem 1rem;gap:0.55rem;">
-        <div style="width:40px;height:40px;border-radius:50%;background:rgba(255,255,255,0.04);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;">
-          <i data-lucide="zap" style="width:18px;height:18px;color:var(--muted);pointer-events:none;"></i>
-        </div>
-        <p style="color:var(--muted);font-size:0.8rem;">No workouts this week yet.</p>
-      </div>
-      {% endif %}
-    </div>
+{# ── 6. Top exercises ────────────────────────────────────────────── #}
+{% if top_exercises %}
+<div>
+  <div class="section-title">Top exercises — all time</div>
+  <div class="card" style="padding:0;overflow:hidden;">
+    <table>
+      <thead><tr><th>Exercise</th><th>Sets</th></tr></thead>
+      <tbody>
+        {% for ex in top_exercises %}
+        <tr>
+          <td style="font-weight:500;">{{ ex.name }}</td>
+          <td class="num" style="font-weight:600;">{{ ex.set_count }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
   </div>
 </div>
+{% endif %}
+
+{% if weekly_rows %}
+<script>
+(function () {
+  const DATA = {{ weekly_json | safe }};
+  if (!DATA.length) return;
+
+  const canvas = document.getElementById('vol-chart');
+  const tip    = document.getElementById('vol-chart-tip');
+  const ctx    = canvas.getContext('2d');
+  let hoverIdx = -1;
+
+  const getUnit = () => window.getAppUnit ? window.getAppUnit() : 'kg';
+  const cvt     = v  => getUnit() === 'lbs' ? v * 2.20462 : v;
+
+  const PL = 52, PR = 16, PT = 14, PB = 28;
+
+  function xAt(i, W, n) { return PL + (n <= 1 ? (W-PL-PR)/2 : (i/(n-1))*(W-PL-PR)); }
+
+  function draw() {
+    const dpr = window.devicePixelRatio || 1;
+    const W   = canvas.offsetWidth || 600;
+    const H   = 200;
+    canvas.width  = W * dpr; canvas.height = H * dpr;
+    canvas.style.height = H + 'px';
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+    const vs = DATA.map(d => cvt(d.volume));
+    const n  = vs.length;
+    const cW = W - PL - PR, cH = H - PT - PB;
+
+    const vMax = Math.max(...vs, 1);
+    const yMin = 0, yMax = vMax * 1.15;
+
+    const gx = i => xAt(i, W, n);
+    const gy = v => PT + (1 - (v - yMin) / (yMax - yMin)) * cH;
+
+    ctx.clearRect(0, 0, W, H);
+
+    // Grid lines at 0, 50%, 100%
+    [0, 0.5, 1].forEach(f => {
+      const gv = vMax * f, y = gy(gv);
+      ctx.strokeStyle = '#1f2535'; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(PL, y); ctx.lineTo(PL + cW, y); ctx.stroke();
+      if (f > 0) {
+        ctx.fillStyle = '#4a5568'; ctx.font = '10px Inter,system-ui,sans-serif'; ctx.textAlign = 'right';
+        const label = cvt(gv);
+        ctx.fillText(label >= 1000 ? (label/1000).toFixed(1)+'k' : Math.round(label), PL - 4, y + 4);
+      }
+    });
+
+    // Area
+    if (n >= 2) {
+      ctx.beginPath(); ctx.moveTo(gx(0), gy(vs[0]));
+      for (let i = 1; i < n; i++) ctx.lineTo(gx(i), gy(vs[i]));
+      ctx.lineTo(gx(n-1), PT+cH); ctx.lineTo(gx(0), PT+cH);
+      ctx.closePath(); ctx.fillStyle = '#4f9cf912'; ctx.fill();
+    }
+
+    // Hover crosshair
+    if (hoverIdx >= 0) {
+      ctx.strokeStyle = '#4f9cf938'; ctx.lineWidth = 1; ctx.setLineDash([3,3]);
+      ctx.beginPath(); ctx.moveTo(gx(hoverIdx), PT); ctx.lineTo(gx(hoverIdx), PT+cH); ctx.stroke();
+      ctx.setLineDash([]);
+    }
+
+    // Bar columns (thin filled rects look cleaner for weekly data)
+    const barW = Math.max(4, Math.min(28, (cW / n) * 0.55));
+    vs.forEach((v, i) => {
+      if (!v) return;
+      const x  = gx(i) - barW / 2;
+      const bH = Math.max(3, gy(0) - gy(v));
+      const y  = gy(v);
+      const isH = i === hoverIdx;
+      ctx.fillStyle = isH ? '#4f9cf9' : '#4f9cf988';
+      ctx.beginPath();
+      ctx.roundRect(x, y, barW, bH, [3, 3, 0, 0]);
+      ctx.fill();
+    });
+
+    // X-axis labels (every 2nd or 3rd week depending on density)
+    ctx.fillStyle = '#4a5568'; ctx.font = '9px JetBrains Mono,monospace';
+    const step = n <= 6 ? 1 : n <= 12 ? 2 : 3;
+    DATA.forEach((d, i) => {
+      if (i % step !== 0 && i !== n - 1) return;
+      ctx.textAlign = i === 0 ? 'left' : i === n - 1 ? 'right' : 'center';
+      ctx.fillText(d.label, gx(i), H - 8);
+    });
+  }
+
+  function showTip(idx) {
+    const d = DATA[idx];
+    const u = getUnit();
+    const v = cvt(d.volume);
+    const disp = v >= 1000 ? (v/1000).toFixed(1) + 'k' : Math.round(v).toLocaleString();
+    tip.innerHTML =
+      `<div style="font-size:0.7rem;color:var(--muted);margin-bottom:0.2rem;font-family:'JetBrains Mono',monospace;">${d.label}</div>` +
+      `<span style="color:#4f9cf9;font-size:0.82rem;font-weight:700;">${disp} ${u}</span>`;
+    tip.style.display = 'block';
+    const W = canvas.offsetWidth, tw = tip.offsetWidth;
+    tip.style.left = Math.max(0, Math.min(W - tw, xAt(idx, W, DATA.length) - tw / 2)) + 'px';
+    tip.style.top  = '4px';
+  }
+
+  function processHover(cx) {
+    const rect = canvas.getBoundingClientRect(), mx = cx - rect.left;
+    const W = canvas.offsetWidth, n = DATA.length;
+    const frac = Math.max(0, Math.min(1, (mx - PL) / (W - PL - PR)));
+    const idx  = Math.max(0, Math.min(n - 1, Math.round(frac * (n - 1))));
+    if (idx !== hoverIdx) { hoverIdx = idx; draw(); }
+    showTip(idx);
+  }
+  function clearH() { hoverIdx = -1; tip.style.display = 'none'; draw(); }
+
+  canvas.addEventListener('mousemove',  e => processHover(e.clientX));
+  canvas.addEventListener('mouseleave', clearH);
+  canvas.addEventListener('touchmove',  e => { e.preventDefault(); processHover(e.touches[0].clientX); }, { passive: false });
+  canvas.addEventListener('touchend',   clearH);
+  window.addEventListener('unitchange', draw);
+  window.addEventListener('resize',     clearH);
+  requestAnimationFrame(draw);
+})();
+</script>
+{% endif %}
 {% endblock %}

@@ -1,13 +1,24 @@
+import json
+from datetime import datetime
+
 import aiosqlite
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import HTMLResponse
 
 from app.db import get_db
 from app.routes.auth import get_current_user
-from app.utils.charts import generate_sparkline
 from app.utils.render import render
 
 router = APIRouter()
+
+
+def _week_label(year_week: str) -> str:
+    y, w = year_week.split("-")
+    try:
+        d = datetime.strptime(f"{y} {int(w):02d} 1", "%Y %W %w")
+        return d.strftime("%b %d").replace(" 0", " ")
+    except Exception:
+        return year_week
 
 
 @router.get("/stats", response_class=HTMLResponse)
@@ -18,7 +29,7 @@ async def stats(
 ):
     uid = current_user["id"]
 
-    # Weekly volume — last 12 weeks, ascending so sparkline reads left→right
+    # 12-week volume trend
     async with conn.execute(
         """
         SELECT strftime('%Y-%W', w.started_at) AS week,
@@ -27,52 +38,105 @@ async def stats(
         LEFT JOIN sets s ON s.workout_id = w.id AND s.user_id = ?
         WHERE w.user_id = ?
           AND DATE(w.started_at) >= DATE('now', '-83 days')
-        GROUP BY week
-        ORDER BY week ASC
+        GROUP BY week ORDER BY week ASC
         """,
         (uid, uid),
     ) as cur:
         weekly_rows = [dict(r) for r in await cur.fetchall()]
 
-    weekly_volumes = [r["volume"] for r in weekly_rows]
-    weekly_labels = ["Wk " + r["week"].split("-")[1].lstrip("0") or "0" for r in weekly_rows]
-    volume_sparkline = generate_sparkline(weekly_volumes, weekly_labels, unit=" kg")
+    weekly_json = json.dumps([
+        {"label": _week_label(r["week"]), "volume": r["volume"]}
+        for r in weekly_rows
+    ])
 
-    # Top 5 exercises by set count (all time)
+    # Muscle recovery — days since last primary-muscle session
+    async with conn.execute(
+        """
+        SELECT em.muscle,
+               MAX(DATE(w.started_at, 'localtime')) AS last_date,
+               CAST(julianday('now','localtime') -
+                    julianday(MAX(DATE(w.started_at,'localtime'))) AS INTEGER) AS days_ago
+        FROM sets s
+        JOIN workouts w  ON w.id  = s.workout_id
+        JOIN exercise_muscles em ON em.exercise_id = s.exercise_id AND em.is_primary = 1
+        WHERE s.user_id = ?
+        GROUP BY em.muscle
+        ORDER BY days_ago ASC
+        """,
+        (uid,),
+    ) as cur:
+        muscle_recovery = [dict(r) for r in await cur.fetchall()]
+
+    # PR timeline — every session that set a new exercise max (window function, SQLite ≥ 3.25)
+    async with conn.execute(
+        """
+        WITH sm AS (
+            SELECT s.exercise_id, e.id AS ex_id, e.name AS exercise_name,
+                   DATE(w.started_at, 'localtime') AS session_date,
+                   MAX(s.weight_kg) AS max_kg
+            FROM sets s
+            JOIN exercises e ON e.id = s.exercise_id
+            JOIN workouts w  ON w.id = s.workout_id
+            WHERE s.user_id = ?
+            GROUP BY s.exercise_id, DATE(w.started_at, 'localtime')
+        ),
+        rm AS (
+            SELECT *,
+                   MAX(max_kg) OVER (
+                       PARTITION BY exercise_id ORDER BY session_date
+                       ROWS BETWEEN UNBOUNDED PRECEDING AND 1 PRECEDING
+                   ) AS prev_max
+            FROM sm
+        )
+        SELECT exercise_id, exercise_name, session_date AS date, max_kg
+        FROM rm
+        WHERE max_kg > COALESCE(prev_max, -1)
+        ORDER BY session_date DESC
+        LIMIT 120
+        """,
+        (uid,),
+    ) as cur:
+        pr_timeline = [dict(r) for r in await cur.fetchall()]
+
+    # Stalled exercises — est 1RM not improved in 4 weeks vs prior 4-12 weeks
+    async with conn.execute(
+        """
+        SELECT e.id, e.name,
+               MAX(CASE WHEN DATE(w.started_at,'localtime') >= DATE('now','-28 days')
+                        THEN ROUND(s.weight_kg * (1.0 + s.reps / 30.0), 1) END) AS recent_1rm,
+               MAX(CASE WHEN DATE(w.started_at,'localtime') <  DATE('now','-28 days')
+                        AND  DATE(w.started_at,'localtime') >= DATE('now','-84 days')
+                        THEN ROUND(s.weight_kg * (1.0 + s.reps / 30.0), 1) END) AS prior_1rm,
+               COUNT(DISTINCT DATE(w.started_at,'localtime')) AS session_count
+        FROM sets s
+        JOIN exercises e ON e.id = s.exercise_id
+        JOIN workouts w  ON w.id = s.workout_id AND w.ended_at IS NOT NULL
+        WHERE s.user_id = ?
+        GROUP BY s.exercise_id
+        HAVING recent_1rm IS NOT NULL
+           AND prior_1rm IS NOT NULL
+           AND session_count >= 4
+           AND recent_1rm <= prior_1rm * 1.02
+        ORDER BY (prior_1rm - recent_1rm) DESC
+        LIMIT 8
+        """,
+        (uid,),
+    ) as cur:
+        stalled = [dict(r) for r in await cur.fetchall()]
+
+    # Top 5 exercises by set count
     async with conn.execute(
         """
         SELECT e.name, COUNT(*) AS set_count
-        FROM sets s
-        JOIN exercises e ON e.id = s.exercise_id
+        FROM sets s JOIN exercises e ON e.id = s.exercise_id
         WHERE s.user_id = ?
-        GROUP BY s.exercise_id
-        ORDER BY set_count DESC
-        LIMIT 5
+        GROUP BY s.exercise_id ORDER BY set_count DESC LIMIT 5
         """,
         (uid,),
     ) as cur:
         top_exercises = [dict(r) for r in await cur.fetchall()]
 
-    # Muscle coverage this week (last 7 days)
-    async with conn.execute(
-        """
-        SELECT em.muscle, em.is_primary, COUNT(DISTINCT w.id) AS sessions
-        FROM workouts w
-        JOIN sets s ON s.workout_id = w.id AND s.user_id = ?
-        JOIN exercise_muscles em ON em.exercise_id = s.exercise_id
-        WHERE w.user_id = ?
-          AND DATE(w.started_at) >= DATE('now', '-6 days')
-        GROUP BY em.muscle, em.is_primary
-        ORDER BY em.is_primary DESC, em.muscle ASC
-        """,
-        (uid, uid),
-    ) as cur:
-        muscle_rows = [dict(r) for r in await cur.fetchall()]
-
-    primary_muscles = [r["muscle"] for r in muscle_rows if r["is_primary"]]
-    secondary_muscles = [r["muscle"] for r in muscle_rows if not r["is_primary"]]
-
-    # Weekly sets per primary muscle group (last 7 days)
+    # Sets per primary muscle this week
     async with conn.execute(
         """
         SELECT em.muscle, COUNT(s.id) AS set_count
@@ -81,49 +145,22 @@ async def stats(
         JOIN exercise_muscles em ON em.exercise_id = s.exercise_id AND em.is_primary = 1
         WHERE s.user_id = ?
           AND DATE(w.started_at) >= DATE('now', '-6 days')
-        GROUP BY em.muscle
-        ORDER BY set_count DESC
+        GROUP BY em.muscle ORDER BY set_count DESC
         """,
         (uid, uid),
     ) as cur:
         weekly_muscle_sets = [dict(r) for r in await cur.fetchall()]
 
-    # Plateau detection: exercises active in last 21 days with no weight improvement
-    async with conn.execute(
-        """
-        SELECT e.name,
-               MAX(s.weight_kg) AS pr_kg,
-               MAX(CASE WHEN DATE(w.started_at) >= DATE('now', '-21 days')
-                        THEN s.weight_kg END) AS recent_max,
-               MAX(CASE WHEN DATE(w.started_at) <  DATE('now', '-21 days')
-                        THEN s.weight_kg END) AS prior_max,
-               COUNT(DISTINCT DATE(w.started_at)) AS session_count
-        FROM sets s
-        JOIN exercises e ON e.id = s.exercise_id
-        JOIN workouts w ON w.id = s.workout_id AND w.ended_at IS NOT NULL
-        WHERE s.user_id = ?
-        GROUP BY s.exercise_id
-        HAVING recent_max IS NOT NULL
-           AND prior_max IS NOT NULL
-           AND session_count >= 3
-           AND recent_max <= prior_max
-        ORDER BY e.name
-        LIMIT 5
-        """,
-        (uid,),
-    ) as cur:
-        plateaus = [dict(r) for r in await cur.fetchall()]
-
     return render(
         request,
         "stats",
         {
-            "volume_sparkline": volume_sparkline,
+            "weekly_json": weekly_json,
             "weekly_rows": weekly_rows,
+            "muscle_recovery": muscle_recovery,
+            "pr_timeline": pr_timeline,
+            "stalled": stalled,
             "top_exercises": top_exercises,
-            "primary_muscles": primary_muscles,
-            "secondary_muscles": secondary_muscles,
-            "plateaus": plateaus,
             "weekly_muscle_sets": weekly_muscle_sets,
             "user": dict(current_user),
         },
