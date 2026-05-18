@@ -1,10 +1,7 @@
-const CACHE_VERSION = 'v0.3.4';
+const CACHE_VERSION = 'v0.3.5';
 const CACHE_NAME = `fittrack-${CACHE_VERSION}`;
 
 const PRECACHE = [
-  '/',
-  '/workouts',
-  '/metrics',
   '/static/manifest.json',
   '/static/icon-192.png',
   '/static/icon-512.png',
