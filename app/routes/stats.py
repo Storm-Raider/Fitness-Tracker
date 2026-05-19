@@ -1,5 +1,5 @@
 import json
-from datetime import datetime
+from datetime import date as _date, datetime, timedelta
 
 import aiosqlite
 from fastapi import APIRouter, Depends, Request
@@ -68,14 +68,22 @@ async def stats(
     ) as cur:
         _cardio = {r["week"]: r["cardio_count"] for r in await cur.fetchall()}
 
+    # Build a full 12-week skeleton so the chart always has a complete x-axis
+    _today = _date.today()
+    _monday = _today - timedelta(days=_today.weekday())
+    _all_weeks = [
+        (_monday - timedelta(weeks=i)).strftime("%Y-%W")
+        for i in range(11, -1, -1)
+    ]
+    _actual = {r["week"]: r["volume"] for r in weekly_rows}
     weekly_json = json.dumps([
         {
-            "label": _week_label(r["week"]),
-            "volume": r["volume"],
-            "week_start": _week_start(r["week"]),
-            "cardio": _cardio.get(r["week"], 0),
+            "label": _week_label(w),
+            "volume": _actual.get(w, 0),
+            "week_start": _week_start(w),
+            "cardio": _cardio.get(w, 0),
         }
-        for r in weekly_rows
+        for w in _all_weeks
     ])
 
     # Muscle recovery — days since last primary-muscle session
