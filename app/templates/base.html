@@ -750,7 +750,6 @@
         <div class="nav-more-dropdown" id="nav-more-dropdown">
           <a href="/routines/manage">Routines</a>
           <a href="/templates">Templates</a>
-          <a href="/cardio">Cardio</a>
           <a href="/metrics">Body Metrics</a>
           <a href="/achievements">Achievements</a>
           <a href="/planner">Planner</a>
@@ -762,7 +761,6 @@
       <!-- Mobile-only flat links (hamburger menu) -->
       <a href="/routines/manage" class="nav-more-mobile-link">Routines</a>
       <a href="/templates" class="nav-more-mobile-link">Templates</a>
-      <a href="/cardio" class="nav-more-mobile-link">Cardio</a>
       <a href="/metrics" class="nav-more-mobile-link">Body Metrics</a>
       <a href="/export" class="nav-more-mobile-link">Export</a>
       {% if user.is_admin %}<a href="/invite" class="nav-more-mobile-link">Invite</a>{% endif %}
@@ -837,10 +835,6 @@
       <a href="/exercises" class="mob-more-item" data-mob-more-path="/exercises" onclick="closeMobMore()">
         <div class="mob-more-icon"><i data-lucide="layers"></i></div>
         <span>Exercises</span>
-      </a>
-      <a href="/cardio" class="mob-more-item" data-mob-more-path="/cardio" onclick="closeMobMore()">
-        <div class="mob-more-icon"><i data-lucide="activity"></i></div>
-        <span>Cardio</span>
       </a>
       <a href="/metrics" class="mob-more-item" data-mob-more-path="/metrics" onclick="closeMobMore()">
         <div class="mob-more-icon"><i data-lucide="scale"></i></div>
@@ -993,7 +987,7 @@
     // Mobile tab + More sheet active states
     (function() {
       var here = location.pathname;
-      var morePaths = ['/exercises', '/cardio', '/metrics', '/export', '/invite', '/settings', '/achievements', '/planner'];
+      var morePaths = ['/exercises', '/metrics', '/export', '/invite', '/settings', '/achievements', '/planner'];
       document.querySelectorAll('.mob-tab[data-mob-path]').forEach(function(tab) {
         var p = tab.getAttribute('data-mob-path');
         var exact = tab.getAttribute('data-mob-exact');
