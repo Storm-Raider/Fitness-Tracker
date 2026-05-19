@@ -346,9 +346,9 @@
   gap: 0.5rem;
 }
 .rpe-lbl .rpe-opt { font-weight: 400; text-transform: none; letter-spacing: 0; color: var(--muted); font-size: 0.65rem; }
-.rpe-chips { display: flex; gap: 0.3rem; flex-wrap: wrap; }
+.rpe-chips { display: grid; grid-template-columns: repeat(10, 1fr); gap: 0.3rem; }
 .rpe-chip {
-  width: 34px; height: 34px;
+  width: 100%; height: 34px;
   border-radius: 7px;
   border: 1px solid var(--border);
   background: var(--surface);
