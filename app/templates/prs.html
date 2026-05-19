@@ -40,6 +40,16 @@
 .pr-age-fresh { color: var(--success); }
 .pr-age-mid   { color: var(--accent); }
 .pr-age-old   { color: var(--muted); }
+.badge-plateau {
+  display: inline-flex; align-items: center; gap: 0.2rem;
+  font-size: 0.62rem; font-weight: 700; letter-spacing: 0.05em;
+  text-transform: uppercase; padding: 0.1rem 0.35rem;
+  border-radius: 3px; border: 1px solid rgba(251,146,60,0.45);
+  background: rgba(251,146,60,0.1); color: #fb923c;
+  vertical-align: middle; margin-left: 0.35rem;
+}
+.spark-cell { width: 52px; padding: 0 0.5rem 0 0 !important; }
+.spark-cell canvas { display: block; }
 </style>
 
 {% if records and bodyweight_kg %}
@@ -166,6 +176,7 @@
         <th>Exercise</th>
         <th>PR weight</th>
         <th>Est. 1RM</th>
+        <th class="spark-cell" title="12-week e1RM trend">Trend</th>
         <th>Sessions</th>
         <th>Sets</th>
         <th>PR set</th>
@@ -180,12 +191,16 @@
           <a href="/exercises/{{ r.id }}" style="color:inherit;text-decoration:none;"
              onmouseover="this.style.color='var(--accent)'"
              onmouseout="this.style.color='inherit'">{{ r.name }}</a>
+          {% if r.stalled %}<span class="badge-plateau" title="No new PR in 3+ weeks">Plateau</span>{% endif %}
         </td>
         <td>
           <span class="badge badge-pr num weight-display" data-kg="{{ r.pr_kg }}">{{ r.pr_kg }} kg</span>
         </td>
         <td class="num" style="color:var(--muted);">
           <span class="weight-display" data-kg="{{ r.est_1rm }}">{{ r.est_1rm }} kg</span>
+        </td>
+        <td class="spark-cell">
+          <canvas class="spark" data-id="{{ r.id }}" width="52" height="24"></canvas>
         </td>
         <td class="num">{{ r.sessions }}</td>
         <td class="num" style="color:var(--muted);">{{ r.total_sets }}</td>
@@ -232,6 +247,80 @@ function sortPRs(key, btn) {
 document.getElementById('pr-search').addEventListener('keydown', e => {
   if (e.key === 'Escape') { e.target.value = ''; filterPRs(); }
 });
+
+// Sparklines
+(function() {
+  const TREND = {{ trend_json | safe }};
+  const dpr = window.devicePixelRatio || 1;
+
+  function drawSpark(canvas, values, stalled) {
+    if (!values || values.length < 2) {
+      if (values && values.length === 1) {
+        // single dot
+        const ctx = canvas.getContext('2d');
+        canvas.width = 52 * dpr; canvas.height = 24 * dpr;
+        canvas.style.width = '52px'; canvas.style.height = '24px';
+        ctx.setTransform(dpr,0,0,dpr,0,0);
+        ctx.fillStyle = '#4f9cf9';
+        ctx.beginPath(); ctx.arc(26, 12, 2.5, 0, Math.PI*2); ctx.fill();
+      }
+      return;
+    }
+    const W = 52, H = 24, PAD = 3;
+    canvas.width = W * dpr; canvas.height = H * dpr;
+    canvas.style.width = W + 'px'; canvas.style.height = H + 'px';
+    const ctx = canvas.getContext('2d');
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+
+    const mn = Math.min(...values), mx = Math.max(...values);
+    const range = mx - mn || 1;
+    const n = values.length;
+    const x = i => PAD + (i / (n-1)) * (W - PAD*2);
+    const y = v => H - PAD - ((v - mn) / range) * (H - PAD*2);
+
+    // Gradient fill
+    const grad = ctx.createLinearGradient(0, PAD, 0, H);
+    const col = stalled ? '#fb923c' : '#4f9cf9';
+    grad.addColorStop(0, col + '44');
+    grad.addColorStop(1, col + '00');
+    ctx.beginPath();
+    ctx.moveTo(x(0), y(values[0]));
+    for (let i = 1; i < n; i++) ctx.lineTo(x(i), y(values[i]));
+    ctx.lineTo(x(n-1), H); ctx.lineTo(x(0), H); ctx.closePath();
+    ctx.fillStyle = grad; ctx.fill();
+
+    // Line
+    ctx.beginPath();
+    ctx.moveTo(x(0), y(values[0]));
+    for (let i = 1; i < n; i++) ctx.lineTo(x(i), y(values[i]));
+    ctx.strokeStyle = col; ctx.lineWidth = 1.5; ctx.stroke();
+
+    // End dot
+    ctx.fillStyle = col;
+    ctx.beginPath(); ctx.arc(x(n-1), y(values[n-1]), 2.5, 0, Math.PI*2); ctx.fill();
+  }
+
+  document.querySelectorAll('canvas.spark').forEach(canvas => {
+    const id = canvas.dataset.id;
+    const row = canvas.closest('tr');
+    const stalled = row && row.querySelector('.badge-plateau') !== null;
+    drawSpark(canvas, TREND[id], stalled);
+  });
+
+  window.addEventListener('unitchange', function() {
+    // e1RM values are kg; redraw with converted values if lbs
+    const unit = window.getAppUnit ? window.getAppUnit() : 'kg';
+    document.querySelectorAll('canvas.spark').forEach(canvas => {
+      const id = canvas.dataset.id;
+      const raw = TREND[id];
+      if (!raw) return;
+      const vals = unit === 'lbs' ? raw.map(v => v * 2.20462) : raw;
+      const row = canvas.closest('tr');
+      const stalled = row && row.querySelector('.badge-plateau') !== null;
+      drawSpark(canvas, vals, stalled);
+    });
+  });
+})();
 </script>
 
 {% else %}
