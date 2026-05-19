@@ -42,6 +42,122 @@
 .pr-age-old   { color: var(--muted); }
 </style>
 
+{% if records and bodyweight_kg %}
+{# ── Strength Percentiles ─────────────────────────────────────── #}
+<div style="margin-bottom:1.5rem;">
+  <div class="section-title">Strength levels — bodyweight ratios</div>
+  <div class="card" style="padding:1.1rem 1.25rem;">
+    <div style="font-size:0.72rem;color:var(--muted);margin-bottom:1rem;display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;">
+      <span>Based on your bodyweight of <strong style="color:var(--text);" id="bw-display">{{ bodyweight_kg | round(1) }} kg</strong></span>
+      <span style="color:var(--border-mid);">·</span>
+      <span>Standard strength classification benchmarks</span>
+    </div>
+    <div id="percentile-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:0.75rem;"></div>
+  </div>
+</div>
+<script>
+(function() {
+  const BW_KG = {{ bodyweight_kg }};
+
+  // Symmetric Strength-style norms: [untrained, novice, intermediate, advanced, elite] as BW multiples
+  const LIFT_NORMS = {
+    'Bench Press':       [0.50, 0.75, 1.00, 1.25, 1.50],
+    'Squat':             [0.75, 1.00, 1.25, 1.50, 1.75],
+    'Deadlift':          [1.00, 1.25, 1.50, 1.75, 2.00],
+    'Overhead Press':    [0.35, 0.55, 0.75, 1.00, 1.25],
+    'Barbell Row':       [0.50, 0.75, 1.00, 1.25, 1.50],
+    'Romanian Deadlift': [0.75, 1.00, 1.25, 1.50, 1.75],
+    'Front Squat':       [0.55, 0.80, 1.00, 1.25, 1.50],
+    'Incline Bench Press':[0.40, 0.60, 0.85, 1.10, 1.35],
+  };
+  const LEVELS = ['Untrained','Novice','Intermediate','Advanced','Elite'];
+  const LEVEL_COLORS = {
+    'Untrained':    '#5a6a82',
+    'Novice':       '#34d399',
+    'Intermediate': '#4f9cf9',
+    'Advanced':     '#a78bfa',
+    'Elite':        '#f59e0b',
+  };
+
+  const records = [
+    {% for r in records %}
+    { name: {{ r.name | tojson }}, e1rm: {{ r.est_1rm }} },
+    {% endfor %}
+  ];
+
+  const unit = window.getAppUnit ? window.getAppUnit() : 'kg';
+  const bwDisplay = window.fmtWeight ? window.fmtWeight(BW_KG, unit) : BW_KG.toFixed(1) + ' kg';
+  const bwEl = document.getElementById('bw-display');
+  if (bwEl) bwEl.textContent = bwDisplay;
+
+  function getLevel(liftKg, norms) {
+    const ratio = liftKg / BW_KG;
+    let level = 'Untrained', pct = 0;
+    for (let i = norms.length - 1; i >= 0; i--) {
+      if (ratio >= norms[i]) {
+        level = LEVELS[i];
+        // Interpolate pct between this tier and next
+        const lo = norms[i], hi = norms[i + 1] || norms[i] * 1.25;
+        const progress = Math.min(1, (ratio - lo) / (hi - lo));
+        pct = Math.round((i / (LEVELS.length - 1) + progress / (LEVELS.length - 1)) * 100);
+        break;
+      }
+      if (i === 0 && ratio < norms[0]) {
+        pct = Math.round(Math.min(1, ratio / norms[0]) * (100 / LEVELS.length));
+      }
+    }
+    return { level, pct: Math.min(99, pct) };
+  }
+
+  const grid = document.getElementById('percentile-grid');
+  if (!grid) return;
+
+  let rendered = 0;
+  for (const [liftName, norms] of Object.entries(LIFT_NORMS)) {
+    const rec = records.find(r => r.name.toLowerCase().includes(liftName.toLowerCase().split(' ')[0]) ||
+                                  liftName.toLowerCase().includes(r.name.toLowerCase().split(' ')[0]));
+    if (!rec) continue;
+    const { level, pct } = getLevel(rec.e1rm, norms);
+    const color = LEVEL_COLORS[level] || '#4f9cf9';
+    const ratio = (rec.e1rm / BW_KG).toFixed(2);
+    const display = window.fmtWeight ? window.fmtWeight(rec.e1rm, unit) : rec.e1rm.toFixed(1) + ' kg';
+
+    const card = document.createElement('div');
+    card.style.cssText = 'background:var(--surface-2);border:1px solid var(--border);border-radius:var(--radius-xs);padding:0.85rem 1rem;';
+    card.innerHTML = `
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.5rem;">
+        <div style="font-size:0.78rem;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:60%;">${liftName}</div>
+        <div style="font-size:0.7rem;font-weight:700;color:${color};white-space:nowrap;">${level}</div>
+      </div>
+      <div style="font-family:'JetBrains Mono',monospace;font-size:1.15rem;font-weight:700;color:${color};line-height:1;margin-bottom:0.45rem;">${display}</div>
+      <div style="font-size:0.68rem;color:var(--muted);margin-bottom:0.5rem;">${ratio}× bodyweight · est 1RM</div>
+      <div style="height:5px;background:var(--surface);border-radius:3px;overflow:hidden;">
+        <div style="height:100%;width:${pct}%;background:linear-gradient(90deg,${color}88,${color});border-radius:3px;transition:width 0.6s cubic-bezier(0.16,1,0.3,1);"></div>
+      </div>
+      <div style="display:flex;justify-content:space-between;margin-top:0.3rem;font-size:0.6rem;color:var(--muted);">
+        <span>Untrained</span><span>Elite</span>
+      </div>`;
+    grid.appendChild(card);
+    rendered++;
+  }
+
+  if (rendered === 0) {
+    grid.innerHTML = '<div style="color:var(--muted);font-size:0.85rem;padding:0.5rem 0;">Log bench press, squat, or deadlift to see strength levels.</div>';
+  }
+
+  window.addEventListener('unitchange', function() {
+    const u = window.getAppUnit ? window.getAppUnit() : 'kg';
+    const bwEl2 = document.getElementById('bw-display');
+    if (bwEl2) bwEl2.textContent = window.fmtWeight ? window.fmtWeight(BW_KG, u) : BW_KG + ' kg';
+    // Re-render is expensive; just update displayed weights in cards
+    grid.querySelectorAll('[data-e1rm]').forEach(function(el) {
+      el.textContent = window.fmtWeight ? window.fmtWeight(parseFloat(el.dataset.e1rm), u) : el.dataset.e1rm + ' kg';
+    });
+  });
+})();
+</script>
+{% endif %}
+
 {% if records %}
 <div class="card" style="padding:0;overflow:hidden;">
   <table id="pr-table">

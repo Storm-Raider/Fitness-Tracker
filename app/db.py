@@ -75,6 +75,22 @@ _MIGRATIONS = [
         created_at  TEXT    NOT NULL DEFAULT (datetime('now','localtime'))
     )""",
     "CREATE INDEX IF NOT EXISTS idx_bm_user_site ON body_measurements(user_id, site, logged_date)",
+    """CREATE TABLE IF NOT EXISTS user_achievements (
+        id           INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id      INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        achievement_id TEXT NOT NULL,
+        unlocked_at  TEXT NOT NULL DEFAULT (datetime('now','localtime')),
+        UNIQUE(user_id, achievement_id)
+    )""",
+    """CREATE TABLE IF NOT EXISTS mesocycle_plans (
+        id          INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id     INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        name        TEXT NOT NULL,
+        goal        TEXT NOT NULL,
+        weeks       INTEGER NOT NULL,
+        plan_json   TEXT NOT NULL,
+        created_at  TEXT NOT NULL DEFAULT (datetime('now','localtime'))
+    )""",
 ]
 
 

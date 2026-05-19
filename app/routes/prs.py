@@ -44,8 +44,16 @@ async def personal_records(
     for r in records:
         r["time_ago"], r["days_ago"] = _time_ago(r["pr_date"])
 
+    # Latest bodyweight for strength ratios
+    async with conn.execute(
+        "SELECT weight_kg FROM body_metrics WHERE user_id=? ORDER BY recorded_at DESC LIMIT 1",
+        (uid,),
+    ) as c:
+        bw_row = await c.fetchone()
+    bodyweight_kg = float(bw_row["weight_kg"]) if bw_row else None
+
     return render(
         request,
         "prs",
-        {"records": records, "user": dict(current_user)},
+        {"records": records, "bodyweight_kg": bodyweight_kg, "user": dict(current_user)},
     )

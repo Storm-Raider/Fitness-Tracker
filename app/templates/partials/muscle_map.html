@@ -1,0 +1,319 @@
+{#
+  Muscle heatmap body diagram.
+  Pass muscle_data_json: JSON string of {muscle_name: volume_kg}
+  Pass map_id: unique HTML id prefix for this instance
+#}
+{% set mid = map_id | default('mmap') %}
+<div id="{{ mid }}-wrap" style="display:flex;flex-direction:column;align-items:center;gap:0.5rem;user-select:none;">
+  <div style="display:flex;gap:1.5rem;justify-content:center;">
+
+  {# ─── FRONT SVG ─── #}
+  <div style="display:flex;flex-direction:column;align-items:center;gap:0.3rem;">
+    <div style="font-size:0.58rem;text-transform:uppercase;letter-spacing:0.12em;color:var(--muted);">Front</div>
+    <svg id="{{ mid }}-front" viewBox="0 0 120 340" width="110" height="318"
+         style="overflow:visible;" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <filter id="{{ mid }}-glow">
+          <feGaussianBlur stdDeviation="3" result="blur"/>
+          <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+        </filter>
+      </defs>
+
+      {# Body silhouette #}
+      <path d="M60 46 C38 46 24 58 22 72 L18 100 C16 112 20 124 26 128
+               L24 178 C22 196 22 210 28 228
+               L24 286 C22 304 22 322 26 338 L50 338 C52 318 54 300 56 282
+               L60 276 L64 282 C66 300 68 318 70 338
+               L70 338 L70 282 L74 276 L78 282
+               C80 300 82 318 84 338 L108 338
+               C112 322 112 304 110 286 L106 228
+               C112 210 112 196 110 178 L108 128
+               C114 124 118 112 116 100 L112 72
+               C108 58 94 46 60 46 Z"
+            fill="#10131c" stroke="var(--border)" stroke-width="1"/>
+
+      {# Head #}
+      <ellipse cx="60" cy="26" rx="20" ry="24" fill="#10131c" stroke="var(--border)" stroke-width="1"/>
+
+      {# Neck #}
+      <rect x="54" y="46" width="12" height="18" rx="4" fill="#10131c" stroke="var(--border)" stroke-width="0.5"/>
+
+      {# Traps — upper shoulder bridge #}
+      <path id="{{ mid }}-f-shoulders"
+            d="M36 64 Q48 60 60 60 Q72 60 84 64 L80 80 Q72 78 60 78 Q48 78 40 80 Z"
+            class="mmap-muscle" data-muscle="Shoulders"/>
+
+      {# Left shoulder cap #}
+      <ellipse id="{{ mid }}-f-shl" cx="28" cy="82" rx="16" ry="14"
+               class="mmap-muscle" data-muscle="Shoulders"/>
+      {# Right shoulder cap #}
+      <ellipse id="{{ mid }}-f-shr" cx="92" cy="82" rx="16" ry="14"
+               class="mmap-muscle" data-muscle="Shoulders"/>
+
+      {# Chest L #}
+      <path id="{{ mid }}-f-chestl"
+            d="M40 78 Q34 82 32 102 Q36 118 54 120 Q60 121 60 120 L60 78 Z"
+            class="mmap-muscle" data-muscle="Chest"/>
+      {# Chest R #}
+      <path id="{{ mid }}-f-chestr"
+            d="M80 78 Q86 82 88 102 Q84 118 66 120 Q60 121 60 120 L60 78 Z"
+            class="mmap-muscle" data-muscle="Chest"/>
+
+      {# Left Bicep #}
+      <path id="{{ mid }}-f-bicl"
+            d="M22 88 C14 90 12 112 14 132 C18 140 28 140 32 132 C36 112 36 90 28 88 Z"
+            class="mmap-muscle" data-muscle="Biceps"/>
+      {# Right Bicep #}
+      <path id="{{ mid }}-f-bicr"
+            d="M98 88 C106 90 108 112 106 132 C102 140 92 140 88 132 C84 112 84 90 92 88 Z"
+            class="mmap-muscle" data-muscle="Biceps"/>
+
+      {# Left Forearm #}
+      <path id="{{ mid }}-f-forl"
+            d="M14 134 C10 144 10 164 14 178 C18 184 30 184 34 178 C38 164 38 144 32 134 Z"
+            class="mmap-muscle" data-muscle="Forearms"/>
+      {# Right Forearm #}
+      <path id="{{ mid }}-f-forr"
+            d="M106 134 C110 144 110 164 106 178 C102 184 90 184 86 178 C82 164 82 144 88 134 Z"
+            class="mmap-muscle" data-muscle="Forearms"/>
+
+      {# Abs — 3 pairs of blocks #}
+      <rect id="{{ mid }}-f-abs1" x="50" y="122" width="10" height="10" rx="2.5" class="mmap-muscle" data-muscle="Abs"/>
+      <rect x="60" y="122" width="10" height="10" rx="2.5" class="mmap-muscle mmap-ab-r1" data-muscle="Abs"/>
+      <rect id="{{ mid }}-f-abs2" x="50" y="135" width="10" height="10" rx="2.5" class="mmap-muscle" data-muscle="Abs"/>
+      <rect x="60" y="135" width="10" height="10" rx="2.5" class="mmap-muscle mmap-ab-r2" data-muscle="Abs"/>
+      <rect id="{{ mid }}-f-abs3" x="51" y="148" width="9" height="9" rx="2.5" class="mmap-muscle" data-muscle="Abs"/>
+      <rect x="60" y="148" width="9" height="9" rx="2.5" class="mmap-muscle mmap-ab-r3" data-muscle="Abs"/>
+      {# Lower abs / core #}
+      <path id="{{ mid }}-f-core"
+            d="M50 160 Q52 172 60 176 Q68 172 70 160 Z"
+            class="mmap-muscle" data-muscle="Abs"/>
+
+      {# Left Quad #}
+      <path id="{{ mid }}-f-quadl"
+            d="M48 188 C38 192 30 210 28 252 C30 268 42 276 52 272 C62 268 66 258 66 248 L66 188 Z"
+            class="mmap-muscle" data-muscle="Legs"/>
+      {# Right Quad #}
+      <path id="{{ mid }}-f-quadr"
+            d="M72 188 C82 192 90 210 92 252 C90 268 78 276 68 272 C58 268 54 258 54 248 L54 188 Z"
+            class="mmap-muscle" data-muscle="Legs"/>
+
+      {# Left Calf front #}
+      <path id="{{ mid }}-f-calfl"
+            d="M30 276 C26 292 26 316 30 336 C34 342 44 342 48 336 C52 316 52 292 48 276 Z"
+            class="mmap-muscle" data-muscle="Legs" style="opacity:0.7;"/>
+      {# Right Calf front #}
+      <path id="{{ mid }}-f-calfr"
+            d="M90 276 C94 292 94 316 90 336 C86 342 76 342 72 336 C68 316 68 292 72 276 Z"
+            class="mmap-muscle" data-muscle="Legs" style="opacity:0.7;"/>
+
+      {# Centre line divider #}
+      <line x1="60" y1="78" x2="60" y2="188" stroke="var(--border)" stroke-width="0.5" stroke-dasharray="3,3"/>
+    </svg>
+  </div>
+
+  {# ─── BACK SVG ─── #}
+  <div style="display:flex;flex-direction:column;align-items:center;gap:0.3rem;">
+    <div style="font-size:0.58rem;text-transform:uppercase;letter-spacing:0.12em;color:var(--muted);">Back</div>
+    <svg id="{{ mid }}-back" viewBox="0 0 120 340" width="110" height="318"
+         style="overflow:visible;" xmlns="http://www.w3.org/2000/svg">
+
+      {# Body silhouette (back) #}
+      <path d="M60 46 C38 46 24 58 22 72 L18 100 C16 112 20 124 26 128
+               L24 178 C22 196 22 210 28 228
+               L24 286 C22 304 22 322 26 338 L50 338
+               L56 282 L60 276 L64 282 L70 338
+               L70 338 L76 282 L80 276 L84 282 L90 338 L108 338
+               C112 322 112 304 110 286 L106 228
+               C112 210 112 196 110 178 L108 128
+               C114 124 118 112 116 100 L112 72
+               C108 58 94 46 60 46 Z"
+            fill="#10131c" stroke="var(--border)" stroke-width="1"/>
+
+      {# Head (back of head) #}
+      <ellipse cx="60" cy="26" rx="20" ry="24" fill="#10131c" stroke="var(--border)" stroke-width="1"/>
+
+      {# Rear delts / shoulder caps #}
+      <ellipse id="{{ mid }}-b-rdl" cx="28" cy="82" rx="16" ry="14"
+               class="mmap-muscle" data-muscle="Shoulders"/>
+      <ellipse id="{{ mid }}-b-rdr" cx="92" cy="82" rx="16" ry="14"
+               class="mmap-muscle" data-muscle="Shoulders"/>
+
+      {# Traps (upper back) #}
+      <path id="{{ mid }}-b-traps"
+            d="M36 64 Q48 60 60 60 Q72 60 84 64 L78 100 Q68 106 60 108 Q52 106 42 100 Z"
+            class="mmap-muscle" data-muscle="Back"/>
+
+      {# Lats L #}
+      <path id="{{ mid }}-b-latl"
+            d="M42 102 C30 110 24 128 26 158 C30 168 40 172 48 164 L48 108 Z"
+            class="mmap-muscle" data-muscle="Back"/>
+      {# Lats R #}
+      <path id="{{ mid }}-b-latr"
+            d="M78 102 C90 110 96 128 94 158 C90 168 80 172 72 164 L72 108 Z"
+            class="mmap-muscle" data-muscle="Back"/>
+
+      {# Lower back / erectors #}
+      <path id="{{ mid }}-b-lower"
+            d="M48 162 C44 172 42 184 44 194 L60 196 L76 194 C78 184 76 172 72 162 Z"
+            class="mmap-muscle" data-muscle="Back"/>
+
+      {# Left Tricep #}
+      <path id="{{ mid }}-b-tril"
+            d="M22 88 C14 90 12 112 14 132 C18 140 28 140 32 132 C36 112 36 90 28 88 Z"
+            class="mmap-muscle" data-muscle="Triceps"/>
+      {# Right Tricep #}
+      <path id="{{ mid }}-b-trir"
+            d="M98 88 C106 90 108 112 106 132 C102 140 92 140 88 132 C84 112 84 90 92 88 Z"
+            class="mmap-muscle" data-muscle="Triceps"/>
+
+      {# Left Forearm back #}
+      <path id="{{ mid }}-b-forl"
+            d="M14 134 C10 144 10 164 14 178 C18 184 30 184 34 178 C38 164 38 144 32 134 Z"
+            class="mmap-muscle" data-muscle="Forearms"/>
+      {# Right Forearm back #}
+      <path id="{{ mid }}-b-forr"
+            d="M106 134 C110 144 110 164 106 178 C102 184 90 184 86 178 C82 164 82 144 88 134 Z"
+            class="mmap-muscle" data-muscle="Forearms"/>
+
+      {# Left Glute #}
+      <path id="{{ mid }}-b-glutel"
+            d="M44 196 C32 200 24 218 24 234 C24 248 34 256 46 252 C58 248 62 238 60 226 L60 196 Z"
+            class="mmap-muscle" data-muscle="Legs"/>
+      {# Right Glute #}
+      <path id="{{ mid }}-b-gluter"
+            d="M76 196 C88 200 96 218 96 234 C96 248 86 256 74 252 C62 248 58 238 60 226 L60 196 Z"
+            class="mmap-muscle" data-muscle="Legs"/>
+
+      {# Left Hamstring #}
+      <path id="{{ mid }}-b-haml"
+            d="M26 256 C20 270 20 294 24 318 C28 328 40 330 48 324 C56 318 58 302 56 282 C54 264 46 256 36 256 Z"
+            class="mmap-muscle" data-muscle="Legs"/>
+      {# Right Hamstring #}
+      <path id="{{ mid }}-b-hamr"
+            d="M94 256 C100 270 100 294 96 318 C92 328 80 330 72 324 C64 318 62 302 64 282 C66 264 74 256 84 256 Z"
+            class="mmap-muscle" data-muscle="Legs"/>
+
+      {# Left Calf back #}
+      <path id="{{ mid }}-b-calfl"
+            d="M26 320 C22 332 22 344 26 338 C30 342 42 342 46 338 C50 344 50 332 46 320 Z"
+            class="mmap-muscle" data-muscle="Legs" style="opacity:0.7;"/>
+      {# Right Calf back #}
+      <path id="{{ mid }}-b-calfr"
+            d="M94 320 C98 332 98 344 94 338 C90 342 78 342 74 338 C70 344 70 332 74 320 Z"
+            class="mmap-muscle" data-muscle="Legs" style="opacity:0.7;"/>
+
+    </svg>
+  </div>
+  </div>{# /flex row #}
+
+  {# Legend #}
+  <div id="{{ mid }}-legend" style="display:flex;flex-wrap:wrap;gap:0.5rem;justify-content:center;margin-top:0.2rem;font-size:0.68rem;color:var(--muted);"></div>
+</div>
+
+<style>
+.mmap-muscle {
+  fill: rgba(255,255,255,0.04);
+  stroke: rgba(255,255,255,0.08);
+  stroke-width: 0.5;
+  transition: fill 0.4s ease, stroke 0.4s ease, filter 0.4s ease;
+}
+</style>
+
+<script>
+(function () {
+  const MID    = {{ ('"' ~ mid ~ '"') | safe }};
+  const DATA   = {{ muscle_data_json | default('{}') | safe }};
+
+  // Map muscle names → list of element IDs in both SVGs
+  const MUSCLE_ELS = {
+    'Chest':     [MID+'-f-chestl', MID+'-f-chestr'],
+    'Shoulders': [MID+'-f-shoulders', MID+'-f-shl', MID+'-f-shr', MID+'-b-rdl', MID+'-b-rdr'],
+    'Biceps':    [MID+'-f-bicl', MID+'-f-bicr'],
+    'Triceps':   [MID+'-b-tril', MID+'-b-trir'],
+    'Forearms':  [MID+'-f-forl', MID+'-f-forr', MID+'-b-forl', MID+'-b-forr'],
+    'Abs':       [MID+'-f-abs1', MID+'-f-abs2', MID+'-f-abs3', MID+'-f-core'],
+    'Back':      [MID+'-b-traps', MID+'-b-latl', MID+'-b-latr', MID+'-b-lower'],
+    'Legs':      [MID+'-f-quadl', MID+'-f-quadr', MID+'-f-calfl', MID+'-f-calfr',
+                  MID+'-b-glutel', MID+'-b-gluter', MID+'-b-haml', MID+'-b-hamr',
+                  MID+'-b-calfl', MID+'-b-calfr'],
+  };
+  // Also activate .mmap-ab-r* elements when Abs triggered
+  const ABS_EXTRA_CLASSES = ['mmap-ab-r1','mmap-ab-r2','mmap-ab-r3'];
+
+  const MUSCLE_COLORS = {
+    'Chest':     '#4f9cf9',
+    'Shoulders': '#a78bfa',
+    'Biceps':    '#34d399',
+    'Triceps':   '#2dd4bf',
+    'Forearms':  '#6ee7b7',
+    'Abs':       '#f59e0b',
+    'Back':      '#f87171',
+    'Legs':      '#fb923c',
+  };
+
+  function hexToRgba(hex, a) {
+    const r = parseInt(hex.slice(1,3),16), g = parseInt(hex.slice(3,5),16), b = parseInt(hex.slice(5,7),16);
+    return `rgba(${r},${g},${b},${a})`;
+  }
+
+  function applyHeatmap(data) {
+    // Find max value for normalization
+    const vals = Object.values(data).map(Number).filter(v => v > 0);
+    const maxVal = vals.length ? Math.max(...vals) : 1;
+
+    // Reset all muscles
+    document.querySelectorAll('#'+MID+'-wrap .mmap-muscle').forEach(el => {
+      el.style.fill = 'rgba(255,255,255,0.04)';
+      el.style.stroke = 'rgba(255,255,255,0.08)';
+      el.style.filter = '';
+    });
+
+    // Apply heat per muscle
+    Object.entries(data).forEach(([muscle, vol]) => {
+      if (!vol || !MUSCLE_ELS[muscle]) return;
+      const intensity = Math.min(1, Math.pow(Number(vol) / maxVal, 0.55)); // gamma compress
+      const color = MUSCLE_COLORS[muscle] || '#4f9cf9';
+      const fillAlpha  = 0.12 + intensity * 0.72;
+      const strokeAlpha = 0.2  + intensity * 0.55;
+      const fill   = hexToRgba(color, fillAlpha);
+      const stroke = hexToRgba(color, strokeAlpha);
+      const glow   = intensity > 0.3 ? `drop-shadow(0 0 ${3 + intensity*5}px ${hexToRgba(color, intensity*0.7)})` : '';
+
+      MUSCLE_ELS[muscle].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) { el.style.fill = fill; el.style.stroke = stroke; el.style.filter = glow; }
+      });
+      // Extra abs
+      if (muscle === 'Abs') {
+        ABS_EXTRA_CLASSES.forEach(cls => {
+          document.querySelectorAll('#'+MID+'-wrap .'+cls).forEach(el => {
+            el.style.fill = fill; el.style.stroke = stroke; el.style.filter = glow;
+          });
+        });
+      }
+    });
+
+    // Build legend
+    const legendEl = document.getElementById(MID+'-legend');
+    if (legendEl) {
+      const active = Object.entries(data).filter(([,v]) => v > 0);
+      if (active.length === 0) { legendEl.innerHTML = ''; return; }
+      legendEl.innerHTML = active.sort((a,b)=>b[1]-a[1]).map(([muscle, vol]) => {
+        const color = MUSCLE_COLORS[muscle] || '#4f9cf9';
+        const fmtVol = vol >= 1000 ? (vol/1000).toFixed(1)+'k' : Math.round(vol);
+        return `<span style="display:inline-flex;align-items:center;gap:0.25rem;color:${color};">
+          <span style="width:8px;height:8px;border-radius:50%;background:${color};display:inline-block;flex-shrink:0;"></span>
+          ${muscle} <span style="color:var(--muted);font-size:0.62rem;">${fmtVol}</span>
+        </span>`;
+      }).join('');
+    }
+  }
+
+  // Initial render
+  applyHeatmap(DATA);
+
+  // Expose for external updates (workout form live updates)
+  window['mmapUpdate_'+MID] = applyHeatmap;
+})();
+</script>

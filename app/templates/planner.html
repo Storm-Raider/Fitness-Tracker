@@ -1,0 +1,489 @@
+{% extends "base.html" %}
+{% block title %}Mesocycle Planner — FitStorm{% endblock %}
+{% block content %}
+<style>
+.plan-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; }
+@media (max-width: 800px) { .plan-grid { grid-template-columns: 1fr; } }
+
+.goal-btn {
+  flex: 1;
+  padding: 0.75rem 0.5rem;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-xs);
+  background: var(--surface-2);
+  color: var(--muted);
+  cursor: pointer;
+  font-family: 'Barlow', inherit;
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  transition: all 0.15s;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.3rem;
+}
+.goal-btn:hover { border-color: var(--border-mid); color: var(--text); }
+.goal-btn.selected { border-color: var(--accent); color: var(--accent); background: var(--accent-dim); }
+.goal-btn .goal-icon { font-size: 1.3rem; }
+.goal-btn .goal-sub { font-size: 0.6rem; font-weight: 400; text-transform: none; letter-spacing: 0; color: var(--muted); margin-top: 0.1rem; }
+
+.lift-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.55rem 0;
+  border-bottom: 1px solid var(--border);
+}
+.lift-row:last-child { border-bottom: none; }
+.lift-row input[type=number] { width: 80px; text-align: center; }
+
+.week-table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
+.week-table th {
+  font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.1em;
+  color: var(--muted); font-weight: 700; padding: 0.5rem 0.75rem;
+  border-bottom: 1px solid var(--border); background: rgba(255,255,255,0.015);
+  text-align: left;
+}
+.week-table td { padding: 0.55rem 0.75rem; border-bottom: 1px solid rgba(30,35,52,0.5); }
+.week-table tr:last-child td { border-bottom: none; }
+.week-table tbody tr:hover td { background: rgba(255,255,255,0.02); }
+.week-badge {
+  display: inline-block;
+  padding: 0.1rem 0.45rem;
+  border-radius: 10px;
+  font-size: 0.62rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.plan-phase-acc  { color: #34d399; background: rgba(52,211,153,0.1); border: 1px solid rgba(52,211,153,0.25); }
+.plan-phase-int  { color: #4f9cf9; background: var(--accent-dim); border: 1px solid rgba(79,156,249,0.25); }
+.plan-phase-peak { color: #f59e0b; background: var(--pr-dim); border: 1px solid rgba(245,158,11,0.25); }
+.plan-phase-deload { color: var(--muted); background: rgba(90,106,130,0.1); border: 1px solid rgba(90,106,130,0.25); }
+
+.saved-plan-card {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xs);
+  padding: 0.75rem 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  transition: border-color 0.15s;
+}
+.saved-plan-card:hover { border-color: var(--border-mid); }
+</style>
+
+<div class="page-hd">
+  <div>
+    <h1>Mesocycle Planner</h1>
+    <div class="subtitle">Build a periodised training block</div>
+  </div>
+</div>
+
+<div class="plan-grid">
+
+  {# ── Left: Inputs ── #}
+  <div>
+
+    {# Goal #}
+    <div style="margin-bottom:1.25rem;">
+      <div class="section-title">Goal</div>
+      <div style="display:flex;gap:0.5rem;">
+        <button class="goal-btn selected" id="goal-hypertrophy" onclick="setGoal('hypertrophy',this)">
+          <span class="goal-icon">💪</span>
+          Hypertrophy
+          <span class="goal-sub">8–15 reps · high volume</span>
+        </button>
+        <button class="goal-btn" id="goal-strength" onclick="setGoal('strength',this)">
+          <span class="goal-icon">🏋️</span>
+          Strength
+          <span class="goal-sub">3–6 reps · heavy load</span>
+        </button>
+        <button class="goal-btn" id="goal-peaking" onclick="setGoal('peaking',this)">
+          <span class="goal-icon">🎯</span>
+          Peaking
+          <span class="goal-sub">1–3 reps · meet prep</span>
+        </button>
+      </div>
+    </div>
+
+    {# Duration #}
+    <div style="margin-bottom:1.25rem;">
+      <div class="section-title">Duration</div>
+      <div class="card" style="padding:1rem 1.25rem;">
+        <div style="display:flex;align-items:center;gap:1rem;">
+          <input type="range" id="weeks-slider" min="4" max="16" value="8"
+                 oninput="document.getElementById('weeks-val').textContent=this.value;generatePlan()"
+                 style="flex:1;accent-color:var(--accent);cursor:pointer;">
+          <div style="font-family:'JetBrains Mono',monospace;font-size:1.5rem;font-weight:700;
+                      color:var(--accent);min-width:2.5rem;text-align:right;line-height:1;">
+            <span id="weeks-val">8</span>
+          </div>
+          <div style="font-size:0.72rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em;">weeks</div>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:0.65rem;color:var(--muted);margin-top:0.35rem;">
+          <span>4 wks</span><span>8 wks</span><span>12 wks</span><span>16 wks</span>
+        </div>
+      </div>
+    </div>
+
+    {# Lifts #}
+    <div style="margin-bottom:1.25rem;">
+      <div class="section-title" style="display:flex;align-items:center;justify-content:space-between;">
+        <span>Lifts &amp; estimated 1RM</span>
+        <button onclick="addLiftRow()" class="btn btn-ghost"
+                style="font-size:0.7rem;padding:0.15rem 0.55rem;min-height:26px;letter-spacing:0.03em;">
+          + Add lift
+        </button>
+      </div>
+      <div class="card" style="padding:0.5rem 1rem;">
+        <div id="lifts-container">
+          {% if top_lifts %}
+            {% for lift in top_lifts[:6] %}
+            <div class="lift-row" data-lift>
+              <input type="text" value="{{ lift.name }}" placeholder="Lift name"
+                     style="flex:1;font-size:0.8rem;"
+                     oninput="generatePlan()" class="lift-name">
+              <input type="number" value="{{ lift.e1rm | round(1) }}" min="1" step="0.5"
+                     placeholder="1RM"
+                     style="width:80px;text-align:center;font-size:0.8rem;"
+                     oninput="generatePlan()" class="lift-e1rm">
+              <span style="font-size:0.7rem;color:var(--muted);font-family:'JetBrains Mono',monospace;">kg</span>
+              <button onclick="this.closest('[data-lift]').remove();generatePlan()"
+                      style="background:transparent;border:none;color:var(--muted);cursor:pointer;font-size:1rem;
+                             padding:0.1rem 0.2rem;transition:color 0.12s;"
+                      onmouseover="this.style.color='var(--danger)'"
+                      onmouseout="this.style.color='var(--muted)'">×</button>
+            </div>
+            {% endfor %}
+          {% else %}
+          <div class="lift-row" data-lift>
+            <input type="text" value="Squat" placeholder="Lift name" style="flex:1;font-size:0.8rem;" oninput="generatePlan()" class="lift-name">
+            <input type="number" value="100" min="1" step="0.5" placeholder="1RM" style="width:80px;text-align:center;font-size:0.8rem;" oninput="generatePlan()" class="lift-e1rm">
+            <span style="font-size:0.7rem;color:var(--muted);font-family:'JetBrains Mono',monospace;">kg</span>
+            <button onclick="this.closest('[data-lift]').remove();generatePlan()" style="background:transparent;border:none;color:var(--muted);cursor:pointer;font-size:1rem;padding:0.1rem 0.2rem;transition:color 0.12s;" onmouseover="this.style.color='var(--danger)'" onmouseout="this.style.color='var(--muted)'">×</button>
+          </div>
+          <div class="lift-row" data-lift>
+            <input type="text" value="Bench Press" placeholder="Lift name" style="flex:1;font-size:0.8rem;" oninput="generatePlan()" class="lift-name">
+            <input type="number" value="80" min="1" step="0.5" placeholder="1RM" style="width:80px;text-align:center;font-size:0.8rem;" oninput="generatePlan()" class="lift-e1rm">
+            <span style="font-size:0.7rem;color:var(--muted);font-family:'JetBrains Mono',monospace;">kg</span>
+            <button onclick="this.closest('[data-lift]').remove();generatePlan()" style="background:transparent;border:none;color:var(--muted);cursor:pointer;font-size:1rem;padding:0.1rem 0.2rem;transition:color 0.12s;" onmouseover="this.style.color='var(--danger)'" onmouseout="this.style.color='var(--muted)'">×</button>
+          </div>
+          <div class="lift-row" data-lift>
+            <input type="text" value="Deadlift" placeholder="Lift name" style="flex:1;font-size:0.8rem;" oninput="generatePlan()" class="lift-name">
+            <input type="number" value="120" min="1" step="0.5" placeholder="1RM" style="width:80px;text-align:center;font-size:0.8rem;" oninput="generatePlan()" class="lift-e1rm">
+            <span style="font-size:0.7rem;color:var(--muted);font-family:'JetBrains Mono',monospace;">kg</span>
+            <button onclick="this.closest('[data-lift]').remove();generatePlan()" style="background:transparent;border:none;color:var(--muted);cursor:pointer;font-size:1rem;padding:0.1rem 0.2rem;transition:color 0.12s;" onmouseover="this.style.color='var(--danger)'" onmouseout="this.style.color='var(--muted)'">×</button>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    {# Save #}
+    <div style="display:flex;gap:0.65rem;flex-wrap:wrap;">
+      <input type="text" id="plan-name" placeholder="Plan name…"
+             style="flex:1;min-width:140px;font-size:0.875rem;">
+      <button class="btn btn-primary" onclick="savePlan()" id="save-btn">
+        <i data-lucide="save" style="width:14px;height:14px;pointer-events:none;"></i>
+        Save Plan
+      </button>
+    </div>
+    <div id="save-msg" style="font-size:0.78rem;margin-top:0.5rem;display:none;"></div>
+
+  </div>
+
+  {# ── Right: Preview ── #}
+  <div>
+    <div class="section-title">Week-by-week preview</div>
+    <div class="card" style="padding:0;overflow:hidden;">
+      <div id="plan-preview" style="overflow-x:auto;"></div>
+    </div>
+    <div id="plan-summary" style="margin-top:0.85rem;display:flex;gap:0.75rem;flex-wrap:wrap;"></div>
+  </div>
+
+</div>
+
+{# ── Saved Plans ── #}
+{% if saved_plans %}
+<div style="margin-top:2rem;">
+  <div class="section-title">Saved plans</div>
+  <div style="display:flex;flex-direction:column;gap:0.5rem;" id="saved-plans-list">
+    {% for p in saved_plans %}
+    <div class="saved-plan-card" id="saved-plan-{{ p.id }}">
+      <div style="flex:1;min-width:0;">
+        <div style="font-weight:600;font-size:0.875rem;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ p.name }}</div>
+        <div style="font-size:0.7rem;color:var(--muted);margin-top:0.1rem;">
+          {{ p.goal | capitalize }} · {{ p.weeks }} weeks · saved {{ p.created_at[:10] }}
+        </div>
+      </div>
+      <button onclick="deleteSavedPlan({{ p.id }}, this)"
+              style="background:transparent;border:1px solid var(--border);color:var(--muted);
+                     cursor:pointer;border-radius:var(--radius-xs);padding:0.3rem 0.6rem;
+                     font-size:0.72rem;transition:all 0.12s;white-space:nowrap;"
+              onmouseover="this.style.borderColor='var(--danger)';this.style.color='var(--danger)'"
+              onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">
+        Delete
+      </button>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+<script>
+let _goal = 'hypertrophy';
+
+function setGoal(goal, btn) {
+  _goal = goal;
+  document.querySelectorAll('.goal-btn').forEach(b => b.classList.remove('selected'));
+  btn.classList.add('selected');
+  generatePlan();
+}
+
+function addLiftRow() {
+  const c = document.getElementById('lifts-container');
+  const row = document.createElement('div');
+  row.className = 'lift-row'; row.setAttribute('data-lift','');
+  row.innerHTML = `
+    <input type="text" placeholder="Lift name" style="flex:1;font-size:0.8rem;" oninput="generatePlan()" class="lift-name">
+    <input type="number" placeholder="1RM kg" min="1" step="0.5" style="width:80px;text-align:center;font-size:0.8rem;" oninput="generatePlan()" class="lift-e1rm">
+    <span style="font-size:0.7rem;color:var(--muted);font-family:'JetBrains Mono',monospace;">kg</span>
+    <button onclick="this.closest('[data-lift]').remove();generatePlan()"
+            style="background:transparent;border:none;color:var(--muted);cursor:pointer;font-size:1rem;padding:0.1rem 0.2rem;transition:color 0.12s;"
+            onmouseover="this.style.color='var(--danger)'" onmouseout="this.style.color='var(--muted)'">×</button>`;
+  c.appendChild(row);
+  row.querySelector('.lift-name').focus();
+}
+
+// ── Plan generation ──────────────────────────────────────────────
+
+const GOAL_CONFIG = {
+  hypertrophy: {
+    // [sets, reps, pct1rm] per phase: accumulation, intensification, peak, deload
+    phases: [
+      { name: 'Accumulation',   cls: 'plan-phase-acc',  sets: 4, reps: [10, 12], pct: [0.65, 0.72] },
+      { name: 'Intensification',cls: 'plan-phase-int',  sets: 4, reps: [8,  10], pct: [0.72, 0.78] },
+      { name: 'Peak',           cls: 'plan-phase-int',  sets: 5, reps: [6,   8], pct: [0.78, 0.82] },
+      { name: 'Deload',         cls: 'plan-phase-deload',sets:3, reps: [10, 12], pct: [0.60, 0.65] },
+    ],
+  },
+  strength: {
+    phases: [
+      { name: 'Accumulation',   cls: 'plan-phase-acc',  sets: 4, reps: [5, 6],   pct: [0.75, 0.80] },
+      { name: 'Intensification',cls: 'plan-phase-int',  sets: 4, reps: [3, 5],   pct: [0.82, 0.87] },
+      { name: 'Peak',           cls: 'plan-phase-peak', sets: 4, reps: [2, 3],   pct: [0.88, 0.92] },
+      { name: 'Deload',         cls: 'plan-phase-deload',sets:3, reps: [5, 6],   pct: [0.70, 0.75] },
+    ],
+  },
+  peaking: {
+    phases: [
+      { name: 'Transition',     cls: 'plan-phase-acc',  sets: 4, reps: [4, 5],   pct: [0.80, 0.85] },
+      { name: 'Intensification',cls: 'plan-phase-int',  sets: 4, reps: [2, 3],   pct: [0.87, 0.92] },
+      { name: 'Peak',           cls: 'plan-phase-peak', sets: 3, reps: [1, 2],   pct: [0.92, 0.97] },
+      { name: 'Deload',         cls: 'plan-phase-deload',sets:2, reps: [3, 4],   pct: [0.75, 0.80] },
+    ],
+  },
+};
+
+function round5(kg) { return Math.round(kg / 2.5) * 2.5; }
+
+function generatePlan() {
+  const weeks   = parseInt(document.getElementById('weeks-slider').value);
+  const cfg     = GOAL_CONFIG[_goal];
+  const phases  = cfg.phases;
+  const unit    = window.getAppUnit ? window.getAppUnit() : 'kg';
+  const cvt     = kg => unit === 'lbs' ? kg * 2.20462 : kg;
+  const unitSym = unit;
+
+  // Distribute weeks across phases (last phase = deload, always 1 week)
+  const deloadWeeks = 1;
+  const workWeeks   = weeks - deloadWeeks;
+  const p3 = Math.max(1, Math.floor(workWeeks * 0.2));
+  const p2 = Math.max(1, Math.floor(workWeeks * 0.35));
+  const p1 = workWeeks - p2 - p3;
+  const phaseLens = [Math.max(1,p1), Math.max(1,p2), Math.max(1,p3), deloadWeeks];
+
+  // Collect lifts
+  const liftRows = document.querySelectorAll('[data-lift]');
+  const lifts = [];
+  liftRows.forEach(row => {
+    const name = row.querySelector('.lift-name').value.trim();
+    const e1rm = parseFloat(row.querySelector('.lift-e1rm').value);
+    if (name && e1rm > 0) lifts.push({name, e1rm});
+  });
+
+  if (!lifts.length) {
+    document.getElementById('plan-preview').innerHTML =
+      '<div style="padding:1.5rem;color:var(--muted);font-size:0.875rem;text-align:center;">Add at least one lift to generate a plan.</div>';
+    document.getElementById('plan-summary').innerHTML = '';
+    return;
+  }
+
+  // Build week rows
+  const rows = [];
+  let wNum = 1;
+  phases.forEach((phase, pi) => {
+    const len = phaseLens[pi];
+    const [rLo, rHi]  = phase.reps;
+    const [pLo, pHi]  = phase.pct;
+
+    for (let w = 0; w < len; w++) {
+      const progress = len > 1 ? w / (len - 1) : 0.5;
+      // Wave within each phase: reps decrease, pct increases as we progress
+      const reps = Math.round(rHi - (rHi - rLo) * progress);
+      const pct  = pLo + (pHi - pLo) * progress;
+
+      const cells = lifts.map(lift => {
+        const targetKg = round5(lift.e1rm * pct);
+        const disp = cvt(targetKg).toFixed(1);
+        return `<td style="font-family:'JetBrains Mono',monospace;">
+          <span style="font-weight:600;color:var(--text);">${disp}</span>
+          <span style="font-size:0.68rem;color:var(--muted);"> ${unitSym}</span><br>
+          <span style="font-size:0.68rem;color:var(--muted);">${phase.sets}×${reps}</span>
+        </td>`;
+      }).join('');
+
+      rows.push({ wNum, phaseName: phase.name, cls: phase.cls, cells });
+      wNum++;
+    }
+  });
+
+  // Build table
+  const liftHeaders = lifts.map(l =>
+    `<th>${l.name}<br><span style="font-weight:400;font-size:0.6rem;color:var(--muted-hi);">e1RM: ${cvt(l.e1rm).toFixed(1)} ${unitSym}</span></th>`
+  ).join('');
+
+  const tableRows = rows.map(r =>
+    `<tr>
+      <td style="white-space:nowrap;">
+        <span style="font-family:'JetBrains Mono',monospace;font-size:0.78rem;font-weight:700;color:var(--text);">W${r.wNum}</span>
+      </td>
+      <td><span class="week-badge ${r.cls}">${r.phaseName}</span></td>
+      ${r.cells}
+    </tr>`
+  ).join('');
+
+  document.getElementById('plan-preview').innerHTML = `
+    <table class="week-table">
+      <thead><tr>
+        <th style="width:40px;">Wk</th>
+        <th>Phase</th>
+        ${liftHeaders}
+      </tr></thead>
+      <tbody>${tableRows}</tbody>
+    </table>`;
+
+  // Summary KPIs
+  const totalSets = rows.reduce((acc, r) => {
+    const phase = phases.find(p => p.name === r.phaseName);
+    return acc + (phase ? phase.sets : 0) * lifts.length;
+  }, 0);
+  const peakRow = rows.filter(r => r.phaseName !== 'Deload').slice(-2, -1)[0];
+
+  document.getElementById('plan-summary').innerHTML = [
+    { label: 'Weeks', val: weeks },
+    { label: 'Lifts', val: lifts.length },
+    { label: 'Total sets est.', val: totalSets },
+    { label: 'Goal', val: _goal.charAt(0).toUpperCase() + _goal.slice(1) },
+  ].map(k => `
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-xs);padding:0.5rem 0.85rem;">
+      <div style="font-size:0.62rem;text-transform:uppercase;letter-spacing:0.1em;color:var(--muted);font-weight:700;">${k.label}</div>
+      <div style="font-family:'JetBrains Mono',monospace;font-size:1.1rem;font-weight:700;color:var(--accent);margin-top:0.15rem;">${k.val}</div>
+    </div>`).join('');
+}
+
+async function savePlan() {
+  const name  = document.getElementById('plan-name').value.trim();
+  const weeks = parseInt(document.getElementById('weeks-slider').value);
+  const msg   = document.getElementById('save-msg');
+  const btn   = document.getElementById('save-btn');
+
+  if (!name) {
+    msg.textContent = 'Enter a plan name.';
+    msg.style.color = 'var(--danger)';
+    msg.style.display = 'block';
+    document.getElementById('plan-name').focus();
+    return;
+  }
+
+  const liftRows = document.querySelectorAll('[data-lift]');
+  const lifts = [];
+  liftRows.forEach(row => {
+    const n = row.querySelector('.lift-name').value.trim();
+    const e = parseFloat(row.querySelector('.lift-e1rm').value);
+    if (n && e > 0) lifts.push({name: n, e1rm_kg: e});
+  });
+
+  if (!lifts.length) {
+    msg.textContent = 'Add at least one lift.';
+    msg.style.color = 'var(--danger)';
+    msg.style.display = 'block';
+    return;
+  }
+
+  btn.disabled = true;
+  btn.textContent = 'Saving…';
+
+  const resp = await fetch('/planner/plans', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({name, goal: _goal, weeks, lifts}),
+  });
+
+  btn.disabled = false;
+  btn.innerHTML = '<i data-lucide="save" style="width:14px;height:14px;pointer-events:none;"></i> Save Plan';
+  lucide.createIcons();
+
+  if (resp.ok) {
+    msg.textContent = '✓ Plan saved!';
+    msg.style.color = 'var(--success)';
+    msg.style.display = 'block';
+    setTimeout(() => { msg.style.display = 'none'; }, 3000);
+    // Add to saved list without reload
+    const data = await resp.json();
+    const list = document.getElementById('saved-plans-list');
+    if (list) {
+      const card = document.createElement('div');
+      card.className = 'saved-plan-card';
+      card.id = 'saved-plan-' + data.id;
+      card.innerHTML = `
+        <div style="flex:1;min-width:0;">
+          <div style="font-weight:600;font-size:0.875rem;color:var(--text);">${name}</div>
+          <div style="font-size:0.7rem;color:var(--muted);margin-top:0.1rem;">${_goal.charAt(0).toUpperCase()+_goal.slice(1)} · ${weeks} weeks · saved today</div>
+        </div>
+        <button onclick="deleteSavedPlan(${data.id},this)"
+                style="background:transparent;border:1px solid var(--border);color:var(--muted);cursor:pointer;border-radius:var(--radius-xs);padding:0.3rem 0.6rem;font-size:0.72rem;transition:all 0.12s;"
+                onmouseover="this.style.borderColor='var(--danger)';this.style.color='var(--danger)'"
+                onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">Delete</button>`;
+      list.prepend(card);
+    } else {
+      // Create the section if it didn't exist
+      window.location.reload();
+    }
+  } else {
+    msg.textContent = 'Failed to save. Try again.';
+    msg.style.color = 'var(--danger)';
+    msg.style.display = 'block';
+  }
+}
+
+async function deleteSavedPlan(id, btn) {
+  if (!confirm('Delete this saved plan?')) return;
+  const resp = await fetch('/planner/plans/' + id, {method: 'DELETE'});
+  if (resp.ok || resp.status === 204) {
+    const card = document.getElementById('saved-plan-' + id);
+    if (card) card.remove();
+  }
+}
+
+// Unit toggle reactivity
+window.addEventListener('unitchange', generatePlan);
+
+// Initial render
+generatePlan();
+</script>
+{% endblock %}

@@ -171,7 +171,16 @@ document.getElementById('pr-tl-search').addEventListener('keydown', e => {
 </div>
 {% endif %}
 
-{# ── 5. Sets per muscle this week ────────────────────────────────── #}
+{# ── 5. Muscle activation heatmap ───────────────────────────────── #}
+<div style="margin-bottom:1.5rem;">
+  <div class="section-title">Muscle volume — all time</div>
+  <div class="card" style="padding:1.25rem;">
+    {% set map_id = "stats" %}
+    {% include 'partials/muscle_map.html' %}
+  </div>
+</div>
+
+{# ── 6. Sets per muscle this week ────────────────────────────────── #}
 {% if weekly_muscle_sets %}
 <div style="margin-bottom:1.5rem;">
   <div class="section-title">Sets per muscle — this week</div>
@@ -191,7 +200,7 @@ document.getElementById('pr-tl-search').addEventListener('keydown', e => {
 </div>
 {% endif %}
 
-{# ── 6. Top exercises ────────────────────────────────────────────── #}
+{# ── 7. Top exercises ────────────────────────────────────────────── #}
 {% if top_exercises %}
 <div>
   <div class="section-title">Top exercises — all time</div>

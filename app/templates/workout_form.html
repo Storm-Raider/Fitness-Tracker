@@ -1201,6 +1201,75 @@ document.getElementById('tpl-name-input')?.addEventListener('keydown', e => { if
 
 </div>{# /workout-grid #}
 
+{% if not is_finished %}
+{# ── Muscle activation panel (live) ── #}
+<div id="muscle-panel" style="margin-top:1rem;">
+  <button onclick="toggleMusclePanel()" id="muscle-panel-toggle"
+          style="width:100%;background:transparent;border:1px solid var(--border);border-radius:var(--radius-sm);
+                 color:var(--muted);font-family:'Barlow',inherit;font-size:0.78rem;font-weight:600;
+                 cursor:pointer;padding:0.55rem 1rem;display:flex;align-items:center;justify-content:space-between;
+                 transition:border-color 0.15s,color 0.15s;letter-spacing:0.02em;"
+          onmouseover="this.style.borderColor='var(--border-mid)';this.style.color='var(--text)'"
+          onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">
+    <span style="display:flex;align-items:center;gap:0.5rem;">
+      <i data-lucide="activity" style="width:14px;height:14px;pointer-events:none;"></i>
+      Muscle Activation Map
+      <span id="muscle-panel-badge" style="display:none;background:var(--accent-dim);color:var(--accent);
+             border:1px solid rgba(79,156,249,0.3);border-radius:20px;font-size:0.65rem;padding:0.05rem 0.5rem;">live</span>
+    </span>
+    <i data-lucide="chevron-down" id="muscle-panel-chevron" style="width:14px;height:14px;pointer-events:none;transition:transform 0.2s;"></i>
+  </button>
+  <div id="muscle-panel-body" style="display:none;padding:1.25rem;background:var(--surface);border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius-sm) var(--radius-sm);">
+    <div style="font-size:0.72rem;color:var(--muted);margin-bottom:1rem;text-align:center;">
+      Muscles activated in this session, scaled by volume logged.
+    </div>
+    {% set map_id = "workout" %}
+    {% set muscle_data_json = '{}' %}
+    {% include 'partials/muscle_map.html' %}
+  </div>
+</div>
+<script>
+(function() {
+  var panelOpen = false;
+
+  function recomputeAll() {
+    var muscleVol = {};
+    if (typeof setVolumes === 'undefined' || typeof setExercises === 'undefined') return muscleVol;
+    Object.keys(setVolumes).forEach(function(sid) {
+      var vol = setVolumes[sid];
+      var ex  = setExercises[sid];
+      if (!ex) return;
+      var exData = (typeof exercises !== 'undefined' ? exercises : []).find(function(e) { return e.id === ex.id; });
+      if (!exData || !exData.muscles) return;
+      exData.muscles.forEach(function(m) {
+        if (m.is_primary) muscleVol[m.name] = (muscleVol[m.name] || 0) + vol;
+      });
+    });
+    return muscleVol;
+  }
+
+  function pushToMap() {
+    var muscleVol = recomputeAll();
+    var updFn = window['mmapUpdate_workout'];
+    if (updFn) updFn(muscleVol);
+    var badge = document.getElementById('muscle-panel-badge');
+    if (badge) badge.style.display = Object.keys(muscleVol).length ? 'inline-block' : 'none';
+  }
+
+  window.toggleMusclePanel = function() {
+    panelOpen = !panelOpen;
+    document.getElementById('muscle-panel-body').style.display = panelOpen ? 'block' : 'none';
+    var chev = document.getElementById('muscle-panel-chevron');
+    if (chev) chev.style.transform = panelOpen ? 'rotate(180deg)' : '';
+    if (panelOpen) pushToMap();
+  };
+
+  // Hook called by logSet and deleteSet after they mutate setVolumes/setExercises
+  window._mmapRefresh = function() { if (panelOpen) pushToMap(); };
+})();
+</script>
+{% endif %}
+
 {# ── Sticky footer ── #}
 <div class="workout-footer">
   <button class="btn btn-ghost" style="font-size:0.8rem;white-space:nowrap;"
@@ -2024,6 +2093,7 @@ async function logSet() {
   updateSetsCountBadge();
   _lastLoggedExId = exerciseId;
   _showSameBtn(exerciseName, displayWeight, reps, unit);
+  if (window._mmapRefresh) window._mmapRefresh();
 }
 
 // ── Exercise group helpers ─────────────────────────────────────
@@ -2179,6 +2249,7 @@ async function deleteSet(id, btn) {
       delete setVolumes[id];
       delete setExercises[id];
       updateVolumeDisplay();
+      if (window._mmapRefresh) window._mmapRefresh();
     }
     updateSetsCountBadge();
   }

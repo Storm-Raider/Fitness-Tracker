@@ -151,6 +151,21 @@ async def stats(
     ) as cur:
         weekly_muscle_sets = [dict(r) for r in await cur.fetchall()]
 
+    # All-time muscle volume for body heatmap
+    async with conn.execute(
+        """
+        SELECT em.muscle, SUM(s.weight_kg * s.reps) AS volume
+        FROM sets s
+        JOIN workouts w ON w.id = s.workout_id AND w.user_id = ?
+        JOIN exercise_muscles em ON em.exercise_id = s.exercise_id AND em.is_primary = 1
+        WHERE s.user_id = ?
+        GROUP BY em.muscle
+        """,
+        (uid, uid),
+    ) as cur:
+        muscle_volumes = [dict(r) for r in await cur.fetchall()]
+    muscle_data_json = json.dumps({m["muscle"]: round(m["volume"] or 0, 1) for m in muscle_volumes})
+
     return render(
         request,
         "stats",
@@ -162,6 +177,7 @@ async def stats(
             "stalled": stalled,
             "top_exercises": top_exercises,
             "weekly_muscle_sets": weekly_muscle_sets,
+            "muscle_data_json": muscle_data_json,
             "user": dict(current_user),
         },
     )
