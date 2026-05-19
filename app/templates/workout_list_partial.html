@@ -1,7 +1,7 @@
 {% if workouts %}
 <div style="display:flex;flex-direction:column;gap:0.5rem;">
   {% for w in workouts %}
-  <div id="workout-{{ w.id }}" style="display:flex;align-items:stretch;border-radius:var(--radius);border:1px solid var(--border);background:var(--surface);overflow:hidden;transition:border-color 0.15s,box-shadow 0.15s;position:relative;"
+  <div id="workout-{{ w.id }}" data-date="{{ w.started_at[:10] }}" style="display:flex;align-items:stretch;border-radius:var(--radius);border:1px solid var(--border);background:var(--surface);overflow:hidden;transition:border-color 0.15s,box-shadow 0.15s;position:relative;"
        onmouseover="this.style.borderColor='var(--border-mid)';this.style.boxShadow='0 4px 18px rgba(0,0,0,0.45)'"
        onmouseout="this.style.borderColor='var(--border)';this.style.boxShadow=''">
     <!-- Left status edge -->
@@ -13,6 +13,9 @@
         <div style="color:var(--muted);font-size:0.8rem;margin-top:0.1rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ w.notes }}</div>
         {% elif not w.ended_at %}
         <div style="color:var(--accent);font-size:0.78rem;margin-top:0.1rem;">In progress</div>
+        {% endif %}
+        {% if w.exercise_preview %}
+        <div style="color:var(--muted);font-size:0.74rem;margin-top:0.15rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:220px;">{{ w.exercise_preview }}{% if w.set_count > 3 %}&thinsp;…{% endif %}</div>
         {% endif %}
       </div>
       <div style="display:flex;align-items:center;gap:1.25rem;flex-shrink:0;">

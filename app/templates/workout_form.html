@@ -744,13 +744,14 @@
   display: none;
   position: fixed;
   inset: 0;
-  background: rgba(0,0,0,0.8);
-  z-index: 100;
+  background: rgba(0,0,0,0.85);
+  z-index: 600;
   align-items: center;
   justify-content: center;
   padding: 1rem;
-  backdrop-filter: blur(2px);
-  -webkit-backdrop-filter: blur(2px);
+  padding-bottom: calc(1rem + env(safe-area-inset-bottom, 0px));
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
 }
 </style>
 {% endblock %}
@@ -787,6 +788,12 @@
       <i data-lucide="trash-2" style="width:12px;height:12px;pointer-events:none;"></i>
     </button>
     {% if not is_finished %}
+    <button id="unit-toggle-session" onclick="toggleUnit()"
+            title="Toggle kg / lbs"
+            style="background:transparent;border:1px solid var(--border);color:var(--muted);
+                   cursor:pointer;padding:0.2rem 0.6rem;border-radius:var(--radius-xs);
+                   font-size:0.72rem;font-family:'JetBrains Mono',monospace;letter-spacing:0.04em;
+                   min-height:28px;transition:color 0.15s,border-color 0.15s;">kg</button>
     <button class="btn btn-primary" onclick="finishWorkout()"
             style="min-height:32px;padding:0.3rem 0.85rem;font-size:0.8rem;font-weight:700;letter-spacing:0.02em;">
       Finish
@@ -1036,7 +1043,7 @@ document.getElementById('tpl-name-input')?.addEventListener('keydown', e => { if
     {# Search #}
     <div class="ex-search-wrap">
       <i data-lucide="search" class="ex-search-icon"></i>
-      <input id="exercise-input" placeholder="Search exercise…" autocomplete="off">
+      <input id="exercise-input" placeholder="Search exercise…" autocomplete="off" autocorrect="off" autocapitalize="words" spellcheck="false">
       <input type="hidden" id="exercise-id" value="">
       <div id="exercise-dropdown"></div>
     </div>
@@ -1375,7 +1382,7 @@ document.getElementById('tpl-name-input')?.addEventListener('keydown', e => { if
       </div>
       <div>
         <div id="modal-volume" style="font-family:'JetBrains Mono',monospace;font-size:1.75rem;font-weight:700;line-height:1;color:var(--accent);"></div>
-        <div style="font-size:0.6rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em;margin-top:0.35rem;">kg</div>
+        <div id="modal-vol-unit" style="font-size:0.6rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em;margin-top:0.35rem;">kg</div>
       </div>
     </div>
     <a href="/workouts" class="btn btn-primary" style="width:100%;justify-content:center;min-height:46px;">Done</a>
@@ -1401,9 +1408,12 @@ function exColor(exerciseId) {
   }
   return _exColorMap[exerciseId];
 }
-// Group and colour server-rendered sets on load
+// Group and colour server-rendered sets on load; restore timer if mid-rest
 document.addEventListener('DOMContentLoaded', function() {
   regroupSets();
+  {% if not is_finished %}
+  _restoreTimerState();
+  {% endif %}
 });
 
 function epley1RM(weight, reps) {
@@ -1487,10 +1497,25 @@ window.addEventListener('unitchange', function(e) {
       : Math.round(val / 2.2046 * 10) / 10;
   }
   updateVolumeDisplay();
+  // Update bar weight selector option labels
+  const barSel = document.getElementById('bar-weight-sel');
+  if (barSel) {
+    const BAR_MAP = {20: 44, 15: 33, 10: 22};
+    barSel.querySelectorAll('option').forEach(function(opt) {
+      const kg = parseFloat(opt.value);
+      if (!isNaN(kg) && BAR_MAP[kg] !== undefined) {
+        opt.textContent = unit === 'lbs' ? BAR_MAP[kg] + ' lb' : kg + ' kg';
+      }
+    });
+  }
+  // Update cardio distance label (km ↔ mi)
+  const distLabel = document.getElementById('cardio-distance-label');
+  if (distLabel) distLabel.textContent = 'Distance (' + (unit === 'lbs' ? 'mi' : 'km') + ')';
 });
 
 // ── Rest timer ────────────────────────────────────────────────
-const TIMER_KEY = 'fitstorm_rest_s';
+const TIMER_KEY      = 'fitstorm_rest_s';
+const TIMER_STATE_KEY = 'fitstorm_timer_state';
 const TIMER_MAX = 600;
 const RING_C    = 2 * Math.PI * 22; // r=22 → ≈138.23
 let timerTotal     = 120;
@@ -1499,6 +1524,47 @@ let timerInterval  = null;
 
 function _timerDefault() {
   return Math.min(TIMER_MAX, Math.max(10, parseInt(localStorage.getItem(TIMER_KEY) || '120')));
+}
+
+function _saveTimerState() {
+  if (timerInterval) {
+    sessionStorage.setItem(TIMER_STATE_KEY, JSON.stringify({
+      wid: WORKOUT_ID,
+      endsAt: Date.now() + timerRemaining * 1000,
+      total: timerTotal,
+    }));
+  } else {
+    sessionStorage.removeItem(TIMER_STATE_KEY);
+  }
+}
+
+function _restoreTimerState() {
+  try {
+    const s = JSON.parse(sessionStorage.getItem(TIMER_STATE_KEY) || 'null');
+    if (!s || s.wid !== WORKOUT_ID) return;
+    const remaining = Math.round((s.endsAt - Date.now()) / 1000);
+    if (remaining > 0) {
+      timerTotal = s.total;
+      timerRemaining = remaining;
+      const bar = document.getElementById('rest-timer');
+      bar.style.display = 'flex';
+      document.getElementById('timer-ring').style.stroke = 'var(--accent)';
+      updateTimerDisplay();
+      timerInterval = setInterval(() => {
+        timerRemaining = Math.max(0, timerRemaining - 1);
+        _saveTimerState();
+        updateTimerDisplay();
+        if (timerRemaining === 0) {
+          clearInterval(timerInterval); timerInterval = null;
+          sessionStorage.removeItem(TIMER_STATE_KEY);
+          _beep();
+          document.getElementById('timer-ring').style.stroke = 'var(--success)';
+          document.getElementById('timer-display').textContent = 'Done!';
+          setTimeout(stopTimer, 2500);
+        }
+      }, 1000);
+    }
+  } catch {}
 }
 
 function _beep() {
@@ -1526,11 +1592,14 @@ function startTimer() {
   document.getElementById('timer-ring').style.stroke = 'var(--accent)';
   updateTimerDisplay();
   clearInterval(timerInterval);
+  _saveTimerState();
   timerInterval = setInterval(() => {
     timerRemaining = Math.max(0, timerRemaining - 1);
+    _saveTimerState();
     updateTimerDisplay();
     if (timerRemaining === 0) {
-      clearInterval(timerInterval);
+      clearInterval(timerInterval); timerInterval = null;
+      sessionStorage.removeItem(TIMER_STATE_KEY);
       _beep();
       document.getElementById('timer-ring').style.stroke = 'var(--success)';
       document.getElementById('timer-display').textContent = 'Done!';
@@ -1540,7 +1609,8 @@ function startTimer() {
 }
 
 function stopTimer() {
-  clearInterval(timerInterval);
+  clearInterval(timerInterval); timerInterval = null;
+  sessionStorage.removeItem(TIMER_STATE_KEY);
   document.getElementById('rest-timer').style.display = 'none';
 }
 
@@ -2065,6 +2135,9 @@ async function logSet() {
 
   if (!exerciseName) { showErr('Enter an exercise name.'); return; }
 
+  const logBtn = document.querySelector('.log-btn');
+  if (logBtn) { if (logBtn.dataset.busy) return; logBtn.dataset.busy = '1'; logBtn.style.opacity = '0.6'; }
+
   if (!exerciseId) {
     const cr = await fetch('/exercises', {
       method: 'POST',
@@ -2076,8 +2149,8 @@ async function logSet() {
     } else if (cr.status === 409) {
       const match = exercises.find(e => e.name.toLowerCase() === exerciseName.toLowerCase());
       if (match) { exerciseId = match.id; }
-      else { showErr('Exercise name conflict.'); return; }
-    } else { showErr('Could not create exercise.'); return; }
+      else { showErr('Exercise name conflict.'); if (logBtn) { delete logBtn.dataset.busy; logBtn.style.opacity = ''; } return; }
+    } else { showErr('Could not create exercise.'); if (logBtn) { delete logBtn.dataset.busy; logBtn.style.opacity = ''; } return; }
   }
 
   const unit          = getAppUnit();
@@ -2093,7 +2166,7 @@ async function logSet() {
     headers: {'Content-Type': 'application/json'},
     body: JSON.stringify({exercise_id: exerciseId, reps, weight_kg: weightKg, notes, rpe}),
   });
-  if (!resp.ok) { showErr('Failed to log set.'); return; }
+  if (!resp.ok) { showErr('Failed to log set.'); if (logBtn) { delete logBtn.dataset.busy; logBtn.style.opacity = ''; } return; }
   const data = await resp.json();
 
   startTimer();
@@ -2154,6 +2227,7 @@ async function logSet() {
   _lastLoggedExId = exerciseId;
   _showSameBtn(exerciseName, displayWeight, reps, unit);
   if (window._mmapRefresh) window._mmapRefresh();
+  if (logBtn) { delete logBtn.dataset.busy; logBtn.style.opacity = ''; }
 }
 
 // ── Exercise group helpers ─────────────────────────────────────
@@ -2234,16 +2308,33 @@ function startEdit(id) {
   const row    = document.getElementById('set-' + id);
   const editEl = document.getElementById('edit-' + id);
   if (!row || !editEl) return;
-  const kg   = parseFloat(row.dataset.kg) || 0;
-  const reps = parseInt(row.dataset.reps) || 1;
-  const unit = getAppUnit();
+  const kg    = parseFloat(row.dataset.kg) || 0;
+  const reps  = parseInt(row.dataset.reps) || 1;
+  const rpe   = row.dataset.rpe  || '';
+  const notes = row.dataset.notes || '';
+  const unit  = getAppUnit();
   const displayW = unit === 'lbs' ? Math.round(kg * 2.2046 * 10) / 10 : kg;
-  const wIn = editEl.querySelector('.edit-w');
-  const rIn = editEl.querySelector('.edit-r');
-  wIn.value = displayW;
-  rIn.value = reps;
+
+  const rpeOpts = [1,2,3,4,5,6,7,8,9,10].map(n =>
+    `<option value="${n}"${String(rpe)===String(n)?' selected':''}>${n}</option>`
+  ).join('');
+
+  editEl.innerHTML =
+    `<input type="number" class="edit-w" value="${displayW}" step="0.5" min="0" style="width:4.2rem;">` +
+    `<span style="color:var(--muted);font-size:0.85rem;flex-shrink:0;">×</span>` +
+    `<input type="number" class="edit-r" value="${reps}" step="1" min="1" style="width:3.2rem;">` +
+    `<select class="edit-rpe" title="RPE" style="font-size:0.72rem;padding:0.1rem 0.25rem;border-radius:4px;border:1px solid var(--border);background:var(--surface-2);color:var(--muted);height:26px;min-width:54px;">` +
+      `<option value="">RPE</option>${rpeOpts}` +
+    `</select>` +
+    `<input type="text" class="edit-notes" value="${escHtml(notes)}" placeholder="notes…" autocorrect="off" spellcheck="false"` +
+      ` style="flex:1;min-width:0;font-size:0.72rem;padding:0.1rem 0.4rem;border-radius:4px;border:1px solid var(--border);background:var(--surface-2);color:var(--text);height:26px;">` +
+    `<button onclick="saveEdit(${id})" class="btn btn-ghost" style="font-size:0.72rem;padding:0.1rem 0.5rem;min-height:26px;flex-shrink:0;">Save</button>` +
+    `<button onclick="cancelEdit(${id})" class="btn btn-ghost" style="font-size:0.72rem;padding:0.1rem 0.4rem;min-height:26px;flex-shrink:0;">✕</button>`;
+
   document.getElementById('detail-' + id).style.display = 'none';
   editEl.style.display = 'flex';
+  const wIn = editEl.querySelector('.edit-w');
+  const rIn = editEl.querySelector('.edit-r');
   wIn.focus(); wIn.select();
   [wIn, rIn].forEach(inp => {
     inp.onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); saveEdit(id); } };
@@ -2264,28 +2355,44 @@ async function saveEdit(id) {
   const reps     = parseInt(editEl.querySelector('.edit-r').value) || 0;
   if (displayW <= 0 || reps < 1) return;
   const weightKg = unit === 'lbs' ? displayW / 2.2046 : displayW;
-  const rpe   = row.dataset.rpe   ? parseInt(row.dataset.rpe)   : null;
-  const notes = row.dataset.notes || null;
+  const rpeRaw   = editEl.querySelector('.edit-rpe')?.value;
+  const rpe      = rpeRaw ? parseInt(rpeRaw) : null;
+  const notes    = editEl.querySelector('.edit-notes')?.value.trim() || null;
+
   const resp = await fetch(`/workouts/${WORKOUT_ID}/sets/${id}`, {
     method: 'PATCH',
     headers: {'Content-Type': 'application/json'},
     body: JSON.stringify({reps, weight_kg: weightKg, notes: notes || null, rpe: rpe || null}),
   });
   if (!resp.ok) return;
-  row.dataset.kg   = weightKg;
-  row.dataset.reps = reps;
+
+  row.dataset.kg    = weightKg;
+  row.dataset.reps  = reps;
+  row.dataset.rpe   = rpe || '';
+  row.dataset.notes = notes || '';
+
   const oldVol = setVolumes[id] || 0;
   const newVol = weightKg * reps;
   sessionVolume = sessionVolume - oldVol + newVol;
   setVolumes[id] = newVol;
   updateVolumeDisplay();
+  if (window._mmapRefresh) window._mmapRefresh();
+
   const orm = epley1RM(weightKg, reps);
   let html = `<span class="weight-display" data-kg="${weightKg}">${displayW} ${unit}</span> × ${reps}`;
   if (rpe)   html += ` · RPE ${rpe}`;
   html += ` · 1RM ${fmtWeight(orm, unit)}`;
   if (notes) html += ` · ${escHtml(notes)}`;
-  document.getElementById('detail-' + id).innerHTML = html;
+
+  const detailEl = document.getElementById('detail-' + id);
+  detailEl.innerHTML = html;
   cancelEdit(id);
+
+  // Brief save confirmation
+  const tick = document.createElement('span');
+  tick.textContent = ' ✓'; tick.style.cssText = 'color:var(--success);font-size:0.7rem;';
+  detailEl.appendChild(tick);
+  setTimeout(() => tick.remove(), 1500);
 }
 
 async function deleteSet(id, btn) {
@@ -2321,13 +2428,19 @@ async function finishWorkout() {
     await fetch(`/workouts/${WORKOUT_ID}`, {method: 'DELETE'});
     window.location.href = '/workouts'; return;
   }
+  // Flush any unsaved session notes before finishing
+  await saveNotes();
   const resp = await fetch(`/workouts/${WORKOUT_ID}/finish`, {method: 'POST'});
   if (!resp.ok) { window.location.href = '/workouts'; return; }
   const data = await resp.json();
+  const unit   = getAppUnit();
+  const vol    = unit === 'lbs' ? data.volume_kg * 2.20462 : data.volume_kg;
   document.getElementById('modal-duration').textContent = Math.round(data.duration_minutes);
   document.getElementById('modal-sets').textContent     = data.set_count;
-  document.getElementById('modal-volume').textContent   =
-    data.volume_kg.toLocaleString('en', {maximumFractionDigits: 1});
+  document.getElementById('modal-volume').textContent   = vol.toLocaleString('en', {maximumFractionDigits: 1});
+  const unitLabel = document.getElementById('modal-vol-unit');
+  if (unitLabel) unitLabel.textContent = unit;
+  window.scrollTo({top: 0, behavior: 'instant'});
   document.getElementById('finish-modal').style.display = 'flex';
 }
 

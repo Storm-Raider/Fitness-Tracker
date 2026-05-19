@@ -51,6 +51,28 @@ async function repeatWorkout(sourceId, btn) {
   }
 }
 
+// Scroll to week when arriving from stats chart click
+(function() {
+  var from = new URLSearchParams(window.location.search).get('from');
+  if (!from) return;
+  document.addEventListener('DOMContentLoaded', function() {
+    var cards = document.querySelectorAll('[data-date]');
+    if (!cards.length) return;
+    // Find the card whose date is closest to (and on or after) the from date
+    var best = null, bestDiff = Infinity;
+    cards.forEach(function(c) {
+      var diff = Math.abs(new Date(c.dataset.date) - new Date(from));
+      if (diff < bestDiff) { bestDiff = diff; best = c; }
+    });
+    if (best) {
+      best.scrollIntoView({behavior: 'smooth', block: 'center'});
+      best.style.transition = 'box-shadow 0.3s';
+      best.style.boxShadow  = '0 0 0 2px var(--accent)';
+      setTimeout(function() { best.style.boxShadow = ''; }, 2000);
+    }
+  });
+})();
+
 async function startSession(btn) {
   if (_activeWorkoutId) {
     const go = confirm('You have a session in progress. Start a new one anyway?\n\nYour current session will remain open until you finish it.');

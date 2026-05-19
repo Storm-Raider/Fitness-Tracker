@@ -97,6 +97,7 @@ _MIGRATIONS = [
         form_info    TEXT    NOT NULL DEFAULT '{}',
         generated_at TEXT    NOT NULL DEFAULT (datetime('now','localtime'))
     )""",
+    "ALTER TABLE user_settings ADD COLUMN pref_unit TEXT NOT NULL DEFAULT 'kg'",
 ]
 
 

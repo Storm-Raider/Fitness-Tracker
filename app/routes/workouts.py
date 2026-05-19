@@ -77,6 +77,18 @@ async def list_workouts(
     current_user=Depends(get_current_user),
 ):
     uid = current_user["id"]
+
+    # Cleanup ghost sessions: unfinished workouts with no sets older than 1 hour
+    await conn.execute(
+        """DELETE FROM workouts
+           WHERE user_id = ?
+             AND ended_at IS NULL
+             AND NOT EXISTS (SELECT 1 FROM sets WHERE workout_id = workouts.id)
+             AND started_at < datetime('now', 'localtime', '-1 hour')""",
+        (uid,),
+    )
+    await conn.commit()
+
     async with conn.execute(
         """
         SELECT w.id, w.started_at, w.ended_at, w.notes,
@@ -87,7 +99,14 @@ async def list_workouts(
                     ELSE NULL END AS duration_min,
                CASE WHEN w.ended_at IS NULL
                     THEN CAST(ROUND((JULIANDAY('now','localtime') - JULIANDAY(w.started_at)) * 1440) AS INTEGER)
-                    ELSE NULL END AS elapsed_min
+                    ELSE NULL END AS elapsed_min,
+               (SELECT GROUP_CONCAT(ep.name, ', ')
+                FROM (SELECT DISTINCT e.name
+                      FROM sets ep_s
+                      JOIN exercises e ON e.id = ep_s.exercise_id
+                      WHERE ep_s.workout_id = w.id
+                      ORDER BY ep_s.id LIMIT 3) ep
+               ) AS exercise_preview
         FROM workouts w
         LEFT JOIN sets s ON s.workout_id = w.id AND s.user_id = ?
         WHERE w.user_id = ?

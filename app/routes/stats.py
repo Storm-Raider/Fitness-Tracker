@@ -21,6 +21,15 @@ def _week_label(year_week: str) -> str:
         return year_week
 
 
+def _week_start(year_week: str) -> str:
+    y, w = year_week.split("-")
+    try:
+        d = datetime.strptime(f"{y} {int(w):02d} 1", "%Y %W %w")
+        return d.strftime("%Y-%m-%d")
+    except Exception:
+        return ""
+
+
 @router.get("/stats", response_class=HTMLResponse)
 async def stats(
     request: Request,
@@ -45,7 +54,7 @@ async def stats(
         weekly_rows = [dict(r) for r in await cur.fetchall()]
 
     weekly_json = json.dumps([
-        {"label": _week_label(r["week"]), "volume": r["volume"]}
+        {"label": _week_label(r["week"]), "volume": r["volume"], "week_start": _week_start(r["week"])}
         for r in weekly_rows
     ])
 

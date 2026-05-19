@@ -330,7 +330,7 @@
         background: var(--accent);
         border-radius: 0 0 2px 2px;
       }
-      .mob-tab-icon { width: 20px; height: 20px; pointer-events: none; }
+      .mob-tab-icon { width: 24px; height: 24px; pointer-events: none; }
 
       /* Backdrop */
       .mob-more-backdrop {
@@ -407,12 +407,12 @@
         background: var(--accent-dim);
       }
       .mob-more-icon {
-        width: 28px; height: 28px;
+        width: 34px; height: 34px;
         display: flex; align-items: center; justify-content: center;
         background: rgba(255,255,255,0.05);
-        border-radius: 8px;
+        border-radius: 9px;
       }
-      .mob-more-icon i { width: 16px; height: 16px; pointer-events: none; }
+      .mob-more-icon i { width: 20px; height: 20px; pointer-events: none; }
       .mob-more-signout { padding: 0 1.25rem 0.75rem; }
     }
 
@@ -887,9 +887,26 @@
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('/sw.js');
     }
-    // Unit preference (kg / lbs)
+    // Clear fadeUp animation after it completes so the container no longer creates
+    // a CSS stacking context (transform-based context breaks position:fixed modals).
+    (function() {
+      var c = document.querySelector('.container');
+      if (c) c.addEventListener('animationend', function(e) {
+        if (e.animationName === 'fadeUp') {
+          c.style.animation = 'none';
+          c.style.opacity   = '1';
+          c.style.transform = 'none';
+        }
+      }, {once: true});
+    })();
+    // Unit preference (kg / lbs) — initialised from server, synced back on change
     (function() {
       const KEY = 'fitstorm_unit';
+      // Seed localStorage from server preference so cross-device preference works
+      var _serverPref = '{{ (user.pref_unit if user is defined and user else "kg") | e }}';
+      if (_serverPref === 'kg' || _serverPref === 'lbs') {
+        localStorage.setItem(KEY, _serverPref);
+      }
       function getUnit() { return localStorage.getItem(KEY) || 'kg'; }
       function fmtWeight(kg, unit) {
         var val = parseFloat(kg);
@@ -904,7 +921,7 @@
         document.querySelectorAll('.weight-display[data-kg]').forEach(function(el) {
           el.textContent = fmtWeight(parseFloat(el.getAttribute('data-kg')), unit);
         });
-        ['unit-toggle','unit-toggle-mob'].forEach(function(id) {
+        ['unit-toggle','unit-toggle-mob','unit-toggle-session'].forEach(function(id) {
           var btn = document.getElementById(id);
           if (btn) btn.textContent = unit;
         });
@@ -914,8 +931,15 @@
       }
       window.toggleUnit = function() {
         var oldUnit = getUnit();
-        localStorage.setItem(KEY, oldUnit === 'kg' ? 'lbs' : 'kg');
+        var newUnit = oldUnit === 'kg' ? 'lbs' : 'kg';
+        localStorage.setItem(KEY, newUnit);
         applyUnit(oldUnit);
+        // Persist to server so preference survives across devices/browsers
+        fetch('/api/settings/unit', {
+          method: 'PATCH',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({unit: newUnit}),
+        }).catch(function() {});
       };
       window.getAppUnit = getUnit;
       window.fmtWeight = fmtWeight;

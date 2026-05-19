@@ -61,7 +61,12 @@ async def get_current_user(
     if user_id is None:
         raise HTTPException(status_code=401)
     async with conn.execute(
-        "SELECT id, username, is_admin FROM users WHERE id = ?", (user_id,)
+        """SELECT u.id, u.username, u.is_admin,
+                  COALESCE(us.pref_unit, 'kg') AS pref_unit
+           FROM users u
+           LEFT JOIN user_settings us ON us.user_id = u.id
+           WHERE u.id = ?""",
+        (user_id,)
     ) as cur:
         row = await cur.fetchone()
     if not row:
@@ -73,6 +78,31 @@ async def require_admin(user=Depends(get_current_user)):
     if not user["is_admin"]:
         raise HTTPException(status_code=403)
     return user
+
+
+from pydantic import BaseModel
+
+class UnitPref(BaseModel):
+    unit: str
+
+@router.patch("/api/settings/unit")
+async def patch_unit_pref(
+    body: UnitPref,
+    conn: aiosqlite.Connection = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    if body.unit not in ("kg", "lbs"):
+        raise HTTPException(status_code=422, detail="unit must be 'kg' or 'lbs'")
+    uid = current_user["id"]
+    await conn.execute(
+        """INSERT INTO user_settings(user_id, pref_unit)
+           VALUES (?, ?)
+           ON CONFLICT(user_id) DO UPDATE SET pref_unit = excluded.pref_unit""",
+        (uid, body.unit),
+    )
+    await conn.commit()
+    from fastapi.responses import JSONResponse
+    return JSONResponse({"unit": body.unit})
 
 
 # ── Login ─────────────────────────────────────────────────────────────────────
