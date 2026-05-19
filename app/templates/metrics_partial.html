@@ -6,7 +6,7 @@
   <tbody>
     {% for m in metrics %}
     <tr>
-      <td>{{ m.recorded_at[:10] }}</td>
+      <td>{{ m.recorded_at[:10] | human_date }}</td>
       <td>{{ m.weight_kg }}</td>
       <td>{{ m.calories or "—" }}</td>
     </tr>

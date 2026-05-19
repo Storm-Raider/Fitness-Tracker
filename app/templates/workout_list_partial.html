@@ -8,7 +8,7 @@
     <div style="width:3px;flex-shrink:0;background:{% if w.ended_at %}var(--border-mid){% else %}var(--accent){% endif %};"></div>
     <a href="/workouts/{{ w.id }}" style="flex:1;min-width:0;text-decoration:none;color:inherit;display:flex;align-items:center;padding:0.9rem 1.1rem;gap:1rem;">
       <div style="flex:1;min-width:0;">
-        <div style="font-weight:600;font-size:0.9rem;letter-spacing:-0.01em;">{{ w.started_at[:10] }}</div>
+        <div style="font-weight:600;font-size:0.9rem;letter-spacing:-0.01em;">{{ w.started_at[:10] | human_date }}</div>
         {% if w.notes %}
         <div style="color:var(--muted);font-size:0.8rem;margin-top:0.1rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ w.notes }}</div>
         {% elif not w.ended_at %}

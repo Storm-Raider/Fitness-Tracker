@@ -149,7 +149,7 @@
     const u  = getUnit();
     const w  = cvt(r.weight_kg).toFixed(1);
     tip.innerHTML =
-      `<div style="font-size:0.7rem;color:var(--muted);margin-bottom:0.2rem;font-family:'JetBrains Mono',monospace;">${r.date}</div>` +
+      `<div style="font-size:0.7rem;color:var(--muted);margin-bottom:0.2rem;">${humanDate(r.date)}</div>` +
       `<span style="color:#34d399;font-size:0.82rem;font-weight:700;">${w} ${u}</span>`;
     tip.style.display='block';
     const W=canvas.offsetWidth, tw=tip.offsetWidth;
@@ -246,7 +246,7 @@
         <tbody>
           {% for m in metrics %}
           <tr id="metric-{{ m.id }}">
-            <td style="font-weight:500;white-space:nowrap;">{{ m.entry_date }}</td>
+            <td style="font-weight:500;white-space:nowrap;">{{ m.entry_date | human_date }}</td>
             <td class="num" style="white-space:nowrap;"><span class="weight-display" data-kg="{{ m.weight_kg }}">{{ m.weight_kg }} kg</span></td>
             <td style="font-size:0.8rem;color:var(--muted);">{{ m.notes or '' }}</td>
             <td style="padding:0.4rem 0.5rem;text-align:center;">

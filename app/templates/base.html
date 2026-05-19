@@ -1014,6 +1014,17 @@
     })();
     document.addEventListener('DOMContentLoaded', () => lucide.createIcons());
     document.addEventListener('htmx:afterSwap', () => lucide.createIcons());
+    window.humanDate = function(iso) {
+      if (!iso) return '';
+      var d = new Date(String(iso).slice(0, 10) + 'T00:00:00');
+      var now = new Date(); now.setHours(0, 0, 0, 0);
+      var diff = Math.round((now - d) / 86400000);
+      if (diff === 0) return 'Today';
+      if (diff === 1) return 'Yesterday';
+      var opts = {month: 'short', day: 'numeric'};
+      if (d.getFullYear() !== now.getFullYear()) opts.year = 'numeric';
+      return d.toLocaleDateString('en-US', opts);
+    };
   </script>
 </body>
 </html>

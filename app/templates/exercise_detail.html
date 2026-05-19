@@ -171,7 +171,7 @@ document.getElementById('goal-input')?.addEventListener('keydown', e => { if(e.k
       {% for s in sessions %}
       {% set one_rm = (s.max_kg * (1 + (s.max_reps or 1) / 30)) | round(1) %}
       <tr>
-        <td style="font-weight:500;">{{ s.date }}</td>
+        <td style="font-weight:500;">{{ s.date | human_date }}</td>
         <td class="num">
           <span class="weight-display" data-kg="{{ s.max_kg }}">{{ s.max_kg }} kg</span>
           {% if s.max_kg == pr_kg %}
@@ -330,7 +330,7 @@ document.getElementById('goal-input')?.addEventListener('keydown', e => { if(e.k
     const vl = Math.round(s.volume_kg * f);
     const isPR = PR_KG !== null && s.max_kg >= PR_KG;
     tip.innerHTML =
-      `<div style="font-size:0.7rem;color:var(--muted);margin-bottom:0.25rem;font-family:'JetBrains Mono',monospace;">${s.date}${isPR ? ' <span class="badge badge-pr" style="font-size:0.6rem;vertical-align:middle;padding:0.05rem 0.3rem;">PR</span>' : ''}</div>` +
+      `<div style="font-size:0.7rem;color:var(--muted);margin-bottom:0.25rem;">${humanDate(s.date)}${isPR ? ' <span class="badge badge-pr" style="font-size:0.6rem;vertical-align:middle;padding:0.05rem 0.3rem;">PR</span>' : ''}</div>` +
       `<div style="display:flex;flex-direction:column;gap:0.1rem;">` +
       `<span style="color:#f59e0b;font-size:0.78rem;font-weight:600;">${wt} ${pu} top set</span>` +
       `<span style="color:#a78bfa;font-size:0.78rem;font-weight:600;">${o} ${pu} est 1RM</span>` +

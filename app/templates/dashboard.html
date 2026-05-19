@@ -228,7 +228,7 @@ document.getElementById('goal-input')?.addEventListener('keydown', e => { if (e.
               <span class="badge badge-pr weight-display" data-kg="{{ pr.pr_kg }}">{{ pr.pr_kg }} kg</span>
             </td>
             <td style="text-align:right;font-size:0.75rem;color:var(--muted);font-family:'JetBrains Mono',monospace;">
-              {{ pr.pr_date[5:] }}
+              {{ pr.pr_date | human_date }}
             </td>
           </tr>
           {% endfor %}
