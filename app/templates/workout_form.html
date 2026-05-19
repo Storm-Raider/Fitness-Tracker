@@ -79,6 +79,14 @@
   flex-direction: column;
   gap: 1.25rem;
 }
+@media (max-width: 759px) {
+  /* Pull session log above the form on mobile */
+  .workout-sets-col { order: -1; }
+  /* Hide when empty (no sets yet) — nothing useful to show */
+  .workout-sets-col:has(#empty-msg) { display: none; }
+  /* Keep the log compact so the form is still immediately visible */
+  .sets-card { max-height: 210px; overflow-y: auto; }
+}
 @media (min-width: 760px) {
   .workout-grid { flex-direction: row; align-items: start; }
   .workout-form-col { flex: 0 0 420px; min-width: 0; }
