@@ -1163,6 +1163,40 @@ document.getElementById('tpl-name-input')?.addEventListener('keydown', e => { if
   </button>
   <div id="log-error" style="color:var(--danger);font-size:0.8rem;margin-top:0.35rem;display:none;"></div>
 
+  {# Cardio — colocated with log actions so it's always visible #}
+  <div style="margin-top:0.6rem;">
+    <button type="button" onclick="toggleCardioForm()" class="cardio-toggle" style="border:1px solid var(--border);border-radius:var(--radius-xs);padding:0.35rem 0.75rem;color:var(--muted-hi);font-size:0.8rem;width:100%;justify-content:center;gap:0.4rem;">
+      <i data-lucide="activity" style="width:13px;height:13px;flex-shrink:0;"></i>
+      <span id="cardio-toggle-label">Add cardio</span>
+    </button>
+    <div id="cardio-form" style="display:none;margin-top:0.75rem;">
+      <div class="form-group">
+        <label for="cardio-exercise-select">Cardio exercise</label>
+        <select id="cardio-exercise-select"><option value="">— select —</option></select>
+      </div>
+      <div class="grid-2">
+        <div class="form-group">
+          <label>Duration (min)</label>
+          <div class="stepper-group">
+            <button type="button" class="stepper-btn" onclick="stepCardio('duration', -5)">−</button>
+            <input type="number" id="cardio-duration" class="num" value="20" min="1" step="1">
+            <button type="button" class="stepper-btn" onclick="stepCardio('duration', 5)">+</button>
+          </div>
+        </div>
+        <div class="form-group">
+          <label id="cardio-distance-label">Distance (km)</label>
+          <input type="number" id="cardio-distance" class="num" placeholder="optional" min="0" step="0.1">
+        </div>
+      </div>
+      <div class="form-group">
+        <label for="cardio-notes">Notes (optional)</label>
+        <input type="text" id="cardio-notes" placeholder="e.g. treadmill, easy pace">
+      </div>
+      <button class="btn btn-ghost" style="width:100%;font-size:0.85rem;" onclick="logCardio()">Log Cardio</button>
+      <div id="cardio-error" style="color:var(--danger);font-size:0.8rem;margin-top:0.4rem;display:none;"></div>
+    </div>
+  </div>
+
   {# Session notes #}
   <div class="form-group" style="margin-top:0.85rem;">
     <label for="session-notes-input" style="font-size:0.65rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted);">
@@ -1199,39 +1233,6 @@ document.getElementById('tpl-name-input')?.addEventListener('keydown', e => { if
     </div>
   </div>
 
-  {# Cardio #}
-  <div style="padding-top:0.6rem;border-top:1px solid var(--border);margin-top:0.85rem;">
-    <button type="button" onclick="toggleCardioForm()" class="cardio-toggle">
-      <i data-lucide="plus-circle" style="width:13px;height:13px;"></i>
-      <span id="cardio-toggle-label">Add cardio</span>
-    </button>
-    <div id="cardio-form" style="display:none;margin-top:0.75rem;">
-      <div class="form-group">
-        <label for="cardio-exercise-select">Cardio exercise</label>
-        <select id="cardio-exercise-select"><option value="">— select —</option></select>
-      </div>
-      <div class="grid-2">
-        <div class="form-group">
-          <label>Duration (min)</label>
-          <div class="stepper-group">
-            <button type="button" class="stepper-btn" onclick="stepCardio('duration', -5)">−</button>
-            <input type="number" id="cardio-duration" class="num" value="20" min="1" step="1">
-            <button type="button" class="stepper-btn" onclick="stepCardio('duration', 5)">+</button>
-          </div>
-        </div>
-        <div class="form-group">
-          <label id="cardio-distance-label">Distance (km)</label>
-          <input type="number" id="cardio-distance" class="num" placeholder="optional" min="0" step="0.1">
-        </div>
-      </div>
-      <div class="form-group">
-        <label for="cardio-notes">Notes (optional)</label>
-        <input type="text" id="cardio-notes" placeholder="e.g. treadmill, easy pace">
-      </div>
-      <button class="btn btn-ghost" style="width:100%;font-size:0.85rem;" onclick="logCardio()">Log Cardio</button>
-      <div id="cardio-error" style="color:var(--danger);font-size:0.8rem;margin-top:0.4rem;display:none;"></div>
-    </div>
-  </div>
 
 </div>{# /form col #}
 
