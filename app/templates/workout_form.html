@@ -2361,11 +2361,21 @@ function startEdit(id) {
   [wIn, rIn].forEach(inp => {
     inp.onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); saveEdit(id); } };
   });
+  // Sync edit weight → plate calculator
+  const mainW = document.getElementById('weight-input');
+  if (mainW) {
+    mainW._editPrev = mainW.value;
+    mainW.value = displayW;
+    updatePlates();
+    wIn.oninput = () => { mainW.value = wIn.value || '0'; updatePlates(); };
+  }
 }
 
 function cancelEdit(id) {
   document.getElementById('detail-' + id).style.display = '';
   document.getElementById('edit-' + id).style.display = 'none';
+  const mainW = document.getElementById('weight-input');
+  if (mainW && mainW._editPrev !== undefined) { mainW.value = mainW._editPrev; delete mainW._editPrev; updatePlates(); }
 }
 
 async function saveEdit(id) {
