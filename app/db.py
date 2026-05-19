@@ -91,6 +91,12 @@ _MIGRATIONS = [
         plan_json   TEXT NOT NULL,
         created_at  TEXT NOT NULL DEFAULT (datetime('now','localtime'))
     )""",
+    """CREATE TABLE IF NOT EXISTS workout_enrichments (
+        id           INTEGER PRIMARY KEY AUTOINCREMENT,
+        workout_id   INTEGER NOT NULL UNIQUE REFERENCES workouts(id) ON DELETE CASCADE,
+        form_info    TEXT    NOT NULL DEFAULT '{}',
+        generated_at TEXT    NOT NULL DEFAULT (datetime('now','localtime'))
+    )""",
 ]
 
 

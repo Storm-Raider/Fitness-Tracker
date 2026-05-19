@@ -1,0 +1,13 @@
+# FitStorm — nightly workout enrichment
+# Enriches 2 finished workouts per night with exercise form cues and references.
+# Install: sudo cp cron/fitstorm-enrich /etc/cron.d/fitstorm-enrich
+#          sudo chmod 644 /etc/cron.d/fitstorm-enrich
+#
+# Edit ANTHROPIC_API_KEY below before installing.
+
+SHELL=/bin/bash
+ANTHROPIC_API_KEY=your_api_key_here
+DATABASE_PATH=/home/stormraider/Desktop/Git/Fitness-Tracker/data/fitness.db
+ENRICH_BATCH=2
+
+0 3 * * * stormraider /home/linuxbrew/.linuxbrew/bin/python3 /home/stormraider/Desktop/Git/Fitness-Tracker/scripts/enrich_workouts.py >> /home/stormraider/Desktop/Git/Fitness-Tracker/logs/enrich.log 2>&1

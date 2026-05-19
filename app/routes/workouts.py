@@ -177,6 +177,21 @@ async def get_workout(
         ) as cur:
             template_exercises = [dict(r) for r in await cur.fetchall()]
 
+    # Form info enrichment (generated nightly by scripts/enrich_workouts.py)
+    enrichment = None
+    if is_finished:
+        import json as _json
+        async with conn.execute(
+            "SELECT form_info FROM workout_enrichments WHERE workout_id = ?",
+            (workout_id,),
+        ) as cur:
+            enc_row = await cur.fetchone()
+        if enc_row:
+            try:
+                enrichment = _json.loads(enc_row["form_info"])
+            except Exception:
+                enrichment = None
+
     return templates.TemplateResponse(request, "workout_form.html", {
         "workout": dict(row),
         "sets": sets,
@@ -186,6 +201,7 @@ async def get_workout(
         "is_finished": is_finished,
         "duration_min": duration_min,
         "template_exercises": template_exercises,
+        "enrichment": enrichment,
     })
 
 
