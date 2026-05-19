@@ -21,6 +21,12 @@
       <canvas id="vol-chart" style="display:block;width:100%;cursor:crosshair;"></canvas>
       <div id="vol-chart-tip" style="display:none;position:absolute;top:4px;background:var(--surface-2);border:1px solid var(--border-mid);border-radius:var(--radius-xs);padding:0.4rem 0.6rem;pointer-events:none;z-index:10;white-space:nowrap;box-shadow:0 4px 16px rgba(0,0,0,0.4);"></div>
     </div>
+    {% if has_cardio %}
+    <div style="display:flex;gap:1rem;margin-top:0.5rem;font-size:0.7rem;color:var(--muted);">
+      <span style="display:flex;align-items:center;gap:0.35rem;"><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:#4f9cf9;"></span>Strength volume</span>
+      <span style="display:flex;align-items:center;gap:0.35rem;"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#34d399;"></span>Cardio session</span>
+    </div>
+    {% endif %}
     {% else %}
     <div style="display:flex;flex-direction:column;align-items:center;text-align:center;padding:1.5rem 0 0.75rem;gap:0.7rem;">
       <div style="width:48px;height:48px;border-radius:50%;background:rgba(255,255,255,0.04);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;">
@@ -288,15 +294,25 @@ document.getElementById('pr-tl-search').addEventListener('keydown', e => {
     // Bar columns (thin filled rects look cleaner for weekly data)
     const barW = Math.max(4, Math.min(28, (cW / n) * 0.55));
     vs.forEach((v, i) => {
-      if (!v) return;
       const x  = gx(i) - barW / 2;
-      const bH = Math.max(3, gy(0) - gy(v));
-      const y  = gy(v);
       const isH = i === hoverIdx;
-      ctx.fillStyle = isH ? '#4f9cf9' : '#4f9cf988';
-      ctx.beginPath();
-      ctx.roundRect(x, y, barW, bH, [3, 3, 0, 0]);
-      ctx.fill();
+      if (v) {
+        const bH = Math.max(3, gy(0) - gy(v));
+        const y  = gy(v);
+        ctx.fillStyle = isH ? '#4f9cf9' : '#4f9cf988';
+        ctx.beginPath();
+        ctx.roundRect(x, y, barW, bH, [3, 3, 0, 0]);
+        ctx.fill();
+      }
+      // Green cardio dot below bar baseline
+      if (DATA[i].cardio) {
+        const dotY = PT + cH + 6;
+        const dotR = 3;
+        ctx.fillStyle = isH ? '#34d399' : '#34d39988';
+        ctx.beginPath();
+        ctx.arc(gx(i), dotY, dotR, 0, Math.PI * 2);
+        ctx.fill();
+      }
     });
 
     // X-axis labels (every 2nd or 3rd week depending on density)
@@ -314,9 +330,13 @@ document.getElementById('pr-tl-search').addEventListener('keydown', e => {
     const u = getUnit();
     const v = cvt(d.volume);
     const disp = v >= 1000 ? (v/1000).toFixed(1) + 'k' : Math.round(v).toLocaleString();
+    const cardioLine = d.cardio
+      ? `<div style="color:#34d399;font-size:0.72rem;margin-top:0.15rem;">+ ${d.cardio} cardio</div>`
+      : '';
     tip.innerHTML =
       `<div style="font-size:0.7rem;color:var(--muted);margin-bottom:0.2rem;font-family:'JetBrains Mono',monospace;">${d.label}</div>` +
-      `<span style="color:#4f9cf9;font-size:0.82rem;font-weight:700;">${disp} ${u}</span>`;
+      (v ? `<span style="color:#4f9cf9;font-size:0.82rem;font-weight:700;">${disp} ${u}</span>` : '') +
+      cardioLine;
     tip.style.display = 'block';
     const W = canvas.offsetWidth, tw = tip.offsetWidth;
     tip.style.left = Math.max(0, Math.min(W - tw, xAt(idx, W, DATA.length) - tw / 2)) + 'px';

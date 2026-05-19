@@ -53,8 +53,28 @@ async def stats(
     ) as cur:
         weekly_rows = [dict(r) for r in await cur.fetchall()]
 
+    # Cardio sessions per week for the same window
+    async with conn.execute(
+        """
+        SELECT strftime('%Y-%W', w.started_at) AS week,
+               COUNT(c.id) AS cardio_count
+        FROM cardio_logs c
+        JOIN workouts w ON w.id = c.workout_id
+        WHERE c.user_id = ?
+          AND DATE(w.started_at) >= DATE('now', '-83 days')
+        GROUP BY week
+        """,
+        (uid,),
+    ) as cur:
+        _cardio = {r["week"]: r["cardio_count"] for r in await cur.fetchall()}
+
     weekly_json = json.dumps([
-        {"label": _week_label(r["week"]), "volume": r["volume"], "week_start": _week_start(r["week"])}
+        {
+            "label": _week_label(r["week"]),
+            "volume": r["volume"],
+            "week_start": _week_start(r["week"]),
+            "cardio": _cardio.get(r["week"], 0),
+        }
         for r in weekly_rows
     ])
 
@@ -181,6 +201,7 @@ async def stats(
         {
             "weekly_json": weekly_json,
             "weekly_rows": weekly_rows,
+            "has_cardio": any(_cardio.values()),
             "muscle_recovery": muscle_recovery,
             "pr_timeline": pr_timeline,
             "stalled": stalled,

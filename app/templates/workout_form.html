@@ -544,12 +544,28 @@
   padding: 0.7rem 0;
   border-bottom: 1px solid var(--border);
   animation: rowIn 0.22s cubic-bezier(0.16, 1, 0.3, 1) both;
+  position: relative;
+  overflow: hidden;
+  touch-action: pan-y;
 }
 @keyframes rowIn {
   from { opacity: 0; transform: translateX(-6px); }
   to   { opacity: 1; transform: translateX(0); }
 }
 .set-row:last-child { border-bottom: none; }
+.set-row-swipe-bg {
+  position: absolute;
+  inset: 0;
+  background: rgba(248,113,113,0.15);
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding-right: 1rem;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.1s;
+}
+.set-row-swipe-bg i { color: var(--danger); }
 .set-bar {
   width: 3px;
   min-height: 32px;
@@ -858,6 +874,7 @@
       <button class="set-del" onclick="deleteSet({{ s.id }}, this)">
         <i data-lucide="x" style="width:13px;height:13px;pointer-events:none;"></i>
       </button>
+      <div class="set-row-swipe-bg"><i data-lucide="trash-2" style="width:16px;height:16px;pointer-events:none;"></i></div>
     </div>
     {% endfor %}
     {% for c in cardio_logs %}
@@ -875,6 +892,7 @@
       <button class="set-del" onclick="deleteCardio({{ c.id }}, this)">
         <i data-lucide="x" style="width:13px;height:13px;pointer-events:none;"></i>
       </button>
+      <div class="set-row-swipe-bg"><i data-lucide="trash-2" style="width:16px;height:16px;pointer-events:none;"></i></div>
     </div>
     {% endfor %}
   {% else %}
@@ -1241,6 +1259,7 @@ document.getElementById('tpl-name-input')?.addEventListener('keydown', e => { if
         <button class="set-del" onclick="deleteSet({{ s.id }}, this)">
           <i data-lucide="x" style="width:13px;height:13px;pointer-events:none;"></i>
         </button>
+        <div class="set-row-swipe-bg"><i data-lucide="trash-2" style="width:16px;height:16px;pointer-events:none;"></i></div>
       </div>
       {% endfor %}
       {% for c in cardio_logs %}
@@ -1258,6 +1277,7 @@ document.getElementById('tpl-name-input')?.addEventListener('keydown', e => { if
         <button class="set-del" onclick="deleteCardio({{ c.id }}, this)">
           <i data-lucide="x" style="width:13px;height:13px;pointer-events:none;"></i>
         </button>
+        <div class="set-row-swipe-bg"><i data-lucide="trash-2" style="width:16px;height:16px;pointer-events:none;"></i></div>
       </div>
       {% endfor %}
     {% else %}
@@ -1866,7 +1886,8 @@ async function logCardio() {
     </div>
     <button class="set-del" onclick="deleteCardio(${data.id},this)">
       <i data-lucide="x" style="width:13px;height:13px;pointer-events:none;"></i>
-    </button>`;
+    </button>
+    <div class="set-row-swipe-bg"><i data-lucide="trash-2" style="width:16px;height:16px;pointer-events:none;"></i></div>`;
   container.appendChild(row);
   lucide.createIcons();
   row.scrollIntoView({behavior: 'smooth', block: 'nearest'});
@@ -2215,7 +2236,8 @@ async function logSet() {
     </button>
     <button class="set-del" onclick="deleteSet(${data.id},this)">
       <i data-lucide="x" style="width:13px;height:13px;pointer-events:none;"></i>
-    </button>`;
+    </button>
+    <div class="set-row-swipe-bg"><i data-lucide="trash-2" style="width:16px;height:16px;pointer-events:none;"></i></div>`;
   addSetToGroup(row, exerciseId, exerciseName);
   lucide.createIcons();
   row.scrollIntoView({behavior: 'smooth', block: 'nearest'});
@@ -2479,5 +2501,69 @@ async function deleteWorkout() {
   setInterval(tick, 60000);
 })();
 {% endif %}
+
+// Swipe-to-delete for set rows on touch devices
+(function() {
+  const THRESHOLD = 72; // px to trigger delete
+  function attachSwipe(row) {
+    if (row._swipeAttached) return;
+    row._swipeAttached = true;
+    const bg = row.querySelector('.set-row-swipe-bg');
+    let startX = 0, startY = 0, dx = 0, dragging = false, locked = false;
+    row.addEventListener('touchstart', function(e) {
+      startX = e.touches[0].clientX;
+      startY = e.touches[0].clientY;
+      dx = 0; dragging = false; locked = false;
+      row.style.transition = '';
+      if (bg) { bg.style.transition = ''; bg.style.opacity = '0'; }
+    }, {passive: true});
+    row.addEventListener('touchmove', function(e) {
+      const cx = e.touches[0].clientX, cy = e.touches[0].clientY;
+      if (!dragging) {
+        const adx = Math.abs(cx - startX), ady = Math.abs(cy - startY);
+        if (adx < 5 && ady < 5) return;
+        if (ady > adx) { locked = true; return; }
+        dragging = true;
+      }
+      if (locked) return;
+      dx = Math.min(0, cx - startX);
+      row.style.transform = 'translateX(' + dx + 'px)';
+      const pct = Math.min(1, -dx / THRESHOLD);
+      if (bg) bg.style.opacity = pct;
+      if (-dx >= THRESHOLD) e.preventDefault();
+    }, {passive: false});
+    row.addEventListener('touchend', function() {
+      if (!dragging || locked) return;
+      if (-dx >= THRESHOLD) {
+        // trigger delete
+        row.style.transition = 'transform 0.2s,opacity 0.2s';
+        row.style.transform = 'translateX(-100%)';
+        row.style.opacity = '0';
+        setTimeout(function() {
+          const delBtn = row.querySelector('.set-del');
+          if (delBtn) delBtn.click();
+        }, 200);
+      } else {
+        row.style.transition = 'transform 0.25s';
+        if (bg) { bg.style.transition = 'opacity 0.25s'; bg.style.opacity = '0'; }
+        row.style.transform = '';
+      }
+      dragging = false;
+    });
+  }
+  function attachAll() {
+    document.querySelectorAll('.set-row').forEach(attachSwipe);
+  }
+  document.addEventListener('DOMContentLoaded', attachAll);
+  // Re-attach after dynamic rows are added (logSet, logCardio)
+  const _orig = Element.prototype.appendChild;
+  document.getElementById('sets-container') && new MutationObserver(function(mutations) {
+    mutations.forEach(function(m) {
+      m.addedNodes.forEach(function(n) {
+        if (n.classList && n.classList.contains('set-row')) attachSwipe(n);
+      });
+    });
+  }).observe(document.getElementById('sets-container') || document.body, {childList: true, subtree: true});
+})();
 </script>
 {% endblock %}
