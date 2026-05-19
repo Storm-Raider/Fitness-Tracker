@@ -38,9 +38,25 @@ async def exercises_page(
     ) as cur:
         exercises = [dict(r) for r in await cur.fetchall()]
 
+    async with conn.execute(
+        """
+        SELECT e.id, e.name, e.category, MAX(s.weight_kg) AS pr_kg,
+               MAX(w.started_at) AS last_used
+        FROM sets s
+        JOIN exercises e ON e.id = s.exercise_id
+        JOIN workouts w ON w.id = s.workout_id
+        WHERE s.user_id = ?
+        GROUP BY e.id, e.name, e.category
+        ORDER BY last_used DESC
+        LIMIT 6
+        """,
+        (current_user["id"],),
+    ) as cur:
+        recent_exercises = [dict(r) for r in await cur.fetchall()]
+
     return templates.TemplateResponse(
         request, "exercises.html",
-        {"exercises": exercises, "user": dict(current_user)},
+        {"exercises": exercises, "recent_exercises": recent_exercises, "user": dict(current_user)},
     )
 
 
