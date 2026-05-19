@@ -6,39 +6,41 @@
        onmouseout="this.style.borderColor='var(--border)';this.style.boxShadow=''">
     <!-- Left status edge -->
     <div style="width:3px;flex-shrink:0;background:{% if w.ended_at %}var(--border-mid){% else %}var(--accent){% endif %};"></div>
-    <a href="/workouts/{{ w.id }}" style="flex:1;min-width:0;text-decoration:none;color:inherit;display:flex;align-items:center;padding:0.9rem 1.1rem;gap:1rem;">
-      <div style="flex:1;min-width:0;">
-        <div style="font-weight:600;font-size:0.9rem;letter-spacing:-0.01em;">{{ w.started_at[:10] | human_date }}</div>
-        {% if w.notes %}
-        <div style="color:var(--muted);font-size:0.8rem;margin-top:0.1rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ w.notes }}</div>
-        {% elif not w.ended_at %}
-        <div style="color:var(--accent);font-size:0.78rem;margin-top:0.1rem;">In progress</div>
-        {% endif %}
-        {% if w.exercise_preview %}
-        <div style="color:var(--muted);font-size:0.74rem;margin-top:0.15rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:220px;">{{ w.exercise_preview }}{% if w.set_count > 3 %}&thinsp;…{% endif %}</div>
-        {% endif %}
+    <a href="/workouts/{{ w.id }}" style="flex:1;min-width:0;text-decoration:none;color:inherit;display:flex;flex-direction:column;padding:0.75rem 1.1rem;gap:0.25rem;">
+      <div style="display:flex;align-items:center;gap:1rem;min-width:0;">
+        <div style="flex:1;min-width:0;">
+          <div style="font-weight:600;font-size:0.9rem;letter-spacing:-0.01em;">{{ w.started_at[:10] | human_date }}</div>
+          {% if not w.ended_at %}
+          <div style="color:var(--accent);font-size:0.78rem;margin-top:0.1rem;">In progress</div>
+          {% endif %}
+        </div>
+        <div style="display:flex;align-items:center;gap:1.1rem;flex-shrink:0;">
+          {% if w.set_count > 0 %}
+          <div style="text-align:right;">
+            <div class="num" style="font-size:1.05rem;font-weight:700;letter-spacing:-0.02em;">{{ w.set_count }}</div>
+            <div style="font-size:0.62rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;">sets</div>
+          </div>
+          {% endif %}
+          {% if w.volume_kg and w.volume_kg > 0 %}
+          <div style="text-align:right;">
+            <div class="num" style="font-size:1.05rem;font-weight:700;letter-spacing:-0.02em;color:var(--success);"><span class="weight-display" data-kg="{{ w.volume_kg }}">{{ "{:,.0f}".format(w.volume_kg) }} kg</span></div>
+            <div style="font-size:0.62rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;">volume</div>
+          </div>
+          {% endif %}
+          {% if w.duration_min is not none %}
+          <div style="text-align:right;">
+            <div class="num" style="font-size:1.05rem;font-weight:700;letter-spacing:-0.02em;color:var(--accent);">{{ w.duration_min }}</div>
+            <div style="font-size:0.62rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;">min</div>
+          </div>
+          {% endif %}
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--border-mid)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+        </div>
       </div>
-      <div style="display:flex;align-items:center;gap:1.25rem;flex-shrink:0;">
-        {% if w.set_count > 0 %}
-        <div style="text-align:right;">
-          <div class="num" style="font-size:1.05rem;font-weight:700;letter-spacing:-0.02em;">{{ w.set_count }}</div>
-          <div style="font-size:0.65rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;">sets</div>
-        </div>
-        {% endif %}
-        {% if w.volume_kg and w.volume_kg > 0 %}
-        <div style="text-align:right;">
-          <div class="num" style="font-size:1.05rem;font-weight:700;letter-spacing:-0.02em;color:var(--success);"><span class="weight-display" data-kg="{{ w.volume_kg }}">{{ "{:,.0f}".format(w.volume_kg) }} kg</span></div>
-          <div style="font-size:0.65rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;">volume</div>
-        </div>
-        {% endif %}
-        {% if w.duration_min is not none %}
-        <div style="text-align:right;">
-          <div class="num" style="font-size:1.05rem;font-weight:700;letter-spacing:-0.02em;color:var(--accent);">{{ w.duration_min }}</div>
-          <div style="font-size:0.65rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;">min</div>
-        </div>
-        {% endif %}
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--border-mid)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+      {% if w.exercise_preview or w.notes %}
+      <div style="color:var(--muted);font-size:0.78rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+        {% if w.exercise_preview %}{{ w.exercise_preview }}{% if w.set_count > 3 %}&thinsp;+more{% endif %}{% endif %}{% if w.notes and w.exercise_preview %}&ensp;·&ensp;{% endif %}{% if w.notes %}{{ w.notes }}{% endif %}
       </div>
+      {% endif %}
     </a>
     {% if w.set_count > 0 and w.ended_at %}
     <button onclick="repeatWorkout({{ w.id }}, this)"
