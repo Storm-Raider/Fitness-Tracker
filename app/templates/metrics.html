@@ -317,14 +317,15 @@ function calcBmi() {
   markerEl.style.left = pct + '%';
   markerEl.style.display = 'block';
   let cat, color, bg;
-  if (bmi < 18.5)      { cat = 'Underweight'; color = '#60a5fa'; bg = 'rgba(96,165,250,0.12)'; }
-  else if (bmi < 25.0) { cat = 'Normal';      color = '#4ade80'; bg = 'rgba(74,222,128,0.12)'; }
-  else if (bmi < 30.0) { cat = 'Overweight';  color = '#f59e0b'; bg = 'rgba(245,158,11,0.12)'; }
-  else                  { cat = 'Obese';       color = '#f87171'; bg = 'rgba(248,113,113,0.12)'; }
+  if (bmi < 18.5)      { cat = 'Underweight'; color = '#60a5fa'; bg = 'rgba(96,165,250,0.10)'; }
+  else if (bmi < 25.0) { cat = 'Normal';      color = '#4ade80'; bg = 'rgba(74,222,128,0.10)'; }
+  else if (bmi < 30.0) { cat = 'Overweight';  color = 'var(--muted-hi)'; bg = 'rgba(255,255,255,0.05)'; }
+  else                  { cat = 'Obese';       color = '#f59e0b'; bg = 'rgba(245,158,11,0.10)'; }
   markerEl.style.borderColor = color;
+  const borderColor = color.startsWith('var(') ? 'var(--border)' : color + '33';
   resultEl.innerHTML =
     '<div class="num" style="font-size:2.4rem;font-weight:700;color:' + color + ';line-height:1;letter-spacing:-0.03em;">' + bmi.toFixed(1) + '</div>' +
-    '<span class="badge" style="background:' + bg + ';color:' + color + ';font-size:0.8rem;border:1px solid ' + color + '33;">' + cat + '</span>';
+    '<span class="badge" style="background:' + bg + ';color:' + color + ';font-size:0.8rem;border:1px solid ' + borderColor + ';">' + cat + '</span>';
 }
 async function logMetric() {
   const weight = getWeightKg();
