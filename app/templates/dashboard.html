@@ -84,17 +84,17 @@
   {% set dash = (goal_pct / 100 * circumference) | round(1) %}
   <div class="card" style="padding:0.85rem 1.25rem;display:flex;align-items:center;gap:1rem;flex-wrap:wrap;">
     <div style="flex:1;min-width:160px;display:flex;align-items:center;gap:1rem;">
-      <div style="position:relative;width:52px;height:52px;flex-shrink:0;">
-        <svg width="52" height="52" viewBox="0 0 36 36" style="transform:rotate(-90deg);">
-          <circle cx="18" cy="18" r="15.9" fill="none" stroke="var(--surface-2)" stroke-width="3.2"/>
-          <circle cx="18" cy="18" r="15.9" fill="none" stroke="{{ ring_color }}" stroke-width="3.2"
+      <div style="position:relative;width:72px;height:72px;flex-shrink:0;">
+        <svg width="72" height="72" viewBox="0 0 36 36" style="transform:rotate(-90deg);">
+          <circle cx="18" cy="18" r="15.9" fill="none" stroke="var(--surface-2)" stroke-width="2.8"/>
+          <circle cx="18" cy="18" r="15.9" fill="none" stroke="{{ ring_color }}" stroke-width="2.8"
                   stroke-linecap="round"
                   stroke-dasharray="{{ dash }} {{ circumference }}"
                   style="transition:stroke-dasharray 0.6s cubic-bezier(0.16,1,0.3,1);"/>
         </svg>
         <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;">
-          <span class="num" style="font-size:0.9rem;font-weight:700;color:{{ ring_color }};line-height:1;">{{ weekly_sessions }}</span>
-          <span style="font-size:0.55rem;color:var(--muted);line-height:1;">/ {{ weekly_goal }}</span>
+          <span class="num" style="font-size:1.15rem;font-weight:700;color:{{ ring_color }};line-height:1;">{{ weekly_sessions }}</span>
+          <span style="font-size:0.65rem;color:var(--muted);line-height:1.3;">/ {{ weekly_goal }}</span>
         </div>
       </div>
       <div>
