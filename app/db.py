@@ -65,6 +65,16 @@ _MIGRATIONS = [
         exercise_id INTEGER NOT NULL REFERENCES exercises(id),
         order_idx INTEGER NOT NULL DEFAULT 0
     )""",
+    """CREATE TABLE IF NOT EXISTS body_measurements (
+        id          INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id     INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        logged_date TEXT    NOT NULL DEFAULT (date('now','localtime')),
+        site        TEXT    NOT NULL,
+        value_cm    REAL    NOT NULL,
+        notes       TEXT,
+        created_at  TEXT    NOT NULL DEFAULT (datetime('now','localtime'))
+    )""",
+    "CREATE INDEX IF NOT EXISTS idx_bm_user_site ON body_measurements(user_id, site, logged_date)",
 ]
 
 

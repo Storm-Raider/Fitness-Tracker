@@ -4,9 +4,31 @@
 <div class="page-hd">
   <div>
     <h1>Body Metrics</h1>
-    <div class="subtitle">Weight & BMI tracking</div>
+    <div class="subtitle">Weight, measurements & BMI</div>
   </div>
 </div>
+
+<style>
+.tab-bar { display:flex; gap:0.25rem; margin-bottom:1.25rem; border-bottom:1px solid var(--border); }
+.tab-btn {
+  background:transparent; border:none; border-bottom:2px solid transparent;
+  color:var(--muted); font-family:inherit; font-size:0.875rem; font-weight:600;
+  padding:0.5rem 0.85rem 0.6rem; cursor:pointer; letter-spacing:0.02em;
+  transition:color 0.15s, border-color 0.15s; margin-bottom:-1px;
+}
+.tab-btn:hover { color:var(--text); }
+.tab-btn.active { color:var(--accent); border-bottom-color:var(--accent); }
+.tab-panel { display:none; }
+.tab-panel.active { display:block; }
+</style>
+
+<div class="tab-bar">
+  <button class="tab-btn active" onclick="switchTab('weight', this)">Weight</button>
+  <button class="tab-btn" onclick="switchTab('measurements', this)">Measurements</button>
+</div>
+
+{# ═══════════════════ TAB 1: WEIGHT ═══════════════════ #}
+<div id="tab-weight" class="tab-panel active">
 
 {% if metrics %}
 <div style="margin-bottom:1.5rem;">
@@ -64,7 +86,6 @@
 
     ctx.clearRect(0, 0, W, H);
 
-    // Grid
     [0, 0.5, 1].forEach(f => {
       const gv = vMin + f*(vMax-vMin), y = gy(gv);
       ctx.strokeStyle='#1f2535'; ctx.lineWidth=1;
@@ -73,7 +94,6 @@
       ctx.fillText(gv>=100?Math.round(gv):gv.toFixed(1), PL-4, y+4);
     });
 
-    // Area under raw line
     if (n >= 2) {
       ctx.beginPath(); ctx.moveTo(gx(0), gy(vs[0]));
       for (let i=1;i<n;i++) ctx.lineTo(gx(i), gy(vs[i]));
@@ -81,14 +101,12 @@
       ctx.closePath(); ctx.fillStyle='#34d39910'; ctx.fill();
     }
 
-    // Hover crosshair
     if (hoverIdx >= 0) {
       ctx.strokeStyle='#34d39938'; ctx.lineWidth=1; ctx.setLineDash([3,3]);
       ctx.beginPath(); ctx.moveTo(gx(hoverIdx),PT); ctx.lineTo(gx(hoverIdx),PT+cH); ctx.stroke();
       ctx.setLineDash([]);
     }
 
-    // Moving average line (blue, if >= 3 entries)
     if (n >= 3) {
       ctx.beginPath(); ctx.moveTo(gx(0), gy(avg[0]));
       for (let i=1;i<n;i++) ctx.lineTo(gx(i), gy(avg[i]));
@@ -96,7 +114,6 @@
       ctx.setLineDash([4,3]); ctx.stroke(); ctx.setLineDash([]);
     }
 
-    // Raw weight line
     if (n >= 2) {
       ctx.beginPath(); ctx.moveTo(gx(0), gy(vs[0]));
       for (let i=1;i<n;i++) ctx.lineTo(gx(i), gy(vs[i]));
@@ -104,7 +121,6 @@
       ctx.lineJoin='round'; ctx.lineCap='round'; ctx.stroke();
     }
 
-    // Dots
     vs.forEach((v, i) => {
       const isH = i===hoverIdx, r = isH?5:n<=40?2.8:0;
       if (!r) return;
@@ -113,7 +129,6 @@
       if (isH) { ctx.strokeStyle='#0d1117'; ctx.lineWidth=1.5; ctx.stroke(); }
     });
 
-    // X-axis labels
     const dates = RAW.map(r => r.date.slice(5));
     ctx.fillStyle='#4a5568'; ctx.font='9px JetBrains Mono,monospace';
     const lbls = n<=8 ? dates.map((_,i)=>i) : [0,Math.round(n*.25),Math.round(n*.5),Math.round(n*.75),n-1];
@@ -122,7 +137,6 @@
       ctx.fillText(dates[i], gx(i), H-3);
     });
 
-    // Legend
     if (n >= 3) {
       ctx.fillStyle='#34d399'; ctx.font='bold 9px Inter,system-ui,sans-serif';
       ctx.textAlign='left'; ctx.fillText('● Weight', PL, PT-2);
@@ -340,19 +354,16 @@ async function logMetric() {
   }
 }
 (function() {
-  // Default date picker to today
-  const today = new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD
+  const today = new Date().toLocaleDateString('en-CA');
   document.getElementById('metric-date').value = today;
   document.getElementById('metric-date').max   = today;
 
   const saved = localStorage.getItem('bmi_height_cm');
   if (saved) document.getElementById('height-input').value = saved;
   calcBmi();
-  // Enter key submits log entry
   document.getElementById('weight-input').addEventListener('keydown', e => {
     if (e.key === 'Enter') { e.preventDefault(); logMetric(); }
   });
-  // Sync label + input value when unit toggles
   window.addEventListener('unitchange', function(e) {
     const unit = e.detail.unit;
     const label = document.getElementById('weight-label');
@@ -367,4 +378,317 @@ async function logMetric() {
   });
 })();
 </script>
+
+</div>{# /tab-weight #}
+
+{# ═══════════════════ TAB 2: MEASUREMENTS ═══════════════════ #}
+<div id="tab-measurements" class="tab-panel">
+
+{% if measurements %}
+<div style="margin-bottom:1.5rem;">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.6rem;flex-wrap:wrap;gap:0.5rem;">
+    <div class="section-title" style="margin-bottom:0;">Trend</div>
+    <div id="meas-legend" style="display:flex;flex-wrap:wrap;gap:0.4rem;"></div>
+  </div>
+  <div class="card" style="padding:0.85rem 1.25rem 0.65rem;">
+    <div style="position:relative;">
+      <canvas id="meas-chart" style="display:block;width:100%;cursor:crosshair;"></canvas>
+      <div id="meas-tip" style="display:none;position:absolute;top:4px;background:var(--surface-2);border:1px solid var(--border-mid);border-radius:var(--radius-xs);padding:0.4rem 0.6rem;pointer-events:none;z-index:10;white-space:nowrap;box-shadow:0 4px 16px rgba(0,0,0,0.4);"></div>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<div class="grid-2" style="align-items:start;gap:1.5rem;">
+  <div>
+    <div class="card">
+      <div class="section-title">Log measurement</div>
+      <div class="form-group">
+        <label for="meas-site">Site</label>
+        <select id="meas-site" style="height:42px;padding:0 0.75rem;">
+          {% for site in measurement_sites %}
+          <option value="{{ site }}">{{ site }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-group">
+        <label for="meas-value">Value (cm)</label>
+        <div class="stepper-group">
+          <button type="button" class="stepper-btn" onclick="stepMeas(-0.5)">−</button>
+          <input type="number" id="meas-value" class="num" value="90" step="0.1" min="1" max="500" style="text-align:center;">
+          <button type="button" class="stepper-btn" onclick="stepMeas(0.5)">+</button>
+        </div>
+      </div>
+      <div class="form-group">
+        <label for="meas-date">Date</label>
+        <input type="date" id="meas-date" style="height:42px;">
+      </div>
+      <div class="form-group">
+        <label for="meas-notes">Notes <span style="font-weight:400;color:var(--muted);text-transform:none;letter-spacing:0;">(optional)</span></label>
+        <input type="text" id="meas-notes" placeholder="e.g. morning, flexed…" maxlength="300">
+      </div>
+      <div id="meas-error" class="flash flash-error" style="display:none;"></div>
+      <div id="meas-success" class="flash flash-success" style="display:none;">Measurement logged.</div>
+      <button class="btn btn-primary" style="width:100%;min-height:48px;" onclick="logMeasurement()">Log Measurement</button>
+    </div>
+  </div>
+
+  <div>
+    <div class="section-title">History</div>
+    <div class="card" style="padding:0;overflow:hidden;">
+      {% if measurements %}
+      <table id="meas-table">
+        <thead>
+          <tr><th>Date</th><th>Site</th><th>cm</th><th style="width:44px;"></th></tr>
+        </thead>
+        <tbody>
+          {% for m in measurements %}
+          <tr id="meas-{{ m.id }}">
+            <td style="white-space:nowrap;font-family:'JetBrains Mono',monospace;font-size:0.78rem;color:var(--muted);">{{ m.logged_date }}</td>
+            <td style="font-weight:500;font-size:0.85rem;">{{ m.site }}</td>
+            <td class="num" style="font-size:0.9rem;">{{ m.value_cm }}</td>
+            <td style="padding:0.4rem 0.5rem;text-align:center;">
+              <button
+                hx-delete="/measurements/{{ m.id }}"
+                hx-target="#meas-{{ m.id }}"
+                hx-swap="outerHTML"
+                hx-confirm="Delete this entry?"
+                style="background:transparent;border:none;color:var(--muted);cursor:pointer;padding:0.25rem;border-radius:4px;display:inline-flex;align-items:center;transition:color 0.15s;"
+                onmouseover="this.style.color='var(--danger)'"
+                onmouseout="this.style.color='var(--muted)'"
+                title="Delete">
+                <i data-lucide="trash-2" style="width:14px;height:14px;pointer-events:none;"></i>
+              </button>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <div style="display:flex;flex-direction:column;align-items:center;text-align:center;padding:2rem 1.25rem;gap:0.65rem;">
+        <div style="width:44px;height:44px;border-radius:50%;background:rgba(255,255,255,0.04);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;">
+          <i data-lucide="ruler" style="width:20px;height:20px;color:var(--muted-hi);pointer-events:none;"></i>
+        </div>
+        <p style="color:var(--muted);font-size:0.8rem;">No measurements logged yet.</p>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  const SITE_DATA = {{ measurements_json | safe }};
+  const COLORS = {
+    'Chest':     '#4f9cf9',
+    'Waist':     '#f59e0b',
+    'Hips':      '#a78bfa',
+    'Left Arm':  '#34d399',
+    'Right Arm': '#2dd4bf',
+    'Thighs':    '#f87171',
+    'Calves':    '#fb923c',
+    'Neck':      '#94a3b8',
+  };
+
+  const canvas = document.getElementById('meas-chart');
+  if (!canvas) return;
+  const tip  = document.getElementById('meas-tip');
+  const ctx  = canvas.getContext('2d');
+  const legend = document.getElementById('meas-legend');
+
+  const sites = Object.keys(SITE_DATA).filter(s => SITE_DATA[s].length >= 1);
+  if (!sites.length) return;
+
+  // Build legend chips
+  sites.forEach(site => {
+    const c = COLORS[site] || '#888';
+    const chip = document.createElement('span');
+    chip.style.cssText = `display:inline-flex;align-items:center;gap:0.3rem;font-size:0.72rem;font-weight:600;color:${c};`;
+    chip.innerHTML = `<span style="width:10px;height:3px;background:${c};border-radius:2px;display:inline-block;"></span>${site}`;
+    legend.appendChild(chip);
+  });
+
+  // Collect all unique dates (x-axis), sorted
+  const allDates = [...new Set(sites.flatMap(s => SITE_DATA[s].map(p => p.date)))].sort();
+  const n = allDates.length;
+  const dateIdx = Object.fromEntries(allDates.map((d, i) => [d, i]));
+
+  // Find global y range across all sites
+  let gMin = Infinity, gMax = -Infinity;
+  sites.forEach(s => SITE_DATA[s].forEach(p => {
+    gMin = Math.min(gMin, p.value);
+    gMax = Math.max(gMax, p.value);
+  }));
+  const span = gMax > gMin ? gMax - gMin : Math.max(gMin * 0.05, 1);
+  const yMin = gMin - span * 0.15, yMax = gMax + span * 0.15;
+
+  const PL = 42, PR = 16, PT = 14, PB = 24;
+  let hoverX = -1;
+
+  function xAt(i, W) { return PL + (n <= 1 ? (W-PL-PR)/2 : (i/(n-1))*(W-PL-PR)); }
+  function gy(v, H) { return PT + (1-(v-yMin)/(yMax-yMin))*(H-PT-PB); }
+
+  function draw() {
+    const dpr = window.devicePixelRatio || 1;
+    const W = canvas.offsetWidth || 600;
+    const H = 220;
+    canvas.width = W * dpr; canvas.height = H * dpr;
+    canvas.style.height = H + 'px';
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, W, H);
+
+    // Grid lines
+    [0, 0.5, 1].forEach(f => {
+      const gv = gMin + f*(gMax-gMin);
+      const y = gy(gv, H);
+      ctx.strokeStyle='#1f2535'; ctx.lineWidth=1;
+      ctx.beginPath(); ctx.moveTo(PL, y); ctx.lineTo(W-PR, y); ctx.stroke();
+      ctx.fillStyle='#4a5568'; ctx.font='10px Inter,system-ui,sans-serif'; ctx.textAlign='right';
+      ctx.fillText(Math.round(gv), PL-4, y+4);
+    });
+
+    // Hover crosshair
+    if (hoverX >= 0) {
+      const x = xAt(hoverX, W);
+      ctx.strokeStyle='#ffffff20'; ctx.lineWidth=1; ctx.setLineDash([3,3]);
+      ctx.beginPath(); ctx.moveTo(x, PT); ctx.lineTo(x, H-PB); ctx.stroke();
+      ctx.setLineDash([]);
+    }
+
+    // Draw each site
+    sites.forEach(site => {
+      const pts = SITE_DATA[site];
+      const c = COLORS[site] || '#888';
+      // Map to canvas coords
+      const mapped = pts.map(p => ({ xi: dateIdx[p.date], v: p.value }));
+
+      if (mapped.length >= 2) {
+        ctx.beginPath();
+        ctx.moveTo(xAt(mapped[0].xi, W), gy(mapped[0].v, H));
+        for (let i=1; i<mapped.length; i++)
+          ctx.lineTo(xAt(mapped[i].xi, W), gy(mapped[i].v, H));
+        ctx.strokeStyle = c; ctx.lineWidth = 2;
+        ctx.lineJoin='round'; ctx.lineCap='round'; ctx.stroke();
+      }
+
+      // Dots
+      mapped.forEach(({ xi, v }) => {
+        const isH = xi === hoverX;
+        const r = isH ? 5 : mapped.length <= 30 ? 3 : 0;
+        if (!r) return;
+        ctx.beginPath(); ctx.arc(xAt(xi, W), gy(v, H), r, 0, Math.PI*2);
+        ctx.fillStyle = isH ? c : c+'b0'; ctx.fill();
+        if (isH) { ctx.strokeStyle='#0d1117'; ctx.lineWidth=1.5; ctx.stroke(); }
+      });
+    });
+
+    // X-axis labels
+    ctx.fillStyle='#4a5568'; ctx.font='9px JetBrains Mono,monospace';
+    const lblIdxs = n<=6 ? allDates.map((_,i)=>i) : [0,Math.round(n*.25),Math.round(n*.5),Math.round(n*.75),n-1];
+    lblIdxs.forEach(i => {
+      ctx.textAlign = i===0?'left':i===n-1?'right':'center';
+      ctx.fillText(allDates[i].slice(5), xAt(i, W), H-3);
+    });
+  }
+
+  function processHover(cx) {
+    const rect = canvas.getBoundingClientRect(), mx = cx - rect.left;
+    const W = canvas.offsetWidth;
+    const frac = Math.max(0, Math.min(1, (mx-PL)/(W-PL-PR)));
+    const idx = Math.max(0, Math.min(n-1, Math.round(frac*(n-1))));
+    if (idx !== hoverX) { hoverX = idx; draw(); }
+    // Tooltip
+    const date = allDates[idx];
+    let html = `<div style="font-size:0.7rem;color:var(--muted);margin-bottom:0.3rem;font-family:'JetBrains Mono',monospace;">${date}</div>`;
+    sites.forEach(site => {
+      const pt = SITE_DATA[site].find(p => p.date === date);
+      if (!pt) return;
+      const c = COLORS[site] || '#888';
+      html += `<div style="display:flex;align-items:center;gap:0.4rem;font-size:0.8rem;">
+        <span style="width:8px;height:3px;background:${c};border-radius:2px;display:inline-block;flex-shrink:0;"></span>
+        <span style="color:var(--muted-hi);">${site}</span>
+        <span style="color:${c};font-weight:700;margin-left:auto;">${pt.value} cm</span></div>`;
+    });
+    tip.innerHTML = html;
+    tip.style.display = 'block';
+    const W2 = canvas.offsetWidth, tw = tip.offsetWidth;
+    const x = xAt(idx, W2);
+    tip.style.left = Math.max(0, Math.min(W2-tw, x-tw/2)) + 'px';
+    tip.style.top = '4px';
+  }
+  function clearH() { hoverX = -1; tip.style.display='none'; draw(); }
+
+  canvas.addEventListener('mousemove', e => processHover(e.clientX));
+  canvas.addEventListener('mouseleave', clearH);
+  canvas.addEventListener('touchmove', e => { e.preventDefault(); processHover(e.touches[0].clientX); }, { passive: false });
+  canvas.addEventListener('touchend', clearH);
+  window.addEventListener('resize', clearH);
+  requestAnimationFrame(draw);
+})();
+
+function stepMeas(delta) {
+  const el = document.getElementById('meas-value');
+  el.value = Math.max(1, Math.round((parseFloat(el.value||0)+delta)*10)/10);
+}
+async function logMeasurement() {
+  const site  = document.getElementById('meas-site').value;
+  const value = parseFloat(document.getElementById('meas-value').value);
+  const errEl = document.getElementById('meas-error');
+  const okEl  = document.getElementById('meas-success');
+  errEl.style.display='none'; okEl.style.display='none';
+  if (!site || isNaN(value) || value <= 0) {
+    errEl.textContent='Enter a valid measurement.'; errEl.style.display='block'; return;
+  }
+  const logged_date = document.getElementById('meas-date').value || null;
+  const notes = document.getElementById('meas-notes').value.trim() || null;
+  const resp = await fetch('/measurements', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({site, value_cm: value, logged_date, notes})
+  });
+  if (resp.ok) {
+    okEl.style.display='block';
+    setTimeout(() => { okEl.style.display='none'; }, 3000);
+    setTimeout(() => location.reload(), 500);
+  } else {
+    const j = await resp.json().catch(()=>({}));
+    errEl.textContent = j.detail || 'Failed to log.'; errEl.style.display='block';
+  }
+}
+(function() {
+  const today = new Date().toLocaleDateString('en-CA');
+  const di = document.getElementById('meas-date');
+  if (di) { di.value = today; di.max = today; }
+  document.getElementById('meas-value')?.addEventListener('keydown', e => {
+    if (e.key==='Enter') { e.preventDefault(); logMeasurement(); }
+  });
+})();
+</script>
+
+</div>{# /tab-measurements #}
+
+<script>
+function switchTab(name, btn) {
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  btn.classList.add('active');
+  // Re-trigger canvas draws after tab becomes visible
+  window.dispatchEvent(new Event('resize'));
+}
+// Restore tab from hash/localStorage
+(function() {
+  const saved = localStorage.getItem('metrics_tab');
+  if (saved && saved !== 'weight') {
+    const btn = document.querySelector('.tab-btn[onclick*="' + saved + '"]');
+    if (btn) switchTab(saved, btn);
+  }
+  document.querySelectorAll('.tab-btn').forEach(b => {
+    b.addEventListener('click', () => {
+      const m = b.getAttribute('onclick').match(/'(\w+)'/);
+      if (m) localStorage.setItem('metrics_tab', m[1]);
+    });
+  });
+})();
+</script>
+
 {% endblock %}
