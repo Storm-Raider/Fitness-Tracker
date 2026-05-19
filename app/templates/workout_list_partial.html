@@ -1,18 +1,16 @@
-{% if workouts %}
+{% set completed_workouts = workouts | selectattr('ended_at') | list %}
+{% if completed_workouts %}
 <div style="display:flex;flex-direction:column;gap:0.5rem;">
-  {% for w in workouts %}
+  {% for w in completed_workouts %}
   <div id="workout-{{ w.id }}" data-date="{{ w.started_at[:10] }}" style="display:flex;align-items:stretch;border-radius:var(--radius);border:1px solid var(--border);background:var(--surface);overflow:hidden;transition:border-color 0.15s,box-shadow 0.15s;position:relative;"
        onmouseover="this.style.borderColor='var(--border-mid)';this.style.boxShadow='0 4px 18px rgba(0,0,0,0.45)'"
        onmouseout="this.style.borderColor='var(--border)';this.style.boxShadow=''">
     <!-- Left status edge -->
-    <div style="width:3px;flex-shrink:0;background:{% if w.ended_at %}var(--border-mid){% else %}var(--accent){% endif %};"></div>
+    <div style="width:3px;flex-shrink:0;background:var(--border-mid);"></div>
     <a href="/workouts/{{ w.id }}" style="flex:1;min-width:0;text-decoration:none;color:inherit;display:flex;flex-direction:column;padding:0.75rem 1.1rem;gap:0.25rem;">
       <div style="display:flex;align-items:center;gap:1rem;min-width:0;">
         <div style="flex:1;min-width:0;">
           <div style="font-weight:600;font-size:0.9rem;letter-spacing:-0.01em;">{{ w.started_at[:10] | human_date }}</div>
-          {% if not w.ended_at %}
-          <div style="color:var(--accent);font-size:0.78rem;margin-top:0.1rem;">In progress</div>
-          {% endif %}
         </div>
         <div style="display:flex;align-items:center;gap:1.1rem;flex-shrink:0;">
           {% if w.set_count > 0 %}
