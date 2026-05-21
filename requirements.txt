@@ -8,7 +8,7 @@ itsdangerous==2.1.2
 bcrypt==5.0.0
 
 # Nightly workout enrichment (scripts/enrich_workouts.py)
-anthropic>=0.102.0
+anthropic==0.103.1
 
 # Test dependencies
 pytest==8.3.3
