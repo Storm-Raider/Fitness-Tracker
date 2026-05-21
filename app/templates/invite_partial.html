@@ -11,3 +11,25 @@
     </button>
   </div>
 </div>
+
+<tbody id="pending-invites-body" hx-swap-oob="afterbegin">
+  <tr>
+    <td>
+      <code style="font-family:var(--mono); font-size:0.8rem; color:var(--muted);">…{{ new_token[-8:] }}</code>
+    </td>
+    <td style="font-size:0.8rem; color:var(--muted);">{{ new_created_at[:16] }}</td>
+    <td style="font-size:0.8rem; color:var(--muted);">{{ new_expires_at[:16] }}</td>
+    <td style="text-align:right;">
+      <button class="btn btn-ghost"
+              style="font-size:0.8rem; color:var(--danger);"
+              hx-delete="/invite/{{ new_token }}"
+              hx-target="closest tr"
+              hx-swap="outerHTML"
+              hx-confirm="Revoke this invite link?">
+        Revoke
+      </button>
+    </td>
+  </tr>
+</tbody>
+
+<tr id="pending-invites-empty" hx-swap-oob="delete"></tr>
