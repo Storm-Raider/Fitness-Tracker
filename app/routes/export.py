@@ -12,6 +12,14 @@ from app.utils.render import render
 
 router = APIRouter()
 
+_FORMULA_PREFIXES = ("=", "+", "-", "@", "\t", "\r")
+
+
+def _sanitize_csv_cell(value: str) -> str:
+    if value and value[0] in _FORMULA_PREFIXES:
+        return "'" + value
+    return value
+
 
 @router.get("/export", response_class=HTMLResponse)
 async def export_page(
@@ -48,9 +56,10 @@ async def _csv_rows(conn: aiosqlite.Connection, user_id: int) -> AsyncGenerator[
         async for row in cur:
             buf = io.StringIO()
             writer = csv.writer(buf)
-            writer.writerow([row["date"], row["workout_id"], row["exercise_name"],
+            writer.writerow([row["date"], row["workout_id"],
+                             _sanitize_csv_cell(row["exercise_name"]),
                              row["reps"], row["weight_kg"], row["rpe"] or "",
-                             row["notes"] or ""])
+                             _sanitize_csv_cell(row["notes"] or "")])
             yield buf.getvalue()
     finally:
         await cur.close()
