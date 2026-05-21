@@ -154,6 +154,7 @@ async def login_post(
         max_age=session_days * 86400 if remember else None,
         httponly=True,
         samesite="strict",
+        secure=True,
     )
     return response
 
