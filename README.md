@@ -307,8 +307,30 @@ Then `docker compose restart`.
 
 ## Backup & restore
 
+`scripts/backup.py` uses Python's `sqlite3.Connection.backup()` which is WAL-safe and
+works while the app is live. Run it manually or wire it to cron.
+
+**Manual backup:**
 ```bash
-# Backup — creates a dated tar.gz in the current directory
+DATABASE_PATH=./fittrack.db python3 scripts/backup.py
+# → backups/fittrack-20260521-114000.db  (176 KB)
+```
+
+**Cron — daily at 3am, keep 7 backups:**
+```bash
+crontab -e
+# add:
+0 3 * * * cd /home/pi/Fitness-Tracker && DATABASE_PATH=./fittrack.db python3 scripts/backup.py >> /var/log/fitstorm-backup.log 2>&1
+```
+
+**Restore:**
+```bash
+# Stop the app first, then overwrite the database
+cp backups/fittrack-20260521-114000.db fittrack.db
+```
+
+**Docker volume backup (alternative — full volume tar):**
+```bash
 docker run --rm \
   -v fitness-tracker_fitness_data:/data \
   -v $(pwd):/backup \
