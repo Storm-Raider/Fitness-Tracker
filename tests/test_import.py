@@ -10,6 +10,14 @@ def make_csv(*rows, header=True):
     return "\n".join(lines).encode()
 
 
+def make_hevy_csv(*rows, header=True):
+    lines = []
+    if header:
+        lines.append("Title,Start Time,End Time,Description,Exercise Name,Set Order,Weight,Reps,Distance,Seconds,Notes,Workout Notes,RPE")
+    lines.extend(rows)
+    return "\n".join(lines).encode()
+
+
 @pytest.mark.asyncio
 async def test_import_basic(client):
     csv_data = make_csv(
@@ -68,6 +76,54 @@ async def test_import_missing_required_columns(client):
         files={"file": ("workouts.csv", io.BytesIO(csv_data), "text/csv")},
     )
     assert resp.status_code == 422
+    assert "Unrecognized CSV format" in resp.json()["detail"]
+
+
+@pytest.mark.asyncio
+async def test_import_hevy_basic(client):
+    csv_data = make_hevy_csv(
+        "Push Day,2024-01-15 07:32:00,2024-01-15 08:10:00,,Bench Press,1,100,5,,,,,",
+        "Push Day,2024-01-15 07:32:00,2024-01-15 08:10:00,,Overhead Press,2,60,8,,,,,",
+    )
+    resp = await client.post(
+        "/import/csv",
+        files={"file": ("hevy.csv", io.BytesIO(csv_data), "text/csv")},
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["imported"] == 2
+    assert data["skipped"] == 0
+
+
+@pytest.mark.asyncio
+async def test_import_hevy_groups_into_separate_workouts(client):
+    csv_data = make_hevy_csv(
+        "Push A,2024-01-15 07:00:00,2024-01-15 08:00:00,,Bench Press,1,100,5,,,,,",
+        "Push A,2024-01-15 07:00:00,2024-01-15 08:00:00,,Overhead Press,2,60,8,,,,,",
+        "Pull B,2024-01-16 07:00:00,2024-01-16 08:00:00,,Barbell Row,1,80,6,,,,,",
+    )
+    resp = await client.post(
+        "/import/csv",
+        files={"file": ("hevy.csv", io.BytesIO(csv_data), "text/csv")},
+    )
+    assert resp.status_code == 200
+    assert resp.json()["imported"] == 3
+
+    workouts = await client.get("/workouts", headers={"Accept": "application/json"})
+    assert workouts.status_code == 200
+
+
+@pytest.mark.asyncio
+async def test_import_row_limit(client):
+    lines = ["Date,Workout Name,Exercise Name,Set Order,Weight,Reps,Weight Unit,Notes"]
+    lines += ["2024-01-15,Push Day,Bench Press,1,100,5,kg,"] * 50_001
+    csv_data = "\n".join(lines).encode()
+    resp = await client.post(
+        "/import/csv",
+        files={"file": ("big.csv", io.BytesIO(csv_data), "text/csv")},
+    )
+    assert resp.status_code == 422
+    assert "50,000" in resp.json()["detail"]
 
 
 @pytest.mark.asyncio

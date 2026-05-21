@@ -14,12 +14,34 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 MAX_UPLOAD_BYTES = 10 * 1024 * 1024  # 10MB
+MAX_ROWS = 50_000
 
-_REQUIRED_COLS = {"Exercise Name", "Weight", "Reps"}
+# Distinguishing columns for each supported format.
+# Exercise Name / Weight / Reps are common to both.
+_STRONG_MARKER_COLS = {"Workout Name", "Date", "Exercise Name", "Weight", "Reps"}
+_HEVY_MARKER_COLS = {"Title", "Start Time", "Exercise Name", "Weight", "Reps"}
 
 
 def _lbs_to_kg(value: float) -> float:
     return round(value * 0.453592, 2)
+
+
+def _detect_format(fieldnames: list[str] | None) -> str | None:
+    cols = set(fieldnames or [])
+    if _STRONG_MARKER_COLS.issubset(cols):
+        return "strong"
+    if _HEVY_MARKER_COLS.issubset(cols):
+        return "hevy"
+    return None
+
+
+def _workout_key(row: dict, fmt: str) -> tuple[str, str]:
+    """Return (date_str, name) used to group consecutive rows into one workout."""
+    if fmt == "hevy":
+        raw_dt = (row.get("Start Time") or "").strip()
+        return raw_dt[:10], (row.get("Title") or "Imported Workout").strip()
+    # strong
+    return (row.get("Date") or "").strip(), (row.get("Workout Name") or "Imported Workout").strip()
 
 
 @router.post("/import/csv")
@@ -39,15 +61,23 @@ async def import_csv(
         raise HTTPException(status_code=422, detail="File must be UTF-8 encoded")
 
     reader = csv.DictReader(io.StringIO(text))
-    if reader.fieldnames is None or not _REQUIRED_COLS.issubset(set(reader.fieldnames)):
+    fmt = _detect_format(reader.fieldnames)
+    if fmt is None:
         raise HTTPException(
             status_code=422,
-            detail=f"CSV must contain columns: {', '.join(sorted(_REQUIRED_COLS))}",
+            detail=(
+                "Unrecognized CSV format. "
+                "Strong requires columns: Date, Workout Name, Exercise Name, Weight, Reps. "
+                "Hevy requires columns: Start Time, Title, Exercise Name, Weight, Reps."
+            ),
         )
+
+    rows = list(reader)
+    if len(rows) > MAX_ROWS:
+        raise HTTPException(status_code=422, detail=f"File exceeds {MAX_ROWS:,} row limit")
 
     imported = 0
     skipped = 0
-    rows = list(reader)
 
     await conn.execute("BEGIN IMMEDIATE")
     try:
@@ -76,8 +106,7 @@ async def import_csv(
             if weight_unit == "lbs":
                 weight = _lbs_to_kg(weight)
 
-            workout_date = (row.get("Date") or "").strip()
-            workout_name = (row.get("Workout Name") or "Imported Workout").strip()
+            workout_date, workout_name = _workout_key(row, fmt)
             row_key = f"{workout_date}:{workout_name}"
 
             if row_key != current_workout_key:
