@@ -2,16 +2,29 @@
 {% block title %}Exercises — FitStorm{% endblock %}
 {% block head %}
 <style>
+  /* ── Search ─────────────────────────────────────── */
+  .ex-search-wrap {
+    position: relative;
+    margin-bottom: 1.25rem;
+  }
+  .ex-search-icon {
+    position: absolute;
+    left: 0.8rem;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--muted);
+    pointer-events: none;
+    width: 16px; height: 16px;
+  }
   .ex-search {
     width: 100%;
-    background: var(--bg);
+    background: var(--surface);
     border: 1px solid var(--border);
-    border-radius: var(--radius-xs);
+    border-radius: var(--radius-sm);
     color: var(--text);
-    padding: 0.65rem 1rem;
-    font-size: 0.9rem;
+    padding: 0.7rem 1rem 0.7rem 2.4rem;
+    font-size: 0.95rem;
     font-family: inherit;
-    margin-bottom: 1.5rem;
     transition: border-color 0.15s, box-shadow 0.15s;
   }
   .ex-search:focus {
@@ -19,29 +32,115 @@
     border-color: var(--accent);
     box-shadow: var(--glow);
   }
-  .ex-group { margin-bottom: 1.5rem; }
-  .ex-letter {
-    font-size: 0.68rem;
+
+  /* ── Muscle tiles ────────────────────────────────── */
+  .muscle-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0.6rem;
+    margin-bottom: 1.5rem;
+  }
+  .muscle-all {
+    grid-column: 1 / -1;
+  }
+  .muscle-tile {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.3rem;
+    padding: 0.75rem 0.4rem 0.65rem;
+    border-radius: var(--radius-sm);
+    background: var(--surface);
+    border: 1.5px solid var(--border);
+    color: var(--muted-hi);
+    cursor: pointer;
+    font-family: 'Barlow', inherit;
+    transition: background 0.14s, border-color 0.14s, color 0.14s;
+    -webkit-tap-highlight-color: transparent;
+    text-align: center;
+    text-decoration: none;
+  }
+  .muscle-tile:hover {
+    background: var(--surface-hover);
+    border-color: var(--border-mid);
+    color: var(--text);
+  }
+  .muscle-tile.active {
+    background: var(--accent-dim);
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+  .muscle-tile-icon {
+    width: 20px; height: 20px;
+    pointer-events: none;
+    flex-shrink: 0;
+  }
+  .muscle-tile-name {
+    font-size: 0.72rem;
     font-weight: 700;
     text-transform: uppercase;
-    letter-spacing: 0.12em;
+    letter-spacing: 0.06em;
+    line-height: 1.1;
+  }
+  .muscle-tile-count {
+    font-size: 0.62rem;
+    font-family: 'JetBrains Mono', monospace;
     color: var(--muted);
-    padding: 0 0.15rem;
-    margin-bottom: 0.4rem;
+    line-height: 1;
+  }
+  .muscle-tile.active .muscle-tile-count { color: var(--accent); opacity: 0.75; }
+  .muscle-all {
+    flex-direction: row;
+    padding: 0.6rem 1rem;
+    justify-content: center;
+    gap: 0.5rem;
+    font-size: 0.82rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+  .muscle-all .muscle-tile-count { font-size: 0.75rem; }
+
+  /* ── Exercise groups ─────────────────────────────── */
+  .ex-group { margin-bottom: 1.75rem; }
+  .ex-group-header {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    margin-bottom: 0.6rem;
+  }
+  .ex-group-label {
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--muted);
     font-family: 'JetBrains Mono', monospace;
   }
-  .ex-list { display: flex; flex-direction: column; gap: 2px; }
+  .ex-group-line {
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+  .ex-group-ct {
+    font-size: 0.62rem;
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--muted);
+  }
+  .ex-list { display: flex; flex-direction: column; gap: 3px; }
   .ex-item {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 0.65rem 0.9rem;
+    gap: 0.5rem;
+    padding: 0.7rem 0.9rem;
     border-radius: var(--radius-xs);
     background: var(--surface);
     border: 1px solid var(--border);
     text-decoration: none;
     color: var(--text);
-    font-size: 0.875rem;
+    font-size: 0.9rem;
     font-weight: 500;
     transition: background 0.12s, border-color 0.12s;
   }
@@ -52,33 +151,17 @@
   }
   .no-results {
     color: var(--muted);
-    font-size: 0.875rem;
-    padding: 2rem 0;
+    font-size: 0.9rem;
+    padding: 2.5rem 0;
     text-align: center;
   }
-  .filter-chips {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.4rem;
-    margin-bottom: 1rem;
-  }
-  .chip {
-    padding: 0.3rem 0.75rem;
-    border-radius: 999px;
-    border: 1px solid var(--border);
-    background: var(--surface);
-    color: var(--muted-hi);
-    font-size: 0.775rem;
-    font-weight: 600;
-    cursor: pointer;
-    transition: background 0.12s, border-color 0.12s, color 0.12s;
-    user-select: none;
-  }
-  .chip:hover { border-color: var(--border-mid); color: var(--text); }
-  .chip.active {
-    background: var(--accent-dim);
-    border-color: var(--accent);
-    color: var(--accent);
+
+  @media (max-width: 767px) {
+    .muscle-grid { gap: 0.5rem; }
+    .muscle-tile { padding: 0.8rem 0.3rem 0.7rem; }
+    .ex-item { padding: 0.85rem 1rem; font-size: 0.95rem; }
+    .ex-group { margin-bottom: 2rem; }
+    .ex-list { gap: 4px; }
   }
 </style>
 {% endblock %}
@@ -95,14 +178,14 @@
   <div class="section-title" style="margin-bottom:0.5rem;">Recently used</div>
   <div style="display:flex;gap:0.5rem;overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:2px;">
     {% for ex in recent_exercises %}
-    <a href="/exercises/{{ ex.id }}" style="flex-shrink:0;display:flex;flex-direction:column;gap:0.2rem;padding:0.55rem 0.8rem;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-xs);text-decoration:none;color:var(--text);transition:border-color 0.13s,background 0.13s;min-width:0;"
+    <a href="/exercises/{{ ex.id }}" style="flex-shrink:0;display:flex;flex-direction:column;gap:0.2rem;padding:0.6rem 0.9rem;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-xs);text-decoration:none;color:var(--text);transition:border-color 0.13s,background 0.13s;min-width:0;"
        onmouseover="this.style.borderColor='var(--border-mid)';this.style.background='var(--surface-hover)'"
        onmouseout="this.style.borderColor='var(--border)';this.style.background='var(--surface)'">
-      <span style="font-size:0.82rem;font-weight:600;white-space:nowrap;max-width:140px;overflow:hidden;text-overflow:ellipsis;">{{ ex.name }}</span>
+      <span style="font-size:0.875rem;font-weight:600;white-space:nowrap;max-width:150px;overflow:hidden;text-overflow:ellipsis;">{{ ex.name }}</span>
       {% if ex.pr_kg is not none %}
-      <span style="font-size:0.68rem;color:var(--accent);font-weight:600;">PR <span class="weight-display" data-kg="{{ ex.pr_kg }}">{{ ex.pr_kg }} kg</span></span>
+      <span style="font-size:0.72rem;color:var(--accent);font-weight:600;">PR <span class="weight-display" data-kg="{{ ex.pr_kg }}">{{ ex.pr_kg }} kg</span></span>
       {% else %}
-      <span style="font-size:0.68rem;color:var(--muted);">{{ ex.category or '—' }}</span>
+      <span style="font-size:0.72rem;color:var(--muted);">{{ ex.category or '—' }}</span>
       {% endif %}
     </a>
     {% endfor %}
@@ -110,84 +193,90 @@
 </div>
 {% endif %}
 
-<input class="ex-search" type="search" id="ex-search" placeholder="Search exercises…" autocomplete="off">
+<div class="ex-search-wrap">
+  <i data-lucide="search" class="ex-search-icon"></i>
+  <input class="ex-search" type="search" id="ex-search" placeholder="Search exercises…" autocomplete="off">
+</div>
 
-<div class="filter-chips" id="filter-chips">
-  <span class="chip active" data-cat="">All</span>
-  <span class="chip" data-cat="Push">Push</span>
-  <span class="chip" data-cat="Pull">Pull</span>
-  <span class="chip" data-cat="Legs">Legs</span>
-  <span class="chip" data-cat="Core">Core</span>
-  <span class="chip" data-cat="Full Body">Full Body</span>
-  <span class="chip" data-cat="Cardio">Cardio</span>
-  <span class="chip" data-cat="Olympic">Olympic</span>
+<div class="muscle-grid" id="muscle-grid">
+  <button class="muscle-tile muscle-all active" data-muscle="" onclick="setMuscle(this)">
+    <i data-lucide="layout-grid" style="width:16px;height:16px;pointer-events:none;"></i>
+    <span>All muscles</span>
+    <span class="muscle-tile-count num">{{ exercises | length }}</span>
+  </button>
+  {% for muscle, exs in by_muscle.items() %}
+  <button class="muscle-tile" data-muscle="{{ muscle }}" onclick="setMuscle(this)">
+    <i data-lucide="dumbbell" class="muscle-tile-icon"></i>
+    <span class="muscle-tile-name">{{ muscle }}</span>
+    <span class="muscle-tile-count num">{{ exs | length }}</span>
+  </button>
+  {% endfor %}
 </div>
 
 <div id="ex-groups">
-{% set ns = namespace(current_letter='') %}
-{% for ex in exercises %}
-  {% set letter = ex.name[0] | upper %}
-  {% if letter != ns.current_letter %}
-    {% if ns.current_letter %}
-    </div></div>
-    {% endif %}
-    {% set ns.current_letter = letter %}
-    <div class="ex-group" data-letter="{{ letter }}">
-    <div class="ex-letter">{{ letter }}</div>
+  {% for muscle, exs in by_muscle.items() %}
+  <div class="ex-group" data-muscle="{{ muscle }}">
+    <div class="ex-group-header">
+      <span class="ex-group-label">{{ muscle }}</span>
+      <span class="ex-group-line"></span>
+      <span class="ex-group-ct num" data-group-ct="{{ exs | length }}">{{ exs | length }}</span>
+    </div>
     <div class="ex-list">
-  {% endif %}
-  <a class="ex-item" href="/exercises/{{ ex.id }}" data-name="{{ ex.name | lower }}" data-cat="{{ ex.category or '' }}">
-    <span>{{ ex.name }}</span>
-    {% if ex.pr_kg is not none %}
-    <span class="badge badge-pr num">PR <span class="weight-display" data-kg="{{ ex.pr_kg }}">{{ ex.pr_kg }} kg</span></span>
-    {% endif %}
-  </a>
-{% endfor %}
-{% if exercises %}
-    </div></div>
-{% endif %}
+      {% for ex in exs %}
+      <a class="ex-item" href="/exercises/{{ ex.id }}"
+         data-name="{{ ex.name | lower }}"
+         data-muscles="{{ ex.muscles | join(',') }}">
+        <span>{{ ex.name }}</span>
+        {% if ex.pr_kg is not none %}
+        <span class="badge badge-pr num">PR <span class="weight-display" data-kg="{{ ex.pr_kg }}">{{ ex.pr_kg }} kg</span></span>
+        {% endif %}
+      </a>
+      {% endfor %}
+    </div>
+  </div>
+  {% endfor %}
 </div>
 
-<p class="no-results" id="no-results" style="display:none;"></p>
+<p class="no-results" id="no-results" style="display:none;">No exercises match.</p>
 
 <script>
 const searchEl  = document.getElementById('ex-search');
 const countEl   = document.getElementById('ex-count');
 const noResults = document.getElementById('no-results');
-let activeCat   = '';
+let activeMuscle = '';
+
+function setMuscle(tile) {
+  document.querySelectorAll('.muscle-tile').forEach(t => t.classList.remove('active'));
+  tile.classList.add('active');
+  activeMuscle = tile.dataset.muscle;
+  applyFilters();
+}
 
 function applyFilters() {
   const q = searchEl.value.trim().toLowerCase();
   let visible = 0;
 
-  document.querySelectorAll('.ex-item').forEach(item => {
-    const nameMatch = !q || item.dataset.name.includes(q);
-    const catMatch  = !activeCat || item.dataset.cat === activeCat;
-    const show = nameMatch && catMatch;
-    item.style.display = show ? '' : 'none';
-    if (show) visible++;
-  });
-
   document.querySelectorAll('.ex-group').forEach(group => {
-    const anyVisible = group.querySelector('.ex-item:not([style*="display: none"])');
-    group.style.display = anyVisible ? '' : 'none';
+    const muscle = group.dataset.muscle;
+    const muscleMatch = !activeMuscle || muscle === activeMuscle;
+    if (!muscleMatch) { group.style.display = 'none'; return; }
+
+    let groupVisible = 0;
+    group.querySelectorAll('.ex-item').forEach(item => {
+      const show = !q || item.dataset.name.includes(q);
+      item.style.display = show ? '' : 'none';
+      if (show) { groupVisible++; visible++; }
+    });
+
+    group.style.display = groupVisible > 0 ? '' : 'none';
+    const ct = group.querySelector('[data-group-ct]');
+    if (ct) ct.textContent = groupVisible;
   });
 
   countEl.textContent = visible;
-  const hasFilter = q || activeCat;
-  noResults.style.display = visible === 0 && hasFilter ? '' : 'none';
-  noResults.textContent   = visible === 0 && hasFilter ? 'No exercises match.' : '';
+  noResults.style.display = visible === 0 ? '' : 'none';
 }
 
 searchEl.addEventListener('input', applyFilters);
-
-document.getElementById('filter-chips').addEventListener('click', e => {
-  const chip = e.target.closest('.chip');
-  if (!chip) return;
-  document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
-  chip.classList.add('active');
-  activeCat = chip.dataset.cat;
-  applyFilters();
-});
 </script>
 {% endblock %}

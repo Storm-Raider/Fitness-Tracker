@@ -1,0 +1,16 @@
+[Unit]
+Description=FitStorm Fitness Tracker
+After=network.target
+
+[Service]
+Type=simple
+User=stormraider
+WorkingDirectory=/home/stormraider/Desktop/Git/Fitness-Tracker
+EnvironmentFile=/home/stormraider/Desktop/Git/Fitness-Tracker/.env
+Environment=DATABASE_PATH=/home/stormraider/Desktop/Git/Fitness-Tracker/fittrack.db
+ExecStart=/home/stormraider/Desktop/Git/Fitness-Tracker/.venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

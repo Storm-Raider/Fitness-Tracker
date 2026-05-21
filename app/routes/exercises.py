@@ -20,6 +20,9 @@ class GoalIn(BaseModel):
     target_kg: float = Field(gt=0, le=1000)
 
 
+_MUSCLE_ORDER = ["Chest", "Back", "Legs", "Shoulders", "Biceps", "Triceps", "Abs", "Forearms"]
+
+
 @router.get("/exercises", response_class=HTMLResponse)
 async def exercises_page(
     request: Request,
@@ -28,15 +31,30 @@ async def exercises_page(
 ):
     async with conn.execute(
         """
-        SELECT e.id, e.name, e.category, MAX(s.weight_kg) AS pr_kg
+        SELECT e.id, e.name, e.category, MAX(s.weight_kg) AS pr_kg,
+               GROUP_CONCAT(CASE WHEN em.is_primary = 1 THEN em.muscle END) AS primary_muscles
         FROM exercises e
         LEFT JOIN sets s ON s.exercise_id = e.id AND s.user_id = ?
+        LEFT JOIN exercise_muscles em ON em.exercise_id = e.id
         GROUP BY e.id, e.name, e.category
         ORDER BY e.name
         """,
         (current_user["id"],),
     ) as cur:
-        exercises = [dict(r) for r in await cur.fetchall()]
+        rows = await cur.fetchall()
+
+    by_muscle: dict[str, list] = {m: [] for m in _MUSCLE_ORDER}
+    exercises = []
+    for row in rows:
+        ex = dict(row)
+        muscles = [m.strip() for m in (ex.pop("primary_muscles") or "").split(",") if m.strip()]
+        ex["muscles"] = muscles
+        exercises.append(ex)
+        for m in muscles:
+            if m in by_muscle:
+                by_muscle[m].append(ex)
+
+    by_muscle = {m: exs for m, exs in by_muscle.items() if exs}
 
     async with conn.execute(
         """
@@ -56,7 +74,12 @@ async def exercises_page(
 
     return templates.TemplateResponse(
         request, "exercises.html",
-        {"exercises": exercises, "recent_exercises": recent_exercises, "user": dict(current_user)},
+        {
+            "exercises": exercises,
+            "by_muscle": by_muscle,
+            "recent_exercises": recent_exercises,
+            "user": dict(current_user),
+        },
     )
 
 
