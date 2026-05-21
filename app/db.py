@@ -103,11 +103,33 @@ _MIGRATIONS = [
 
 async def init_db(conn: aiosqlite.Connection) -> None:
     await conn.executescript(SCHEMA.read_text())
-    for sql in _MIGRATIONS:
+
+    await conn.execute(
+        "CREATE TABLE IF NOT EXISTS _schema_migrations "
+        "(idx INTEGER PRIMARY KEY, applied_at TEXT NOT NULL, error TEXT)"
+    )
+    async with conn.execute("SELECT idx FROM _schema_migrations") as _cur:
+        _applied = {row[0] for row in await _cur.fetchall()}
+
+    for idx, sql in enumerate(_MIGRATIONS):
+        if idx in _applied:
+            continue
         try:
             await conn.execute(sql)
-        except Exception:
-            pass
+            await conn.execute(
+                "INSERT INTO _schema_migrations(idx, applied_at) VALUES (?, datetime('now','localtime'))",
+                (idx,),
+            )
+        except Exception as exc:
+            msg = str(exc).lower()
+            if any(s in msg for s in ("duplicate column", "no such column", "already exists")):
+                logging.debug("Migration %d already applied: %s", idx, exc)
+            else:
+                logging.warning("Migration %d failed: %s | sql: %.120s", idx, exc, sql)
+            await conn.execute(
+                "INSERT OR IGNORE INTO _schema_migrations(idx, applied_at, error) VALUES (?, datetime('now','localtime'), ?)",
+                (idx, str(exc)),
+            )
 
     # OV3: validate all routine exercise names exist before any DB writes
     exercise_names = {ex["name"] for ex in EXERCISES}
