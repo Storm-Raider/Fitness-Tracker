@@ -324,7 +324,17 @@ async def invite_post(
     await conn.commit()
     base = str(request.base_url).rstrip("/")
     invite_url = f"{base}/invite/accept/{token}"
-    return render(request, "invite", {"invite_url": invite_url, "user": dict(user)})
+    cur = await conn.execute(
+        "SELECT created_at, expires_at FROM invite_tokens WHERE token = ?", (token,)
+    )
+    row = dict(await cur.fetchone())
+    return render(request, "invite", {
+        "invite_url": invite_url,
+        "user": dict(user),
+        "new_token": token,
+        "new_created_at": row["created_at"],
+        "new_expires_at": row["expires_at"],
+    })
 
 
 @router.get("/invite/accept/{token}", response_class=HTMLResponse)

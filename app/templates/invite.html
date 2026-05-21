@@ -30,7 +30,6 @@
   <div>
     <div class="section-title" style="margin-bottom:0.75rem;">Pending invites</div>
     <div class="card" style="padding:0; overflow:hidden;">
-      {% if pending_invites %}
       <table>
         <thead>
           <tr>
@@ -41,30 +40,33 @@
           </tr>
         </thead>
         <tbody id="pending-invites-body">
-          {% for inv in pending_invites %}
-          <tr>
-            <td>
-              <code style="font-family:var(--mono); font-size:0.8rem; color:var(--muted);">…{{ inv.token[-8:] }}</code>
-            </td>
-            <td style="font-size:0.8rem; color:var(--muted);">{{ inv.created_at[:16] }}</td>
-            <td style="font-size:0.8rem; color:var(--muted);">{{ inv.expires_at[:16] }}</td>
-            <td style="text-align:right;">
-              <button class="btn btn-ghost"
-                      style="font-size:0.8rem; color:var(--danger);"
-                      hx-delete="/invite/{{ inv.token }}"
-                      hx-target="closest tr"
-                      hx-swap="outerHTML"
-                      hx-confirm="Revoke this invite link?">
-                Revoke
-              </button>
-            </td>
+          {% if pending_invites %}
+            {% for inv in pending_invites %}
+            <tr>
+              <td>
+                <code style="font-family:var(--mono); font-size:0.8rem; color:var(--muted);">…{{ inv.token[-8:] }}</code>
+              </td>
+              <td style="font-size:0.8rem; color:var(--muted);">{{ inv.created_at[:16] }}</td>
+              <td style="font-size:0.8rem; color:var(--muted);">{{ inv.expires_at[:16] }}</td>
+              <td style="text-align:right;">
+                <button class="btn btn-ghost"
+                        style="font-size:0.8rem; color:var(--danger);"
+                        hx-delete="/invite/{{ inv.token }}"
+                        hx-target="closest tr"
+                        hx-swap="outerHTML"
+                        hx-confirm="Revoke this invite link?">
+                  Revoke
+                </button>
+              </td>
+            </tr>
+            {% endfor %}
+          {% else %}
+          <tr id="pending-invites-empty">
+            <td colspan="4" style="padding:1rem; color:var(--muted); font-size:0.875rem;">No pending invites.</td>
           </tr>
-          {% endfor %}
+          {% endif %}
         </tbody>
       </table>
-      {% else %}
-      <p style="padding:1rem; color:var(--muted); font-size:0.875rem;">No pending invites.</p>
-      {% endif %}
     </div>
   </div>
 </div>
