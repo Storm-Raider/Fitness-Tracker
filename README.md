@@ -31,6 +31,7 @@ Open `http://<your-pi-ip>:8000`
 - **Personal records** — PR table on the dashboard; gold badge on every set that beats your best.
 - **Exercise detail** — weight progression sparkline, session history, estimated 1RM.
 - **52-week heatmap** — GitHub-style activity grid. Streak badge next to it.
+- **AI Coach** — a local LLM (via [Ollama](https://ollama.com)) reads your training history and writes a tailored multi-day routine; pick a goal + days/week, review, and save it straight into your routines. Runs fully on-device — no data leaves the Pi.
 - **Stats page** — weekly volume sparkline (12 weeks), top exercises by set count, muscle coverage for the current week.
 - **Volume tracking** — live kg total per session; 7-day volume on the dashboard.
 - **Rest timer** — SVG ring countdown after each logged set. 90 s default, adjustable.
@@ -111,6 +112,31 @@ All settings go in `.env` (copied from `.env.example`):
 | `SESSION_DAYS` | No | `30` | How long a login session lasts (1–365) |
 | `DATABASE_PATH` | No | `/data/fitness.db` | SQLite file path inside container |
 | `WEBHOOK_URL` | No | *(empty)* | HTTP endpoint to notify on events |
+| `OLLAMA_URL` | No | `http://localhost:11434` | Ollama server for the AI Coach (Docker: `http://host.docker.internal:11434`) |
+| `OLLAMA_MODEL` | No | `qwen2.5:3b` | Model the AI Coach generates with |
+
+---
+
+## AI Coach (local LLM)
+
+The **Coach** page turns your logged training into a tailored routine using a
+local [Ollama](https://ollama.com) model — nothing leaves the Pi.
+
+```bash
+# Install Ollama (https://ollama.com/download), then pull a model:
+ollama pull qwen2.5:3b        # good reasoning + reliable JSON (default)
+# or, for faster/lighter generation on small hardware:
+ollama pull gemma3:1b
+```
+
+Make sure `ollama serve` is running, then open **Coach**, pick a goal and how
+many days per week you train, and hit *Generate*. Review the plan and save it —
+each day becomes a routine you can load straight into the workout logger.
+
+On a Raspberry Pi, generation is CPU-bound and typically takes **1–3 minutes**.
+If it times out, set `OLLAMA_MODEL=gemma3:1b`. Running Docker? The host's Ollama
+is reachable at `http://host.docker.internal:11434` (already wired in
+`docker-compose.yml`).
 
 ---
 

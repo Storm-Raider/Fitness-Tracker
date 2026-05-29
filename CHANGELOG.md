@@ -5,6 +5,7 @@ All notable changes to FitStorm are documented here.
 ## [Unreleased]
 
 ### Added
+- **AI Coach** — a local Ollama LLM builds a personalised multi-day routine from your training history. New `Coach` page (`/coach`): pick a goal (strength / hypertrophy / balance / general) and days per week; the coach analyses your top movements, per-muscle set coverage, neglected muscle groups, and estimated 1RMs, then returns a structured plan with sets/reps and coaching notes. Review and save — each day is persisted as a user-owned routine usable in the workout logger. Runs fully on-device via [Ollama](https://ollama.com); no data leaves the host. New `coach_plans` table, `app/utils/ollama.py` async client, and `OLLAMA_URL` / `OLLAMA_MODEL` config (default `qwen2.5:3b`). Generated exercise names are validated against the exercise library at save time.
 - **Exercise metadata** — category, equipment, primary muscle, secondary muscle, and form cue for all 105 exercises
 - **Exercise detail chips** — category / equipment / all muscles (primary + secondary, one chip each) shown as neutral muted chips on exercise detail pages; form cue rendered below; muscle data sourced from `exercise_muscles` join table
 - **14 pre-built global routines** — PPL (Push/Pull/Legs), Full Body A & B, Upper/Lower (Upper A/B, Lower A/B), and Bro Split (Chest/Back/Shoulders/Arms/Legs) — visible to all users in the routine dropdown
