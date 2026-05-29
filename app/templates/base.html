@@ -772,6 +772,7 @@
       <a href="/prs">Records</a>
       <a href="/workouts">Workouts</a>
       <a href="/exercises">Exercises</a>
+      <a href="/coach">Coach</a>
       <!-- More dropdown (desktop) -->
       <div class="nav-more" id="nav-more">
         <button class="nav-more-btn" onclick="toggleMoreMenu()" aria-haspopup="true">More <i data-lucide="chevron-down" style="width:13px;height:13px;"></i></button>
@@ -787,6 +788,7 @@
         </div>
       </div>
       <!-- Mobile-only flat links (hamburger menu) -->
+      <a href="/coach" class="nav-more-mobile-link">Coach</a>
       <a href="/routines/manage" class="nav-more-mobile-link">Routines</a>
       <a href="/templates" class="nav-more-mobile-link">Templates</a>
       <a href="/metrics" class="nav-more-mobile-link">Body Metrics</a>
@@ -860,6 +862,10 @@
       <span style="color:var(--muted-hi);font-weight:500;letter-spacing:0;text-transform:none;font-size:0.8rem;">{{ user.username }}</span>
     </div>
     <div class="mob-more-grid">
+      <a href="/coach" class="mob-more-item" data-mob-more-path="/coach" onclick="closeMobMore()">
+        <div class="mob-more-icon"><i data-lucide="sparkles"></i></div>
+        <span>Coach</span>
+      </a>
       <a href="/exercises" class="mob-more-item" data-mob-more-path="/exercises" onclick="closeMobMore()">
         <div class="mob-more-icon"><i data-lucide="layers"></i></div>
         <span>Exercises</span>
@@ -1015,7 +1021,7 @@
     // Mobile tab + More sheet active states
     (function() {
       var here = location.pathname;
-      var morePaths = ['/exercises', '/metrics', '/export', {% if user.is_admin %}'/invite', {% endif %}'/settings', '/achievements', '/planner'];
+      var morePaths = ['/coach', '/exercises', '/metrics', '/export', {% if user.is_admin %}'/invite', {% endif %}'/settings', '/achievements', '/planner'];
       document.querySelectorAll('.mob-tab[data-mob-path]').forEach(function(tab) {
         var p = tab.getAttribute('data-mob-path');
         var exact = tab.getAttribute('data-mob-exact');

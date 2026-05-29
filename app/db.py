@@ -98,6 +98,17 @@ _MIGRATIONS = [
         generated_at TEXT    NOT NULL DEFAULT (datetime('now','localtime'))
     )""",
     "ALTER TABLE user_settings ADD COLUMN pref_unit TEXT NOT NULL DEFAULT 'kg'",
+    """CREATE TABLE IF NOT EXISTS coach_plans (
+        id            INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id       INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        title         TEXT    NOT NULL,
+        goal          TEXT    NOT NULL,
+        days_per_week INTEGER NOT NULL,
+        plan_json     TEXT    NOT NULL,
+        model         TEXT,
+        created_at    TEXT    NOT NULL DEFAULT (datetime('now','localtime'))
+    )""",
+    "CREATE INDEX IF NOT EXISTS idx_coach_plans_user ON coach_plans(user_id, created_at)",
 ]
 
 

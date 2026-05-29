@@ -1,0 +1,331 @@
+{% extends "base.html" %}
+{% block title %}AI Coach — FitStorm{% endblock %}
+{% block content %}
+<style>
+.coach-grid { display: grid; grid-template-columns: 320px 1fr; gap: 1.5rem; align-items: start; }
+@media (max-width: 860px) { .coach-grid { grid-template-columns: 1fr; } }
+
+.goal-btn {
+  width: 100%;
+  padding: 0.7rem 0.9rem;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-xs);
+  background: var(--surface-2);
+  color: var(--muted);
+  cursor: pointer;
+  font-family: 'Barlow', inherit;
+  font-size: 0.85rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  transition: all 0.15s;
+  text-align: left;
+  display: flex; flex-direction: column; gap: 0.15rem;
+}
+.goal-btn:hover { border-color: var(--border-mid); color: var(--text); }
+.goal-btn.selected { border-color: var(--accent); color: var(--accent); background: var(--accent-dim); }
+.goal-btn .goal-sub { font-size: 0.68rem; font-weight: 400; text-transform: none; letter-spacing: 0; color: var(--muted); }
+
+.profile-pill {
+  display: inline-flex; align-items: baseline; gap: 0.3rem;
+  background: var(--surface-2); border: 1px solid var(--border);
+  border-radius: 20px; padding: 0.2rem 0.7rem; font-size: 0.72rem; color: var(--muted);
+}
+.profile-pill b { color: var(--text); font-family: 'JetBrains Mono', monospace; }
+
+.day-card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 1.1rem 1.25rem; margin-bottom: 1rem;
+  box-shadow: var(--shadow-sm);
+}
+.day-card h3 {
+  font-size: 1rem; display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.85rem;
+}
+.day-num {
+  font-family: 'JetBrains Mono', monospace; font-size: 0.7rem; font-weight: 700;
+  color: var(--accent); background: var(--accent-dim); border: 1px solid rgba(79,156,249,0.25);
+  border-radius: 6px; padding: 0.1rem 0.45rem;
+}
+.ex-row {
+  display: flex; align-items: baseline; gap: 0.6rem; padding: 0.5rem 0;
+  border-bottom: 1px solid rgba(30,35,52,0.6);
+}
+.ex-row:last-child { border-bottom: none; }
+.ex-name { font-weight: 600; color: var(--text); flex: 1; min-width: 0; }
+.ex-scheme {
+  font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; color: var(--accent);
+  white-space: nowrap; font-weight: 700;
+}
+.ex-note { display: block; font-size: 0.72rem; color: var(--muted); margin-top: 0.15rem; font-weight: 400; }
+
+.saved-card {
+  background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius-xs);
+  padding: 0.75rem 1rem; display: flex; align-items: center; gap: 0.75rem;
+}
+.spinner {
+  width: 16px; height: 16px; border: 2px solid rgba(255,255,255,0.2);
+  border-top-color: #fff; border-radius: 50%; display: inline-block;
+  animation: spin 0.7s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+</style>
+
+<div class="page-hd">
+  <div>
+    <h1>AI Coach</h1>
+    <div class="subtitle">A local LLM builds a routine from how you actually train</div>
+  </div>
+  <span class="badge badge-blue" title="Runs on-device via Ollama">
+    <i data-lucide="cpu" style="width:12px;height:12px;vertical-align:-1px;"></i>
+    {{ ollama_model }}
+  </span>
+</div>
+
+{% if not ollama_available %}
+<div class="flash flash-error" style="display:flex;align-items:flex-start;gap:0.6rem;">
+  <i data-lucide="alert-triangle" style="width:18px;height:18px;flex-shrink:0;margin-top:1px;"></i>
+  <div>
+    <b>Ollama isn't reachable.</b> Start it with <code>ollama serve</code> and pull a model
+    (<code>ollama pull {{ ollama_model }}</code>). Set <code>OLLAMA_URL</code> / <code>OLLAMA_MODEL</code>
+    to point elsewhere. You can still browse saved plans below.
+  </div>
+</div>
+{% endif %}
+
+<div class="coach-grid">
+
+  {# ── Left: controls + profile ── #}
+  <div>
+    <div class="section-title">Goal</div>
+    <div style="display:flex;flex-direction:column;gap:0.5rem;margin-bottom:1.25rem;">
+      {% for key, desc in goals.items() %}
+      <button class="goal-btn {% if loop.first %}selected{% endif %}" data-goal="{{ key }}"
+              onclick="selectGoal(this)">
+        {{ key | capitalize }}
+        <span class="goal-sub">{{ desc }}</span>
+      </button>
+      {% endfor %}
+    </div>
+
+    <div class="section-title">Training days / week</div>
+    <div class="card" style="padding:1rem 1.25rem;margin-bottom:1.25rem;">
+      <div style="display:flex;align-items:center;gap:1rem;">
+        <input type="range" id="days-slider" min="1" max="6" value="3"
+               oninput="document.getElementById('days-val').textContent=this.value;"
+               style="flex:1;accent-color:var(--accent);cursor:pointer;">
+        <div style="font-family:'JetBrains Mono',monospace;font-size:1.5rem;font-weight:700;color:var(--accent);min-width:1.5rem;text-align:right;line-height:1;">
+          <span id="days-val">3</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="section-title">Anything specific? (optional)</div>
+    <textarea id="focus-note" rows="2" maxlength="300"
+              placeholder="e.g. bad knees, want bigger arms, only dumbbells…"
+              style="margin-bottom:1.25rem;"></textarea>
+
+    <button class="btn btn-primary" id="gen-btn" onclick="generate()"
+            style="width:100%;justify-content:center;" {% if not ollama_available %}disabled{% endif %}>
+      <i data-lucide="sparkles" style="width:15px;height:15px;pointer-events:none;"></i>
+      Generate my routine
+    </button>
+    <div style="font-size:0.7rem;color:var(--muted);margin-top:0.5rem;text-align:center;">
+      Runs on-device — typically 1–3 minutes. Hang tight.
+    </div>
+
+    {# Training profile snapshot #}
+    <div class="section-title" style="margin-top:1.75rem;">Your training profile</div>
+    <div style="display:flex;flex-wrap:wrap;gap:0.4rem;">
+      <span class="profile-pill"><b>{{ profile.total_workouts }}</b> sessions</span>
+      {% if profile.sessions_per_week %}<span class="profile-pill"><b>{{ profile.sessions_per_week }}</b>/wk</span>{% endif %}
+      {% if profile.top_lifts %}<span class="profile-pill"><b>{{ profile.top_lifts|length }}</b> tracked lifts</span>{% endif %}
+    </div>
+    {% if profile.undertrained %}
+    <div style="font-size:0.72rem;color:var(--muted);margin-top:0.6rem;line-height:1.5;">
+      Neglected lately: <span class="text-pr">{{ profile.undertrained | join(', ') }}</span>
+    </div>
+    {% endif %}
+    {% if profile.top_exercises %}
+    <div style="font-size:0.72rem;color:var(--muted);margin-top:0.35rem;line-height:1.5;">
+      Most trained: {{ profile.top_exercises[:5] | map(attribute='name') | join(', ') }}
+    </div>
+    {% endif %}
+  </div>
+
+  {# ── Right: result ── #}
+  <div>
+    <div id="result-empty" style="border:1.5px dashed var(--border);border-radius:var(--radius);padding:3rem 1.5rem;text-align:center;color:var(--muted);">
+      <i data-lucide="clipboard-list" style="width:34px;height:34px;opacity:0.5;"></i>
+      <div style="margin-top:0.75rem;font-size:0.9rem;">Pick a goal and days, then generate.<br>Your coach reads your history and writes a plan.</div>
+    </div>
+    <div id="result-error" class="flash flash-error" style="display:none;"></div>
+    <div id="result"></div>
+  </div>
+
+</div>
+
+{# ── Saved plans ── #}
+<div style="margin-top:2.25rem;" id="saved-section" {% if not saved_plans %}hidden{% endif %}>
+  <div class="section-title">Saved plans</div>
+  <div style="display:flex;flex-direction:column;gap:0.5rem;" id="saved-list">
+    {% for p in saved_plans %}
+    <div class="saved-card" id="saved-{{ p.id }}">
+      <div style="flex:1;min-width:0;">
+        <div style="font-weight:600;font-size:0.9rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ p.title }}</div>
+        <div style="font-size:0.7rem;color:var(--muted);margin-top:0.1rem;">
+          {{ p.goal | capitalize }} · {{ p.days_per_week }} days/wk · {{ p.plan.days | length }} day plan · saved {{ p.created_at[:10] }}
+        </div>
+      </div>
+      <a href="/routines/manage" class="btn btn-ghost" style="min-height:30px;padding:0.3rem 0.7rem;font-size:0.75rem;">Routines</a>
+      <button onclick="deleteSaved({{ p.id }}, this)" class="btn btn-ghost"
+              style="min-height:30px;padding:0.3rem 0.7rem;font-size:0.75rem;"
+              onmouseover="this.style.borderColor='var(--danger)';this.style.color='var(--danger)'"
+              onmouseout="this.style.borderColor='';this.style.color=''">Delete</button>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+
+<script>
+let _goal = '{{ goals.keys() | list | first }}';
+let _currentPlan = null;
+
+function selectGoal(btn) {
+  _goal = btn.getAttribute('data-goal');
+  document.querySelectorAll('.goal-btn').forEach(b => b.classList.remove('selected'));
+  btn.classList.add('selected');
+}
+
+function esc(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g, c =>
+    ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+async function generate() {
+  const btn = document.getElementById('gen-btn');
+  const days = parseInt(document.getElementById('days-slider').value);
+  const note = document.getElementById('focus-note').value;
+  const errBox = document.getElementById('result-error');
+
+  document.getElementById('result-empty').style.display = 'none';
+  errBox.style.display = 'none';
+  document.getElementById('result').innerHTML = '';
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Coaching…';
+
+  try {
+    const resp = await fetch('/coach/generate', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({goal: _goal, days_per_week: days, focus_note: note}),
+    });
+    const data = await resp.json();
+    if (!resp.ok) throw new Error(data.detail || data.error || 'Generation failed.');
+    _currentPlan = data.plan;
+    renderPlan(data.plan, data.dropped || []);
+  } catch (e) {
+    errBox.textContent = e.message;
+    errBox.style.display = 'block';
+    if (!document.getElementById('result').innerHTML) {
+      document.getElementById('result-empty').style.display = 'block';
+    }
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '<i data-lucide="sparkles" style="width:15px;height:15px;pointer-events:none;"></i> Generate my routine';
+    lucide.createIcons();
+  }
+}
+
+function renderPlan(plan, dropped) {
+  const days = (plan.days || []).map((day, i) => {
+    const rows = day.exercises.map(ex => `
+      <div class="ex-row">
+        <span class="ex-name">${esc(ex.name)}
+          ${ex.note ? `<span class="ex-note">${esc(ex.note)}</span>` : ''}
+        </span>
+        <span class="ex-scheme">${esc(ex.sets)} × ${esc(ex.reps)}</span>
+      </div>`).join('');
+    return `
+      <div class="day-card">
+        <h3><span class="day-num">Day ${i + 1}</span> ${esc(day.focus)}</h3>
+        ${rows}
+      </div>`;
+  }).join('');
+
+  const droppedNote = dropped.length
+    ? `<div style="font-size:0.72rem;color:var(--muted);margin-bottom:0.75rem;">
+         Skipped unrecognised suggestions: ${esc(dropped.join(', '))}</div>`
+    : '';
+
+  document.getElementById('result').innerHTML = `
+    <div class="card card-accent" style="margin-bottom:1rem;">
+      <div style="font-family:'Syne',sans-serif;font-size:1.15rem;font-weight:700;letter-spacing:-0.02em;">${esc(plan.title)}</div>
+      ${plan.summary ? `<div style="color:var(--muted);font-size:0.85rem;margin-top:0.35rem;line-height:1.5;">${esc(plan.summary)}</div>` : ''}
+    </div>
+    ${droppedNote}
+    ${days}
+    <div style="display:flex;gap:0.65rem;flex-wrap:wrap;margin-top:0.5rem;">
+      <input type="text" id="save-title" value="${esc(plan.title)}" maxlength="120" style="flex:1;min-width:160px;">
+      <button class="btn btn-primary" id="save-btn" onclick="savePlan()">
+        <i data-lucide="save" style="width:14px;height:14px;pointer-events:none;"></i> Save &amp; add to Routines
+      </button>
+      <button class="btn btn-ghost" onclick="generate()">Regenerate</button>
+    </div>
+    <div id="save-msg" style="font-size:0.78rem;margin-top:0.5rem;display:none;"></div>`;
+  lucide.createIcons();
+}
+
+async function savePlan() {
+  if (!_currentPlan) return;
+  const btn = document.getElementById('save-btn');
+  const msg = document.getElementById('save-msg');
+  const title = (document.getElementById('save-title').value || _currentPlan.title).trim();
+
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Saving…';
+
+  const payload = {
+    title: title,
+    summary: _currentPlan.summary || '',
+    goal: _currentPlan.goal,
+    days_per_week: _currentPlan.days_per_week,
+    days: _currentPlan.days.map(d => ({
+      focus: d.focus,
+      exercises: d.exercises.map(e => ({name: e.name, sets: e.sets, reps: e.reps, note: e.note || ''})),
+    })),
+  };
+
+  try {
+    const resp = await fetch('/coach/save', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(payload),
+    });
+    const data = await resp.json();
+    if (!resp.ok) throw new Error(data.detail || 'Save failed.');
+    msg.textContent = `✓ Saved — ${data.routine_ids.length} routine(s) added. Reloading…`;
+    msg.style.color = 'var(--success)';
+    msg.style.display = 'block';
+    setTimeout(() => window.location.reload(), 900);
+  } catch (e) {
+    msg.textContent = e.message;
+    msg.style.color = 'var(--danger)';
+    msg.style.display = 'block';
+    btn.disabled = false;
+    btn.innerHTML = '<i data-lucide="save" style="width:14px;height:14px;pointer-events:none;"></i> Save &amp; add to Routines';
+    lucide.createIcons();
+  }
+}
+
+async function deleteSaved(id, btn) {
+  if (!confirm('Delete this saved plan? (Routines it created are kept.)')) return;
+  const resp = await fetch('/coach/plans/' + id, {method: 'DELETE'});
+  if (resp.ok || resp.status === 204) {
+    const card = document.getElementById('saved-' + id);
+    if (card) card.remove();
+    if (!document.querySelectorAll('#saved-list .saved-card').length) {
+      document.getElementById('saved-section').hidden = true;
+    }
+  }
+}
+</script>
+{% endblock %}
