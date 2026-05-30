@@ -7,27 +7,30 @@ async def test_stats_renders(client):
     resp = await client.get("/stats", headers={"Accept": "text/html"})
     assert resp.status_code == 200
     assert "Stats" in resp.text
-    assert "Weekly volume" in resp.text
-    assert "Top exercises" in resp.text
-    assert "Muscle coverage" in resp.text
+    # Always-rendered sections (data-driven sections only appear with data —
+    # those are covered by test_stats_shows_top_exercise / _plateau).
+    assert "Volume" in resp.text          # "Volume — last 12 weeks"
+    assert "Muscle volume" in resp.text   # "Muscle volume — all time"
 
 
 @pytest.mark.asyncio
 async def test_stats_empty_state(client):
     resp = await client.get("/stats", headers={"Accept": "text/html"})
     assert resp.status_code == 200
-    assert "training arc appears here" in resp.text
-    assert "No sets logged yet" in resp.text
-    assert "No workouts logged this week" in resp.text
+    # With no logged sessions, the volume trend shows its empty-state prompt.
+    assert "Volume trend appears once" in resp.text
+    assert "Start a session" in resp.text
 
 
 @pytest.mark.asyncio
-async def test_stats_sparkline_empty_state(client):
+async def test_stats_empty_chart_state(client):
     resp = await client.get("/stats", headers={"Accept": "text/html"})
     assert resp.status_code == 200
-    assert "training arc appears here" in resp.text
+    assert "Volume trend appears once" in resp.text
     assert "Start a session" in resp.text
-    assert "<svg" not in resp.text
+    # No volume chart is drawn when there's no data (the muscle-map SVG always
+    # renders, so we check for the chart canvas specifically, not any <svg>).
+    assert 'id="vol-chart"' not in resp.text
 
 
 @pytest.mark.asyncio
@@ -76,8 +79,10 @@ async def test_stats_shows_plateau(client, db):
     ex = await client.post("/exercises", json={"name": "Plateau Test Lift"})
     ex_id = ex.json()["id"]
 
-    # Three sessions: two old (>21 days) at 100 kg, one recent at same weight
-    for days_ago in (40, 28, 5):
+    # Four sessions at 100 kg (route requires session_count >= 4 to flag a
+    # stall): two prior (>28 days) and two recent, all at the same weight so
+    # the estimated 1RM never improves.
+    for days_ago in (40, 35, 28, 5):
         started = (datetime.now() - timedelta(days=days_ago)).isoformat()
         ended = (datetime.now() - timedelta(days=days_ago - 1)).isoformat()
         await db.execute(
@@ -98,7 +103,7 @@ async def test_stats_shows_plateau(client, db):
     resp = await client.get("/stats", headers={"Accept": "text/html"})
     assert resp.status_code == 200
     assert "Plateau Test Lift" in resp.text
-    assert "no progress" in resp.text.lower()
+    assert "stalled" in resp.text.lower()  # "Stalled — no 1RM gain in 4 weeks"
 
 
 @pytest.mark.asyncio
@@ -127,4 +132,4 @@ async def test_stats_no_plateau_when_improving(client, db):
 
     resp = await client.get("/stats", headers={"Accept": "text/html"})
     assert resp.status_code == 200
-    assert "no progress" not in resp.text.lower()
+    assert "stalled" not in resp.text.lower()  # no Stalled section when improving

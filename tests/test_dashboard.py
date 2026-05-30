@@ -34,8 +34,8 @@ async def test_dashboard_stat_cards_present(client):
     resp = await client.get("/", headers={"Accept": "text/html"})
     assert resp.status_code == 200
     assert "Total workouts" in resp.text
-    assert "Total volume" in resp.text
-    assert "Avg duration" in resp.text
+    assert "All-time volume" in resp.text
+    assert "Avg session length" in resp.text
     assert "Best streak" in resp.text
 
 
