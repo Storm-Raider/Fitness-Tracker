@@ -213,15 +213,32 @@ async function generate() {
   btn.innerHTML = '<span class="spinner"></span> Coaching…';
 
   try {
-    const resp = await fetch('/coach/generate', {
+    // Start a background job — generation takes minutes on the Pi, too long for
+    // a single request through the proxy. Then poll a fast status endpoint.
+    const start = await fetch('/coach/generate', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({goal: _goal, days_per_week: days, focus_note: note}),
     });
-    const data = await resp.json();
-    if (!resp.ok) throw new Error(data.detail || data.error || 'Generation failed.');
-    _currentPlan = data.plan;
-    renderPlan(data.plan, data.dropped || []);
+    const sd = await start.json();
+    if (!start.ok) throw new Error(sd.detail || sd.error || 'Could not start generation.');
+    const jobId = sd.job_id;
+
+    const deadline = Date.now() + 9 * 60 * 1000;  // give the Pi up to 9 minutes
+    while (Date.now() < deadline) {
+      await new Promise(r => setTimeout(r, 2500));
+      const pr = await fetch('/coach/generate/' + jobId);
+      const pd = await pr.json();
+      if (!pr.ok) throw new Error(pd.detail || 'Lost track of the generation job.');
+      if (pd.status === 'done') {
+        _currentPlan = pd.plan;
+        renderPlan(pd.plan, pd.dropped || []);
+        return;
+      }
+      if (pd.status === 'error') throw new Error(pd.error || 'Generation failed.');
+      // status === 'pending' → keep polling
+    }
+    throw new Error('Generation is taking too long. Try fewer days, or set OLLAMA_MODEL=gemma3:1b.');
   } catch (e) {
     errBox.textContent = e.message;
     errBox.style.display = 'block';

@@ -1,8 +1,26 @@
+import asyncio
 import json
 
 import pytest
 
 from app.routes import coach
+
+
+async def _generate(client, goal, days, **extra):
+    """Start a generation job and poll the status endpoint until it settles."""
+    r = await client.post(
+        "/coach/generate", json={"goal": goal, "days_per_week": days, **extra}
+    )
+    assert r.status_code == 202, r.text
+    job_id = r.json()["job_id"]
+    for _ in range(100):
+        pr = await client.get(f"/coach/generate/{job_id}")
+        assert pr.status_code == 200
+        pd = pr.json()
+        if pd["status"] != "pending":
+            return pd
+        await asyncio.sleep(0.02)
+    raise AssertionError("generation job never finished")
 
 
 async def _real_exercise_names(db, n=3):
@@ -58,9 +76,8 @@ async def test_generate_returns_plan_and_drops_unknowns(client, db, monkeypatch)
     }
     monkeypatch.setattr(coach.ollama, "chat_json", _fake_chat(fake_plan))
 
-    resp = await client.post("/coach/generate", json={"goal": "strength", "days_per_week": 2})
-    assert resp.status_code == 200
-    data = resp.json()
+    data = await _generate(client, "strength", 2)
+    assert data["status"] == "done"
     assert data["plan"]["goal"] == "strength"
     assert len(data["plan"]["days"]) == 2
     # Unknown exercise filtered out, real ones resolved with ids
@@ -82,9 +99,9 @@ async def test_generate_caps_days_to_request(client, db, monkeypatch):
     }
     monkeypatch.setattr(coach.ollama, "chat_json", _fake_chat(fake_plan))
 
-    resp = await client.post("/coach/generate", json={"goal": "general", "days_per_week": 3})
-    assert resp.status_code == 200
-    assert len(resp.json()["plan"]["days"]) == 3
+    data = await _generate(client, "general", 3)
+    assert data["status"] == "done"
+    assert len(data["plan"]["days"]) == 3
 
 
 @pytest.mark.asyncio
@@ -93,16 +110,17 @@ async def test_generate_handles_ollama_error(client, monkeypatch):
         raise coach.ollama.OllamaError("Couldn't reach Ollama")
     monkeypatch.setattr(coach.ollama, "chat_json", boom)
 
-    resp = await client.post("/coach/generate", json={"goal": "strength", "days_per_week": 3})
-    assert resp.status_code == 503
-    assert "Ollama" in resp.json()["error"]
+    data = await _generate(client, "strength", 3)
+    assert data["status"] == "error"
+    assert "Ollama" in data["error"]
 
 
 @pytest.mark.asyncio
-async def test_generate_empty_plan_returns_502(client, monkeypatch):
+async def test_generate_empty_plan_errors(client, monkeypatch):
     monkeypatch.setattr(coach.ollama, "chat_json", _fake_chat({"title": "x", "summary": "", "days": []}))
-    resp = await client.post("/coach/generate", json={"goal": "strength", "days_per_week": 3})
-    assert resp.status_code == 502
+    data = await _generate(client, "strength", 3)
+    assert data["status"] == "error"
+    assert "usable exercises" in data["error"]
 
 
 @pytest.mark.asyncio
@@ -111,6 +129,26 @@ async def test_generate_validates_input(client):
     assert resp.status_code == 422
     resp = await client.post("/coach/generate", json={"goal": "strength", "days_per_week": 99})
     assert resp.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_generation_status_unknown_job_404(client):
+    resp = await client.get("/coach/generate/does-not-exist")
+    assert resp.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_generation_job_isolated_between_users(client, user_b_client, db, monkeypatch):
+    names = await _real_exercise_names(db, 1)
+    monkeypatch.setattr(coach.ollama, "chat_json", _fake_chat(
+        {"title": "P", "summary": "", "days": [
+            {"focus": "A", "exercises": [{"name": names[0], "sets": 3, "reps": "10"}]}]}
+    ))
+    r = await client.post("/coach/generate", json={"goal": "general", "days_per_week": 1})
+    job_id = r.json()["job_id"]
+    # user B cannot read user A's job
+    resp = await user_b_client.get(f"/coach/generate/{job_id}")
+    assert resp.status_code == 404
 
 
 @pytest.mark.asyncio
