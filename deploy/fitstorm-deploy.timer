@@ -1,0 +1,11 @@
+[Unit]
+Description=Poll origin/main for FitStorm updates every 2 minutes
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=2min
+# Catch up after the Pi has been asleep/off rather than waiting a full cycle.
+Persistent=true
+
+[Install]
+WantedBy=timers.target
