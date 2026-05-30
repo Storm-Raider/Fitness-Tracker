@@ -1015,7 +1015,7 @@
     // Mobile tab + More sheet active states
     (function() {
       var here = location.pathname;
-      var morePaths = ['/exercises', '/metrics', '/export', '/invite', '/settings', '/achievements', '/planner'];
+      var morePaths = ['/exercises', '/metrics', '/export', {% if user.is_admin %}'/invite', {% endif %}'/settings', '/achievements', '/planner'];
       document.querySelectorAll('.mob-tab[data-mob-path]').forEach(function(tab) {
         var p = tab.getAttribute('data-mob-path');
         var exact = tab.getAttribute('data-mob-exact');
