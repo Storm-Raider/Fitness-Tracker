@@ -138,6 +138,33 @@ async def test_generation_status_unknown_job_404(client):
 
 
 @pytest.mark.asyncio
+async def test_generate_single_flight_reuses_inflight_job(client, db, monkeypatch):
+    # A second request while one is still running must reuse the same job_id,
+    # so repeated clicks / a stale tab can't spawn multiple Ollama generations.
+    names = await _real_exercise_names(db, 1)
+    gate = asyncio.Event()
+
+    async def slow(system, user, schema, **kwargs):
+        await gate.wait()
+        return {"title": "P", "summary": "", "days": [
+            {"focus": "A", "exercises": [{"name": names[0], "sets": 3, "reps": "10"}]}]}
+    monkeypatch.setattr(coach.ollama, "chat_json", slow)
+
+    r1 = await client.post("/coach/generate", json={"goal": "general", "days_per_week": 1})
+    r2 = await client.post("/coach/generate", json={"goal": "general", "days_per_week": 1})
+    assert r1.json()["job_id"] == r2.json()["job_id"]
+
+    gate.set()  # let the single job finish
+    job_id = r1.json()["job_id"]
+    for _ in range(100):
+        pd = (await client.get(f"/coach/generate/{job_id}")).json()
+        if pd["status"] != "pending":
+            break
+        await asyncio.sleep(0.02)
+    assert pd["status"] == "done"
+
+
+@pytest.mark.asyncio
 async def test_generation_job_isolated_between_users(client, user_b_client, db, monkeypatch):
     names = await _real_exercise_names(db, 1)
     monkeypatch.setattr(coach.ollama, "chat_json", _fake_chat(

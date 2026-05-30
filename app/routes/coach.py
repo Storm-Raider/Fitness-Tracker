@@ -37,8 +37,10 @@ router = APIRouter()
 # of the Tailscale Funnel proxy in front of the app. The client kicks off a job
 # and polls a fast status endpoint instead, so no single request is long-lived.
 _JOBS: dict[str, dict] = {}
-_JOBS_MAX = 50          # cap retained jobs (single-user Pi; in-memory is fine)
-_TASKS: set = set()     # keep task refs so they aren't GC'd mid-flight
+_JOBS_MAX = 50              # cap retained jobs (single-user Pi; in-memory is fine)
+_TASKS: set = set()        # keep task refs so they aren't GC'd mid-flight
+_ACTIVE_BY_USER: dict[int, str] = {}  # uid -> in-flight job id (single-flight)
+_GEN_LOCK = asyncio.Lock()  # the Pi runs one generation at a time; serialize them
 
 
 def _prune_jobs() -> None:
@@ -417,16 +419,20 @@ async def _run_generation(
     job_id: str, conn: aiosqlite.Connection, uid: int,
     goal: str, days: int, focus_note: str,
 ) -> None:
-    """Background worker: build the profile, ask Ollama, validate, store result."""
+    """Background worker: build the profile, ask Ollama, validate, store result.
+
+    Serialized by _GEN_LOCK so concurrent jobs can't thrash the Pi's CPU (which
+    makes every generation crawl past the timeout)."""
     try:
-        profile = await build_profile(conn, uid)
-        catalog = await _exercise_catalog(conn, uid)
-        prompt = _build_prompt(goal, days, profile, catalog, focus_note)
-        raw = await ollama.chat_json(
-            _SYSTEM_PROMPT, prompt, _plan_schema(days), timeout=360.0
-        )
-        name_map = await _name_to_id_map(conn)
-        plan, dropped = _normalise_plan(raw, goal, days, name_map)
+        async with _GEN_LOCK:
+            profile = await build_profile(conn, uid)
+            catalog = await _exercise_catalog(conn, uid)
+            prompt = _build_prompt(goal, days, profile, catalog, focus_note)
+            raw = await ollama.chat_json(
+                _SYSTEM_PROMPT, prompt, _plan_schema(days), timeout=480.0
+            )
+            name_map = await _name_to_id_map(conn)
+            plan, dropped = _normalise_plan(raw, goal, days, name_map)
         if not plan["days"]:
             _JOBS[job_id] = {"status": "error", "user_id": uid,
                              "error": "The model didn't return any usable exercises. Try again."}
@@ -441,6 +447,9 @@ async def _run_generation(
         logging.exception("coach generation failed (job %s)", job_id)
         _JOBS[job_id] = {"status": "error", "user_id": uid,
                          "error": "Generation failed unexpectedly. Check the server logs."}
+    finally:
+        if _ACTIVE_BY_USER.get(uid) == job_id:
+            _ACTIVE_BY_USER.pop(uid, None)
 
 
 @router.post("/coach/generate", status_code=202)
@@ -453,8 +462,17 @@ async def generate(
     The client polls GET /coach/generate/{job_id}. Keeps every request short so
     the long (minutes-on-Pi) inference never hits the reverse-proxy timeout."""
     uid = current_user["id"]
+
+    # Single-flight: if this user already has a generation running, hand back the
+    # same job id. Repeated clicks (or a stale tab) then attach to the one job
+    # instead of spawning several that would thrash the Pi.
+    existing = _ACTIVE_BY_USER.get(uid)
+    if existing and _JOBS.get(existing, {}).get("status") == "pending":
+        return JSONResponse({"job_id": existing}, status_code=202)
+
     job_id = uuid.uuid4().hex
     _JOBS[job_id] = {"status": "pending", "user_id": uid}
+    _ACTIVE_BY_USER[uid] = job_id
     _prune_jobs()
     task = asyncio.create_task(
         _run_generation(job_id, conn, uid, body.goal, body.days_per_week, body.focus_note)
