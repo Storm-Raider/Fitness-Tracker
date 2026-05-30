@@ -30,3 +30,9 @@ build/
 Thumbs.db
 FitStorm-Icon.png
 cron/fitstorm-enrich
+
+# Runtime logs (keep the dir via logs/.gitkeep, ignore the log files)
+logs/*.log
+
+# gstack graphify output (local AI artifact cache)
+graphify-out/
