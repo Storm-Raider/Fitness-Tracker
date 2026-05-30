@@ -2440,6 +2440,7 @@ async function deleteSet(id, btn) {
   if (!confirm('Remove this set?')) return;
   const resp = await fetch(`/workouts/${WORKOUT_ID}/sets/${id}`, {method: 'DELETE'});
   if (resp.ok || resp.status === 204) {
+    window.showUndoToast(resp.headers.get('X-Undo-Token'), decodeURIComponent(resp.headers.get('X-Undo-Label') || ''));
     const row   = document.getElementById('set-' + id);
     const group = row?.closest('.ex-group');
     row?.remove();
@@ -2493,17 +2494,24 @@ function showErr(msg) {
 async function deleteCardio(id, btn) {
   if (!confirm('Remove this cardio entry?')) return;
   const resp = await fetch(`/workouts/${WORKOUT_ID}/cardio/${id}`, {method: 'DELETE'});
-  if (resp.ok || resp.status === 204) document.getElementById('cardio-' + id)?.remove();
+  if (resp.ok || resp.status === 204) {
+    window.showUndoToast(resp.headers.get('X-Undo-Token'), decodeURIComponent(resp.headers.get('X-Undo-Label') || ''));
+    document.getElementById('cardio-' + id)?.remove();
+  }
 }
 
 async function deleteWorkout() {
   const setCount = document.querySelectorAll('.set-row').length;
   const msg = setCount > 0
-    ? `Delete this workout and its ${setCount} set${setCount !== 1 ? 's' : ''}? This cannot be undone.`
+    ? `Delete this workout and its ${setCount} set${setCount !== 1 ? 's' : ''}?`
     : 'Delete this empty workout?';
   if (!confirm(msg)) return;
   const resp = await fetch(`/workouts/${WORKOUT_ID}`, {method: 'DELETE'});
-  if (resp.ok) window.location.href = '/workouts';
+  if (resp.ok) {
+    // Navigating away — relay the undo toast to the workouts page.
+    window.stashUndoToast(resp.headers.get('X-Undo-Token'), decodeURIComponent(resp.headers.get('X-Undo-Label') || ''));
+    window.location.href = '/workouts';
+  }
 }
 
 {% if not is_finished %}

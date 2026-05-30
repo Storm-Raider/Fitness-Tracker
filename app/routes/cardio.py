@@ -1,9 +1,12 @@
+from urllib.parse import quote
+
 import aiosqlite
-from fastapi import APIRouter, Depends, Form, HTTPException, Request
+from fastapi import APIRouter, Depends, Form, HTTPException, Request, Response
 from fastapi.responses import RedirectResponse
 
 from app.db import get_db
 from app.routes.auth import get_current_user
+from app.utils import trash
 from app.utils.db_utils import require_owns
 from app.utils.render import render
 
@@ -79,10 +82,8 @@ async def delete_cardio(
     conn: aiosqlite.Connection = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
-    await require_owns(conn, "cardio_logs", log_id, current_user["id"])
-    await conn.execute(
-        "DELETE FROM cardio_logs WHERE id = ? AND user_id = ?",
-        (log_id, current_user["id"]),
-    )
+    uid = current_user["id"]
+    await require_owns(conn, "cardio_logs", log_id, uid)
+    token, label = await trash.soft_delete_cardio(conn, uid, log_id)
     await conn.commit()
-    return ""
+    return Response(status_code=200, headers={"X-Undo-Token": token, "X-Undo-Label": quote(label)})
