@@ -15,7 +15,10 @@ gets back a structured multi-day routine. Generation is review-then-save:
 All inference is on-device; nothing about the user leaves the host.
 """
 
+import asyncio
 import json
+import logging
+import uuid
 
 import aiosqlite
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -28,6 +31,20 @@ from app.utils import ollama
 from app.utils.render import templates
 
 router = APIRouter()
+
+# Generation runs as a background job rather than a single long request: on a
+# Raspberry Pi a routine takes 3-4 minutes, which exceeds the response timeout
+# of the Tailscale Funnel proxy in front of the app. The client kicks off a job
+# and polls a fast status endpoint instead, so no single request is long-lived.
+_JOBS: dict[str, dict] = {}
+_JOBS_MAX = 50          # cap retained jobs (single-user Pi; in-memory is fine)
+_TASKS: set = set()     # keep task refs so they aren't GC'd mid-flight
+
+
+def _prune_jobs() -> None:
+    if len(_JOBS) > _JOBS_MAX:
+        for key in list(_JOBS)[:-_JOBS_MAX]:
+            _JOBS.pop(key, None)
 
 GOALS = {
     "strength": "maximal strength — heavy compound lifts, 3–6 reps, long rest",
@@ -396,37 +413,74 @@ async def coach_page(
     })
 
 
-@router.post("/coach/generate")
+async def _run_generation(
+    job_id: str, conn: aiosqlite.Connection, uid: int,
+    goal: str, days: int, focus_note: str,
+) -> None:
+    """Background worker: build the profile, ask Ollama, validate, store result."""
+    try:
+        profile = await build_profile(conn, uid)
+        catalog = await _exercise_catalog(conn, uid)
+        prompt = _build_prompt(goal, days, profile, catalog, focus_note)
+        raw = await ollama.chat_json(
+            _SYSTEM_PROMPT, prompt, _plan_schema(days), timeout=360.0
+        )
+        name_map = await _name_to_id_map(conn)
+        plan, dropped = _normalise_plan(raw, goal, days, name_map)
+        if not plan["days"]:
+            _JOBS[job_id] = {"status": "error", "user_id": uid,
+                             "error": "The model didn't return any usable exercises. Try again."}
+            return
+        _JOBS[job_id] = {
+            "status": "done", "user_id": uid,
+            "plan": plan, "dropped": sorted(set(dropped)), "model": ollama.ollama_model(),
+        }
+    except ollama.OllamaError as exc:
+        _JOBS[job_id] = {"status": "error", "user_id": uid, "error": str(exc)}
+    except Exception:
+        logging.exception("coach generation failed (job %s)", job_id)
+        _JOBS[job_id] = {"status": "error", "user_id": uid,
+                         "error": "Generation failed unexpectedly. Check the server logs."}
+
+
+@router.post("/coach/generate", status_code=202)
 async def generate(
     body: GenerateIn,
     conn: aiosqlite.Connection = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
+    """Kick off generation as a background job and return its id immediately.
+    The client polls GET /coach/generate/{job_id}. Keeps every request short so
+    the long (minutes-on-Pi) inference never hits the reverse-proxy timeout."""
     uid = current_user["id"]
-    profile = await build_profile(conn, uid)
-    catalog = await _exercise_catalog(conn, uid)
-    prompt = _build_prompt(body.goal, body.days_per_week, profile, catalog, body.focus_note)
+    job_id = uuid.uuid4().hex
+    _JOBS[job_id] = {"status": "pending", "user_id": uid}
+    _prune_jobs()
+    task = asyncio.create_task(
+        _run_generation(job_id, conn, uid, body.goal, body.days_per_week, body.focus_note)
+    )
+    _TASKS.add(task)
+    task.add_done_callback(_TASKS.discard)
+    return JSONResponse({"job_id": job_id}, status_code=202)
 
-    try:
-        raw = await ollama.chat_json(
-            _SYSTEM_PROMPT, prompt, _plan_schema(body.days_per_week), timeout=360.0
-        )
-    except ollama.OllamaError as exc:
-        return JSONResponse({"error": str(exc)}, status_code=503)
 
-    name_map = await _name_to_id_map(conn)
-    plan, dropped = _normalise_plan(raw, body.goal, body.days_per_week, name_map)
-
-    if not plan["days"]:
-        return JSONResponse(
-            {"error": "The model didn't return any usable exercises. Try again."},
-            status_code=502,
-        )
-
+@router.get("/coach/generate/{job_id}")
+async def generation_status(
+    job_id: str,
+    current_user=Depends(get_current_user),
+):
+    job = _JOBS.get(job_id)
+    if not job or job["user_id"] != current_user["id"]:
+        raise HTTPException(status_code=404, detail="Unknown generation job")
+    if job["status"] == "pending":
+        return JSONResponse({"status": "pending"})
+    if job["status"] == "error":
+        return JSONResponse({"status": "error", "error": job["error"]})
     return JSONResponse({
-        "plan": plan,
-        "dropped": sorted(set(dropped)),
-        "model": ollama.ollama_model(),
+        "status": "done",
+        "plan": job["plan"],
+        "dropped": job["dropped"],
+        "model": job["model"],
     })
 
 
