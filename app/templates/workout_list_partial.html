@@ -53,7 +53,7 @@
       hx-delete="/workouts/{{ w.id }}"
       hx-target="#workout-{{ w.id }}"
       hx-swap="outerHTML"
-      hx-confirm="Delete this workout{% if w.set_count > 0 %} and its {{ w.set_count }} set{{ 's' if w.set_count != 1 }}{% endif %}? This cannot be undone."
+      hx-confirm="Delete this workout{% if w.set_count > 0 %} and its {{ w.set_count }} set{{ 's' if w.set_count != 1 }}{% endif %}? You can undo this."
       style="flex-shrink:0;width:44px;background:transparent;border:none;border-left:1px solid var(--border);color:var(--muted);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:color 0.15s,background 0.15s;"
       onmouseover="this.style.color='var(--danger)';this.style.background='rgba(248,113,113,0.07)'"
       onmouseout="this.style.color='var(--muted)';this.style.background='transparent'"

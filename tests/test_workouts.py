@@ -50,7 +50,8 @@ async def test_delete_set(client):
     s_id = s.json()["id"]
 
     resp = await client.delete(f"/workouts/{w_id}/sets/{s_id}")
-    assert resp.status_code == 204
+    assert resp.status_code == 200
+    assert resp.headers.get("X-Undo-Token")  # delete is now recoverable
 
 
 @pytest.mark.asyncio

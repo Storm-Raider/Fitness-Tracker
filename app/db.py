@@ -109,6 +109,15 @@ _MIGRATIONS = [
         created_at    TEXT    NOT NULL DEFAULT (datetime('now','localtime'))
     )""",
     "CREATE INDEX IF NOT EXISTS idx_coach_plans_user ON coach_plans(user_id, created_at)",
+    """CREATE TABLE IF NOT EXISTS deleted_items (
+        token      TEXT    PRIMARY KEY,
+        user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        kind       TEXT    NOT NULL,
+        label      TEXT    NOT NULL,
+        payload    TEXT    NOT NULL,
+        deleted_at TEXT    NOT NULL DEFAULT (datetime('now','localtime'))
+    )""",
+    "CREATE INDEX IF NOT EXISTS idx_deleted_items_user ON deleted_items(user_id, deleted_at)",
 ]
 
 

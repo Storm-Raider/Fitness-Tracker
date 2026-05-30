@@ -4,14 +4,25 @@ from datetime import datetime
 
 import aiosqlite
 import httpx
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, Response
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
 from app.db import get_db
 from app.routes.auth import get_current_user
+from app.utils import trash
 from app.utils.db_utils import require_owns
 from app.utils.render import render, templates
+
+
+def _undo_response(token: str, label: str, status_code: int = 200) -> Response:
+    """Empty-body response carrying undo metadata in headers, so HTMX swaps
+    still work and JS/HTMX delete handlers can surface an undo toast."""
+    from urllib.parse import quote
+    return Response(
+        status_code=status_code,
+        headers={"X-Undo-Token": token, "X-Undo-Label": quote(label)},
+    )
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -396,10 +407,9 @@ async def delete_workout(
 ):
     uid = current_user["id"]
     await require_owns(conn, "workouts", workout_id, uid)
-    await conn.execute("DELETE FROM sets WHERE workout_id = ? AND user_id = ?", (workout_id, uid))
-    await conn.execute("DELETE FROM workouts WHERE id = ? AND user_id = ?", (workout_id, uid))
+    token, label = await trash.soft_delete_workout(conn, uid, workout_id)
     await conn.commit()
-    return ""
+    return _undo_response(token, label)
 
 
 @router.post("/workouts/{workout_id}/cardio", status_code=201)
@@ -426,7 +436,7 @@ async def add_session_cardio(
     return JSONResponse({"id": log_id}, status_code=201)
 
 
-@router.delete("/workouts/{workout_id}/cardio/{log_id}", status_code=204)
+@router.delete("/workouts/{workout_id}/cardio/{log_id}", status_code=200)
 async def delete_session_cardio(
     workout_id: int,
     log_id: int,
@@ -440,10 +450,9 @@ async def delete_session_cardio(
     ) as cur:
         if not await cur.fetchone():
             raise HTTPException(status_code=404, detail="Cardio entry not found")
-    await conn.execute(
-        "DELETE FROM cardio_logs WHERE id = ? AND user_id = ?", (log_id, uid)
-    )
+    token, label = await trash.soft_delete_cardio(conn, uid, log_id)
     await conn.commit()
+    return _undo_response(token, label)
 
 
 @router.patch("/workouts/{workout_id}/sets/{set_id}")
@@ -472,7 +481,7 @@ async def patch_set(
     })
 
 
-@router.delete("/workouts/{workout_id}/sets/{set_id}", status_code=204)
+@router.delete("/workouts/{workout_id}/sets/{set_id}", status_code=200)
 async def delete_set(
     workout_id: int,
     set_id: int,
@@ -487,8 +496,7 @@ async def delete_set(
         if not await cur.fetchone():
             raise HTTPException(status_code=404, detail="Set not found")
 
-    # user_id included in DELETE to close the IDOR window (two-transaction race)
-    await conn.execute(
-        "DELETE FROM sets WHERE id = ? AND user_id = ?", (set_id, uid)
-    )
+    # soft_delete_set scopes the DELETE by user_id, closing the IDOR window
+    token, label = await trash.soft_delete_set(conn, uid, set_id)
     await conn.commit()
+    return _undo_response(token, label)
