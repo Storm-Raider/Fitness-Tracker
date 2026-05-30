@@ -58,6 +58,13 @@
     <span>Today</span>
     <span class="num" id="today-count" style="color:var(--accent);font-weight:700;">{{ today_done }}/{{ today_total }}</span>
   </div>
+  <div id="day-complete-notice" style="display:{% if today_done == today_total and today_total > 0 %}flex{% else %}none{% endif %};
+    align-items:center;gap:0.5rem;padding:0.6rem 0.75rem;margin:0.6rem 0 0.25rem;
+    background:var(--success-dim);border:1px solid rgba(52,211,153,0.25);border-radius:var(--radius-xs);
+    color:var(--success);font-size:0.875rem;font-weight:600;">
+    <i data-lucide="check-circle-2" style="width:16px;height:16px;flex-shrink:0;"></i>
+    Day {{ c.day_n }} complete
+  </div>
   <div id="today-rules">
     {% for r in today_rules %}
     <div class="rule {% if r.done %}done{% endif %} {% if r.optional %}optional{% endif %}"
@@ -218,10 +225,12 @@ async function applyCheckin(row, dayDate, ruleKey, done) {
   row.classList.toggle('done', done);
   const icon = row.querySelector('.box i');
   if (icon) icon.style.display = done ? '' : 'none';
-  // Update today's counter
+  // Update today's counter and completion notice
   if (dayDate === '{{ today_iso }}') {
     const el = document.getElementById('today-count');
     if (el) el.textContent = res.day_done + '/' + res.day_total;
+    const notice = document.getElementById('day-complete-notice');
+    if (notice) notice.style.display = res.day_complete ? 'flex' : 'none';
   }
   // A check-in can flip the whole attempt (e.g. completing the final day, or a
   // grace save). Reload so the banner/grid reflect the new status.
