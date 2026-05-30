@@ -140,6 +140,38 @@ is reachable at `http://host.docker.internal:11434` (already wired in
 
 ---
 
+## Auto-deploy on merge
+
+A systemd timer polls `origin/main` every ~2 minutes and, when it sees new
+commits, fast-forwards the working copy, installs any new dependencies, and
+restarts the service. No webhook, no exposed port, no secrets — it uses your
+existing SSH key. Merge a PR on GitHub and it's live within a couple of minutes.
+
+It's safe on a machine you also develop on: it only deploys when the working
+tree is **clean** and `main` can **fast-forward**. Uncommitted changes or a
+diverged history → it skips and logs, never clobbers.
+
+**Install:**
+```bash
+chmod +x scripts/auto-deploy.sh
+sudo cp deploy/fitstorm-deploy.service /etc/systemd/system/
+sudo cp deploy/fitstorm-deploy.timer   /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now fitstorm-deploy.timer
+```
+
+**Watch it:**
+```bash
+systemctl list-timers fitstorm-deploy     # next run
+journalctl -u fitstorm-deploy -f          # deploy log
+```
+
+DB migrations run on startup, so the restart applies schema changes
+automatically. To deploy on demand without waiting for the timer:
+`sudo systemctl start fitstorm-deploy`.
+
+---
+
 ## Firewall (optional but recommended)
 
 If you're exposing the Pi on a LAN and using Tailscale:

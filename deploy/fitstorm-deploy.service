@@ -1,0 +1,10 @@
+[Unit]
+Description=FitStorm auto-deploy (fast-forward origin/main and restart)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+# Runs as root so it can restart fitstorm.service; the script drops to the
+# repo owner for all git/pip operations.
+ExecStart=/home/stormraider/Desktop/Git/Fitness-Tracker/scripts/auto-deploy.sh
