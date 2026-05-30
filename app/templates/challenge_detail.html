@@ -11,7 +11,6 @@
 .rule .lbl { flex: 1; min-width: 0; font-size: 0.9rem; }
 .rule.done .lbl { color: var(--muted); }
 .rule .hint { font-size: 0.68rem; color: var(--muted); display: block; margin-top: 0.1rem; }
-.rule.optional .lbl::after { content: ' · optional'; color: var(--muted); font-size: 0.7rem; }
 
 .grid { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 0.5rem; }
 .cell { width: 16px; height: 16px; border-radius: 3px; background: var(--surface-2); border: 1px solid var(--border); }
@@ -73,7 +72,7 @@
       <div class="box"><i data-lucide="check" style="width:16px;height:16px;{% if not r.done %}display:none;{% endif %}"></i></div>
       <span class="lbl">{{ r.label }}
         {% if r.kind == 'workout' and r.auto %}<span class="hint">auto ✓ — workout logged today</span>{% endif %}
-        {% if r.kind == 'photo' %}<span class="hint">photo stays on this device only</span>{% endif %}
+        {% if r.kind == 'photo' %}<span class="hint">photo stays on this device only{% if r.optional %} · optional{% endif %}</span>{% elif r.optional %}<span class="hint">optional</span>{% endif %}
       </span>
     </div>
     {% endfor %}
