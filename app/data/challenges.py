@@ -38,7 +38,7 @@ CHALLENGES = [
             {"key": "diet",     "label": "Follow your diet — 1 cheat meal/week allowed", "kind": "manual"},
             {"key": "water",    "label": "Drink ~3 L of water", "kind": "manual"},
             {"key": "read",     "label": "Read 10 pages", "kind": "manual"},
-            {"key": "photo",    "label": "Progress photo (optional)", "kind": "photo", "optional": True},
+            {"key": "photo",    "label": "Progress photo", "kind": "photo", "optional": True},
         ],
     },
 ]
