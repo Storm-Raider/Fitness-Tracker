@@ -44,6 +44,9 @@ ACHIEVEMENTS = [
     {"id": "bw_log_7",    "name": "Scale Watcher",   "desc": "Log bodyweight 7 times",      "icon": "scale",         "tier": "bronze"},
     # Session length
     {"id": "long_session","name": "Marathon Session","desc": "Complete a 2-hour workout",   "icon": "clock",         "tier": "silver"},
+    # Challenges
+    {"id": "ch_75medium", "name": "75 Medium",        "desc": "Complete a 75 Medium challenge", "icon": "flame",      "tier": "silver"},
+    {"id": "ch_75hard",   "name": "75 Hard",          "desc": "Complete a 75 Hard challenge",   "icon": "flame",      "tier": "gold"},
 ]
 
 _ACH_INDEX = {a["id"]: a for a in ACHIEVEMENTS}
@@ -166,6 +169,14 @@ async def _compute_earned(conn: aiosqlite.Connection, uid: int) -> dict[str, str
     ) as c:
         max_dur = (await c.fetchone())["m"] or 0
     if max_dur >= 120: earned["long_session"] = now
+
+    # Completed challenges
+    async with conn.execute(
+        "SELECT DISTINCT template_key FROM challenge_attempts WHERE user_id=? AND status='completed'", (uid,)
+    ) as c:
+        completed = {r["template_key"] for r in await c.fetchall()}
+    if "75_medium" in completed: earned["ch_75medium"] = now
+    if "75_hard" in completed:   earned["ch_75hard"] = now
 
     return earned
 

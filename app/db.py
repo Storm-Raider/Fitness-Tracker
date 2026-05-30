@@ -118,6 +118,27 @@ _MIGRATIONS = [
         deleted_at TEXT    NOT NULL DEFAULT (datetime('now','localtime'))
     )""",
     "CREATE INDEX IF NOT EXISTS idx_deleted_items_user ON deleted_items(user_id, deleted_at)",
+    """CREATE TABLE IF NOT EXISTS challenge_attempts (
+        id           INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id      INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        template_key TEXT    NOT NULL,
+        title        TEXT    NOT NULL,
+        total_days   INTEGER NOT NULL,
+        status       TEXT    NOT NULL DEFAULT 'active',
+        started_on   TEXT    NOT NULL DEFAULT (date('now','localtime')),
+        ended_on     TEXT,
+        created_at   TEXT    NOT NULL DEFAULT (datetime('now','localtime'))
+    )""",
+    "CREATE INDEX IF NOT EXISTS idx_challenge_attempts_user ON challenge_attempts(user_id, status)",
+    """CREATE TABLE IF NOT EXISTS challenge_checkins (
+        id         INTEGER PRIMARY KEY AUTOINCREMENT,
+        attempt_id INTEGER NOT NULL REFERENCES challenge_attempts(id) ON DELETE CASCADE,
+        user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        day_date   TEXT    NOT NULL,
+        rules_json TEXT    NOT NULL DEFAULT '{}',
+        updated_at TEXT    NOT NULL DEFAULT (datetime('now','localtime')),
+        UNIQUE(attempt_id, day_date)
+    )""",
 ]
 
 

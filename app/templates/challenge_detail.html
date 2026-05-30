@@ -1,0 +1,243 @@
+{% extends "base.html" %}
+{% block title %}{{ c.title }} — FitStorm{% endblock %}
+{% block content %}
+<style>
+.rule { display: flex; align-items: center; gap: 0.85rem; padding: 0.7rem 0; border-bottom: 1px solid rgba(30,35,52,0.6); cursor: pointer; }
+.rule:last-child { border-bottom: none; }
+.rule .box { width: 26px; height: 26px; border-radius: 7px; border: 2px solid var(--border-mid); flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center; transition: all 0.15s; }
+.rule.done .box { background: var(--success); border-color: var(--success); }
+.rule.done .box i { color: #06231a; }
+.rule .lbl { flex: 1; min-width: 0; font-size: 0.9rem; }
+.rule.done .lbl { color: var(--muted); }
+.rule .hint { font-size: 0.68rem; color: var(--muted); display: block; margin-top: 0.1rem; }
+.rule.optional .lbl::after { content: ' · optional'; color: var(--muted); font-size: 0.7rem; }
+
+.grid { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 0.5rem; }
+.cell { width: 16px; height: 16px; border-radius: 3px; background: var(--surface-2); border: 1px solid var(--border); }
+.cell.done { background: var(--success); border-color: var(--success); }
+.cell.missed { background: var(--danger); border-color: var(--danger); opacity: 0.8; }
+.cell.today { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-dim); }
+.cell.grace { background: var(--pr-dim); border-color: var(--pr); }
+.cell.future { background: var(--surface-2); }
+
+.ch-banner { padding: 0.9rem 1.1rem; border-radius: var(--radius-sm); margin-bottom: 1.25rem; font-size: 0.9rem; line-height: 1.5; }
+.ch-banner.failed { background: var(--danger-dim); border: 1px solid rgba(248,113,113,0.3); color: var(--danger); }
+.ch-banner.completed { background: var(--success-dim); border: 1px solid rgba(52,211,153,0.3); color: var(--success); }
+.ch-banner.abandoned { background: rgba(90,106,130,0.1); border: 1px solid var(--border-mid); color: var(--muted-hi); }
+.photo-thumb { width: 64px; height: 64px; object-fit: cover; border-radius: var(--radius-xs); border: 1px solid var(--border); }
+</style>
+
+<div class="page-hd">
+  <div>
+    <h1 style="display:flex;align-items:center;gap:0.6rem;">
+      <a href="/challenges" style="color:var(--muted);" title="All challenges"><i data-lucide="chevron-left" style="width:20px;height:20px;vertical-align:-3px;"></i></a>
+      {{ c.title }}
+    </h1>
+    <div class="subtitle">
+      Day <span class="num">{{ c.day_n }}</span> of {{ c.total_days }}
+      {% if tagline %}· {{ tagline }}{% endif %}
+    </div>
+  </div>
+</div>
+
+{% if c.status == 'failed' %}
+<div class="ch-banner failed">
+  <strong>Run reset.</strong> A day was left incomplete (through {{ c.ended_on }}), so the streak broke — that's the rule.
+  Start again when you're ready.
+</div>
+{% elif c.status == 'completed' %}
+<div class="ch-banner completed"><strong>Completed. All {{ c.total_days }} days.</strong> That's the whole thing. Respect.</div>
+{% elif c.status == 'abandoned' %}
+<div class="ch-banner abandoned">You abandoned this attempt. Start a fresh one anytime.</div>
+{% endif %}
+
+{% if c.status == 'active' and today_in_range %}
+<div class="card" style="margin-bottom:1.25rem;">
+  <div class="section-title" style="display:flex;align-items:center;justify-content:space-between;">
+    <span>Today</span>
+    <span class="num" id="today-count" style="color:var(--accent);font-weight:700;">{{ today_done }}/{{ today_total }}</span>
+  </div>
+  <div id="today-rules">
+    {% for r in today_rules %}
+    <div class="rule {% if r.done %}done{% endif %} {% if r.optional %}optional{% endif %}"
+         data-rule="{{ r.key }}" data-kind="{{ r.kind }}" data-day="{{ today_iso }}"
+         onclick="onRuleTap(this)">
+      <div class="box"><i data-lucide="check" style="width:16px;height:16px;{% if not r.done %}display:none;{% endif %}"></i></div>
+      <span class="lbl">{{ r.label }}
+        {% if r.kind == 'workout' and r.auto %}<span class="hint">auto ✓ — workout logged today</span>{% endif %}
+        {% if r.kind == 'photo' %}<span class="hint">photo stays on this device only</span>{% endif %}
+      </span>
+    </div>
+    {% endfor %}
+  </div>
+  <div id="photo-gallery" style="display:flex;gap:0.5rem;flex-wrap:wrap;margin-top:0.85rem;"></div>
+</div>
+{% endif %}
+
+{% if show_yesterday %}
+<div class="card" style="margin-bottom:1.25rem;border-left:3px solid var(--pr);">
+  <div class="section-title" style="color:var(--pr);">Yesterday — still savable today (grace)</div>
+  <div>
+    {% for r in yesterday_rules %}
+    <div class="rule {% if r.done %}done{% endif %} {% if r.optional %}optional{% endif %}"
+         data-rule="{{ r.key }}" data-kind="{{ r.kind }}" data-day="{{ yesterday_iso }}"
+         onclick="onRuleTap(this)">
+      <div class="box"><i data-lucide="check" style="width:16px;height:16px;{% if not r.done %}display:none;{% endif %}"></i></div>
+      <span class="lbl">{{ r.label }}
+        {% if r.kind == 'workout' and r.auto %}<span class="hint">auto ✓ — workout logged</span>{% endif %}
+      </span>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+<div class="card" style="margin-bottom:1.25rem;">
+  <div class="section-title">{{ c.total_days }}-day grid</div>
+  <div class="grid">
+    {% for cell in cells %}<div class="cell {{ cell.state }}" title="Day {{ cell.day }} — {{ cell.date }} ({{ cell.state }})"></div>{% endfor %}
+  </div>
+  <div style="display:flex;gap:1rem;flex-wrap:wrap;margin-top:0.75rem;font-size:0.68rem;color:var(--muted);">
+    <span><span class="cell done" style="display:inline-block;vertical-align:-2px;"></span> done</span>
+    <span><span class="cell missed" style="display:inline-block;vertical-align:-2px;"></span> missed</span>
+    <span><span class="cell grace" style="display:inline-block;vertical-align:-2px;"></span> grace</span>
+    <span><span class="cell future" style="display:inline-block;vertical-align:-2px;"></span> upcoming</span>
+  </div>
+</div>
+
+<div style="display:flex;gap:0.65rem;flex-wrap:wrap;">
+  {% if c.status == 'active' %}
+  <button class="btn btn-ghost" onclick="abandonChallenge()">Abandon</button>
+  {% else %}
+  <button class="btn btn-primary" onclick="restartChallenge()">Start again</button>
+  {% endif %}
+</div>
+
+<input type="file" id="photo-input" accept="image/*" capture="environment" style="display:none;">
+
+<script>
+const ATTEMPT_ID = {{ c.id }};
+
+// ── Device-local photo store (IndexedDB) — images NEVER leave this device ──
+function idb() {
+  return new Promise((res, rej) => {
+    const req = indexedDB.open('fitstorm-challenge-photos', 1);
+    req.onupgradeneeded = () => req.result.createObjectStore('photos', {keyPath: 'id'});
+    req.onsuccess = () => res(req.result);
+    req.onerror = () => rej(req.error);
+  });
+}
+async function savePhoto(dayDate, blob) {
+  const db = await idb();
+  await new Promise((res, rej) => {
+    const tx = db.transaction('photos', 'readwrite');
+    tx.objectStore('photos').put({id: ATTEMPT_ID + ':' + dayDate, attemptId: ATTEMPT_ID, dayDate, blob});
+    tx.oncomplete = res; tx.onerror = () => rej(tx.error);
+  });
+}
+async function deletePhoto(dayDate) {
+  const db = await idb();
+  await new Promise((res) => {
+    const tx = db.transaction('photos', 'readwrite');
+    tx.objectStore('photos').delete(ATTEMPT_ID + ':' + dayDate);
+    tx.oncomplete = res; tx.onerror = res;
+  });
+}
+async function listPhotos() {
+  const db = await idb();
+  return new Promise((res) => {
+    const out = [];
+    const tx = db.transaction('photos', 'readonly');
+    const cur = tx.objectStore('photos').openCursor();
+    cur.onsuccess = e => { const c = e.target.result;
+      if (c) { if (c.value.attemptId === ATTEMPT_ID) out.push(c.value); c.continue(); }
+      else res(out.sort((a,b) => a.dayDate.localeCompare(b.dayDate))); };
+    cur.onerror = () => res(out);
+  });
+}
+async function renderGallery() {
+  const wrap = document.getElementById('photo-gallery');
+  if (!wrap) return;
+  const photos = await listPhotos();
+  wrap.innerHTML = '';
+  photos.forEach(p => {
+    const img = document.createElement('img');
+    img.className = 'photo-thumb';
+    img.src = URL.createObjectURL(p.blob);
+    img.title = p.dayDate + ' (stored only on this device)';
+    wrap.appendChild(img);
+  });
+}
+
+// ── Check-in ─────────────────────────────────────────────────────────
+async function postCheckin(dayDate, ruleKey, done) {
+  const r = await fetch('/challenges/' + ATTEMPT_ID + '/checkin', {
+    method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({day_date: dayDate, rule_key: ruleKey, done}),
+  });
+  if (!r.ok) return null;
+  return r.json();
+}
+
+let _photoPending = null;  // {row, dayDate}
+
+async function onRuleTap(row) {
+  const ruleKey = row.dataset.rule, kind = row.dataset.kind, dayDate = row.dataset.day;
+  const willBeDone = !row.classList.contains('done');
+
+  if (kind === 'photo') {
+    if (willBeDone) {
+      _photoPending = {row, dayDate};
+      document.getElementById('photo-input').click();   // open camera/picker
+      return;
+    } else {
+      await deletePhoto(dayDate);
+      await applyCheckin(row, dayDate, ruleKey, false);
+      renderGallery();
+      return;
+    }
+  }
+  await applyCheckin(row, dayDate, ruleKey, willBeDone);
+}
+
+document.getElementById('photo-input').addEventListener('change', async function(e) {
+  const file = e.target.files[0];
+  this.value = '';
+  if (!file || !_photoPending) return;
+  const {row, dayDate} = _photoPending; _photoPending = null;
+  await savePhoto(dayDate, file);              // stored on-device only
+  await applyCheckin(row, dayDate, 'photo', true);
+  renderGallery();
+});
+
+async function applyCheckin(row, dayDate, ruleKey, done) {
+  const res = await postCheckin(dayDate, ruleKey, done);
+  if (!res) return;
+  // Toggle row UI
+  row.classList.toggle('done', done);
+  const icon = row.querySelector('.box i');
+  if (icon) icon.style.display = done ? '' : 'none';
+  // Update today's counter
+  if (dayDate === '{{ today_iso }}') {
+    const el = document.getElementById('today-count');
+    if (el) el.textContent = res.day_done + '/' + res.day_total;
+  }
+  // A check-in can flip the whole attempt (e.g. completing the final day, or a
+  // grace save). Reload so the banner/grid reflect the new status.
+  if (res.status !== 'active') location.reload();
+}
+
+async function abandonChallenge() {
+  if (!confirm('Abandon this challenge? You can start a fresh attempt anytime.')) return;
+  const r = await fetch('/challenges/' + ATTEMPT_ID + '/abandon', {method: 'POST'});
+  if (r.ok) location.reload();
+}
+async function restartChallenge() {
+  const r = await fetch('/challenges/' + ATTEMPT_ID + '/restart', {method: 'POST'});
+  if (r.ok) { const d = await r.json(); location.href = '/challenges/' + d.id; }
+}
+
+document.addEventListener('DOMContentLoaded', renderGallery);
+</script>
+{% endblock %}
