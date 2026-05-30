@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+{% block title %}Challenges — FitStorm{% endblock %}
+{% block content %}
+<style>
+.ch-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 1.1rem 1.25rem; box-shadow: var(--shadow-sm); display: block; transition: border-color 0.15s; }
+.ch-card:hover { border-color: var(--border-mid); }
+.ch-row { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+.ch-dayn { font-family: 'JetBrains Mono', monospace; font-size: 1.6rem; font-weight: 700; color: var(--accent); line-height: 1; }
+.ch-bar { height: 7px; background: var(--surface-2); border-radius: 4px; overflow: hidden; margin-top: 0.6rem; }
+.ch-bar > div { height: 100%; background: linear-gradient(90deg, var(--accent), rgba(79,156,249,0.55)); border-radius: 4px; }
+.ch-badge { font-size: 0.7rem; font-weight: 700; padding: 0.2rem 0.6rem; border-radius: 20px; }
+.ch-badge.done { color: var(--success); background: var(--success-dim); border: 1px solid rgba(52,211,153,0.28); }
+.ch-badge.failed { color: var(--danger); background: var(--danger-dim); border: 1px solid rgba(248,113,113,0.28); }
+.ch-badge.abandoned { color: var(--muted); background: rgba(90,106,130,0.1); border: 1px solid var(--border-mid); }
+.preset { display: flex; flex-direction: column; gap: 0.5rem; }
+.preset h3 { font-size: 1.05rem; }
+.preset .tag { font-size: 0.8rem; color: var(--muted); line-height: 1.5; }
+.preset ul { list-style: none; display: flex; flex-wrap: wrap; gap: 0.35rem; margin: 0.3rem 0 0.6rem; }
+.preset li { font-size: 0.72rem; color: var(--muted-hi); background: var(--surface-2); border: 1px solid var(--border);
+  border-radius: 20px; padding: 0.2rem 0.6rem; }
+</style>
+
+<div class="page-hd">
+  <div>
+    <h1>Challenges</h1>
+    <div class="subtitle">Fixed-length programs with daily rules and all-or-nothing reset</div>
+  </div>
+</div>
+
+{% if active %}
+<div class="section-title">In progress</div>
+<div style="display:flex;flex-direction:column;gap:0.75rem;margin-bottom:1.75rem;">
+  {% for a in active %}
+  <a href="/challenges/{{ a.id }}" class="ch-card">
+    <div class="ch-row">
+      <div style="min-width:0;">
+        <div style="font-family:'Syne',sans-serif;font-weight:700;font-size:1.05rem;">{{ a.title }}</div>
+        <div style="font-size:0.78rem;color:var(--muted);margin-top:0.15rem;">
+          {{ a.today_done }}/{{ a.today_total }} rules done today
+        </div>
+      </div>
+      <div style="text-align:right;flex-shrink:0;">
+        <div class="ch-dayn">{{ a.day_n }}<span style="font-size:0.8rem;color:var(--muted);">/{{ a.total_days }}</span></div>
+        <div style="font-size:0.6rem;text-transform:uppercase;letter-spacing:0.1em;color:var(--muted);">day</div>
+      </div>
+    </div>
+    <div class="ch-bar"><div style="width:{{ (a.day_n / a.total_days * 100) | round | int }}%;"></div></div>
+  </a>
+  {% endfor %}
+</div>
+{% endif %}
+
+<div class="section-title">Start a challenge</div>
+<div class="grid-2" style="gap:1rem;margin-bottom:1.75rem;">
+  {% for p in presets %}
+  <div class="ch-card preset">
+    <h3>{{ p.name }}</h3>
+    <div class="tag">{{ p.tagline }}</div>
+    <ul>
+      {% for r in p.rules %}<li>{{ r.label }}{% if r.optional %} (optional){% endif %}</li>{% endfor %}
+    </ul>
+    <button class="btn btn-primary" style="align-self:flex-start;" onclick="startChallenge('{{ p.key }}', this)">
+      Start {{ p.total_days }} days
+    </button>
+  </div>
+  {% endfor %}
+</div>
+
+{% if past %}
+<div class="section-title">History</div>
+<div style="display:flex;flex-direction:column;gap:0.5rem;">
+  {% for a in past %}
+  <a href="/challenges/{{ a.id }}" class="ch-card" style="padding:0.7rem 1rem;">
+    <div class="ch-row">
+      <div>
+        <span style="font-weight:600;">{{ a.title }}</span>
+        <span style="font-size:0.75rem;color:var(--muted);margin-left:0.5rem;">started {{ a.started_on }}</span>
+      </div>
+      <span class="ch-badge {{ a.status }}">
+        {% if a.status == 'completed' %}Completed{% elif a.status == 'failed' %}Reset at day {{ ((a.ended_on|string)) }}{% else %}{{ a.status|capitalize }}{% endif %}
+      </span>
+    </div>
+  </a>
+  {% endfor %}
+</div>
+{% endif %}
+
+<script>
+async function startChallenge(key, btn) {
+  btn.disabled = true;
+  const r = await fetch('/challenges', {
+    method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({template_key: key}),
+  });
+  if (r.ok) { const d = await r.json(); location.href = '/challenges/' + d.id; }
+  else { btn.disabled = false; }
+}
+</script>
+{% endblock %}

@@ -51,6 +51,25 @@
 </div>
 {% endif %}
 
+{% if active_challenges %}
+<div style="margin-bottom:1rem;display:flex;flex-direction:column;gap:0.6rem;">
+  {% for c in active_challenges %}
+  <a href="/challenges/{{ c.id }}" class="card" style="display:flex;align-items:center;gap:1rem;border-left:3px solid var(--pr);padding:0.85rem 1.1rem;">
+    <i data-lucide="flame" style="width:20px;height:20px;color:var(--pr);flex-shrink:0;"></i>
+    <div style="flex:1;min-width:0;">
+      <div style="font-weight:700;font-family:'Syne',sans-serif;">{{ c.title }} · Day {{ c.day_n }}/{{ c.total_days }}</div>
+      <div style="font-size:0.78rem;color:{% if c.today_done == c.today_total %}var(--success){% else %}var(--muted){% endif %};margin-top:0.1rem;">
+        {% if c.today_done == c.today_total %}✓ all rules done today{% else %}{{ c.today_done }}/{{ c.today_total }} rules done today{% endif %}
+      </div>
+    </div>
+    <div style="height:7px;width:96px;background:var(--surface-2);border-radius:4px;overflow:hidden;flex-shrink:0;">
+      <div style="height:100%;background:linear-gradient(90deg,var(--pr),rgba(245,158,11,0.55));width:{{ (c.day_n / c.total_days * 100) | round | int }}%;"></div>
+    </div>
+  </a>
+  {% endfor %}
+</div>
+{% endif %}
+
 <div class="grid-3" style="margin-bottom:1rem;">
   {{ stat_card("calendar-days", weekly_sessions, "Sessions this week", "var(--text)") }}
   {{ stat_card("dumbbell", "", "Volume this week", "var(--accent)", "rgba(79,156,249,0.1)", kg_raw=weekly_volume) }}

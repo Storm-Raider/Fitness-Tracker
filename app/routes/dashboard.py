@@ -6,6 +6,7 @@ from fastapi.responses import HTMLResponse
 
 from app.db import get_db
 from app.routes.auth import get_current_user
+from app.utils import challenges as ch
 from app.utils.charts import generate_muscle_bars, generate_weekly_bar_chart
 from app.utils.heatmap import generate_heatmap_svg
 from app.utils.pr_utils import fetch_prs
@@ -204,10 +205,29 @@ async def dashboard(
         muscle_vols = [(r["muscle"], r["volume_kg"]) for r in await cur.fetchall()]
     muscle_bar_svg = generate_muscle_bars(muscle_vols)
 
+    # Active challenges (evaluated lazily — may flip to failed/completed here too)
+    active_challenges = []
+    today = ch.today_local()
+    async with conn.execute(
+        "SELECT * FROM challenge_attempts WHERE user_id=? AND status='active'", (uid,)
+    ) as cur:
+        _att = [dict(r) for r in await cur.fetchall()]
+    if _att:
+        _train = await ch.training_dates(conn, uid)
+        for row in _att:
+            v = await ch.evaluate_attempt(conn, row, today, _train)
+            if v["status"] == "active":
+                done, total = ch.rules_done_count(v, today)
+                active_challenges.append({
+                    "id": v["id"], "title": v["title"], "day_n": v["day_n"],
+                    "total_days": v["total_days"], "today_done": done, "today_total": total,
+                })
+
     return render(
         request,
         "dashboard",
         {
+            "active_challenges": active_challenges,
             "workouts": workouts,
             "prs": prs,
             "recent_prs": recent_prs,
