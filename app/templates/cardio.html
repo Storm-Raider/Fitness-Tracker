@@ -1,82 +1,188 @@
 {% extends "base.html" %}
-{% block title %}Cardio History — FitStorm{% endblock %}
+{% block title %}Cardio — FitStorm{% endblock %}
 {% block content %}
 <div class="page-hd">
   <div>
-    <h1>Cardio History</h1>
-    <div class="subtitle">Standalone sessions</div>
-  </div>
-  <a href="/workouts" class="btn btn-primary">Start Session →</a>
-</div>
-
-<div class="card" style="padding:1rem 1.25rem;margin-bottom:1.5rem;display:flex;align-items:center;gap:1rem;background:var(--surface-2);border-color:var(--border);">
-  <i data-lucide="activity" style="width:18px;height:18px;color:var(--accent);flex-shrink:0;pointer-events:none;"></i>
-  <div style="font-size:0.85rem;color:var(--muted-hi);line-height:1.5;">
-    Log cardio inside a workout session — hit <strong style="color:var(--text);">Start Session</strong> and use the <strong style="color:var(--text);">Add cardio</strong> button.
+    <h1>Cardio</h1>
+    <div class="subtitle">Log and track cardio sessions</div>
   </div>
 </div>
 
-{% if logs %}
-<div class="section-title">Past sessions</div>
-<div class="card" style="padding:0;overflow:hidden;">
-  <table>
-    <thead>
-      <tr>
-        <th>Date</th>
-        <th>Activity</th>
-        <th>Duration</th>
-        <th>Distance</th>
-        <th>Pace</th>
-        <th style="width:44px;"></th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for log in logs %}
-      <tr id="cardio-{{ log.id }}">
-        <td style="font-weight:500;">{{ log.logged_date | human_date }}</td>
-        <td>{{ log.exercise_name }}</td>
-        <td class="num">{{ log.duration_minutes | int }}m</td>
-        <td class="num">
-          {% if log.distance_km %}{{ "%.1f"|format(log.distance_km) }} km{% else %}—{% endif %}
-        </td>
-        <td class="num" style="color:var(--muted);">
-          {% if log.distance_km and log.distance_km > 0 %}
-            {{ "%d:%02d"|format((log.duration_minutes / log.distance_km) | int, (((log.duration_minutes / log.distance_km) % 1) * 60) | int) }}/km
-          {% else %}—{% endif %}
-        </td>
-        <td style="padding:0.4rem 0.5rem;text-align:center;">
-          <button
-            hx-delete="/cardio/{{ log.id }}"
-            hx-target="#cardio-{{ log.id }}"
-            hx-swap="outerHTML"
-            hx-confirm="Delete this session?"
-            style="background:transparent;border:none;color:var(--muted);cursor:pointer;padding:0.25rem;border-radius:4px;display:inline-flex;align-items:center;transition:color 0.15s;"
-            onmouseover="this.style.color='var(--danger)'"
-            onmouseout="this.style.color='var(--muted)'"
-            title="Delete session">
-            <i data-lucide="trash-2" style="width:14px;height:14px;pointer-events:none;"></i>
-          </button>
-        </td>
-      </tr>
-      {% if log.notes %}
-      <tr id="cardio-note-{{ log.id }}" style="background:transparent;">
-        <td colspan="6" style="padding-top:0;padding-bottom:0.65rem;color:var(--muted);font-size:0.8rem;font-style:italic;">
-          {{ log.notes }}
-        </td>
-      </tr>
-      {% endif %}
-      {% endfor %}
-    </tbody>
-  </table>
-</div>
-{% else %}
-<div class="card" style="text-align:center;padding:2.5rem 1.25rem;">
-  <div style="display:flex;flex-direction:column;align-items:center;gap:0.75rem;">
-    <div style="width:48px;height:48px;border-radius:50%;background:rgba(255,255,255,0.04);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;">
-      <i data-lucide="activity" style="width:20px;height:20px;color:var(--muted-hi);pointer-events:none;"></i>
+<div class="grid-2" style="align-items:start;gap:1.5rem;">
+
+  {# ── Log form ── #}
+  <div>
+    <div class="card">
+      <div class="section-title" style="margin-bottom:1rem;">Log session</div>
+      <form method="post" action="/cardio">
+
+        <div class="form-group">
+          <label for="cardio-activity">Activity</label>
+          <select id="cardio-activity" name="exercise_id" required style="height:44px;">
+            {% for ex in cardio_exercises %}
+            <option value="{{ ex.id }}">{{ ex.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="cardio-date">Date</label>
+          <input type="date" id="cardio-date" name="logged_date" style="height:44px;">
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem;">
+          <div class="form-group" style="margin-bottom:0;">
+            <label for="cardio-duration">Duration (min)</label>
+            <div class="stepper-group">
+              <button type="button" class="stepper-btn" onclick="step('cardio-duration',-5,0)">−</button>
+              <input type="number" id="cardio-duration" name="duration_minutes"
+                     class="num" value="30" min="1" step="1" required style="text-align:center;">
+              <button type="button" class="stepper-btn" onclick="step('cardio-duration',5,0)">+</button>
+            </div>
+          </div>
+          <div class="form-group" style="margin-bottom:0;">
+            <label for="cardio-distance">
+              Distance (km)
+              <span style="font-weight:400;color:var(--muted);text-transform:none;letter-spacing:0;">optional</span>
+            </label>
+            <div class="stepper-group">
+              <button type="button" class="stepper-btn" onclick="step('cardio-distance',-0.5,1)">−</button>
+              <input type="number" id="cardio-distance" name="distance_km"
+                     class="num" placeholder="—" min="0" step="0.1" style="text-align:center;">
+              <button type="button" class="stepper-btn" onclick="step('cardio-distance',0.5,1)">+</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="form-group" style="margin-top:0.75rem;">
+          <label for="cardio-notes">
+            Notes
+            <span style="font-weight:400;color:var(--muted);text-transform:none;letter-spacing:0;">optional</span>
+          </label>
+          <input type="text" id="cardio-notes" name="notes"
+                 placeholder="e.g. easy pace, treadmill, intervals…" maxlength="300">
+        </div>
+
+        <div id="pace-result-wrap" style="display:none;background:var(--surface-2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:0.6rem 1rem;margin-bottom:0.75rem;align-items:baseline;gap:0.5rem;">
+          <span id="pace-val" style="font-family:'JetBrains Mono',monospace;font-size:1.25rem;font-weight:700;color:var(--text);">—</span>
+          <span style="font-size:0.7rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em;">min/km</span>
+        </div>
+
+        <button type="submit" class="btn btn-primary" style="width:100%;min-height:48px;">
+          Log Session
+        </button>
+      </form>
     </div>
-    <p style="color:var(--muted);font-size:0.875rem;max-width:240px;line-height:1.55;">No standalone cardio sessions. Log cardio inside a workout to track it here.</p>
   </div>
+
+  {# ── History ── #}
+  <div>
+    <div class="section-title">History</div>
+    {% if logs %}
+    <div class="card" style="padding:0;overflow:hidden;">
+      <table>
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Activity</th>
+            <th>Duration</th>
+            <th>Distance</th>
+            <th>Pace</th>
+            <th style="width:44px;"></th>
+          </tr>
+        </thead>
+          {% for log in logs %}
+          {# One tbody per session so HTMX delete removes the row and its note together #}
+          <tbody id="cardio-{{ log.id }}">
+          <tr>
+            <td style="font-weight:500;white-space:nowrap;">{{ log.logged_date | human_date }}</td>
+            <td>{{ log.exercise_name }}</td>
+            <td class="num">{{ log.duration_minutes | int }}m</td>
+            <td class="num">
+              {% if log.distance_km %}{{ "%.1f"|format(log.distance_km) }} km{% else %}—{% endif %}
+            </td>
+            <td class="num" style="color:var(--muted);">
+              {% if log.distance_km and log.distance_km > 0 %}
+                {{ "%d:%02d"|format(
+                     (log.duration_minutes / log.distance_km) | int,
+                     (((log.duration_minutes / log.distance_km) % 1) * 60) | int
+                   ) }}/km
+              {% else %}—{% endif %}
+            </td>
+            <td style="padding:0.4rem 0.5rem;text-align:center;">
+              <button
+                hx-delete="/cardio/{{ log.id }}"
+                hx-target="#cardio-{{ log.id }}"
+                hx-swap="outerHTML"
+                hx-confirm="Delete this session?"
+                style="background:transparent;border:none;color:var(--muted);cursor:pointer;padding:0.25rem;border-radius:4px;display:inline-flex;align-items:center;transition:color 0.15s;"
+                onmouseover="this.style.color='var(--danger)'"
+                onmouseout="this.style.color='var(--muted)'"
+                title="Delete session">
+                <i data-lucide="trash-2" style="width:14px;height:14px;pointer-events:none;"></i>
+              </button>
+            </td>
+          </tr>
+          {% if log.notes %}
+          <tr style="background:transparent;">
+            <td colspan="6" style="padding-top:0;padding-bottom:0.65rem;color:var(--muted);font-size:0.8rem;font-style:italic;">
+              {{ log.notes }}
+            </td>
+          </tr>
+          {% endif %}
+          </tbody>
+          {% endfor %}
+      </table>
+    </div>
+    {% else %}
+    <div class="card" style="text-align:center;padding:2.5rem 1.25rem;">
+      <div style="display:flex;flex-direction:column;align-items:center;gap:0.75rem;">
+        <div style="width:48px;height:48px;border-radius:50%;background:rgba(255,255,255,0.04);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;">
+          <i data-lucide="activity" style="width:20px;height:20px;color:var(--muted-hi);pointer-events:none;"></i>
+        </div>
+        <p style="color:var(--muted);font-size:0.875rem;max-width:240px;line-height:1.55;">No cardio sessions yet. Log your first one using the form.</p>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+
 </div>
-{% endif %}
+
+<script>
+function step(id, delta, decimals) {
+  const el = document.getElementById(id);
+  const cur = parseFloat(el.value) || 0;
+  const next = Math.max(parseFloat(el.min) || 0, cur + delta);
+  el.value = decimals > 0 ? next.toFixed(decimals) : String(Math.round(next));
+  updatePace();
+}
+
+function updatePace() {
+  const dur  = parseFloat(document.getElementById('cardio-duration').value) || 0;
+  const dist = parseFloat(document.getElementById('cardio-distance').value) || 0;
+  const wrap = document.getElementById('pace-result-wrap');
+  const val  = document.getElementById('pace-val');
+  if (dur > 0 && dist > 0) {
+    const paceMin = dur / dist;
+    const mins = Math.floor(paceMin);
+    const secs = Math.round((paceMin - mins) * 60);
+    val.textContent = `${mins}:${String(secs).padStart(2, '0')}`;
+    wrap.style.display = 'flex';
+  } else {
+    wrap.style.display = 'none';
+  }
+}
+
+document.getElementById('cardio-duration').addEventListener('input', updatePace);
+document.getElementById('cardio-distance').addEventListener('input', updatePace);
+
+// Default date to today
+(function () {
+  const t = new Date();
+  const yyyy = t.getFullYear();
+  const mm = String(t.getMonth() + 1).padStart(2, '0');
+  const dd = String(t.getDate()).padStart(2, '0');
+  document.getElementById('cardio-date').value = `${yyyy}-${mm}-${dd}`;
+})();
+</script>
 {% endblock %}
