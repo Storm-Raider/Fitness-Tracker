@@ -61,7 +61,7 @@ if [ "$deps_changed" = "1" ]; then
 fi
 
 # Kill uvicorn — systemd Restart=always brings it back on new code within ~5s.
-UVICORN_PID=$(pgrep -f "uvicorn app.main:app" | head -1)
+UVICORN_PID=$(pgrep -fo "uvicorn app.main:app")
 if [ -n "$UVICORN_PID" ]; then
     kill "$UVICORN_PID"
     log "sent SIGTERM to uvicorn PID $UVICORN_PID — systemd will restart on ${REMOTE:0:8}"

@@ -970,15 +970,15 @@
     }
     // Keep --nav-h in sync with the desktop nav's real height so the container
     // bottom padding always clears it, even when nav items wrap to a second line.
+    // ResizeObserver fires once on observe and then only when the nav's own size
+    // changes — no window-resize polling, and reading offsetHeight inside the
+    // post-layout callback doesn't force an extra reflow.
     (function() {
       var desktopNav = document.querySelector('nav:not(.mob-tab-bar)');
-      function syncNavHeight() {
-        if (desktopNav) {
-          document.documentElement.style.setProperty('--nav-h', desktopNav.offsetHeight + 'px');
-        }
-      }
-      syncNavHeight();
-      window.addEventListener('resize', syncNavHeight);
+      if (!desktopNav) return;
+      new ResizeObserver(function() {
+        document.documentElement.style.setProperty('--nav-h', desktopNav.offsetHeight + 'px');
+      }).observe(desktopNav);
     })();
     // Clear fadeUp animation after it completes so the container no longer creates
     // a CSS stacking context (transform-based context breaks position:fixed modals).

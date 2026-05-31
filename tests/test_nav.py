@@ -1,3 +1,5 @@
+import re
+
 import pytest
 
 
@@ -16,5 +18,4 @@ async def test_nav_mobile_links_hidden_css_rule(client):
     assert "nav .nav-links a.nav-more-mobile-link" in resp.text
     # The old standalone (low-specificity) form must not appear without the nav prefix
     # i.e. no rule that starts with just ".nav-more-mobile-link" directly
-    import re
     assert not re.search(r"(?<!\w)\.nav-more-mobile-link\s*\{", resp.text)
