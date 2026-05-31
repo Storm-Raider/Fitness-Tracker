@@ -185,6 +185,8 @@ app.include_router(challenges.router)
 
 @app.get("/health")
 async def health():
+    # Polled by scripts/auto-deploy-user.sh after each restart to confirm the
+    # new code booted. Keep this cheap and dependency-free.
     return {"status": "ok"}
 
 
