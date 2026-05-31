@@ -4,6 +4,112 @@ Source of truth: `app/templates/base.html`. This file is a human-readable extrac
 
 ---
 
+## Product Context
+
+- **What this is:** A self-hosted fitness tracker that runs on a Raspberry Pi. Log workouts, track PRs, own your data.
+- **Who it's for:** Pi builders and privacy-conscious lifters who chose self-hosting deliberately. Technically capable users who know what a SQLite file is.
+- **Space:** Self-hosted fitness tracking. Adjacent to Strong and Hevy, but not competing on their terms.
+- **Project type:** Web app + PWA. FastAPI + Jinja2 + HTMX. Works offline when the Pi is unreachable.
+
+---
+
+## Aesthetic Direction
+
+**Pi-grade Industrial**
+
+The visual language of serious software — a server dashboard, not a consumer app. Dark, data-dense, earned. Every pixel earns its place.
+
+Hevy looks like a social app. Strong looks like a marketing site. FitStorm looks like infrastructure — because it is. The dark palette isn't mood-setting, it's a position: Pi builders live in dark terminals, and data is what matters.
+
+**Decoration level:** Minimal. A subtle dot-grid background texture on `body` only. No gradients, no hero illustrations, no decorative blobs. Typography does all the work.
+
+**Layout:** Grid-disciplined. `max-width: 1100px` container, 2-panel dashboard (list + sidebar) on ≥768px, single column on mobile.
+
+---
+
+## Memorable Thing
+
+> "This is real software that a real person built and owns."
+
+Not a product someone signed up for — something someone runs. The visual language should reinforce the identity of the person who chose to self-host: technical, deliberate, uninterested in being sold to.
+
+---
+
+## Design Principles
+
+**1. Data over decoration.** Every visual element either communicates data or gets out of the way. No gradients, no hero illustrations. If it doesn't tell you something, it isn't there.
+
+**2. Gold is earned.** The PR gold (`--pr: #f59e0b`) appears exactly once per set that beats the user's personal record. It is FitStorm's primary identity color precisely because it's rare. Never use gold for decoration or UI chrome. Blue is plumbing. Gold is achievement.
+
+**3. Gym-use touch targets.** Hands are sweaty. Attention is split. Every primary action gets ≥56px. Steppers are 40×40px minimum (52px target). The Log Set button is the most-tapped element in the app.
+
+**4. Dark by conviction.** No light mode — not an oversight, a position. Pi builders live in dark terminals and lift in dim gyms. Light mode would signal "we're trying to appeal to everyone." FitStorm isn't.
+
+---
+
+## Deliberate Risks (Where FitStorm Gets Its Own Face)
+
+These are intentional departures from the fitness app category. They are policy, not accidents.
+
+| Risk | What | Why |
+|------|------|-----|
+| **Gold as identity, not accent** | `--pr` (#f59e0b) is the primary brand color, used only for PRs | Every fitness app uses blue or orange as their hero color. Reserving gold for earned moments makes it genuinely meaningful and visually distinctive. |
+| **No light mode** | Dark-only, by design | An explicit position. Documenting it prevents recurring "add light mode" requests. The answer is no — the target user doesn't want one. |
+| **Syne as display typeface** | Geometric, slightly cold — unusual for fitness apps | Most fitness apps use rounded, friendly typefaces (Poppins, Nunito). Syne signals technical software, not a lifestyle brand. This is intentional. |
+
+**Safe choices (category baseline — play these straight):**
+- Dark background + card elevation surfaces (every serious dark app does this)
+- Monospace for numeric data (developer-legible, expected)
+- Blue for interactive chrome (universal expectation — links, buttons, focus rings)
+
+---
+
+## Spacing
+
+**Base unit:** 8px
+
+| Token | Value | Use |
+|-------|-------|-----|
+| 2xs | 2px | Tight internal gaps |
+| xs | 4px | Icon-to-label, badge padding |
+| sm | 8px | Compact row padding |
+| md | 16px | Card internal padding |
+| lg | 24px | Section gaps |
+| xl | 32px | Page-level vertical rhythm |
+| 2xl | 48px | Section separators |
+| 3xl | 64px | Page header spacing |
+
+**Density:** Comfortable. Data-dense enough to feel like a real tool; not so tight it's hard to tap.
+
+---
+
+## Motion
+
+**Approach:** Minimal-functional. Motion earns its place only when it aids comprehension.
+
+| Duration | Range | Use |
+|----------|-------|-----|
+| Micro | 50–100ms | Hover state transitions |
+| Short | 150–250ms | Button press, badge appear, set append |
+| Medium | 250–400ms | Page enter (fadeUp 0.22s, 8px translateY) |
+
+**Easing:** `ease-out` on enter, `ease-in` on exit, `ease-in-out` on positional moves.
+
+**Never:** scroll-driven animations, loading choreography, entrance animations on repeated elements (table rows, badge lists). Motion is for state changes the user caused, not decoration.
+
+---
+
+## Decisions Log
+
+| Date | Decision | Rationale |
+|------|----------|-----------|
+| 2026-05-30 | Aesthetic direction: Pi-grade Industrial | Competitive research (Hevy, Strong) showed the entire category looks like consumer apps. FitStorm's users chose self-hosting deliberately — the visual language should reinforce that identity. |
+| 2026-05-30 | Gold (#f59e0b) named as primary identity color, not accent | Gold appears only on earned PR moments. Making it the identity color turns rarity into brand. Blue is plumbing. Gold is achievement. |
+| 2026-05-30 | No light mode — documented as explicit position | Not an oversight. Pi builders use dark environments. Documenting this ends recurring discussion. |
+| 2026-05-30 | Syne (geometric, slightly cold) retained as display font | Unusual in fitness apps. Signals technical software over lifestyle brand. Intentional departure from category convention. |
+
+---
+
 ## Color Tokens
 
 ```css
