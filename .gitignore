@@ -3,6 +3,7 @@
 
 # gstack internal artifacts (AI design audit, QA reports, screenshots)
 .gstack/
+screenshots-audit/
 
 # Live database and WAL files
 /data/
