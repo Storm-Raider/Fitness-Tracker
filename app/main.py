@@ -109,7 +109,7 @@ async def lifespan(app: FastAPI):
     # us promote an existing non-admin account whose credentials now match the
     # env vars without requiring a password change first.
     async with conn.execute(
-        "SELECT id, password_hash, is_admin FROM users WHERE username = ?",
+        "SELECT id, password_hash, is_admin FROM users WHERE LOWER(username) = LOWER(?)",
         (admin_username,),
     ) as cur:
         existing = await cur.fetchone()

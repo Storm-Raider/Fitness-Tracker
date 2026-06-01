@@ -133,7 +133,7 @@ async def login_post(
         )
 
     async with conn.execute(
-        "SELECT id, password_hash FROM users WHERE username = ?", (username,)
+        "SELECT id, password_hash FROM users WHERE LOWER(username) = LOWER(?)", (username,)
     ) as cur:
         row = await cur.fetchone()
 

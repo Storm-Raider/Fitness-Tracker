@@ -525,3 +525,14 @@ async def test_invite_revoke_forbidden_for_non_admin(client, db_conn):
     await db_conn.commit()
     resp = await client.delete("/invite/tok-non-admin")
     assert resp.status_code == 403
+
+@pytest.mark.asyncio
+async def test_login_case_insensitive_username(anon_client):
+    # Patch the rate limiter so back-to-back case-variant logins aren't throttled.
+    with patch("app.routes.auth._is_rate_limited", return_value=False):
+        for variant in ("TESTUSER", "TestUser", "testUSER"):
+            resp = await anon_client.post(
+                "/login",
+                data={"username": variant, "password": "test-password", "next": "/"},
+            )
+            assert resp.status_code == 303, f"Expected 303 for username={variant!r}, got {resp.status_code}"
