@@ -238,9 +238,9 @@ document.getElementById('goal-input')?.addEventListener('keydown', e => { if (e.
         <tbody>
           {% for pr in recent_prs %}
           <tr>
-            <td>
+            <td style="padding-top:0.6rem;padding-bottom:0.6rem;">
               <a href="/exercises/{{ pr.id }}"
-                 style="color:inherit;text-decoration:none;font-weight:500;"
+                 style="color:inherit;text-decoration:none;font-weight:500;display:block;min-height:36px;display:flex;align-items:center;"
                  onmouseover="this.style.color='var(--accent)'"
                  onmouseout="this.style.color='inherit'">{{ pr.name }}</a>
             </td>
