@@ -44,7 +44,7 @@ async def planner_page(
 
     # Saved plans
     async with conn.execute(
-        "SELECT id, name, goal, weeks, created_at FROM mesocycle_plans WHERE user_id=? ORDER BY created_at DESC LIMIT 10",
+        "SELECT id, name, goal, weeks, plan_json, created_at FROM mesocycle_plans WHERE user_id=? ORDER BY created_at DESC LIMIT 10",
         (uid,),
     ) as c:
         saved_plans = [dict(r) for r in await c.fetchall()]

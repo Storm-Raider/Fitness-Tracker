@@ -220,14 +220,24 @@
           {{ p.goal | capitalize }} · {{ p.weeks }} weeks · saved {{ p.created_at[:10] }}
         </div>
       </div>
-      <button onclick="deleteSavedPlan({{ p.id }}, this)"
-              style="background:transparent;border:1px solid var(--border);color:var(--muted);
-                     cursor:pointer;border-radius:var(--radius-xs);padding:0.3rem 0.6rem;
-                     font-size:0.72rem;transition:all 0.12s;white-space:nowrap;"
-              onmouseover="this.style.borderColor='var(--danger)';this.style.color='var(--danger)'"
-              onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">
-        Delete
-      </button>
+      <div style="display:flex;gap:0.4rem;flex-shrink:0;">
+        <button onclick="loadPlan({{ p.goal | tojson }}, {{ p.weeks }}, {{ p.plan_json | safe }})"
+                style="background:transparent;border:1px solid var(--border);color:var(--muted);
+                       cursor:pointer;border-radius:var(--radius-xs);padding:0.3rem 0.6rem;
+                       font-size:0.72rem;transition:all 0.12s;white-space:nowrap;"
+                onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--accent)'"
+                onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">
+          Load
+        </button>
+        <button onclick="deleteSavedPlan({{ p.id }}, this)"
+                style="background:transparent;border:1px solid var(--border);color:var(--muted);
+                       cursor:pointer;border-radius:var(--radius-xs);padding:0.3rem 0.6rem;
+                       font-size:0.72rem;transition:all 0.12s;white-space:nowrap;"
+                onmouseover="this.style.borderColor='var(--danger)';this.style.color='var(--danger)'"
+                onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">
+          Delete
+        </button>
+      </div>
     </div>
     {% endfor %}
   </div>
@@ -450,15 +460,22 @@ async function savePlan() {
       const card = document.createElement('div');
       card.className = 'saved-plan-card';
       card.id = 'saved-plan-' + data.id;
+      const _planJson = JSON.stringify({lifts});
       card.innerHTML = `
         <div style="flex:1;min-width:0;">
           <div style="font-weight:600;font-size:0.875rem;color:var(--text);">${name}</div>
           <div style="font-size:0.7rem;color:var(--muted);margin-top:0.1rem;">${_goal.charAt(0).toUpperCase()+_goal.slice(1)} · ${weeks} weeks · saved today</div>
         </div>
-        <button onclick="deleteSavedPlan(${data.id},this)"
-                style="background:transparent;border:1px solid var(--border);color:var(--muted);cursor:pointer;border-radius:var(--radius-xs);padding:0.3rem 0.6rem;font-size:0.72rem;transition:all 0.12s;"
-                onmouseover="this.style.borderColor='var(--danger)';this.style.color='var(--danger)'"
-                onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">Delete</button>`;
+        <div style="display:flex;gap:0.4rem;flex-shrink:0;">
+          <button onclick="loadPlan(${JSON.stringify(_goal)},${weeks},${_planJson})"
+                  style="background:transparent;border:1px solid var(--border);color:var(--muted);cursor:pointer;border-radius:var(--radius-xs);padding:0.3rem 0.6rem;font-size:0.72rem;transition:all 0.12s;"
+                  onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--accent)'"
+                  onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">Load</button>
+          <button onclick="deleteSavedPlan(${data.id},this)"
+                  style="background:transparent;border:1px solid var(--border);color:var(--muted);cursor:pointer;border-radius:var(--radius-xs);padding:0.3rem 0.6rem;font-size:0.72rem;transition:all 0.12s;"
+                  onmouseover="this.style.borderColor='var(--danger)';this.style.color='var(--danger)'"
+                  onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">Delete</button>
+        </div>`;
       list.prepend(card);
     } else {
       // Create the section if it didn't exist
@@ -469,6 +486,42 @@ async function savePlan() {
     msg.style.color = 'var(--danger)';
     msg.style.display = 'block';
   }
+}
+
+function loadPlan(goal, weeks, planJson) {
+  // Restore goal
+  _goal = goal;
+  document.querySelectorAll('.goal-btn').forEach(b => b.classList.remove('selected'));
+  const goalBtn = document.getElementById('goal-' + goal);
+  if (goalBtn) goalBtn.classList.add('selected');
+
+  // Restore weeks slider
+  const slider = document.getElementById('weeks-slider');
+  slider.value = weeks;
+  document.getElementById('weeks-val').textContent = weeks;
+
+  // Restore lifts
+  const container = document.getElementById('lifts-container');
+  container.innerHTML = '';
+  (planJson.lifts || []).forEach(lift => {
+    const row = document.createElement('div');
+    row.className = 'lift-row';
+    row.setAttribute('data-lift', '');
+    row.innerHTML = `
+      <input type="text" value="${lift.name}" placeholder="Lift name"
+             style="flex:1;font-size:0.8rem;" oninput="generatePlan()" class="lift-name">
+      <input type="number" value="${lift.e1rm_kg}" min="1" step="0.5" placeholder="1RM"
+             style="width:80px;text-align:center;font-size:0.8rem;" oninput="generatePlan()" class="lift-e1rm">
+      <span style="font-size:0.7rem;color:var(--muted);font-family:'JetBrains Mono',monospace;">kg</span>
+      <button onclick="this.closest('[data-lift]').remove();generatePlan()"
+              style="background:transparent;border:none;color:var(--muted);cursor:pointer;font-size:1rem;
+                     padding:0.1rem 0.2rem;transition:color 0.12s;"
+              onmouseover="this.style.color='var(--danger)'" onmouseout="this.style.color='var(--muted)'">×</button>`;
+    container.appendChild(row);
+  });
+
+  generatePlan();
+  window.scrollTo({top: 0, behavior: 'smooth'});
 }
 
 async function deleteSavedPlan(id, btn) {
