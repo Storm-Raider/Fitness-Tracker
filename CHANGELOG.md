@@ -35,6 +35,7 @@ All notable changes to FitStorm are documented here.
 - **Pi-grade Industrial design system** — spacing tokens (`--sp-2xs` → `--sp-3xl`), `<main>` landmark, nav `aria-label`, `text-wrap: balance` on headings, `font-variant-numeric: tabular-nums` on numeric values.
 
 ### Fixed
+- **Session revocation** — logout now immediately invalidates the server-side session. Previously, a copied cookie stayed valid for up to 30 days after logout. Existing sessions will require a one-time re-login after this deploy.
 - **Case-insensitive login** — usernames are now matched case-insensitively at login. `Admin`, `ADMIN`, and `admin` all resolve to the same account.
 
 ### Added
