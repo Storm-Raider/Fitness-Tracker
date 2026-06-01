@@ -225,6 +225,9 @@
       white-space: nowrap;
       font-weight: 500;
       transition: color 0.15s;
+      min-height: 36px;
+      display: inline-flex;
+      align-items: center;
     }
     nav .nav-user .username:hover { color: var(--accent); }
 
@@ -883,7 +886,7 @@
       <a href="/settings" class="username">{{ user.username }}</a>
       <form method="post" action="/logout" style="display:flex;align-items:center;">
         <button type="submit" class="btn btn-ghost"
-                style="min-height:30px;padding:0.3rem 0.7rem;font-size:0.78rem;white-space:nowrap;border-color:var(--border-mid);color:var(--text);">
+                style="min-height:36px;padding:0.3rem 0.7rem;font-size:0.78rem;white-space:nowrap;border-color:var(--border-mid);color:var(--text);">
           Sign out
         </button>
       </form>
