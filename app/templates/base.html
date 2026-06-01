@@ -42,6 +42,15 @@
       --radius:       14px;
       --radius-sm:    10px;
       --radius-xs:    7px;
+      /* Spacing scale — 8px base */
+      --sp-2xs:  2px;
+      --sp-xs:   4px;
+      --sp-sm:   8px;
+      --sp-md:   16px;
+      --sp-lg:   24px;
+      --sp-xl:   32px;
+      --sp-2xl:  48px;
+      --sp-3xl:  64px;
     }
     * { box-sizing: border-box; margin: 0; padding: 0; }
     html { font-family: 'Barlow', system-ui, sans-serif; }
@@ -64,6 +73,7 @@
     h1, h2, h3 {
       font-family: 'Syne', system-ui, sans-serif;
       letter-spacing: -0.02em;
+      text-wrap: balance;
     }
     a { color: var(--accent); text-decoration: none; }
     a:hover { color: var(--accent-hover); }
@@ -745,7 +755,7 @@
     }
 
     /* ── Numeric typography ──────────────────────────── */
-    .num { font-family: 'JetBrains Mono', monospace; }
+    .num { font-family: 'JetBrains Mono', monospace; font-variant-numeric: tabular-nums; }
 
     /* ── Flash messages ──────────────────────────────── */
     .flash {
@@ -825,7 +835,7 @@
   {% block head %}{% endblock %}
 </head>
 <body>
-  <nav>
+  <nav aria-label="Main navigation">
     <span class="brand">
       <span class="brand-dot"></span>
       FitStorm
@@ -985,9 +995,9 @@
     </div>
   </div>
 
-  <div class="container">
+  <main class="container">
     {% block content %}{% endblock %}
-  </div>
+  </main>
   <script>
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('/sw.js');
