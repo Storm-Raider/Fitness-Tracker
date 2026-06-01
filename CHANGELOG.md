@@ -32,9 +32,11 @@ All notable changes to FitStorm are documented here.
 - Exercise seeding: `UPDATE exercises` no longer writes to the dropped columns; `exercises.py` entries retain those keys to drive `exercise_muscles` seeding
 
 ### Added
+- **Workout search** — filter the workouts list by exercise name, date, or notes via `?q=`. Searches full set history (not just the 3-exercise preview). 300ms debounce, clear link, distinct empty state.
 - **Pi-grade Industrial design system** — spacing tokens (`--sp-2xs` → `--sp-3xl`), `<main>` landmark, nav `aria-label`, `text-wrap: balance` on headings, `font-variant-numeric: tabular-nums` on numeric values.
 
 ### Fixed
+- **Exception handling** — `stats.py` date parsing now catches `ValueError` instead of bare `Exception`; `achievements.py` DB insert failures now log a warning instead of silently passing.
 - **Session revocation** — logout now immediately invalidates the server-side session. Previously, a copied cookie stayed valid for up to 30 days after logout. Existing sessions will require a one-time re-login after this deploy.
 - **Case-insensitive login** — usernames are now matched case-insensitively at login. `Admin`, `ADMIN`, and `admin` all resolve to the same account.
 
