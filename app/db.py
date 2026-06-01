@@ -142,6 +142,15 @@ _MIGRATIONS = [
     # Custom per-attempt rules for editable challenges (75 Medium).
     # NULL means "use template defaults"; JSON array means user-defined rules.
     "ALTER TABLE challenge_attempts ADD COLUMN rules_json TEXT NULL",
+    # Server-side session registry for revocable logins.
+    # Logout deletes the row; middleware rejects cookies whose sid is absent.
+    """CREATE TABLE IF NOT EXISTS sessions (
+        id         TEXT    PRIMARY KEY,
+        user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        expires_at TEXT    NOT NULL,
+        created_at TEXT    NOT NULL DEFAULT (datetime('now','localtime'))
+    )""",
+    "CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions(user_id)",
 ]
 
 

@@ -12,6 +12,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import RedirectResponse
 
 from app.db import open_db, set_db, clear_db
+import app.db as _db
 from app.routes import achievements, cardio, challenges, coach, dashboard, exercises, export, import_, metrics, planner, prs, routines, settings, stats, templates, trash, webhooks, workouts
 from app.routes.auth import router as auth_router, COOKIE_NAME, _serializer, _hash_password, _verify_password
 from app.routes.workouts import set_http_client
@@ -65,8 +66,20 @@ class _AuthMiddleware(BaseHTTPMiddleware):
                 session_days = int(os.environ.get("SESSION_DAYS", "30"))
                 payload = _serializer().loads(cookie, max_age=session_days * 86400)
                 if isinstance(payload, dict) and "user_id" in payload:
-                    request.state.user_id = payload["user_id"]
-                    return await call_next(request)
+                    sid = payload.get("sid")
+                    # Cookies without a sid are legacy (pre-revocation); reject them
+                    # so existing sessions gracefully force a re-login once.
+                    if sid and _db._conn is not None:
+                        async with _db._conn.execute(
+                            "SELECT 1 FROM sessions WHERE id=? AND user_id=? "
+                            "AND expires_at > datetime('now','localtime')",
+                            (sid, payload["user_id"]),
+                        ) as cur:
+                            if await cur.fetchone() is None:
+                                sid = None  # revoked or expired
+                    if sid:
+                        request.state.user_id = payload["user_id"]
+                        return await call_next(request)
             except (BadSignature, SignatureExpired):
                 pass
         next_url = request.url.path

@@ -536,3 +536,53 @@ async def test_login_case_insensitive_username(anon_client):
                 data={"username": variant, "password": "test-password", "next": "/"},
             )
             assert resp.status_code == 303, f"Expected 303 for username={variant!r}, got {resp.status_code}"
+
+
+# ---------------------------------------------------------------------------
+# Session revocation
+# ---------------------------------------------------------------------------
+
+@pytest.mark.asyncio
+async def test_login_creates_session_row(client, db_conn):
+    async with db_conn.execute("SELECT COUNT(*) FROM sessions") as c:
+        before = (await c.fetchone())[0]
+    # client fixture already logged in once via conftest — at least 1 row exists
+    assert before >= 1
+
+
+@pytest.mark.asyncio
+async def test_logout_revokes_session(anon_client, db_conn):
+    with patch("app.routes.auth._is_rate_limited", return_value=False):
+        login = await anon_client.post(
+            "/login",
+            data={"username": "testuser", "password": "test-password", "next": "/"},
+        )
+    assert login.status_code == 303
+    # Grab the session cookie from the login response (secure flag prevents
+    # automatic re-send over http:// in tests, so pass it explicitly).
+    session_cookie = login.cookies.get("fitstorm_session") or dict(login.headers).get("set-cookie", "")
+    async with db_conn.execute("SELECT id FROM sessions WHERE user_id=1") as c:
+        rows_before = [r[0] for r in await c.fetchall()]
+    assert len(rows_before) >= 1
+
+    await anon_client.post("/logout", cookies={"fitstorm_session": session_cookie})
+
+    async with db_conn.execute("SELECT id FROM sessions WHERE user_id=1") as c:
+        rows_after = [r[0] for r in await c.fetchall()]
+    # The new session created by this login should be gone.
+    assert len(rows_after) == len(rows_before) - 1
+
+
+@pytest.mark.asyncio
+async def test_revoked_session_cannot_access_protected_route(anon_client, db_conn):
+    with patch("app.routes.auth._is_rate_limited", return_value=False):
+        await anon_client.post(
+            "/login",
+            data={"username": "testuser", "password": "test-password", "next": "/"},
+        )
+    # Wipe the session row directly — simulates a server-side revocation.
+    await db_conn.execute("DELETE FROM sessions WHERE user_id=1")
+    await db_conn.commit()
+    resp = await anon_client.get("/", follow_redirects=False)
+    assert resp.status_code == 302
+    assert "/login" in resp.headers["location"]

@@ -145,9 +145,24 @@ async def login_post(
         )
 
     session_days = int(os.environ.get("SESSION_DAYS", "30"))
+
+    # Create a server-side session record so logout can revoke it.
+    sid = secrets.token_hex(32)
+    await conn.execute(
+        "INSERT INTO sessions(id, user_id, expires_at) "
+        "VALUES (?, ?, datetime('now','localtime','+' || ? || ' days'))",
+        (sid, row["id"], session_days),
+    )
+    # Lazily purge expired sessions for this user to keep the table lean.
+    await conn.execute(
+        "DELETE FROM sessions WHERE user_id=? AND expires_at <= datetime('now','localtime')",
+        (row["id"],),
+    )
+    await conn.commit()
+
     dest = next if (next.startswith("/") and not next.startswith("//")) else "/"
     response = RedirectResponse(url=dest, status_code=303)
-    token = _serializer().dumps({"user_id": row["id"]})
+    token = _serializer().dumps({"user_id": row["id"], "sid": sid})
     response.set_cookie(
         COOKIE_NAME,
         token,
@@ -160,7 +175,20 @@ async def login_post(
 
 
 @router.post("/logout")
-async def logout():
+async def logout(
+    request: Request,
+    conn: aiosqlite.Connection = Depends(get_db),
+):
+    cookie = request.cookies.get(COOKIE_NAME, "")
+    if cookie:
+        try:
+            session_days = int(os.environ.get("SESSION_DAYS", "30"))
+            payload = _serializer().loads(cookie, max_age=session_days * 86400)
+            if isinstance(payload, dict) and "sid" in payload:
+                await conn.execute("DELETE FROM sessions WHERE id=?", (payload["sid"],))
+                await conn.commit()
+        except Exception:
+            pass  # malformed/expired cookie — nothing to revoke
     response = RedirectResponse(url="/login", status_code=303)
     response.delete_cookie(COOKIE_NAME, httponly=True, samesite="strict")
     return response
