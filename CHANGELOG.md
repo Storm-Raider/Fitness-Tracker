@@ -32,6 +32,7 @@ All notable changes to FitStorm are documented here.
 - Exercise seeding: `UPDATE exercises` no longer writes to the dropped columns; `exercises.py` entries retain those keys to drive `exercise_muscles` seeding
 
 ### Added
+- **Planner: Load saved plans** — each saved mesocycle plan now has a Load button that restores goal, weeks, and lifts into the builder and regenerates the week-by-week table.
 - **Workout search** — filter the workouts list by exercise name, date, or notes via `?q=`. Searches full set history (not just the 3-exercise preview). 300ms debounce, clear link, distinct empty state.
 - **Pi-grade Industrial design system** — spacing tokens (`--sp-2xs` → `--sp-3xl`), `<main>` landmark, nav `aria-label`, `text-wrap: balance` on headings, `font-variant-numeric: tabular-nums` on numeric values.
 
