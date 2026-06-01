@@ -25,6 +25,14 @@
 </div>
 {% endif %}
 
+<div style="margin-bottom:1rem;position:relative;">
+  <i data-lucide="search" style="position:absolute;left:0.75rem;top:50%;transform:translateY(-50%);width:15px;height:15px;color:var(--muted);pointer-events:none;"></i>
+  <input id="workout-search" type="search" value="{{ q }}" placeholder="Search by exercise, date, or notes…"
+         autocomplete="off" spellcheck="false"
+         style="width:100%;padding:0.55rem 0.75rem 0.55rem 2.3rem;background:var(--surface);border:1px solid var(--border);
+                border-radius:var(--radius-xs);color:var(--text);font-size:0.875rem;font-family:inherit;transition:border-color 0.15s;">
+</div>
+
 <div id="workout-list">
   {% include "workout_list_partial.html" %}
 </div>
@@ -70,6 +78,25 @@ async function repeatWorkout(sourceId, btn) {
       best.style.boxShadow  = '0 0 0 2px var(--accent)';
       setTimeout(function() { best.style.boxShadow = ''; }, 2000);
     }
+  });
+})();
+
+// Debounced search — updates URL and reloads after 300ms idle
+(function() {
+  var inp = document.getElementById('workout-search');
+  if (!inp) return;
+  inp.addEventListener('focus', function() { this.style.borderColor = 'var(--accent)'; });
+  inp.addEventListener('blur',  function() { this.style.borderColor = 'var(--border)'; });
+  var timer;
+  inp.addEventListener('input', function() {
+    clearTimeout(timer);
+    var val = this.value.trim();
+    timer = setTimeout(function() {
+      var url = new URL(window.location.href);
+      if (val) { url.searchParams.set('q', val); }
+      else { url.searchParams.delete('q'); }
+      window.location.href = url.toString();
+    }, 300);
   });
 })();
 

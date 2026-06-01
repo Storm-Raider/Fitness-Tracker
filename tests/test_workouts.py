@@ -215,3 +215,57 @@ async def test_log_set_rpe_out_of_range(client):
                              json={"exercise_id": ex_id, "reps": 5,
                                    "weight_kg": 80.0, "rpe": 11})
     assert resp.status_code == 422
+
+
+# ── Workout list search ──────────────────────────────────────────────────────
+
+@pytest.mark.asyncio
+async def test_search_by_exercise_name(client, db_conn):
+    ex = await client.post("/exercises", json={"name": "Search Test Deadlift"})
+    ex_id = ex.json()["id"]
+    w = await client.post("/workouts", json={"notes": None})
+    w_id = w.json()["id"]
+    await client.post(f"/workouts/{w_id}/sets",
+                      json={"exercise_id": ex_id, "reps": 5, "weight_kg": 100.0})
+    # Finish so it shows up in the completed list
+    await db_conn.execute("UPDATE workouts SET ended_at=datetime('now','localtime') WHERE id=?", (w_id,))
+    await db_conn.commit()
+
+    r = await client.get("/workouts?q=search+test+deadlift", headers={"Accept": "text/html"})
+    assert r.status_code == 200
+    assert "Search Test Deadlift" in r.text or "1 result" in r.text
+
+    r2 = await client.get("/workouts?q=nonexistent+exercise+xyz", headers={"Accept": "text/html"})
+    assert r2.status_code == 200
+    assert "No workouts match" in r2.text
+
+
+@pytest.mark.asyncio
+async def test_search_by_notes(client, db_conn):
+    w = await client.post("/workouts", json={"notes": "heavy Monday"})
+    w_id = w.json()["id"]
+    await db_conn.execute("UPDATE workouts SET ended_at=datetime('now','localtime') WHERE id=?", (w_id,))
+    await db_conn.commit()
+    # Seed a set so the workout survives the HAVING clause
+    ex = await client.post("/exercises", json={"name": "Press"})
+    await client.post(f"/workouts/{w_id}/sets",
+                      json={"exercise_id": ex.json()["id"], "reps": 3, "weight_kg": 50.0})
+
+    r = await client.get("/workouts?q=monday", headers={"Accept": "text/html"})
+    assert r.status_code == 200
+    assert "heavy Monday" in r.text
+
+
+@pytest.mark.asyncio
+async def test_search_empty_query_returns_all(client, db_conn):
+    w = await client.post("/workouts", json={"notes": None})
+    w_id = w.json()["id"]
+    ex = await client.post("/exercises", json={"name": "Row"})
+    await client.post(f"/workouts/{w_id}/sets",
+                      json={"exercise_id": ex.json()["id"], "reps": 8, "weight_kg": 60.0})
+    await db_conn.execute("UPDATE workouts SET ended_at=datetime('now','localtime') WHERE id=?", (w_id,))
+    await db_conn.commit()
+
+    r = await client.get("/workouts?q=", headers={"Accept": "text/html"})
+    assert r.status_code == 200
+    assert "No workouts match" not in r.text

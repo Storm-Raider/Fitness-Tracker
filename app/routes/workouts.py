@@ -84,6 +84,7 @@ class SetPatch(BaseModel):
 @router.get("/workouts")
 async def list_workouts(
     request: Request,
+    q: str | None = None,
     conn: aiosqlite.Connection = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
@@ -99,6 +100,9 @@ async def list_workouts(
         (uid,),
     )
     await conn.commit()
+
+    search = q.strip() if q else ""
+    like = f"%{search}%" if search else None
 
     async with conn.execute(
         """
@@ -121,16 +125,30 @@ async def list_workouts(
         FROM workouts w
         LEFT JOIN sets s ON s.workout_id = w.id AND s.user_id = ?
         WHERE w.user_id = ?
+          AND (? IS NULL
+               OR DATE(w.started_at, 'localtime') LIKE ?
+               OR LOWER(COALESCE(w.notes, '')) LIKE LOWER(?)
+               OR EXISTS (
+                   SELECT 1 FROM sets sq
+                   JOIN exercises eq ON eq.id = sq.exercise_id
+                   WHERE sq.workout_id = w.id
+                     AND LOWER(eq.name) LIKE LOWER(?)
+               ))
         GROUP BY w.id
         HAVING w.ended_at IS NULL OR COUNT(s.id) > 0
         ORDER BY w.started_at DESC
         """,
-        (uid, uid),
+        (uid, uid, like, like, like, like),
     ) as cur:
         workouts = [dict(r) for r in await cur.fetchall()]
 
     active_workout = next((w for w in workouts if w["ended_at"] is None), None)
-    return render(request, "workout_list", {"workouts": workouts, "active_workout": active_workout, "user": dict(current_user)})
+    return render(request, "workout_list", {
+        "workouts": workouts,
+        "active_workout": active_workout,
+        "user": dict(current_user),
+        "q": search,
+    })
 
 
 @router.post("/workouts", status_code=201)
