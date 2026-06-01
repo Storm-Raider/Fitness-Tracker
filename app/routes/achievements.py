@@ -1,3 +1,4 @@
+import logging
 from datetime import datetime
 
 import aiosqlite
@@ -205,8 +206,8 @@ async def achievements_page(
                 "INSERT OR IGNORE INTO user_achievements(user_id, achievement_id, unlocked_at) VALUES (?,?,?)",
                 (uid, aid, ts),
             )
-        except Exception:
-            pass
+        except aiosqlite.Error as exc:
+            logging.warning("achievement insert failed user=%s aid=%s: %s", uid, aid, exc)
     if newly:
         await conn.commit()
         stored.update(newly)

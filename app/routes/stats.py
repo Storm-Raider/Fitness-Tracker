@@ -17,7 +17,7 @@ def _week_label(year_week: str) -> str:
     try:
         d = datetime.strptime(f"{y} {int(w):02d} 1", "%Y %W %w")
         return d.strftime("%b %d").replace(" 0", " ")
-    except Exception:
+    except ValueError:
         return year_week
 
 
@@ -26,7 +26,7 @@ def _week_start(year_week: str) -> str:
     try:
         d = datetime.strptime(f"{y} {int(w):02d} 1", "%Y %W %w")
         return d.strftime("%Y-%m-%d")
-    except Exception:
+    except ValueError:
         return ""
 
 
