@@ -31,6 +31,9 @@ All notable changes to FitStorm are documented here.
 - `exercises` table: `muscle_primary` and `muscle_secondary` columns dropped via `ALTER TABLE … DROP COLUMN` migration; data is now exclusively in `exercise_muscles`
 - Exercise seeding: `UPDATE exercises` no longer writes to the dropped columns; `exercises.py` entries retain those keys to drive `exercise_muscles` seeding
 
+### Added
+- **Editable 75 Medium rules** — the 75 Medium challenge card now shows an inline rule editor before starting. Edit any rule label, mark rules optional, remove non-workout rules, and add new ones. Custom rules are stored per-attempt and carried through restarts. 75 Hard stays fixed.
+
 ### Fixed
 - `.gitignore` `data/` pattern was too broad and blocked `app/data/` module from being tracked — anchored to `/data/`
 - **Accessibility — keyboard focus ring**: `outline: none` on inputs suppressed all keyboard focus indicators. Added `*:focus-visible` global ring (2px accent blue); form inputs keep their existing border+glow via `:focus`.
