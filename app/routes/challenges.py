@@ -34,6 +34,10 @@ class CheckinIn(BaseModel):
     done: bool
 
 
+class UpdateRulesIn(BaseModel):
+    rules: list[dict]
+
+
 async def _attempt_row(conn, attempt_id: int, uid: int) -> dict | None:
     async with conn.execute(
         "SELECT * FROM challenge_attempts WHERE id=? AND user_id=?", (attempt_id, uid)
@@ -143,10 +147,11 @@ async def challenge_detail(
         and not ch.day_complete(view["_template"], yesterday.isoformat(), view["_checks"], view["_train_dates"])
     )
 
+    template = view["_template"]
     return templates.TemplateResponse(request, "challenge_detail.html", {
         "user": dict(current_user),
         "c": view,
-        "tagline": view["_template"].get("tagline", ""),
+        "tagline": template.get("tagline", "") if template else "",
         "today_iso": today.isoformat(),
         "today_in_range": start <= today <= last_day,
         "today_rules": ch.today_rules(view, today),
@@ -156,6 +161,8 @@ async def challenge_detail(
         "yesterday_iso": yesterday.isoformat(),
         "yesterday_rules": ch.today_rules(view, yesterday) if show_yesterday else [],
         "cells": ch.day_cells(view, today),
+        "is_editable": bool(template and template.get("editable")),
+        "current_rules": template["rules"] if template else [],
     })
 
 
@@ -220,6 +227,40 @@ async def checkin(
         "day_total": total,
         "status": view["status"],
     })
+
+
+@router.post("/challenges/{attempt_id}/rules")
+async def update_rules(
+    attempt_id: int,
+    body: UpdateRulesIn,
+    conn: aiosqlite.Connection = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    uid = current_user["id"]
+    row = await _attempt_row(conn, attempt_id, uid)
+    if not row:
+        raise HTTPException(status_code=404, detail="Challenge not found")
+    if row["status"] != "active":
+        raise HTTPException(status_code=409, detail="Challenge is no longer active")
+    template = CHALLENGE_INDEX.get(row["template_key"])
+    if not template or not template.get("editable"):
+        raise HTTPException(status_code=422, detail="This challenge does not support custom rules")
+    if not body.rules:
+        raise HTTPException(status_code=422, detail="At least one rule is required")
+    seen_keys: set[str] = set()
+    for r in body.rules:
+        if not isinstance(r.get("key"), str) or not isinstance(r.get("label"), str) or not r["label"].strip():
+            raise HTTPException(status_code=422, detail="Each rule must have a non-empty key and label")
+        if r["key"] in seen_keys:
+            raise HTTPException(status_code=422, detail=f"Duplicate rule key: {r['key']}")
+        seen_keys.add(r["key"])
+        r.setdefault("kind", "manual")
+    await conn.execute(
+        "UPDATE challenge_attempts SET rules_json=? WHERE id=? AND user_id=?",
+        (json.dumps(body.rules), attempt_id, uid),
+    )
+    await conn.commit()
+    return JSONResponse({"ok": True, "rule_count": len(body.rules)})
 
 
 @router.post("/challenges/{attempt_id}/restart", status_code=201)

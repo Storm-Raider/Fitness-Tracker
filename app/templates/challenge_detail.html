@@ -112,6 +112,68 @@
   </div>
 </div>
 
+{% if c.status == 'active' and is_editable %}
+<div class="card" style="margin-bottom:1.25rem;" id="rules-editor-card">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.75rem;">
+    <div class="section-title" style="margin:0;">Rules</div>
+    <button onclick="toggleRulesEditor()" id="rules-edit-btn"
+            style="background:transparent;border:1px solid var(--border);color:var(--muted);
+                   border-radius:var(--radius-xs);cursor:pointer;padding:0.25rem 0.65rem;
+                   font-size:0.75rem;font-family:inherit;transition:all 0.15s;"
+            onmouseover="this.style.color='var(--text)';this.style.borderColor='var(--border-mid)'"
+            onmouseout="this.style.color='var(--muted)';this.style.borderColor='var(--border)'">Edit</button>
+  </div>
+
+  {# Read-only rule list (default view) #}
+  <div id="rules-readonly">
+    {% for r in current_rules %}
+    <div style="display:flex;align-items:center;gap:0.6rem;padding:0.4rem 0;
+                border-bottom:1px solid rgba(30,35,52,0.5);" class="{% if loop.last %}style='border:none'{% endif %}">
+      <span style="font-size:0.85rem;flex:1;">{{ r.label }}</span>
+      {% if r.optional %}<span style="font-size:0.68rem;color:var(--muted);">optional</span>{% endif %}
+    </div>
+    {% endfor %}
+  </div>
+
+  {# Edit form (hidden until Edit is clicked) #}
+  <div id="rules-edit-form" style="display:none;">
+    <div id="rules-edit-list" style="display:flex;flex-direction:column;gap:0.4rem;margin-bottom:0.6rem;">
+      {% for r in current_rules %}
+      <div class="rule-edit-row" data-key="{{ r.key }}" data-kind="{{ r.kind }}"
+           style="display:flex;align-items:center;gap:0.5rem;">
+        <input type="text" value="{{ r.label }}"
+               style="flex:1;font-size:0.8rem;padding:0.3rem 0.5rem;background:var(--surface-2);
+                      border:1px solid var(--border);border-radius:var(--radius-xs);color:var(--text);font-family:inherit;">
+        <label style="display:flex;align-items:center;gap:0.25rem;font-size:0.72rem;color:var(--muted);cursor:pointer;white-space:nowrap;margin:0;">
+          <input type="checkbox" {% if r.optional %}checked{% endif %} style="accent-color:var(--accent);width:13px;height:13px;"> opt
+        </label>
+        {% if r.kind != 'workout' %}
+        <button type="button" onclick="removeEditRow(this)"
+                style="background:transparent;border:none;color:var(--muted);cursor:pointer;padding:0.2rem 0.3rem;
+                       font-size:0.85rem;line-height:1;border-radius:4px;flex-shrink:0;"
+                onmouseover="this.style.color='var(--danger)'" onmouseout="this.style.color='var(--muted)'">✕</button>
+        {% else %}
+        <span style="width:1.4rem;flex-shrink:0;"></span>
+        {% endif %}
+      </div>
+      {% endfor %}
+    </div>
+    <div style="display:flex;gap:0.5rem;flex-wrap:wrap;align-items:center;">
+      <button type="button" onclick="addEditRow()"
+              style="background:transparent;border:1px dashed var(--border);color:var(--muted);
+                     border-radius:var(--radius-xs);cursor:pointer;padding:0.25rem 0.7rem;
+                     font-size:0.78rem;font-family:inherit;transition:all 0.15s;"
+              onmouseover="this.style.borderColor='var(--border-mid)';this.style.color='var(--text)'"
+              onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">+ Add rule</button>
+      <button type="button" class="btn btn-primary" onclick="saveRules(this)"
+              style="min-height:36px;padding:0.3rem 0.9rem;font-size:0.82rem;">Save rules</button>
+      <button type="button" class="btn btn-ghost" onclick="cancelRulesEdit()"
+              style="min-height:36px;padding:0.3rem 0.7rem;font-size:0.82rem;">Cancel</button>
+    </div>
+  </div>
+</div>
+{% endif %}
+
 <div style="display:flex;gap:0.65rem;flex-wrap:wrap;">
   {% if c.status == 'active' %}
   <button class="btn btn-ghost" onclick="abandonChallenge()">Abandon</button>
@@ -247,5 +309,61 @@ async function restartChallenge() {
 }
 
 document.addEventListener('DOMContentLoaded', renderGallery);
+
+// ── Rules editor ──────────────────────────────────────────────────────
+function toggleRulesEditor() {
+  const form = document.getElementById('rules-edit-form');
+  const readonly = document.getElementById('rules-readonly');
+  const btn = document.getElementById('rules-edit-btn');
+  const open = form.style.display === 'none';
+  form.style.display = open ? '' : 'none';
+  readonly.style.display = open ? 'none' : '';
+  btn.textContent = open ? 'Cancel' : 'Edit';
+}
+function cancelRulesEdit() {
+  document.getElementById('rules-edit-form').style.display = 'none';
+  document.getElementById('rules-readonly').style.display = '';
+  document.getElementById('rules-edit-btn').textContent = 'Edit';
+}
+function addEditRow() {
+  const list = document.getElementById('rules-edit-list');
+  const idx = list.querySelectorAll('.rule-edit-row').length;
+  const row = document.createElement('div');
+  row.className = 'rule-edit-row';
+  row.dataset.key = 'custom_' + idx;
+  row.dataset.kind = 'manual';
+  row.style.cssText = 'display:flex;align-items:center;gap:0.5rem;';
+  row.innerHTML = `
+    <input type="text" placeholder="Rule description" autofocus
+           style="flex:1;font-size:0.8rem;padding:0.3rem 0.5rem;background:var(--surface-2);
+                  border:1px solid var(--accent);border-radius:var(--radius-xs);color:var(--text);font-family:inherit;">
+    <label style="display:flex;align-items:center;gap:0.25rem;font-size:0.72rem;color:var(--muted);cursor:pointer;white-space:nowrap;margin:0;">
+      <input type="checkbox" style="accent-color:var(--accent);width:13px;height:13px;"> opt
+    </label>
+    <button type="button" onclick="removeEditRow(this)"
+            style="background:transparent;border:none;color:var(--muted);cursor:pointer;padding:0.2rem 0.3rem;
+                   font-size:0.85rem;line-height:1;border-radius:4px;flex-shrink:0;"
+            onmouseover="this.style.color='var(--danger)'" onmouseout="this.style.color='var(--muted)'">✕</button>`;
+  list.appendChild(row);
+  row.querySelector('input[type=text]').focus();
+}
+function removeEditRow(btn) { btn.closest('.rule-edit-row').remove(); }
+async function saveRules(btn) {
+  const rows = document.querySelectorAll('#rules-edit-list .rule-edit-row');
+  const rules = Array.from(rows).map(row => ({
+    key: row.dataset.key,
+    kind: row.dataset.kind,
+    label: row.querySelector('input[type=text]').value.trim(),
+    optional: row.querySelector('input[type=checkbox]').checked,
+  })).filter(r => r.label);
+  if (!rules.length) { alert('Add at least one rule.'); return; }
+  btn.disabled = true;
+  const r = await fetch('/challenges/' + ATTEMPT_ID + '/rules', {
+    method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({rules}),
+  });
+  btn.disabled = false;
+  if (r.ok) location.reload();
+}
 </script>
 {% endblock %}

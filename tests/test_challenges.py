@@ -231,3 +231,51 @@ async def test_default_rules_still_work_for_medium(client):
     r = await client.post(f"/challenges/{aid}/checkin",
                           json={"day_date": today, "rule_key": "diet", "done": True})
     assert r.status_code == 200
+
+
+# ── Edit rules on active challenge ──────────────────────────────────────────
+
+UPDATED_RULES = [
+    {"key": "workout1", "kind": "workout", "label": "Evening lift — 45 min"},
+    {"key": "journal",  "kind": "manual",  "label": "Evening journal"},
+]
+
+
+@pytest.mark.asyncio
+async def test_update_rules_on_active_challenge(client, db):
+    aid = await _start(client, "75_medium")
+    r = await client.post(f"/challenges/{aid}/rules", json={"rules": UPDATED_RULES})
+    assert r.status_code == 200
+    async with db.execute("SELECT rules_json FROM challenge_attempts WHERE id=?", (aid,)) as c:
+        stored = json.loads((await c.fetchone())["rules_json"])
+    assert [r["key"] for r in stored] == ["workout1", "journal"]
+    page = (await client.get(f"/challenges/{aid}", headers={"Accept": "text/html"})).text
+    assert "Evening lift" in page and "Evening journal" in page
+
+
+@pytest.mark.asyncio
+async def test_update_rules_rejects_inactive(client):
+    aid = await _start(client, "75_medium")
+    await client.post(f"/challenges/{aid}/abandon")
+    r = await client.post(f"/challenges/{aid}/rules", json={"rules": UPDATED_RULES})
+    assert r.status_code == 409
+
+
+@pytest.mark.asyncio
+async def test_update_rules_rejects_non_editable(client):
+    aid = await _start(client, "75_hard")
+    r = await client.post(f"/challenges/{aid}/rules", json={"rules": UPDATED_RULES})
+    assert r.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_update_rules_checkin_uses_new_keys(client):
+    aid = await _start(client, "75_medium")
+    await client.post(f"/challenges/{aid}/rules", json={"rules": UPDATED_RULES})
+    today = date.today().isoformat()
+    # new key works
+    assert (await client.post(f"/challenges/{aid}/checkin",
+                               json={"day_date": today, "rule_key": "journal", "done": True})).status_code == 200
+    # old default key rejected
+    assert (await client.post(f"/challenges/{aid}/checkin",
+                               json={"day_date": today, "rule_key": "diet", "done": True})).status_code == 422
