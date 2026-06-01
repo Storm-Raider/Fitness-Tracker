@@ -33,6 +33,13 @@ All notable changes to FitStorm are documented here.
 
 ### Fixed
 - `.gitignore` `data/` pattern was too broad and blocked `app/data/` module from being tracked — anchored to `/data/`
+- **Accessibility — keyboard focus ring**: `outline: none` on inputs suppressed all keyboard focus indicators. Added `*:focus-visible` global ring (2px accent blue); form inputs keep their existing border+glow via `:focus`.
+- **Accessibility — reduced motion**: Added `@media (prefers-reduced-motion: reduce)` block — all transitions and animations collapse to 0.01ms for users who opt out of motion at the OS level.
+- **Dark mode declaration**: Added `color-scheme: dark` to `:root` so the browser renders native controls (scrollbars, caret, date pickers) in dark mode rather than defaulting to light.
+- **Touch targets — unit toggle**: `kg`/`lbs` button was 23px tall (spec ≥40px for steppers). Raised to `min-height: 40px` on both desktop and mobile instances.
+- **Touch targets — dashboard**: Weekly goal "Set"/"Save" buttons (28–30px → 36px), "All records →" link (15px → 36px), PR table exercise links (17px → 36px).
+- **Touch targets — nav user chip**: Username link (16px → 36px inline-flex), Sign out button (30px → 36px).
+- **Touch targets — `.btn` base class**: Global minimum raised from 38px to 44px; affects Start Session and all secondary action buttons.
 
 ---
 
