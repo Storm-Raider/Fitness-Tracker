@@ -31,6 +31,9 @@ All notable changes to FitStorm are documented here.
 - `exercises` table: `muscle_primary` and `muscle_secondary` columns dropped via `ALTER TABLE … DROP COLUMN` migration; data is now exclusively in `exercise_muscles`
 - Exercise seeding: `UPDATE exercises` no longer writes to the dropped columns; `exercises.py` entries retain those keys to drive `exercise_muscles` seeding
 
+### Added
+- **Pi-grade Industrial design system** — spacing tokens (`--sp-2xs` → `--sp-3xl`), `<main>` landmark, nav `aria-label`, `text-wrap: balance` on headings, `font-variant-numeric: tabular-nums` on numeric values.
+
 ### Fixed
 - **Case-insensitive login** — usernames are now matched case-insensitively at login. `Admin`, `ADMIN`, and `admin` all resolve to the same account.
 
