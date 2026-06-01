@@ -139,6 +139,9 @@ _MIGRATIONS = [
         updated_at TEXT    NOT NULL DEFAULT (datetime('now','localtime')),
         UNIQUE(attempt_id, day_date)
     )""",
+    # Custom per-attempt rules for editable challenges (75 Medium).
+    # NULL means "use template defaults"; JSON array means user-defined rules.
+    "ALTER TABLE challenge_attempts ADD COLUMN rules_json TEXT NULL",
 ]
 
 

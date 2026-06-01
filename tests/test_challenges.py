@@ -156,3 +156,78 @@ async def test_medium_photo_optional_does_not_block_completion(client, db):
         await client.post(f"/challenges/{aid}/checkin", json={"day_date": today, "rule_key": rk, "done": True})
     async with db.execute("SELECT status FROM challenge_attempts WHERE id=?", (aid,)) as c:
         assert (await c.fetchone())["status"] == "completed"
+
+
+# ── Custom rules (editable challenges) ──────────────────────────────────────
+
+CUSTOM_RULES = [
+    {"key": "workout1", "kind": "workout", "label": "Morning run — 30 min"},
+    {"key": "journal",  "kind": "manual",  "label": "Write in journal"},
+    {"key": "sleep",    "kind": "manual",  "label": "8 hours sleep"},
+]
+
+
+@pytest.mark.asyncio
+async def test_custom_rules_stored_and_used(client, db):
+    r = await client.post("/challenges", json={"template_key": "75_medium", "rules": CUSTOM_RULES})
+    assert r.status_code == 201
+    aid = r.json()["id"]
+    async with db.execute("SELECT rules_json FROM challenge_attempts WHERE id=?", (aid,)) as c:
+        stored = json.loads((await c.fetchone())["rules_json"])
+    assert [r["key"] for r in stored] == ["workout1", "journal", "sleep"]
+    page = (await client.get(f"/challenges/{aid}", headers={"Accept": "text/html"})).text
+    assert "Morning run" in page
+    assert "Write in journal" in page
+
+
+@pytest.mark.asyncio
+async def test_checkin_accepts_custom_rule_key(client):
+    r = await client.post("/challenges", json={"template_key": "75_medium", "rules": CUSTOM_RULES})
+    aid = r.json()["id"]
+    today = date.today().isoformat()
+    r = await client.post(f"/challenges/{aid}/checkin",
+                          json={"day_date": today, "rule_key": "journal", "done": True})
+    assert r.status_code == 200
+
+
+@pytest.mark.asyncio
+async def test_checkin_rejects_unknown_custom_key(client):
+    r = await client.post("/challenges", json={"template_key": "75_medium", "rules": CUSTOM_RULES})
+    aid = r.json()["id"]
+    r = await client.post(f"/challenges/{aid}/checkin",
+                          json={"day_date": date.today().isoformat(), "rule_key": "diet", "done": True})
+    # "diet" is a default key not present in the custom rule set
+    assert r.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_custom_rules_carried_on_restart(client, db):
+    r = await client.post("/challenges", json={"template_key": "75_medium", "rules": CUSTOM_RULES})
+    aid = r.json()["id"]
+    await client.post(f"/challenges/{aid}/abandon")
+    r2 = await client.post(f"/challenges/{aid}/restart")
+    new_id = r2.json()["id"]
+    async with db.execute("SELECT rules_json FROM challenge_attempts WHERE id=?", (new_id,)) as c:
+        stored = json.loads((await c.fetchone())["rules_json"])
+    assert [r["key"] for r in stored] == ["workout1", "journal", "sleep"]
+
+
+@pytest.mark.asyncio
+async def test_custom_rules_not_allowed_on_non_editable(client):
+    r = await client.post("/challenges", json={"template_key": "75_hard", "rules": CUSTOM_RULES})
+    assert r.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_custom_rules_empty_list_rejected(client):
+    r = await client.post("/challenges", json={"template_key": "75_medium", "rules": []})
+    assert r.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_default_rules_still_work_for_medium(client):
+    aid = await _start(client, "75_medium")
+    today = date.today().isoformat()
+    r = await client.post(f"/challenges/{aid}/checkin",
+                          json={"day_date": today, "rule_key": "diet", "done": True})
+    assert r.status_code == 200

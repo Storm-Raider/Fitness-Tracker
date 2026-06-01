@@ -57,6 +57,17 @@ async def checkins_for(conn: aiosqlite.Connection, attempt_id: int) -> dict[str,
     return out
 
 
+def attempt_rules(attempt: dict, template: dict) -> list[dict]:
+    """Return per-attempt custom rules when stored, otherwise template defaults."""
+    raw = attempt.get("rules_json")
+    if raw:
+        try:
+            return json.loads(raw)
+        except (json.JSONDecodeError, TypeError):
+            pass
+    return template["rules"]
+
+
 def rule_done(rule: dict, day_str: str, checks: dict, train_dates: set[str]) -> bool:
     val = bool(checks.get(rule["key"]))
     if rule["kind"] == "workout":
@@ -88,6 +99,12 @@ async def evaluate_attempt(
     if train_dates is None:
         train_dates = await training_dates(conn, attempt["user_id"])
     checks = await checkins_for(conn, attempt["id"])
+
+    # Apply per-attempt custom rules when present (editable challenges).
+    if template:
+        effective_rules = attempt_rules(attempt, template)
+        if effective_rules is not template["rules"]:
+            template = {**template, "rules": effective_rules}
 
     start = date.fromisoformat(attempt["started_on"])
     total = attempt["total_days"]

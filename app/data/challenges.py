@@ -32,6 +32,7 @@ CHALLENGES = [
         "key": "75_medium",
         "name": "75 Medium",
         "total_days": 75,
+        "editable": True,
         "tagline": "Sustainable discipline. One workout a day, a little grace.",
         "rules": [
             {"key": "workout1", "label": "Workout — 45 min", "kind": "workout"},
