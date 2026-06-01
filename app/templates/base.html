@@ -607,6 +607,14 @@
       border-color: var(--accent);
       box-shadow: var(--glow);
     }
+    /* Visible focus ring for keyboard navigation on any interactive element */
+    *:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+    }
+    input:focus-visible, select:focus-visible, textarea:focus-visible {
+      outline: none; /* glow already handles this via border + box-shadow */
+    }
     label {
       font-size: 0.72rem;
       color: var(--muted);
