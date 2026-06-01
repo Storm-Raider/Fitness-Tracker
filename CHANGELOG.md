@@ -32,6 +32,7 @@ All notable changes to FitStorm are documented here.
 - Exercise seeding: `UPDATE exercises` no longer writes to the dropped columns; `exercises.py` entries retain those keys to drive `exercise_muscles` seeding
 
 ### Added
+- **Edit rules on active 75 Medium challenge** — the challenge detail page now shows a Rules card with an Edit button. Rename rules, toggle optional, add or remove entries mid-run. Checkins immediately use the updated rule set.
 - **Editable 75 Medium rules** — the 75 Medium challenge card now shows an inline rule editor before starting. Edit any rule label, mark rules optional, remove non-workout rules, and add new ones. Custom rules are stored per-attempt and carried through restarts. 75 Hard stays fixed.
 
 ### Fixed
