@@ -451,7 +451,12 @@
       padding: 1.5rem 1.5rem calc(1.5rem + var(--nav-h, 56px));
       animation: fadeUp 0.22s ease both;
     }
-    @media (max-width: 480px) {
+    /* Clear the fixed .mob-tab-bar (64px + safe-area), which is shown across the
+       whole <=767px range. This must match the bar's breakpoint, not 480px —
+       otherwise the 481-767px band falls back to the desktop --nav-h padding
+       (0 here, since the desktop nav is display:none) and content hides under
+       the bar. */
+    @media (max-width: 767px) {
       .container { padding: 1rem 0.75rem calc(1rem + 64px + env(safe-area-inset-bottom, 0px)); }
     }
     @keyframes fadeUp {
