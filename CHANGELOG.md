@@ -32,12 +32,14 @@ All notable changes to FitStorm are documented here.
 - Exercise seeding: `UPDATE exercises` no longer writes to the dropped columns; `exercises.py` entries retain those keys to drive `exercise_muscles` seeding
 
 ### Added
+- **km / mi distance unit** — cardio distances and pace now convert between km and mi. Set in Settings → Units alongside the existing kg/lbs toggle. Preference persisted per-user.
 - **Daily Log** (`/journal`) — structured daily check-in: day number, weight, workout, 3 meals, water, energy, motivation, sleep, steps, notes. Auto-fills challenge day number from active run. Dashboard nudge until today's entry is saved. History of last 60 days with one-tap copy.
 - **Planner: Load saved plans** — each saved mesocycle plan now has a Load button that restores goal, weeks, and lifts into the builder and regenerates the week-by-week table.
 - **Workout search** — filter the workouts list by exercise name, date, or notes via `?q=`. Searches full set history (not just the 3-exercise preview). 300ms debounce, clear link, distinct empty state.
 - **Pi-grade Industrial design system** — spacing tokens (`--sp-2xs` → `--sp-3xl`), `<main>` landmark, nav `aria-label`, `text-wrap: balance` on headings, `font-variant-numeric: tabular-nums` on numeric values.
 
 ### Fixed
+- **Weight unit gaps** — journal history, metrics table, and PRs bodyweight display now convert correctly when toggling kg/lbs.
 - **Double-tap zoom** — `touch-action: manipulation` applied directly to all interactive elements (buttons, links, inputs). The body-level setting wasn't inherited. iOS inputs on Daily Log also forced to 16px to prevent focus-triggered zoom.
 - **Daily Log icon size** — mob-more-item was missing the `.mob-more-icon` wrapper, rendering at 18px instead of 22px like all other items.
 - **Exception handling** — `stats.py` date parsing now catches `ValueError` instead of bare `Exception`; `achievements.py` DB insert failures now log a warning instead of silently passing.
