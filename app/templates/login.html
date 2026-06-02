@@ -175,6 +175,11 @@
       color: #5a6a82;
       margin-top: 1.25rem;
     }
+    /* Prevent iOS/Android tap-to-zoom: focused inputs must be >=16px on any
+       touch device (pointer:coarse), regardless of width. Pinch-zoom unaffected. */
+    @media (pointer: coarse) {
+      input, select, textarea { font-size: 16px !important; }
+    }
   </style>
 </head>
 <body>

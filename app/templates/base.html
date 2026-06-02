@@ -623,6 +623,15 @@
       width: 100%;
       transition: border-color 0.15s, box-shadow 0.15s;
     }
+    /* Kill tap-to-zoom on focus for EVERY touch device, not just narrow ones.
+       iOS/Android zoom when a focused field computes < 16px — and that happens
+       on iPads and landscape phones (viewport > 767px) too, which a width-based
+       media query misses. `pointer: coarse` targets exactly the touch devices
+       where focus-zoom occurs. !important overrides the many inline font sizes.
+       Pinch-zoom is untouched (the viewport meta has no scale lock). */
+    @media (pointer: coarse) {
+      input, select, textarea { font-size: 16px !important; }
+    }
     input:focus, select:focus, textarea:focus {
       outline: none;
       border-color: var(--accent);
