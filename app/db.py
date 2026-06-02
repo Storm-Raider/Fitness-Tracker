@@ -151,6 +151,26 @@ _MIGRATIONS = [
         created_at TEXT    NOT NULL DEFAULT (datetime('now','localtime'))
     )""",
     "CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions(user_id)",
+    """CREATE TABLE IF NOT EXISTS daily_logs (
+        id           INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id      INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        log_date     TEXT    NOT NULL,
+        day_number   INTEGER,
+        weight_kg    REAL,
+        workout      TEXT,
+        meal_1       TEXT,
+        meal_2       TEXT,
+        meal_3       TEXT,
+        water_l      REAL,
+        energy       TEXT CHECK(energy IN ('low','medium','high')),
+        motivation   TEXT CHECK(motivation IN ('low','medium','high')),
+        sleep_hrs    REAL,
+        steps        INTEGER,
+        notes        TEXT,
+        created_at   TEXT NOT NULL DEFAULT (datetime('now','localtime')),
+        UNIQUE(user_id, log_date)
+    )""",
+    "CREATE INDEX IF NOT EXISTS idx_daily_logs_user ON daily_logs(user_id, log_date)",
 ]
 
 

@@ -1,0 +1,245 @@
+{% extends "base.html" %}
+{% block title %}Daily Log — FitStorm{% endblock %}
+{% block content %}
+<style>
+.jf-row { display:flex; flex-direction:column; gap:0.3rem; margin-bottom:1rem; }
+.jf-row label { font-size:0.72rem; font-weight:700; text-transform:uppercase;
+  letter-spacing:0.06em; color:var(--muted); }
+.jf-row input[type=text], .jf-row input[type=number], .jf-row textarea {
+  width:100%; }
+.jf-row textarea { resize:vertical; min-height:60px; }
+
+.seg { display:flex; gap:0.35rem; }
+.seg-btn {
+  flex:1; padding:0.45rem 0.5rem; border:1.5px solid var(--border);
+  border-radius:var(--radius-xs); background:var(--surface-2); color:var(--muted);
+  cursor:pointer; font-family:'Barlow',inherit; font-size:0.78rem; font-weight:700;
+  letter-spacing:0.04em; text-transform:uppercase; transition:all 0.13s; text-align:center;
+}
+.seg-btn:hover { border-color:var(--border-mid); color:var(--text); }
+.seg-btn.active { border-color:var(--accent); color:var(--accent); background:var(--accent-dim); }
+
+.hist-row { display:flex; align-items:center; gap:0.75rem; padding:0.7rem 1rem;
+  border-bottom:1px solid rgba(30,35,52,0.55); cursor:pointer; transition:background 0.12s; }
+.hist-row:last-child { border-bottom:none; }
+.hist-row:hover { background:rgba(255,255,255,0.025); }
+.hist-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; background:var(--border-mid); }
+.hist-dot.filled { background:var(--success); }
+</style>
+
+<div class="page-hd">
+  <div>
+    <h1>Daily Log</h1>
+    <div class="subtitle">{{ today }}</div>
+  </div>
+</div>
+
+<div class="card" style="margin-bottom:1.5rem;">
+  <div class="section-title" style="margin-bottom:1rem;">Today's entry</div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:0 1rem;">
+
+    <div class="jf-row">
+      <label for="j-day">Day number</label>
+      <input type="number" id="j-day" min="1" placeholder="e.g. {{ active_day or 1 }}"
+             value="{{ today_log.day_number if today_log and today_log.day_number else (active_day or '') }}">
+    </div>
+
+    <div class="jf-row">
+      <label for="j-weight">Weight (kg)</label>
+      <input type="number" id="j-weight" min="0" max="500" step="0.1" placeholder="e.g. 114"
+             value="{{ today_log.weight_kg if today_log and today_log.weight_kg else '' }}">
+    </div>
+
+  </div>
+
+  <div class="jf-row">
+    <label for="j-workout">Workout</label>
+    <input type="text" id="j-workout" maxlength="200" placeholder="e.g. Level 2 Day 4"
+           value="{{ today_log.workout or '' }}">
+  </div>
+
+  <div class="jf-row">
+    <label for="j-meal1">Meal 1</label>
+    <input type="text" id="j-meal1" maxlength="300" placeholder="e.g. Coffee + Vitamin D, C"
+           value="{{ today_log.meal_1 or '' }}">
+  </div>
+
+  <div class="jf-row">
+    <label for="j-meal2">Meal 2</label>
+    <input type="text" id="j-meal2" maxlength="300" placeholder="e.g. Salmon + veggies + multivitamins"
+           value="{{ today_log.meal_2 or '' }}">
+  </div>
+
+  <div class="jf-row">
+    <label for="j-meal3">Meal 3</label>
+    <input type="text" id="j-meal3" maxlength="300" placeholder="e.g. Chicken + rice + vegetables"
+           value="{{ today_log.meal_3 or '' }}">
+  </div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:0 1rem;">
+
+    <div class="jf-row">
+      <label for="j-water">Water (L)</label>
+      <input type="number" id="j-water" min="0" max="20" step="0.1" placeholder="e.g. 2"
+             value="{{ today_log.water_l if today_log and today_log.water_l else '' }}">
+    </div>
+
+    <div class="jf-row">
+      <label for="j-sleep">Sleep (hrs)</label>
+      <input type="number" id="j-sleep" min="0" max="24" step="0.5" placeholder="e.g. 8"
+             value="{{ today_log.sleep_hrs if today_log and today_log.sleep_hrs else '' }}">
+    </div>
+
+    <div class="jf-row">
+      <label for="j-steps">Steps</label>
+      <input type="number" id="j-steps" min="0" placeholder="e.g. 4000"
+             value="{{ today_log.steps if today_log and today_log.steps else '' }}">
+    </div>
+
+  </div>
+
+  <div class="jf-row">
+    <label>Energy</label>
+    <div class="seg" id="seg-energy">
+      {% for lvl in ['low', 'medium', 'high'] %}
+      <button type="button" class="seg-btn {% if today_log and today_log.energy == lvl %}active{% endif %}"
+              data-val="{{ lvl }}" onclick="pick('seg-energy',this)">{{ lvl }}</button>
+      {% endfor %}
+    </div>
+  </div>
+
+  <div class="jf-row">
+    <label>Motivation</label>
+    <div class="seg" id="seg-motivation">
+      {% for lvl in ['low', 'medium', 'high'] %}
+      <button type="button" class="seg-btn {% if today_log and today_log.motivation == lvl %}active{% endif %}"
+              data-val="{{ lvl }}" onclick="pick('seg-motivation',this)">{{ lvl }}</button>
+      {% endfor %}
+    </div>
+  </div>
+
+  <div class="jf-row" style="margin-bottom:1.25rem;">
+    <label for="j-notes">Notes</label>
+    <textarea id="j-notes" maxlength="1000" placeholder="Anything else worth noting…">{{ today_log.notes or '' }}</textarea>
+  </div>
+
+  <div style="display:flex;align-items:center;gap:0.75rem;">
+    <button class="btn btn-primary" id="save-btn" onclick="saveLog()">
+      <i data-lucide="save" style="width:14px;height:14px;pointer-events:none;"></i>
+      Save
+    </button>
+    <span id="save-msg" style="font-size:0.8rem;display:none;"></span>
+  </div>
+</div>
+
+{% if history %}
+<div class="section-title">History</div>
+<div class="card" style="padding:0;overflow:hidden;">
+  {% for entry in history %}
+  <div class="hist-row" onclick="fillFromHistory({{ entry | tojson }})">
+    <span class="hist-dot {% if entry.weight_kg or entry.workout or entry.meal_1 %}filled{% endif %}"></span>
+    <div style="flex:1;min-width:0;">
+      <div style="font-size:0.875rem;font-weight:600;">{{ entry.log_date }}
+        {% if entry.day_number %}<span style="font-size:0.72rem;color:var(--muted);margin-left:0.4rem;">Day {{ entry.day_number }}</span>{% endif %}
+      </div>
+      <div style="font-size:0.75rem;color:var(--muted);margin-top:0.1rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+        {% if entry.weight_kg %}{{ entry.weight_kg }} kg{% endif %}
+        {% if entry.workout %}{% if entry.weight_kg %} · {% endif %}{{ entry.workout }}{% endif %}
+        {% if entry.energy %}{% if entry.weight_kg or entry.workout %} · {% endif %}{{ entry.energy }} energy{% endif %}
+        {% if entry.sleep_hrs %}{% if entry.weight_kg or entry.workout or entry.energy %} · {% endif %}{{ entry.sleep_hrs }}h sleep{% endif %}
+      </div>
+    </div>
+    <span style="font-size:0.7rem;color:var(--muted-hi);flex-shrink:0;">
+      {% if entry.steps %}{{ "{:,}".format(entry.steps) }} steps{% endif %}
+    </span>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+<script>
+const TODAY = {{ today | tojson }};
+
+function pick(groupId, btn) {
+  document.querySelectorAll('#' + groupId + ' .seg-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.toggle('active', true);
+}
+
+function segVal(groupId) {
+  const active = document.querySelector('#' + groupId + ' .seg-btn.active');
+  return active ? active.dataset.val : null;
+}
+
+function num(id) {
+  const v = parseFloat(document.getElementById(id).value);
+  return isNaN(v) ? null : v;
+}
+function int(id) {
+  const v = parseInt(document.getElementById(id).value);
+  return isNaN(v) ? null : v;
+}
+function str(id) {
+  const v = document.getElementById(id).value.trim();
+  return v || null;
+}
+
+async function saveLog() {
+  const btn = document.getElementById('save-btn');
+  const msg = document.getElementById('save-msg');
+  btn.disabled = true;
+
+  const payload = {
+    log_date: TODAY,
+    day_number: int('j-day'),
+    weight_kg: num('j-weight'),
+    workout: str('j-workout'),
+    meal_1: str('j-meal1'),
+    meal_2: str('j-meal2'),
+    meal_3: str('j-meal3'),
+    water_l: num('j-water'),
+    energy: segVal('seg-energy'),
+    motivation: segVal('seg-motivation'),
+    sleep_hrs: num('j-sleep'),
+    steps: int('j-steps'),
+    notes: str('j-notes'),
+  };
+
+  const r = await fetch('/journal', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(payload),
+  });
+
+  btn.disabled = false;
+  if (r.ok) {
+    msg.textContent = '✓ Saved';
+    msg.style.color = 'var(--success)';
+    msg.style.display = 'inline';
+    setTimeout(() => { msg.style.display = 'none'; }, 2500);
+  } else {
+    msg.textContent = 'Failed — try again';
+    msg.style.color = 'var(--danger)';
+    msg.style.display = 'inline';
+  }
+}
+
+function fillFromHistory(entry) {
+  if (entry.log_date === TODAY) return; // already shown
+  if (!confirm('Load entry from ' + entry.log_date + ' into today\'s form?')) return;
+  if (entry.day_number) document.getElementById('j-day').value = entry.day_number;
+  if (entry.weight_kg)  document.getElementById('j-weight').value = entry.weight_kg;
+  if (entry.workout)    document.getElementById('j-workout').value = entry.workout;
+  if (entry.meal_1)     document.getElementById('j-meal1').value = entry.meal_1;
+  if (entry.meal_2)     document.getElementById('j-meal2').value = entry.meal_2;
+  if (entry.meal_3)     document.getElementById('j-meal3').value = entry.meal_3;
+  if (entry.water_l)    document.getElementById('j-water').value = entry.water_l;
+  if (entry.sleep_hrs)  document.getElementById('j-sleep').value = entry.sleep_hrs;
+  if (entry.steps)      document.getElementById('j-steps').value = entry.steps;
+  if (entry.notes)      document.getElementById('j-notes').value = entry.notes;
+  if (entry.energy)     { document.querySelectorAll('#seg-energy .seg-btn').forEach(b => b.classList.toggle('active', b.dataset.val===entry.energy)); }
+  if (entry.motivation) { document.querySelectorAll('#seg-motivation .seg-btn').forEach(b => b.classList.toggle('active', b.dataset.val===entry.motivation)); }
+  window.scrollTo({top:0, behavior:'smooth'});
+}
+</script>
+{% endblock %}

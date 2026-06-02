@@ -223,11 +223,19 @@ async def dashboard(
                     "total_days": v["total_days"], "today_done": done, "today_total": total,
                 })
 
+    # Today's daily log — used for dashboard nudge
+    today_iso = today.isoformat()
+    async with conn.execute(
+        "SELECT id FROM daily_logs WHERE user_id=? AND log_date=?", (uid, today_iso)
+    ) as cur:
+        today_log_filled = (await cur.fetchone()) is not None
+
     return render(
         request,
         "dashboard",
         {
             "active_challenges": active_challenges,
+            "today_log_filled": today_log_filled,
             "workouts": workouts,
             "prs": prs,
             "recent_prs": recent_prs,

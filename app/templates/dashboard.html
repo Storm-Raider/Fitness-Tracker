@@ -70,6 +70,17 @@
 </div>
 {% endif %}
 
+{% if not today_log_filled %}
+<a href="/journal" class="card" style="display:flex;align-items:center;gap:0.9rem;padding:0.8rem 1.1rem;margin-bottom:1rem;border-left:3px solid var(--accent);text-decoration:none;color:inherit;">
+  <i data-lucide="notebook-pen" style="width:18px;height:18px;color:var(--accent);flex-shrink:0;"></i>
+  <div style="flex:1;min-width:0;">
+    <div style="font-size:0.875rem;font-weight:600;">Fill today's daily log</div>
+    <div style="font-size:0.75rem;color:var(--muted);margin-top:0.1rem;">Weight · meals · energy · sleep · steps</div>
+  </div>
+  <i data-lucide="chevron-right" style="width:15px;height:15px;color:var(--muted);flex-shrink:0;"></i>
+</a>
+{% endif %}
+
 <div class="grid-3" style="margin-bottom:1rem;">
   {{ stat_card("calendar-days", weekly_sessions, "Sessions this week", "var(--text)") }}
   {{ stat_card("dumbbell", "", "Volume this week", "var(--accent)", "rgba(79,156,249,0.1)", kg_raw=weekly_volume) }}
