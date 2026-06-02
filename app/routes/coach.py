@@ -55,6 +55,62 @@ GOALS = {
     "general": "well-rounded general fitness — mix of compound and accessory work",
 }
 
+# Per-goal set/rep/intensity prescriptions shown verbatim in the prompt.
+_GOAL_PRESCRIPTION = {
+    "strength": (
+        "Primary compounds: 4–5 sets × 3–5 reps @ 80–90% 1RM, rest 3–5 min.\n"
+        "Accessory lifts: 3 sets × 6–8 reps, rest 2 min.\n"
+        "Prioritise: Squat, Deadlift, Bench Press, Overhead Press, Barbell Row."
+    ),
+    "hypertrophy": (
+        "Primary compounds: 4 sets × 8–10 reps @ 65–75% 1RM, rest 90 sec.\n"
+        "Accessory/isolation: 3–4 sets × 10–15 reps, rest 60 sec.\n"
+        "Include at least one compound per muscle group."
+    ),
+    "balance": (
+        "Focus every day on the athlete's most undertrained muscles.\n"
+        "3–4 sets × 10–15 reps. Include unilateral movements (split squats,\n"
+        "single-arm rows) to correct side-to-side asymmetry."
+    ),
+    "general": (
+        "Alternate heavy (4 × 5–8) and moderate (3 × 10–12) sessions.\n"
+        "Include at least one compound, one hinge, one vertical pull per week.\n"
+        "Add 1–2 core exercises per session."
+    ),
+}
+
+# Recommended split structure by days/week — shown in the prompt to guide day labels.
+_SPLIT_GUIDE = {
+    1: "Full Body — train every major muscle group in one session.",
+    2: "Upper / Lower — Day 1: Upper Body, Day 2: Lower Body.",
+    3: "Push / Pull / Legs  OR  Full Body × 3.",
+    4: "Upper/Lower × 2 — Upper A · Lower A · Upper B · Lower B.",
+    5: "Push / Pull / Legs / Upper / Lower.",
+    6: "Push A · Pull A · Legs A · Push B · Pull B · Legs B.",
+    7: "PPL × 2 + 1 active recovery or conditioning day.",
+}
+
+# Conventional movements that ALWAYS appear at the top of the catalog,
+# regardless of whether the athlete has trained them.  Prevents the model
+# from building plans out of obscure machines because the user happens to
+# have logged only one movement.
+_PRIORITY_EXERCISES = [
+    # Legs
+    "Back Squat", "Deadlift", "Romanian Deadlift", "Leg Press",
+    "Bulgarian Split Squat", "Hip Thrust", "Leg Curl", "Leg Extension",
+    "Lunge", "Calf Raise",
+    # Push
+    "Bench Press", "Overhead Press", "Incline Bench Press",
+    "Dumbbell Bench Press", "Incline Dumbbell Press",
+    "Dumbbell Shoulder Press", "Dip", "Lateral Raise", "Tricep Pushdown",
+    # Pull
+    "Barbell Row", "Chin-up", "Pull-up", "Lat Pulldown", "Cable Row",
+    "Dumbbell Row", "Face Pull", "Barbell Curl", "Hammer Curl",
+    # Core / Full Body
+    "Plank", "Hanging Leg Raise", "Ab Wheel Rollout",
+    "Farmer's Carry", "Kettlebell Swing",
+]
+
 # Ollama structured-output schema, built per request. Pinning the day count
 # (minItems == maxItems == days) and a minimum exercises-per-day pushes the
 # small model toward a complete plan rather than stopping after one or two
@@ -222,16 +278,23 @@ async def build_profile(conn: aiosqlite.Connection, uid: int) -> dict:
 # Equipment ranked by how "staple" it is — biases the shortlist toward
 # compound barbell/dumbbell work over isolation machines.
 _EQUIP_RANK = {"Barbell": 0, "Dumbbell": 1, "Bodyweight": 2, "Cable": 3, "Machine": 4}
-_PER_CATEGORY = 8  # cap names per category to keep the prompt small enough for on-device inference
+_PER_CATEGORY = 12  # cap names per category to keep the prompt small enough for on-device inference
+
+# Rank lookup for the conventional staples — lower index = higher priority.
+_PRIORITY_RANK = {name.lower(): i for i, name in enumerate(_PRIORITY_EXERCISES)}
 
 
 async def _exercise_catalog(conn: aiosqlite.Connection, uid: int) -> dict[str, list[str]]:
     """
     A focused, capped shortlist of pickable exercises grouped by category
-    (Cardio excluded). Movements the athlete already trains rank first, then
-    barbell/dumbbell staples. Kept small so the prompt fits the time budget of
-    a local model — generated names are still validated against the full
-    library at save time, so nothing here limits what can ultimately be stored.
+    (Cardio excluded). Ordering within each category:
+      1. Conventional staples (_PRIORITY_EXERCISES) — always surfaced first so
+         the model has the textbook compounds to build a real split from.
+      2. Movements the athlete already trains.
+      3. Barbell/dumbbell staples over isolation machines.
+    Kept small so the prompt fits the time budget of a local model — generated
+    names are still validated against the full library at save time, so nothing
+    here limits what can ultimately be stored.
     """
     async with conn.execute(
         """
@@ -247,8 +310,9 @@ async def _exercise_catalog(conn: aiosqlite.Connection, uid: int) -> dict[str, l
         rows = [dict(r) for r in await cur.fetchall()]
 
     rows.sort(key=lambda r: (
-        0 if r["used"] else 1,                 # exercises the user trains come first
-        _EQUIP_RANK.get(r["equipment"], 5),    # then staple equipment
+        _PRIORITY_RANK.get(r["name"].lower(), 999),  # conventional staples first
+        0 if r["used"] else 1,                        # then exercises the user trains
+        _EQUIP_RANK.get(r["equipment"], 5),           # then staple equipment
         r["name"],
     ))
 
@@ -294,26 +358,57 @@ def _build_prompt(goal: str, days: int, profile: dict, catalog: dict, focus_note
         lines.append(f"- Estimated 1RMs: {lifts}")
     lines.append("")
 
+    lines.append(f"RECOMMENDED SPLIT for {days} day(s)/week:")
+    lines.append(f"- {_SPLIT_GUIDE.get(days, 'Distribute muscle groups evenly across the week.')}")
+    lines.append("")
+
+    lines.append(f"PRESCRIPTION for this goal ({goal}):")
+    lines.append(_GOAL_PRESCRIPTION[goal])
+    lines.append("")
+
     lines.append("ALLOWED EXERCISES (use these EXACT names only):")
     for cat, names in catalog.items():
         lines.append(f"- {cat}: {', '.join(names)}")
     lines.append("")
 
     lines.append(
-        f"Design a {days}-day weekly training split for this athlete. "
-        f"Return exactly {days} day(s). Each day needs a short focus label "
-        "(e.g. 'Push', 'Lower Body', 'Full Body') and 4–7 exercises. "
-        "For every exercise give sets (integer) and a rep target (e.g. '8-12' "
-        "or '5'), plus a brief coaching note. Favour movements the athlete "
-        "already trains, but deliberately add work for under-trained muscles. "
-        "Only use exercise names from the ALLOWED list above."
+        f"Design a {days}-day weekly training split for this athlete following "
+        f"the recommended split and prescription above. Return exactly {days} "
+        "day(s).\n"
+        "RULES:\n"
+        "1. Each day starts with 1–2 heavy COMPOUND lifts (Squat, Deadlift, "
+        "Bench Press, Overhead Press, Row, Pull-up), then accessories.\n"
+        "2. Order exercises hardest-first: big compounds before isolation.\n"
+        "3. Give each day a clear focus label (e.g. 'Push', 'Pull', 'Legs', "
+        "'Upper Body', 'Full Body') matching the recommended split.\n"
+        "4. 4–7 exercises per day. Use the goal's set/rep scheme above.\n"
+        "5. Every exercise needs sets (integer), a rep target (e.g. '8-12' or "
+        "'5'), and a note that includes a PROGRESSION cue (e.g. 'add 2.5kg when "
+        "you hit the top of the rep range', 'add 1 rep per week').\n"
+        "6. Don't repeat the same primary compound on back-to-back days — allow "
+        "48h recovery for a muscle group.\n"
+        "7. Favour movements the athlete already trains, but deliberately add "
+        "work for the under-trained muscles listed above.\n"
+        "8. Only use exercise names from the ALLOWED list — exact spelling."
     )
     return "\n".join(lines)
 
 
 _SYSTEM_PROMPT = (
-    "You are an elite strength & conditioning coach building a personalised "
-    "weekly training routine. You reason from the athlete's real logged history. "
+    "You are an elite strength & conditioning coach with 20 years of experience "
+    "programming for powerlifters, bodybuilders, and general-population clients. "
+    "You build conventional, evidence-based weekly routines grounded in the "
+    "athlete's real logged history.\n\n"
+    "Core principles you ALWAYS follow:\n"
+    "- Compound lifts first, isolation last. Every session is anchored by a big "
+    "barbell or bodyweight compound.\n"
+    "- Progressive overload: every exercise note tells the athlete how to add "
+    "weight or reps over time.\n"
+    "- Recovery: 48h between training the same muscle group hard; no heavy "
+    "squats and deadlifts on consecutive days.\n"
+    "- Balanced push/pull ratio and adequate weekly volume per muscle group "
+    "(10–20 hard sets/week).\n"
+    "- Proven splits (Full Body, Upper/Lower, Push/Pull/Legs) over novel ones.\n\n"
     "You only prescribe exercises from the provided allowed list, using their "
     "exact names. You return your plan strictly as JSON matching the requested "
     "schema — no prose outside the JSON."

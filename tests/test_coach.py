@@ -248,3 +248,27 @@ async def test_plan_isolation_between_users(client, user_b_client, db):
     # user B cannot delete user A's plan
     resp = await user_b_client.delete(f"/coach/plans/{pid}")
     assert resp.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_catalog_prioritises_conventional_compounds(db):
+    """The exercise catalog must surface staple compounds (Back Squat, Bench
+    Press, Deadlift) even for a user with no logged history."""
+    catalog = await coach._exercise_catalog(db, uid=1)
+    flat = [name for names in catalog.values() for name in names]
+    for staple in ("Back Squat", "Bench Press", "Deadlift", "Barbell Row", "Overhead Press"):
+        assert staple in flat, f"{staple} missing from coach catalog"
+
+
+@pytest.mark.asyncio
+async def test_prompt_includes_split_and_prescription(db):
+    """The generated prompt must carry the split guide + goal prescription so
+    the model produces conventional programming."""
+    profile = await coach.build_profile(db, uid=1)
+    catalog = await coach._exercise_catalog(db, uid=1)
+    prompt = coach._build_prompt("strength", 3, profile, catalog, "")
+    assert "RECOMMENDED SPLIT" in prompt
+    assert "Push / Pull / Legs" in prompt
+    assert "PRESCRIPTION" in prompt
+    assert "80–90% 1RM" in prompt
+    assert "PROGRESSION" in prompt
