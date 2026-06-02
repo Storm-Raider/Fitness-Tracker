@@ -184,6 +184,11 @@ _MIGRATIONS = [
     # records the extra plate/belt weight and flags the set as bodyweight for
     # display ("BW +20kg" vs a bare number).
     "ALTER TABLE sets ADD COLUMN added_weight_kg REAL",
+    # Timed-hold exercises (planks): log_type='time' on the exercise; a set then
+    # stores duration_seconds and reps=0 (so it stays out of the kg-volume sum,
+    # which is weight×reps). Holds progress by time, not volume.
+    "ALTER TABLE exercises ADD COLUMN log_type TEXT",
+    "ALTER TABLE sets ADD COLUMN duration_seconds INTEGER",
 ]
 
 
@@ -233,12 +238,13 @@ async def init_db(conn: aiosqlite.Connection) -> None:
         )
         await conn.execute(
             """UPDATE exercises
-               SET category=?, equipment=?, cue=?
+               SET category=?, equipment=?, cue=?, log_type=?
                WHERE name=?""",
             (
                 ex["category"],
                 ex["equipment"],
                 ex["cue"],
+                ex.get("log_type", "reps"),
                 ex["name"],
             ),
         )

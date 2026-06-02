@@ -64,6 +64,7 @@ class SetIn(BaseModel):
     reps: int = Field(ge=1, le=999)
     weight_kg: float = Field(ge=0.0, le=1000.0)  # effective load (bodyweight + added for BW sets)
     added_weight_kg: float | None = Field(default=None, ge=0.0, le=500.0)  # NULL = normal weighted set
+    duration_seconds: int | None = Field(default=None, ge=1, le=7200)  # set = a timed hold (plank)
     notes: str | None = Field(default=None, max_length=500)
     rpe: int | None = Field(default=None, ge=1, le=10)
 
@@ -185,7 +186,7 @@ async def get_workout(
     async with conn.execute(
         """
         SELECT s.id, s.exercise_id, e.name AS exercise_name, s.reps, s.weight_kg,
-               s.added_weight_kg, s.notes, s.rpe
+               s.added_weight_kg, s.duration_seconds, s.notes, s.rpe
         FROM sets s
         JOIN exercises e ON e.id = s.exercise_id
         WHERE s.workout_id = ? AND s.user_id = ?
@@ -308,11 +309,17 @@ async def add_set(
             prior_row = await cur.fetchone()
         prior_max = prior_row["max_kg"] if prior_row and prior_row["max_kg"] else None
 
+        # A timed hold stores reps=0 so it's excluded from the kg-volume sum
+        # (weight × reps); its progression metric is duration, not volume.
+        is_time = body.duration_seconds is not None
+        reps_to_store = 0 if is_time else body.reps
+
         async with conn.execute(
-            "INSERT INTO sets(workout_id, exercise_id, reps, weight_kg, added_weight_kg, notes, rpe, user_id) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-            (workout_id, body.exercise_id, body.reps, body.weight_kg, body.added_weight_kg,
-             body.notes, body.rpe, uid),
+            "INSERT INTO sets(workout_id, exercise_id, reps, weight_kg, added_weight_kg, "
+            "duration_seconds, notes, rpe, user_id) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (workout_id, body.exercise_id, reps_to_store, body.weight_kg, body.added_weight_kg,
+             body.duration_seconds, body.notes, body.rpe, uid),
         ) as cur:
             set_id = cur.lastrowid
 
@@ -321,7 +328,8 @@ async def add_set(
         await conn.execute("ROLLBACK")
         raise
 
-    is_pr = prior_max is None or body.weight_kg > prior_max
+    # No weight-PR for timed holds — their progression is duration, not load.
+    is_pr = (not is_time) and (prior_max is None or body.weight_kg > prior_max)
     current_pr = body.weight_kg if is_pr else prior_max
 
     webhook_url = os.environ.get("WEBHOOK_URL", "").strip()
@@ -344,7 +352,8 @@ async def add_set(
 
     return JSONResponse(
         {"id": set_id, "is_pr": is_pr, "current_pr": current_pr,
-         "added_weight_kg": body.added_weight_kg}, status_code=201
+         "added_weight_kg": body.added_weight_kg,
+         "duration_seconds": body.duration_seconds}, status_code=201
     )
 
 

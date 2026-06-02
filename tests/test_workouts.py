@@ -302,3 +302,51 @@ async def test_regular_set_has_null_added_weight(client, db_conn):
     assert r.json()["added_weight_kg"] is None
     async with db_conn.execute("SELECT added_weight_kg FROM sets WHERE id=?", (r.json()["id"],)) as c:
         assert (await c.fetchone())["added_weight_kg"] is None
+
+
+# ── Timed-hold sets (planks) ─────────────────────────────────────────────────
+
+async def _plank_id(db_conn):
+    async with db_conn.execute("SELECT id FROM exercises WHERE name='Plank'") as c:
+        return (await c.fetchone())["id"]
+
+
+@pytest.mark.asyncio
+async def test_time_set_stores_duration_and_zero_reps(client, db_conn):
+    ex_id = await _plank_id(db_conn)
+    w = await client.post("/workouts", json={"notes": None})
+    w_id = w.json()["id"]
+    # 60s plank at bodyweight 80kg; reps placeholder 1, server stores 0
+    r = await client.post(f"/workouts/{w_id}/sets",
+                          json={"exercise_id": ex_id, "reps": 1, "weight_kg": 80.0,
+                                "added_weight_kg": 0.0, "duration_seconds": 60})
+    assert r.status_code == 201
+    assert r.json()["duration_seconds"] == 60
+    assert r.json()["is_pr"] is False          # holds don't make weight PRs
+    async with db_conn.execute("SELECT reps, duration_seconds FROM sets WHERE id=?", (r.json()["id"],)) as c:
+        row = await c.fetchone()
+    assert row["reps"] == 0                      # excluded from weight×reps volume
+    assert row["duration_seconds"] == 60
+
+
+@pytest.mark.asyncio
+async def test_time_set_excluded_from_volume(client, db_conn):
+    ex_id = await _plank_id(db_conn)
+    w = await client.post("/workouts", json={"notes": None})
+    w_id = w.json()["id"]
+    await client.post(f"/workouts/{w_id}/sets",
+                      json={"exercise_id": ex_id, "reps": 1, "weight_kg": 80.0, "duration_seconds": 45})
+    # Workout volume should be 0 (reps=0 for the hold)
+    async with db_conn.execute(
+        "SELECT COALESCE(SUM(weight_kg*reps),0) AS vol FROM sets WHERE workout_id=?", (w_id,)
+    ) as c:
+        assert (await c.fetchone())["vol"] == 0
+
+
+@pytest.mark.asyncio
+async def test_api_exercises_flags_time(client):
+    data = (await client.get("/api/exercises")).json()
+    plank = next((e for e in data["exercises"] if e["name"] == "Plank"), None)
+    bench = next((e for e in data["exercises"] if e["name"] == "Bench Press"), None)
+    assert plank is not None and plank["is_time"] is True
+    assert bench is not None and bench["is_time"] is False

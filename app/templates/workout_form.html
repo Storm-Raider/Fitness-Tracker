@@ -785,6 +785,17 @@
 {% endblock %}
 
 {% block content %}
+{# Set load+metric label: timed hold ("BW · 1:00"), bodyweight ("BW +10kg × 12"),
+   or a normal weighted set. Mirrors the JS render of newly logged sets. #}
+{%- macro set_metric(s) -%}
+{%- if s.duration_seconds is not none -%}
+{%- if s.added_weight_kg is not none -%}{% if s.added_weight_kg and s.added_weight_kg > 0 %}BW +<span class="weight-display" data-kg="{{ s.added_weight_kg }}">{{ s.added_weight_kg }}</span>{% else %}BW{% endif %}{%- else -%}<span class="weight-display" data-kg="{{ s.weight_kg }}">{{ s.weight_kg }}</span>{%- endif %} · {{ '%d:%02d'|format(s.duration_seconds // 60, s.duration_seconds % 60) }}
+{%- elif s.added_weight_kg is not none -%}
+{% if s.added_weight_kg and s.added_weight_kg > 0 %}BW +<span class="weight-display" data-kg="{{ s.added_weight_kg }}">{{ s.added_weight_kg }}</span>{% else %}BW{% endif %} × {{ s.reps }}
+{%- else -%}
+<span class="weight-display" data-kg="{{ s.weight_kg }}">{{ s.weight_kg }}</span> × {{ s.reps }}
+{%- endif -%}
+{%- endmacro -%}
 
 {# ── PR toast ── #}
 <div id="pr-badge">🏆 New PR!</div>
@@ -870,7 +881,7 @@
       <div class="set-body">
         <div class="set-name">{{ s.exercise_name }}</div>
         <div class="set-detail" id="detail-{{ s.id }}">
-          {% if s.added_weight_kg is not none %}{% if s.added_weight_kg and s.added_weight_kg > 0 %}BW +<span class="weight-display" data-kg="{{ s.added_weight_kg }}">{{ s.added_weight_kg }}</span>{% else %}BW{% endif %}{% else %}<span class="weight-display" data-kg="{{ s.weight_kg }}">{{ s.weight_kg }}</span>{% endif %} × {{ s.reps }}{% if s.rpe %} · RPE {{ s.rpe }}{% endif %}{% if s.notes %} · {{ s.notes }}{% endif %}
+          {{ set_metric(s) }}{% if s.rpe %} · RPE {{ s.rpe }}{% endif %}{% if s.notes %} · {{ s.notes }}{% endif %}
         </div>
         <div class="set-edit-row" id="edit-{{ s.id }}">
           <input type="number" class="edit-w" step="0.5" min="0">
@@ -1115,7 +1126,7 @@ document.getElementById('tpl-name-input')?.addEventListener('keydown', e => { if
       </div>
     </div>
     <div class="stepper-field">
-      <label>Reps</label>
+      <label id="reps-label">Reps</label>
       <div class="stepper-xl">
         <button type="button" class="sx-btn" onclick="step('reps', -1)">−</button>
         <input type="number" id="reps-input" class="sx-val" value="8" step="1" min="1">
@@ -1269,7 +1280,7 @@ document.getElementById('tpl-name-input')?.addEventListener('keydown', e => { if
         <div class="set-body">
           <div class="set-name">{{ s.exercise_name }}</div>
           <div class="set-detail" id="detail-{{ s.id }}">
-            {% if s.added_weight_kg is not none %}{% if s.added_weight_kg and s.added_weight_kg > 0 %}BW +<span class="weight-display" data-kg="{{ s.added_weight_kg }}">{{ s.added_weight_kg }}</span>{% else %}BW{% endif %}{% else %}<span class="weight-display" data-kg="{{ s.weight_kg }}">{{ s.weight_kg }}</span>{% endif %} × {{ s.reps }}{% if s.rpe %} · RPE {{ s.rpe }}{% endif %}{% if s.notes %} · {{ s.notes }}{% endif %}
+            {{ set_metric(s) }}{% if s.rpe %} · RPE {{ s.rpe }}{% endif %}{% if s.notes %} · {{ s.notes }}{% endif %}
           </div>
           <div class="set-edit-row" id="edit-{{ s.id }}">
             <input type="number" class="edit-w" step="0.5" min="0">
@@ -1449,6 +1460,12 @@ let _filteredPool = [];
 // is bodyweight + added so volume (= load × reps) stays meaningful.
 let BODYWEIGHT_KG = {{ latest_bodyweight if latest_bodyweight is not none else 'null' }};
 let _bwMode = false;
+let _timeMode = false;   // timed-hold exercise (plank): reps field becomes "Hold (sec)"
+function _fmtDuration(sec) {
+  sec = Math.round(sec || 0);
+  const m = Math.floor(sec / 60), s = sec % 60;
+  return m + ':' + (s < 10 ? '0' : '') + s;
+}
 function _bwBadge(addedKg, unit) {
   // Display label for a bodyweight set: "BW" or "BW +20kg".
   const a = unit === 'lbs' ? (addedKg || 0) * 2.2046 : (addedKg || 0);
@@ -2014,8 +2031,23 @@ async function saveQuickBw() {
   if (r.ok) { BODYWEIGHT_KG = kg; updateBwHint(); }
 }
 
+function setTimeMode(on) {
+  _timeMode = on;
+  const repsLabel = document.getElementById('reps-label');
+  const repsInput = document.getElementById('reps-input');
+  if (on) {
+    repsLabel.textContent = 'Hold (sec)';
+    repsInput.value = '30';
+    repsInput.step = '5';
+  } else {
+    repsLabel.textContent = 'Reps';
+    repsInput.step = '1';
+  }
+}
+
 function applyExerciseSelection(ex) {
   setBodyweightMode(!!(ex && ex.is_bodyweight));
+  setTimeMode(!!(ex && ex.is_time));
   updateExerciseHero(ex);
   // Hide "+ Same" when switching exercises
   if (!ex || ex.id !== _lastLoggedExId) _hideSameBtn();
@@ -2036,9 +2068,10 @@ function applyExerciseSelection(ex) {
       document.getElementById('last-set-text').textContent = `${displayW} ${unit} × ${last.reps} reps`;
       document.getElementById('last-1rm').textContent      = `· est. 1RM ${display1rm} ${unit}`;
       // In bodyweight mode the field is ADDED weight (kept at 0) — don't prefill
-      // the effective load. Only carry reps over.
+      // the effective load. Only carry reps over (not for timed holds, whose
+      // stored reps is 0).
       if (!_bwMode) document.getElementById('weight-input').value = displayW;
-      document.getElementById('reps-input').value          = last.reps;
+      if (!_timeMode) document.getElementById('reps-input').value = last.reps;
       hint.style.display = 'flex';
 
       // Progressive overload chips
@@ -2191,7 +2224,12 @@ function escHtml(s) {
 }
 function step(field, delta) {
   const el = document.getElementById(field + '-input');
-  el.value = Math.max(0, parseFloat(el.value || 0) + delta);
+  // In time mode the reps field is "Hold (sec)" — step by 5 seconds, min 5.
+  if (field === 'reps' && _timeMode) {
+    el.value = Math.max(5, parseFloat(el.value || 0) + delta * 5);
+    return;
+  }
+  el.value = Math.max(field === 'reps' ? 1 : 0, parseFloat(el.value || 0) + delta);
 }
 
 // ── Plate calculator ──────────────────────────────────────────
@@ -2332,7 +2370,11 @@ async function logSet() {
   } else {
     weightKg = fieldKg;
   }
-  const reps          = parseInt(document.getElementById('reps-input').value);
+  const fieldReps     = parseInt(document.getElementById('reps-input').value);
+  // Time mode: the reps field holds SECONDS. Send duration; reps is a placeholder
+  // (the server stores 0 so the hold stays out of the volume sum).
+  const durationSeconds = _timeMode ? fieldReps : null;
+  const reps            = _timeMode ? 1 : fieldReps;
   const notes         = document.getElementById('notes-input').value.trim() || null;
   const rpeRaw        = document.getElementById('rpe-select').value;
   const rpe           = rpeRaw ? parseInt(rpeRaw) : null;
@@ -2340,14 +2382,15 @@ async function logSet() {
   const resp = await fetch(`/workouts/${WORKOUT_ID}/sets`, {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({exercise_id: exerciseId, reps, weight_kg: weightKg, added_weight_kg: addedKg, notes, rpe}),
+    body: JSON.stringify({exercise_id: exerciseId, reps, weight_kg: weightKg,
+                          added_weight_kg: addedKg, duration_seconds: durationSeconds, notes, rpe}),
   });
   if (!resp.ok) { showErr('Failed to log set.'); if (logBtn) { delete logBtn.dataset.busy; logBtn.style.opacity = ''; } return; }
   const data = await resp.json();
 
   startTimer();
 
-  const setVol = weightKg * reps;
+  const setVol = _timeMode ? 0 : weightKg * reps;   // holds don't count toward kg-volume
   setVolumes[data.id]    = setVol;
   setExercises[data.id] = {id: exerciseId, name: exerciseName};
   sessionVolume += setVol;
@@ -2376,9 +2419,11 @@ async function logSet() {
     <div class="set-body">
       <div class="set-name">${escHtml(exerciseName)}${data.is_pr ? ' <span class="badge badge-pr">PR</span>' : ''}</div>
       <div class="set-detail" id="detail-${data.id}">
-        ${_bwMode
-          ? `<span>${_bwBadge(addedKg, unit)}</span> × ${reps}`
-          : `<span class="weight-display" data-kg="${weightKg}">${fieldVal} ${unit}</span> × ${reps} · 1RM ${fmtWeight(epley1RM(weightKg, reps), unit)}`
+        ${_timeMode
+          ? `<span>${_bwMode ? _bwBadge(addedKg, unit) : fmtWeight(weightKg, unit)}</span> · ${_fmtDuration(durationSeconds)}`
+          : _bwMode
+            ? `<span>${_bwBadge(addedKg, unit)}</span> × ${reps}`
+            : `<span class="weight-display" data-kg="${weightKg}">${fieldVal} ${unit}</span> × ${reps} · 1RM ${fmtWeight(epley1RM(weightKg, reps), unit)}`
         }${rpe ? ' · RPE ' + rpe : ''}${notes ? ' · ' + escHtml(notes) : ''}
       </div>
       <div class="set-edit-row" id="edit-${data.id}">

@@ -593,6 +593,7 @@ EXERCISES = [
     },
     {
         "name": "Plank",
+        "log_type": "time",
         "category": "Core",
         "equipment": "Bodyweight",
         "muscle_primary": "Abs",
@@ -697,6 +698,7 @@ EXERCISES = [
     },
     {
         "name": "Side Plank",
+        "log_type": "time",
         "category": "Core",
         "equipment": "Bodyweight",
         "muscle_primary": "Abs",
