@@ -293,7 +293,11 @@
 
       /* Touch targets: Apple HIG recommends ≥44 px tap area */
       .btn { min-height: 44px; padding: 0.6rem 1.1rem; }
-      input, select, textarea { min-height: 44px; padding: 0.7rem 0.9rem; font-size: 1rem; }
+      /* font-size 16px !important kills iOS focus-zoom on tap: Safari zooms when
+         a focused field computes < 16px, and many fields set a smaller size via
+         inline style (which only !important can override). Pinch-zoom stays on
+         — the viewport meta has no maximum-scale/user-scalable lock. */
+      input, select, textarea { min-height: 44px; padding: 0.7rem 0.9rem; font-size: 16px !important; }
 
       /* Labels and section titles were 10.9 px; scale them up */
       label { font-size: 0.82rem; }
