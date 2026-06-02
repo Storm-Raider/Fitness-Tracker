@@ -271,32 +271,3 @@ Re-action if a dedicated routine management page is built: add `user_id` to `GET
 **Hevy format differences:** (to be verified when implementing) Column names and ordering differ. Hevy uses metric by default.
 
 **Depends on:** User request or community feedback after v1 launch.
-
-## ISSUE-13: Add two-factor authentication (2FA) to login
-
-**Source:** auto-triage (2026-06-02)
-**Why major:** 2FA requires schema changes (TOTP secret, backup codes), new dependency (pyotp/qrcode), auth/session flow changes, multiple new routes/templates, and security-critical design decisions far exceeding the minor threshold.
-**Link:** https://github.com/Storm-Raider/Fitness-Tracker/issues/13
-
-## #13 — Add two-factor authentication (2FA) to login
-
-**Scope:** Major security feature. Touches auth, session, schema, dependencies, and UX.
-
-**Required work:**
-- Schema: add `totp_secret` (encrypted), `totp_enabled`, `backup_codes` (hashed) columns to users table; write migration.
-- Dependency: add `pyotp` (TOTP) and `qrcode` (enrollment QR) to requirements.
-- Routes: `/settings/2fa/enroll` (show QR + provisioning URI), `/settings/2fa/verify` (confirm enrollment), `/settings/2fa/disable`, `/login/2fa` (post-password challenge).
-- Session: introduce a pre-auth/half-authenticated session state between password success and TOTP success; reject all protected routes until full auth.
-- Backup codes: generate N single-use codes at enrollment, store hashed, show once, allow regeneration.
-- Templates: enrollment page, QR display, verification form, backup-codes display, login 2FA prompt, settings panel.
-- Tests: enrollment flow, login with valid/invalid/replayed TOTP, backup code consumption, disable flow, session state transitions.
-
-**Design questions for product/security review:**
-- Encryption at rest for `totp_secret` — env-key based or per-user derived?
-- Rate limiting on TOTP verification (lockout policy)?
-- Optional vs mandatory 2FA? Grace period for existing users?
-- Recovery flow if user loses device AND backup codes — admin reset or self-serve email?
-- Trusted-device / "remember this browser for 30 days" support?
-- Clock-skew tolerance window for TOTP (default ±1 step)?
-
-**Risk:** Auth/security-critical. Must not regress existing login. Requires human design review before implementation.
