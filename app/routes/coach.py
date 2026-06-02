@@ -18,6 +18,7 @@ All inference is on-device; nothing about the user leaves the host.
 import asyncio
 import json
 import logging
+import os
 import uuid
 
 import aiosqlite
@@ -40,12 +41,31 @@ _JOBS: dict[str, dict] = {}
 _JOBS_MAX = 50              # cap retained jobs (single-user Pi; in-memory is fine)
 _TASKS: set = set()        # keep task refs so they aren't GC'd mid-flight
 _ACTIVE_BY_USER: dict[int, str] = {}  # uid -> in-flight job id (single-flight)
-_GEN_LOCK = asyncio.Lock()  # the Pi runs one generation at a time; serialize them
+_GEN_LOCK = asyncio.Lock()  # the Pi runs ONE generation at a time; serialize them
+
+# Explicit queue so a burst of friends hitting "Generate" at once is bounded and
+# ordered instead of piling up unbounded waiters. _GEN_LOCK already guarantees a
+# single concurrent inference (so the Pi's CPU/RAM can't be doubled up); the
+# queue adds a hard depth cap + FIFO position reporting on top.
+_QUEUE: list[str] = []     # job_ids waiting their turn, FIFO (for position display)
+# Max users queued+running at once. Beyond this, new requests are rejected with a
+# friendly 429 rather than waiting 30+ min behind a long line.
+_MAX_QUEUE = int(os.environ.get("COACH_MAX_QUEUE", "5"))
+
+# A job occupies a slot while it's waiting (queued) or running (processing).
+_ACTIVE_STATES = ("queued", "processing")
+
+
+def _active_count() -> int:
+    return sum(1 for j in _JOBS.values() if j.get("status") in _ACTIVE_STATES)
 
 
 def _prune_jobs() -> None:
+    # Never prune a job that is still queued or running — only trim finished
+    # (done/error) history once it grows past the cap.
     if len(_JOBS) > _JOBS_MAX:
-        for key in list(_JOBS)[:-_JOBS_MAX]:
+        finished = [k for k, v in _JOBS.items() if v.get("status") not in _ACTIVE_STATES]
+        for key in finished[: len(_JOBS) - _JOBS_MAX]:
             _JOBS.pop(key, None)
 
 GOALS = {
@@ -520,6 +540,11 @@ async def _run_generation(
     makes every generation crawl past the timeout)."""
     try:
         async with _GEN_LOCK:
+            # Our turn: leave the waiting queue and flip to processing.
+            if job_id in _QUEUE:
+                _QUEUE.remove(job_id)
+            if _JOBS.get(job_id, {}).get("status") == "queued":
+                _JOBS[job_id] = {"status": "processing", "user_id": uid}
             profile = await build_profile(conn, uid)
             catalog = await _exercise_catalog(conn, uid)
             prompt = _build_prompt(goal, days, profile, catalog, focus_note)
@@ -543,6 +568,8 @@ async def _run_generation(
         _JOBS[job_id] = {"status": "error", "user_id": uid,
                          "error": "Generation failed unexpectedly. Check the server logs."}
     finally:
+        if job_id in _QUEUE:        # defensive: drop from queue on any exit path
+            _QUEUE.remove(job_id)
         if _ACTIVE_BY_USER.get(uid) == job_id:
             _ACTIVE_BY_USER.pop(uid, None)
 
@@ -558,15 +585,24 @@ async def generate(
     the long (minutes-on-Pi) inference never hits the reverse-proxy timeout."""
     uid = current_user["id"]
 
-    # Single-flight: if this user already has a generation running, hand back the
-    # same job id. Repeated clicks (or a stale tab) then attach to the one job
-    # instead of spawning several that would thrash the Pi.
+    # Single-flight: if this user already has a generation queued or running, hand
+    # back the same job id. Repeated clicks (or a stale tab) then attach to the one
+    # job instead of spawning several that would thrash the Pi.
     existing = _ACTIVE_BY_USER.get(uid)
-    if existing and _JOBS.get(existing, {}).get("status") == "pending":
+    if existing and _JOBS.get(existing, {}).get("status") in _ACTIVE_STATES:
         return JSONResponse({"job_id": existing}, status_code=202)
 
+    # Queue depth cap: reject (don't pile up) when too many are already waiting.
+    if _active_count() >= _MAX_QUEUE:
+        raise HTTPException(
+            status_code=429,
+            detail=f"The coach is busy — {_MAX_QUEUE} requests are already in the queue. "
+                   "Give it a few minutes and try again.",
+        )
+
     job_id = uuid.uuid4().hex
-    _JOBS[job_id] = {"status": "pending", "user_id": uid}
+    _JOBS[job_id] = {"status": "queued", "user_id": uid}
+    _QUEUE.append(job_id)
     _ACTIVE_BY_USER[uid] = job_id
     _prune_jobs()
     task = asyncio.create_task(
@@ -585,8 +621,12 @@ async def generation_status(
     job = _JOBS.get(job_id)
     if not job or job["user_id"] != current_user["id"]:
         raise HTTPException(status_code=404, detail="Unknown generation job")
-    if job["status"] == "pending":
-        return JSONResponse({"status": "pending"})
+    if job["status"] == "queued":
+        # 1-based position among everyone still waiting; 1 = next up.
+        position = (_QUEUE.index(job_id) + 1) if job_id in _QUEUE else 1
+        return JSONResponse({"status": "queued", "position": position, "ahead": max(0, position - 1)})
+    if job["status"] == "processing":
+        return JSONResponse({"status": "processing"})
     if job["status"] == "error":
         return JSONResponse({"status": "error", "error": job["error"]})
     return JSONResponse({

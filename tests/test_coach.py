@@ -17,7 +17,7 @@ async def _generate(client, goal, days, **extra):
         pr = await client.get(f"/coach/generate/{job_id}")
         assert pr.status_code == 200
         pd = pr.json()
-        if pd["status"] != "pending":
+        if pd["status"] in ("done", "error"):  # terminal states
             return pd
         await asyncio.sleep(0.02)
     raise AssertionError("generation job never finished")
@@ -158,7 +158,7 @@ async def test_generate_single_flight_reuses_inflight_job(client, db, monkeypatc
     job_id = r1.json()["job_id"]
     for _ in range(100):
         pd = (await client.get(f"/coach/generate/{job_id}")).json()
-        if pd["status"] != "pending":
+        if pd["status"] in ("done", "error"):
             break
         await asyncio.sleep(0.02)
     assert pd["status"] == "done"
@@ -272,3 +272,66 @@ async def test_prompt_includes_split_and_prescription(db):
     assert "PRESCRIPTION" in prompt
     assert "80–90% 1RM" in prompt
     assert "PROGRESSION" in prompt
+
+
+# ── Queue system ─────────────────────────────────────────────────────────────
+
+@pytest.mark.asyncio
+async def test_queue_cap_rejects_when_full(client, monkeypatch):
+    """When _MAX_QUEUE jobs are already active, a new request gets 429."""
+    # Simulate a full queue: fill _JOBS with active jobs owned by other users.
+    monkeypatch.setattr(coach, "_MAX_QUEUE", 3)
+    coach._JOBS.clear(); coach._QUEUE.clear()
+    for i in range(3):
+        jid = f"busy-{i}"
+        coach._JOBS[jid] = {"status": "queued", "user_id": 999 - i}
+        coach._QUEUE.append(jid)
+
+    r = await client.post("/coach/generate", json={"goal": "general", "days_per_week": 2})
+    assert r.status_code == 429
+    assert "busy" in r.json()["detail"].lower()
+    coach._JOBS.clear(); coach._QUEUE.clear()
+
+
+@pytest.mark.asyncio
+async def test_status_reports_queue_position(client, monkeypatch):
+    """A queued job reports its 1-based position and how many are ahead."""
+    coach._JOBS.clear(); coach._QUEUE.clear()
+    # Two other jobs ahead, then this user's job (id=1).
+    for jid, uid in [("a", 50), ("b", 51)]:
+        coach._JOBS[jid] = {"status": "queued", "user_id": uid}
+        coach._QUEUE.append(jid)
+    mine = "mine"
+    coach._JOBS[mine] = {"status": "queued", "user_id": 1}
+    coach._QUEUE.append(mine)
+
+    pr = await client.get(f"/coach/generate/{mine}")
+    assert pr.status_code == 200
+    pd = pr.json()
+    assert pd["status"] == "queued"
+    assert pd["position"] == 3
+    assert pd["ahead"] == 2
+    coach._JOBS.clear(); coach._QUEUE.clear()
+
+
+@pytest.mark.asyncio
+async def test_processing_status_reported(client):
+    coach._JOBS.clear(); coach._QUEUE.clear()
+    coach._JOBS["p"] = {"status": "processing", "user_id": 1}
+    pr = await client.get("/coach/generate/p")
+    assert pr.json()["status"] == "processing"
+    coach._JOBS.clear()
+
+
+@pytest.mark.asyncio
+async def test_single_flight_attaches_to_queued_job(client, monkeypatch):
+    """A second request from the same user while one is queued reuses the job."""
+    coach._JOBS.clear(); coach._QUEUE.clear(); coach._ACTIVE_BY_USER.clear()
+    coach._JOBS["existing"] = {"status": "queued", "user_id": 1}
+    coach._ACTIVE_BY_USER[1] = "existing"
+    coach._QUEUE.append("existing")
+
+    r = await client.post("/coach/generate", json={"goal": "general", "days_per_week": 2})
+    assert r.status_code == 202
+    assert r.json()["job_id"] == "existing"  # attached, not a new job
+    coach._JOBS.clear(); coach._QUEUE.clear(); coach._ACTIVE_BY_USER.clear()

@@ -224,8 +224,11 @@ async function generate() {
     if (!start.ok) throw new Error(sd.detail || sd.error || 'Could not start generation.');
     const jobId = sd.job_id;
 
-    const deadline = Date.now() + 9 * 60 * 1000;  // give the Pi up to 9 minutes
-    while (Date.now() < deadline) {
+    // Overall cap protects against a stuck job; queue time doesn't count against
+    // the inference budget — the deadline only starts ticking once processing begins.
+    const overallDeadline = Date.now() + 40 * 60 * 1000;   // never wait > 40 min total
+    let processingDeadline = null;                          // set when status flips to processing
+    while (Date.now() < overallDeadline) {
       await new Promise(r => setTimeout(r, 2500));
       const pr = await fetch('/coach/generate/' + jobId);
       const pd = await pr.json();
@@ -236,9 +239,21 @@ async function generate() {
         return;
       }
       if (pd.status === 'error') throw new Error(pd.error || 'Generation failed.');
-      // status === 'pending' → keep polling
+      if (pd.status === 'queued') {
+        const ahead = pd.ahead || 0;
+        btn.innerHTML = ahead > 0
+          ? `<span class="spinner"></span> In queue · ${ahead} ahead of you…`
+          : '<span class="spinner"></span> Next up…';
+        continue;
+      }
+      // processing
+      if (!processingDeadline) processingDeadline = Date.now() + 9 * 60 * 1000;
+      btn.innerHTML = '<span class="spinner"></span> Coaching…';
+      if (Date.now() > processingDeadline) {
+        throw new Error('Generation is taking too long. Try fewer days, or set OLLAMA_MODEL=gemma3:1b.');
+      }
     }
-    throw new Error('Generation is taking too long. Try fewer days, or set OLLAMA_MODEL=gemma3:1b.');
+    throw new Error('Still waiting after 40 minutes — the coach may be overloaded. Try again later.');
   } catch (e) {
     errBox.textContent = e.message;
     errBox.style.display = 'block';
