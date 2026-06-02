@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>{% block title %}FitStorm{% endblock %}</title>
   <link rel="manifest" href="/static/manifest.json">
   <meta name="theme-color" content="#090b10">
@@ -293,10 +293,6 @@
 
       /* Touch targets: Apple HIG recommends ≥44 px tap area */
       .btn { min-height: 44px; padding: 0.6rem 1.1rem; }
-      /* font-size 16px !important kills iOS focus-zoom on tap: Safari zooms when
-         a focused field computes < 16px, and many fields set a smaller size via
-         inline style (which only !important can override). Pinch-zoom stays on
-         — the viewport meta has no maximum-scale/user-scalable lock. */
       input, select, textarea { min-height: 44px; padding: 0.7rem 0.9rem; font-size: 16px !important; }
 
       /* Labels and section titles were 10.9 px; scale them up */
@@ -622,12 +618,12 @@
       width: 100%;
       transition: border-color 0.15s, box-shadow 0.15s;
     }
-    /* Tap-to-zoom on focus (iOS Safari, Android Chrome) fires whenever a focused
-       field computes < 16px. Force 16px on EVERY field, UNCONDITIONALLY — no
-       width or pointer media query, because those slip through real cases
-       (iPad + trackpad reports pointer:fine; landscape phones exceed 767px).
-       !important overrides the many inline font-sizes set per-field. Pinch-zoom
-       is untouched — the viewport meta has no maximum-scale/user-scalable lock. */
+    /* Tap-to-zoom on focus fires whenever a focused field computes < 16px.
+       Force 16px on EVERY field, unconditionally (no width/pointer media query —
+       those slip through iPad+trackpad and landscape). !important overrides the
+       inline font-sizes set per-field. Belt-and-suspenders with the viewport's
+       maximum-scale=1 lock, which Safari tabs ignore (a11y pinch-zoom preserved)
+       but standalone home-screen PWAs honour — exactly where the zoom misbehaves. */
     input, select, textarea { font-size: 16px !important; }
     input:focus, select:focus, textarea:focus {
       outline: none;
