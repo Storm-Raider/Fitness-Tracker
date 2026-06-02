@@ -838,3 +838,56 @@ RETIRED_EXERCISES = {
     "Wrist Curl",
     "Zercher Squat",
 }
+
+# Muscle/category inference for user-created exercises. The in-workout quick-add
+# only had a name, so custom exercises landed with no muscle group (invisible to
+# the muscle filter, stats coverage, and the cascading picker). This guesses a
+# sensible default from the name; the UI lets the user confirm/override. First
+# matching rule wins, so specific qualifiers are listed before general ones.
+_INFER_RULES = [
+    # specific qualifiers first
+    ("leg raise", "Abs", "Core"), ("knee raise", "Abs", "Core"),
+    ("leg curl", "Legs", "Legs"), ("leg extension", "Legs", "Legs"),
+    ("leg press", "Legs", "Legs"), ("calf", "Legs", "Legs"),
+    ("romanian deadlift", "Legs", "Legs"), ("stiff-leg", "Legs", "Legs"), ("rdl", "Legs", "Legs"),
+    ("tricep", "Triceps", "Push"), ("pushdown", "Triceps", "Push"), ("skull", "Triceps", "Push"),
+    ("close-grip", "Triceps", "Push"), ("kickback", "Triceps", "Push"),
+    ("overhead extension", "Triceps", "Push"), ("overhead tricep", "Triceps", "Push"),
+    ("face pull", "Shoulders", "Pull"), ("rear delt", "Shoulders", "Pull"),
+    ("lateral raise", "Shoulders", "Push"), ("front raise", "Shoulders", "Push"),
+    ("upright row", "Shoulders", "Pull"), ("rotation", "Shoulders", "Pull"),
+    ("arnold", "Shoulders", "Push"), ("overhead press", "Shoulders", "Push"),
+    ("shoulder", "Shoulders", "Push"), ("delt", "Shoulders", "Push"),
+    ("shrug", "Back", "Pull"),
+    ("wrist", "Forearms", "Pull"), ("forearm", "Forearms", "Pull"), ("grip", "Forearms", "Pull"),
+    ("farmer", "Forearms", "Full Body"),
+    ("curl", "Biceps", "Pull"), ("bicep", "Biceps", "Pull"),
+    ("preacher", "Biceps", "Pull"), ("hammer", "Biceps", "Pull"), ("chin-up", "Back", "Pull"),
+    ("bench", "Chest", "Push"), ("chest", "Chest", "Push"), ("pec", "Chest", "Push"),
+    ("flye", "Chest", "Push"), ("fly", "Chest", "Push"),
+    ("push-up", "Chest", "Push"), ("pushup", "Chest", "Push"),
+    ("dip", "Chest", "Push"), ("crossover", "Chest", "Push"),
+    ("back extension", "Back", "Pull"), ("superman", "Back", "Pull"),
+    ("row", "Back", "Pull"), ("pulldown", "Back", "Pull"),
+    ("pull-up", "Back", "Pull"), ("pullup", "Back", "Pull"), ("chinup", "Back", "Pull"),
+    ("lat ", "Back", "Pull"), ("deadlift", "Back", "Pull"), ("pull", "Back", "Pull"),
+    ("squat", "Legs", "Legs"), ("lunge", "Legs", "Legs"), ("glute", "Legs", "Legs"),
+    ("hip thrust", "Legs", "Legs"), ("hamstring", "Legs", "Legs"), ("quad", "Legs", "Legs"),
+    ("adductor", "Legs", "Legs"), ("abductor", "Legs", "Legs"), ("step-up", "Legs", "Legs"),
+    ("good morning", "Legs", "Legs"), ("leg", "Legs", "Legs"),
+    ("crunch", "Abs", "Core"), ("plank", "Abs", "Core"), ("sit-up", "Abs", "Core"),
+    ("situp", "Abs", "Core"), ("russian twist", "Abs", "Core"), ("woodchop", "Abs", "Core"),
+    ("hollow", "Abs", "Core"), ("pallof", "Abs", "Core"), ("rollout", "Abs", "Core"),
+    ("ab ", "Abs", "Core"), ("core", "Abs", "Core"),
+    ("press", "Shoulders", "Push"),  # generic press fallback (bench/leg handled above)
+]
+
+
+def infer_muscle_and_category(name: str) -> tuple[str, str]:
+    """Best-effort (muscle_primary, category) from an exercise name. Returns
+    ("", "Other") when nothing matches — the caller can prompt the user."""
+    n = (name or "").lower()
+    for kw, muscle, category in _INFER_RULES:
+        if kw in n:
+            return muscle, category
+    return "", "Other"

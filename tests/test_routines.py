@@ -15,7 +15,8 @@ async def test_routines_include_muscles_array(client):
 
 @pytest.mark.asyncio
 async def test_routines_exercise_without_muscles_has_empty_array(client):
-    ex = await client.post("/exercises", json={"name": "Custom Pull"})
+    # A name with no recognisable keyword stays muscle-less (inference returns none).
+    ex = await client.post("/exercises", json={"name": "Zzz Widget Move"})
     ex_id = ex.json()["id"]
     r = await client.post("/routines", json={"name": "Custom Routine", "exercise_ids": [ex_id]})
     r_id = r.json()["id"]

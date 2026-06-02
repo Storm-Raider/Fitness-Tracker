@@ -2,7 +2,7 @@ import logging
 import aiosqlite
 from pathlib import Path
 
-from app.data.exercises import EXERCISES, RETIRED_EXERCISES
+from app.data.exercises import EXERCISES, RETIRED_EXERCISES, infer_muscle_and_category
 from app.data.routines import ROUTINES
 
 _conn: aiosqlite.Connection | None = None
@@ -299,6 +299,24 @@ async def init_db(conn: aiosqlite.Connection) -> None:
         if refs == 0:
             await conn.execute("DELETE FROM exercise_muscles WHERE exercise_id=?", (eid,))
             await conn.execute("DELETE FROM exercises WHERE id=?", (eid,))
+
+    # Backfill: any exercise with no muscle group (e.g. older custom exercises
+    # created via the in-workout quick-add before this) gets one inferred from its
+    # name, so it shows up in the muscle filter and stats coverage.
+    async with conn.execute(
+        """SELECT e.id, e.name, e.category FROM exercises e
+           WHERE NOT EXISTS (SELECT 1 FROM exercise_muscles em WHERE em.exercise_id = e.id)"""
+    ) as _c:
+        _orphans = [dict(r) for r in await _c.fetchall()]
+    for ex in _orphans:
+        muscle, category = infer_muscle_and_category(ex["name"])
+        if not ex.get("category") and category:
+            await conn.execute("UPDATE exercises SET category=? WHERE id=?", (category, ex["id"]))
+        if muscle:
+            await conn.execute(
+                "INSERT INTO exercise_muscles(exercise_id, muscle, is_primary) VALUES (?, ?, 1)",
+                (ex["id"], muscle),
+            )
 
     await conn.execute("COMMIT")
     logging.info("Seeded %d exercises, %d global routines", len(EXERCISES), len(ROUTINES))

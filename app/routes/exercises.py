@@ -5,15 +5,21 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import HTMLResponse, JSONResponse
 from pydantic import BaseModel, Field
 
+from app.data.exercises import infer_muscle_and_category
 from app.db import get_db
 from app.routes.auth import get_current_user
 from app.utils.render import render, templates
 
 router = APIRouter()
 
+_MUSCLES = {"Chest", "Back", "Legs", "Shoulders", "Biceps", "Triceps", "Abs", "Forearms"}
+
 
 class ExerciseIn(BaseModel):
     name: str = Field(min_length=1, max_length=100)
+    # Optional: the muscle group this exercise targets. When omitted, it's
+    # inferred from the name so a custom exercise never lands muscle-less.
+    muscle_primary: str | None = Field(default=None, max_length=20)
 
 
 class GoalIn(BaseModel):
@@ -142,15 +148,26 @@ async def create_exercise(
     conn: aiosqlite.Connection = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
+    # Resolve the muscle group + category: use the one the user picked if valid,
+    # otherwise infer from the name so the exercise is never left unclassified.
+    inferred_muscle, inferred_cat = infer_muscle_and_category(body.name)
+    muscle = body.muscle_primary if body.muscle_primary in _MUSCLES else inferred_muscle
+    category = inferred_cat
+
     try:
         async with conn.execute(
-            "INSERT INTO exercises(name) VALUES (?)", (body.name,)
+            "INSERT INTO exercises(name, category) VALUES (?, ?)", (body.name, category or None)
         ) as cur:
             exercise_id = cur.lastrowid
+        if muscle:
+            await conn.execute(
+                "INSERT INTO exercise_muscles(exercise_id, muscle, is_primary) VALUES (?, ?, 1)",
+                (exercise_id, muscle),
+            )
         await conn.commit()
     except aiosqlite.IntegrityError:
         raise HTTPException(status_code=409, detail="Exercise name already exists")
-    return JSONResponse({"id": exercise_id}, status_code=201)
+    return JSONResponse({"id": exercise_id, "muscle": muscle, "category": category}, status_code=201)
 
 
 @router.get("/exercises/{exercise_id}", response_class=HTMLResponse)

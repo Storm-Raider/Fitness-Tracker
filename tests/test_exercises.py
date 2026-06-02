@@ -97,3 +97,31 @@ async def test_last_sets_returns_most_recent_set(client):
     last = data["last_sets"][str(ex_id)]
     assert last["weight_kg"] == 90.0
     assert last["reps"] == 3
+
+
+@pytest.mark.asyncio
+async def test_create_exercise_infers_muscle_from_name(client):
+    """A custom exercise with a recognisable name gets a muscle group inferred."""
+    resp = await client.post("/exercises", json={"name": "Spider Curl"})
+    assert resp.status_code == 201
+    assert resp.json()["muscle"] == "Biceps"
+    ex_id = resp.json()["id"]
+    data = (await client.get("/api/exercises")).json()
+    custom = next(e for e in data["exercises"] if e["id"] == ex_id)
+    assert [m["name"] for m in custom["muscles"]] == ["Biceps"]
+
+
+@pytest.mark.asyncio
+async def test_create_exercise_explicit_muscle_overrides_inference(client):
+    """An explicit muscle_primary wins over name inference."""
+    resp = await client.post("/exercises", json={"name": "Mystery Press", "muscle_primary": "Chest"})
+    assert resp.status_code == 201
+    assert resp.json()["muscle"] == "Chest"
+
+
+@pytest.mark.asyncio
+async def test_create_exercise_invalid_muscle_falls_back_to_inference(client):
+    """A bogus muscle is ignored; the name inference is used instead."""
+    resp = await client.post("/exercises", json={"name": "Hammer Curl Variation", "muscle_primary": "Bogus"})
+    assert resp.status_code == 201
+    assert resp.json()["muscle"] == "Biceps"

@@ -174,6 +174,10 @@
   transition: border-color 0.15s, box-shadow 0.15s;
 }
 #exercise-input:focus { border-color: var(--accent); box-shadow: var(--glow); }
+.new-ex-chip { padding: 0.35rem 0.75rem; border: 1.5px solid var(--border); border-radius: 20px;
+  background: var(--surface-2); color: var(--muted); font-size: 0.78rem; font-weight: 600;
+  cursor: pointer; font-family: inherit; transition: all 0.12s; }
+.new-ex-chip.active { border-color: var(--accent); color: var(--accent); background: var(--accent-dim); }
 
 /* Exercise hero reveal */
 .ex-hero-reveal {
@@ -1074,6 +1078,14 @@ document.getElementById('tpl-name-input')?.addEventListener('keydown', e => { if
       <div id="exercise-dropdown"></div>
     </div>
 
+    {# New-exercise muscle picker — appears when the typed name isn't in the library #}
+    <div id="new-ex-picker" style="display:none;margin-top:0.6rem;">
+      <div style="font-size:0.66rem;color:var(--accent);text-transform:uppercase;letter-spacing:0.07em;font-weight:700;margin-bottom:0.4rem;display:flex;align-items:center;gap:0.35rem;">
+        <i data-lucide="plus-circle" style="width:12px;height:12px;pointer-events:none;"></i>New exercise — tag a muscle group
+      </div>
+      <div id="new-ex-chips" style="display:flex;flex-wrap:wrap;gap:0.35rem;"></div>
+    </div>
+
     {# Hero reveal #}
     <div class="ex-hero-reveal" id="ex-hero-reveal">
       <div class="ex-hero-divider"></div>
@@ -1942,6 +1954,9 @@ function applyExerciseSelection(ex) {
   const hint     = document.getElementById('last-set-hint');
   const chipsEl  = document.getElementById('overload-chips');
   if (ex) {
+    // A known exercise was chosen — the new-exercise picker is irrelevant now.
+    const _picker = document.getElementById('new-ex-picker');
+    if (_picker) { _picker.style.display = 'none'; _newExMuscle = ''; }
     document.getElementById('exercise-id').value = ex.id;
     const last = lastSets[String(ex.id)];
     if (last) {
@@ -1990,6 +2005,57 @@ function selectExercise(id, name) {
   applyExerciseSelection(ex);
 }
 
+// ── New-exercise muscle picker ────────────────────────────────
+const _MUSCLE_GROUPS = ['Chest','Back','Legs','Shoulders','Biceps','Triceps','Abs','Forearms'];
+let _newExMuscle = '';
+
+// Light client-side guess for pre-selecting a chip (the server does the full,
+// authoritative inference as a fallback if nothing is picked).
+function _guessMuscle(name) {
+  const n = (name || '').toLowerCase();
+  const rules = [
+    ['leg raise','Abs'],['leg curl','Legs'],['leg extension','Legs'],['leg press','Legs'],['calf','Legs'],
+    ['tricep','Triceps'],['pushdown','Triceps'],['skull','Triceps'],
+    ['lateral raise','Shoulders'],['front raise','Shoulders'],['rotation','Shoulders'],['shoulder','Shoulders'],
+    ['delt','Shoulders'],['overhead press','Shoulders'],['arnold','Shoulders'],['face pull','Shoulders'],
+    ['shrug','Back'],['row','Back'],['pulldown','Back'],['pull-up','Back'],['pullup','Back'],['chin','Back'],['lat','Back'],['deadlift','Back'],
+    ['wrist','Forearms'],['forearm','Forearms'],['grip','Forearms'],
+    ['curl','Biceps'],['bicep','Biceps'],['preacher','Biceps'],['hammer','Biceps'],
+    ['bench','Chest'],['chest','Chest'],['pec','Chest'],['fly','Chest'],['push-up','Chest'],['pushup','Chest'],['dip','Chest'],['crossover','Chest'],
+    ['squat','Legs'],['lunge','Legs'],['glute','Legs'],['hip thrust','Legs'],['leg','Legs'],
+    ['crunch','Abs'],['plank','Abs'],['sit-up','Abs'],['situp','Abs'],['core','Abs'],['twist','Abs'],['raise','Abs'],
+    ['press','Shoulders'],
+  ];
+  for (const [kw, m] of rules) { if (n.includes(kw)) return m; }
+  return '';
+}
+function renderNewExChips() {
+  document.getElementById('new-ex-chips').innerHTML = _MUSCLE_GROUPS.map(m =>
+    `<button type="button" class="new-ex-chip${m===_newExMuscle?' active':''}" data-m="${m}" onclick="pickNewExMuscle('${m}')">${m}</button>`
+  ).join('');
+}
+function pickNewExMuscle(m) {
+  _newExMuscle = m;
+  document.querySelectorAll('#new-ex-chips .new-ex-chip').forEach(b =>
+    b.classList.toggle('active', b.dataset.m === m));
+}
+function updateNewExPicker(q, exact) {
+  const picker = document.getElementById('new-ex-picker');
+  if (q && !exact) {
+    if (picker.style.display === 'none') {           // just became "new" — guess + show
+      _newExMuscle = _guessMuscle(q);
+      renderNewExChips();
+      picker.style.display = 'block';
+    } else if (!_newExMuscle) {                        // refine guess until the user picks
+      _newExMuscle = _guessMuscle(q);
+      renderNewExChips();
+    }
+  } else {
+    picker.style.display = 'none';
+    _newExMuscle = '';
+  }
+}
+
 {% if not is_finished %}(function initExerciseAutocomplete() {
   const input    = document.getElementById('exercise-input');
   const dropdown = document.getElementById('exercise-dropdown');
@@ -2017,11 +2083,13 @@ function selectExercise(id, name) {
   input.addEventListener('input', function() {
     const q    = this.value.trim();
     const pool = _filteredPool.length ? _filteredPool : exercises;
-    if (!q) { dropdown.style.display = 'none'; applyExerciseSelection(null); return; }
+    if (!q) { dropdown.style.display = 'none'; applyExerciseSelection(null); updateNewExPicker('', null); return; }
     const matches = pool.filter(e => e.name.toLowerCase().includes(q.toLowerCase()));
     renderDropdown(matches, q);
     const exact = exercises.find(e => e.name.toLowerCase() === q.toLowerCase());
     applyExerciseSelection(exact || null);
+    updateNewExPicker(q, exact);
+    if (window.lucide) lucide.createIcons();
   });
   input.addEventListener('keydown', function(e) {
     const items = [...dropdown.querySelectorAll('.ex-option')];
@@ -2172,7 +2240,7 @@ async function logSet() {
     const cr = await fetch('/exercises', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({name: exerciseName}),
+      body: JSON.stringify({name: exerciseName, muscle_primary: _newExMuscle || null}),
     });
     if (cr.ok) {
       const cd = await cr.json(); exerciseId = cd.id; await loadExercises();
