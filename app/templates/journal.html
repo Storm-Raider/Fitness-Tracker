@@ -8,6 +8,12 @@
 .jf-row input[type=text], .jf-row input[type=number], .jf-row textarea {
   width:100%; }
 .jf-row textarea { resize:vertical; min-height:60px; }
+/* iOS zooms in on inputs < 16px — force 16px on mobile */
+@media (max-width: 767px) {
+  .jf-row input[type=text], .jf-row input[type=number], .jf-row textarea {
+    font-size: 16px;
+  }
+}
 
 .seg { display:flex; gap:0.35rem; }
 .seg-btn {

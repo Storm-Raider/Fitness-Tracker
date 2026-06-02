@@ -53,6 +53,10 @@
       --sp-3xl:  64px;
     }
     * { box-sizing: border-box; margin: 0; padding: 0; }
+    /* Prevent double-tap zoom on interactive elements (touch-action doesn't inherit) */
+    a, button, input, select, textarea, label, [role="button"] {
+      touch-action: manipulation;
+    }
     html { font-family: 'Barlow', system-ui, sans-serif; }
     body {
       background: var(--bg);
@@ -952,7 +956,7 @@
         <span>Exercises</span>
       </a>
       <a href="/journal" class="mob-more-item" data-mob-more-path="/journal" onclick="closeMobMore()">
-        <i data-lucide="notebook-pen" style="width:18px;height:18px;pointer-events:none;"></i>
+        <div class="mob-more-icon"><i data-lucide="notebook-pen"></i></div>
         <span>Daily Log</span>
       </a>
       <a href="/cardio" class="mob-more-item" data-mob-more-path="/cardio" onclick="closeMobMore()">
