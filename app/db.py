@@ -2,7 +2,7 @@ import logging
 import aiosqlite
 from pathlib import Path
 
-from app.data.exercises import EXERCISES
+from app.data.exercises import EXERCISES, RETIRED_EXERCISES
 from app.data.routines import ROUTINES
 
 _conn: aiosqlite.Connection | None = None
@@ -276,6 +276,30 @@ async def init_db(conn: aiosqlite.Connection) -> None:
                    SELECT ?, id, ? FROM exercises WHERE name=?""",
                 (routine_id, idx, ex_name),
             )
+
+    # Retire deprecated junk exercises — but ONLY when nothing references them.
+    # Runs after the global routines are re-seeded above (so their stale rows are
+    # gone first). Any exercise a user actually trained (sets), or that lives in a
+    # user routine / template / cardio log / goal, is left untouched.
+    for name in RETIRED_EXERCISES:
+        async with conn.execute("SELECT id FROM exercises WHERE name=?", (name,)) as _c:
+            _row = await _c.fetchone()
+        if not _row:
+            continue
+        eid = _row["id"]
+        async with conn.execute(
+            "SELECT (SELECT COUNT(*) FROM sets WHERE exercise_id=:e)"
+            "     + (SELECT COUNT(*) FROM routine_exercises WHERE exercise_id=:e)"
+            "     + (SELECT COUNT(*) FROM workout_template_exercises WHERE exercise_id=:e)"
+            "     + (SELECT COUNT(*) FROM cardio_logs WHERE exercise_id=:e)"
+            "     + (SELECT COUNT(*) FROM exercise_goals WHERE exercise_id=:e) AS refs",
+            {"e": eid},
+        ) as _c:
+            refs = (await _c.fetchone())["refs"]
+        if refs == 0:
+            await conn.execute("DELETE FROM exercise_muscles WHERE exercise_id=?", (eid,))
+            await conn.execute("DELETE FROM exercises WHERE id=?", (eid,))
+
     await conn.execute("COMMIT")
     logging.info("Seeded %d exercises, %d global routines", len(EXERCISES), len(ROUTINES))
 

@@ -25,7 +25,7 @@ Open `http://<your-pi-ip>:8000`
 ## Features
 
 - **Log workouts** — exercise, sets, reps, weight. PR flagged automatically on every set.
-- **Exercise library** — 120 exercises with category, equipment, and muscle group metadata.
+- **Exercise library** — 100+ curated exercises with category, equipment, and muscle group metadata.
 - **Cascading filter** — pick a routine → filter by muscle group → tap an exercise chip to select it.
 - **12 pre-built routines** — PPL, Full Body, Upper/Lower, Bro Split — visible to all users.
 - **Personal records** — PR table on the dashboard; gold badge on every set that beats your best.

@@ -48,7 +48,9 @@ async def test_exercise_library_seeded():
     try:
         async with conn.execute("SELECT COUNT(*) FROM exercises") as cur:
             row = await cur.fetchone()
-        assert row[0] >= 105, f"Expected >= 105 exercises, got {row[0]}"
+        # Curated library (moderate cleanup): ~101 exercises. Lower bound guards
+        # against a seeding regression without pinning the exact count.
+        assert row[0] >= 95, f"Expected >= 95 exercises, got {row[0]}"
     finally:
         await conn.close()
 
