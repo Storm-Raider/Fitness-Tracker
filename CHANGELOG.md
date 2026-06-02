@@ -32,6 +32,7 @@ All notable changes to FitStorm are documented here.
 - Exercise seeding: `UPDATE exercises` no longer writes to the dropped columns; `exercises.py` entries retain those keys to drive `exercise_muscles` seeding
 
 ### Added
+- **In-app feedback** — `/feedback` (More menu) files a bug report or feature request straight to GitHub Issues. Pick Bug or Feature, add a title and description; the issue is created with the matching label (`bug` / `enhancement`) and a context footer. Needs `GITHUB_TOKEN` (+ optional `GITHUB_REPO`); shows a graceful notice when unconfigured. 30s per-user cooldown.
 - **Better AI Coach routines** — the coach now follows conventional S&C programming: per-goal set/rep/intensity prescriptions, recommended splits by days/week (Full Body, Upper/Lower, PPL), compound-first ordering, mandatory progression cues, and a catalog that always surfaces staple compounds (Squat, Deadlift, Bench, Row, OHP).
 - **km / mi distance unit** — cardio distances and pace now convert between km and mi. Set in Settings → Units alongside the existing kg/lbs toggle. Preference persisted per-user.
 - **Daily Log** (`/journal`) — structured daily check-in: day number, weight, workout, 3 meals, water, energy, motivation, sleep, steps, notes. Auto-fills challenge day number from active run. Dashboard nudge until today's entry is saved. History of last 60 days with one-tap copy.
