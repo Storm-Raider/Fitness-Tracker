@@ -53,6 +53,13 @@ class _SecurityHeadersMiddleware(BaseHTTPMiddleware):
             "connect-src 'self'; "
             "frame-ancestors 'none';"
         )
+        # HTML carries the inline CSS/JS, so it must always revalidate — otherwise
+        # iOS Safari (especially as an installed PWA) serves a heuristically-cached
+        # stale page and template/CSS changes never reach the user. Static assets
+        # keep their default caching (they're versioned through the service worker).
+        ctype = response.headers.get("content-type", "")
+        if ctype.startswith("text/html"):
+            response.headers["Cache-Control"] = "no-cache, must-revalidate"
         return response
 
 
@@ -209,4 +216,5 @@ async def health():
 async def service_worker():
     sw_path = Path(__file__).parent / "static" / "sw.js"
     return FileResponse(sw_path, media_type="application/javascript",
-                        headers={"Service-Worker-Allowed": "/"})
+                        headers={"Service-Worker-Allowed": "/",
+                                 "Cache-Control": "no-cache"})
