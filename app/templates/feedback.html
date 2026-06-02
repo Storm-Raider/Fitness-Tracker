@@ -1,0 +1,156 @@
+{% extends "base.html" %}
+{% block title %}Feedback — FitStorm{% endblock %}
+{% block content %}
+<style>
+.fb-seg { display:flex; gap:0.6rem; }
+.fb-seg-btn {
+  flex:1; padding:0.85rem 0.5rem; border:1.5px solid var(--border);
+  border-radius:var(--radius-sm); background:var(--surface-2); color:var(--muted);
+  cursor:pointer; font-family:'Barlow',inherit; font-size:0.85rem; font-weight:700;
+  letter-spacing:0.02em; transition:all 0.13s; text-align:center;
+  display:flex; flex-direction:column; align-items:center; gap:0.35rem;
+}
+.fb-seg-btn:hover { border-color:var(--border-mid); color:var(--text); }
+.fb-seg-btn.active { border-color:var(--accent); color:var(--accent); background:var(--accent-dim); }
+.fb-seg-btn .fb-sub { font-size:0.65rem; font-weight:400; color:var(--muted); }
+.fb-seg-btn.active .fb-sub { color:var(--accent); }
+.fb-row { display:flex; flex-direction:column; gap:0.4rem; margin-bottom:1.1rem; }
+.fb-row label { font-size:0.72rem; font-weight:700; text-transform:uppercase;
+  letter-spacing:0.06em; color:var(--muted); }
+.fb-row input, .fb-row textarea { width:100%; }
+.fb-row textarea { resize:vertical; min-height:140px; }
+@media (max-width:767px) { .fb-row input, .fb-row textarea { font-size:16px; } }
+</style>
+
+<div class="page-hd">
+  <div>
+    <h1>Feedback</h1>
+    <div class="subtitle">Report a bug or request a feature</div>
+  </div>
+</div>
+
+<div style="max-width:560px;">
+{% if not configured %}
+  <div class="card" style="border-left:3px solid var(--pr);">
+    <div style="display:flex;align-items:flex-start;gap:0.75rem;">
+      <i data-lucide="info" style="width:20px;height:20px;color:var(--pr);flex-shrink:0;margin-top:0.1rem;"></i>
+      <div>
+        <div style="font-weight:600;margin-bottom:0.3rem;">Reporting isn't configured</div>
+        <div style="font-size:0.85rem;color:var(--muted);line-height:1.55;">
+          The server admin needs to set a <code>GITHUB_TOKEN</code> (and optionally
+          <code>GITHUB_REPO</code>) so reports can be filed to GitHub. Until then you
+          can open an issue directly at
+          <a href="https://github.com/{{ repo }}/issues/new/choose" target="_blank" rel="noopener"
+             style="color:var(--accent);">github.com/{{ repo }}</a>.
+        </div>
+      </div>
+    </div>
+  </div>
+{% else %}
+  <div class="card">
+    <div class="fb-row">
+      <label>Type</label>
+      <div class="fb-seg" id="fb-type">
+        <button type="button" class="fb-seg-btn active" data-val="bug" onclick="pickType(this)">
+          <i data-lucide="bug" style="width:18px;height:18px;pointer-events:none;"></i>
+          Bug
+          <span class="fb-sub">Something's broken</span>
+        </button>
+        <button type="button" class="fb-seg-btn" data-val="feature" onclick="pickType(this)">
+          <i data-lucide="lightbulb" style="width:18px;height:18px;pointer-events:none;"></i>
+          Feature
+          <span class="fb-sub">An idea or request</span>
+        </button>
+      </div>
+    </div>
+
+    <div class="fb-row">
+      <label for="fb-title">Title</label>
+      <input type="text" id="fb-title" maxlength="120" placeholder="Short summary">
+    </div>
+
+    <div class="fb-row">
+      <label for="fb-desc" id="fb-desc-label">What happened?</label>
+      <textarea id="fb-desc" maxlength="4000"
+                placeholder="Steps to reproduce, what you expected, what actually happened…"></textarea>
+    </div>
+
+    <div style="display:flex;align-items:center;gap:0.75rem;">
+      <button class="btn btn-primary" id="fb-submit" onclick="submitFeedback()">
+        <i data-lucide="send" style="width:14px;height:14px;pointer-events:none;"></i>
+        Submit
+      </button>
+      <span id="fb-msg" style="font-size:0.82rem;display:none;"></span>
+    </div>
+  </div>
+{% endif %}
+</div>
+
+{% if configured %}
+<script>
+let _fbType = 'bug';
+
+function pickType(btn) {
+  document.querySelectorAll('#fb-type .fb-seg-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  _fbType = btn.dataset.val;
+  // Tailor the description prompt to the chosen type
+  const label = document.getElementById('fb-desc-label');
+  const desc = document.getElementById('fb-desc');
+  if (_fbType === 'bug') {
+    label.textContent = 'What happened?';
+    desc.placeholder = 'Steps to reproduce, what you expected, what actually happened…';
+  } else {
+    label.textContent = 'What would you like?';
+    desc.placeholder = 'Describe the feature and why it would help…';
+  }
+}
+
+async function submitFeedback() {
+  const btn = document.getElementById('fb-submit');
+  const msg = document.getElementById('fb-msg');
+  const title = document.getElementById('fb-title').value.trim();
+  const description = document.getElementById('fb-desc').value.trim();
+
+  function flash(text, color) {
+    msg.textContent = text; msg.style.color = color; msg.style.display = 'inline';
+  }
+
+  if (title.length < 3) { flash('Add a short title.', 'var(--danger)'); return; }
+  if (description.length < 10) { flash('Add a bit more detail.', 'var(--danger)'); return; }
+
+  btn.disabled = true;
+  flash('Submitting…', 'var(--muted)');
+
+  let r;
+  try {
+    r = await fetch('/feedback', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({type: _fbType, title, description, page: document.referrer || location.pathname}),
+    });
+  } catch (e) {
+    btn.disabled = false;
+    flash('Network error — try again.', 'var(--danger)');
+    return;
+  }
+
+  if (r.ok) {
+    const data = await r.json();
+    document.getElementById('fb-title').value = '';
+    document.getElementById('fb-desc').value = '';
+    msg.innerHTML = '✓ Submitted! '
+      + (data.url ? '<a href="' + data.url + '" target="_blank" rel="noopener" style="color:var(--accent);">View issue #' + data.number + ' →</a>' : '');
+    msg.style.color = 'var(--success)';
+    msg.style.display = 'inline';
+    btn.disabled = false;
+  } else {
+    let detail = 'Something went wrong.';
+    try { detail = (await r.json()).detail || detail; } catch (e) {}
+    flash(detail, 'var(--danger)');
+    btn.disabled = false;
+  }
+}
+</script>
+{% endif %}
+{% endblock %}

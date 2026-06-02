@@ -865,6 +865,7 @@
           <a href="/achievements">Achievements</a>
           <a href="/planner">Planner</a>
           <a href="/export">Export</a>
+          <a href="/feedback">Feedback</a>
           {% if user.is_admin %}<a href="/invite">Invite</a>{% endif %}
           <a href="/settings">Settings</a>
         </div>
@@ -981,6 +982,10 @@
         <span>Invite</span>
       </a>
       {% endif %}
+      <a href="/feedback" class="mob-more-item" data-mob-more-path="/feedback" onclick="closeMobMore()">
+        <div class="mob-more-icon"><i data-lucide="megaphone"></i></div>
+        <span>Feedback</span>
+      </a>
       <a href="/settings" class="mob-more-item" data-mob-more-path="/settings" onclick="closeMobMore()">
         <div class="mob-more-icon"><i data-lucide="settings"></i></div>
         <span>Settings</span>
