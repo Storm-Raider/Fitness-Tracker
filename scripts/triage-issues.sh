@@ -150,8 +150,12 @@ Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>" || true
     log "#$n -> MAJOR (queued to TODOS.md)"
 }
 
+# Read the work-list on fd 3, not stdin: claude/gh inside the loop read stdin
+# and would otherwise swallow the remaining issues, ending the loop after one.
+# Process substitution (not a pipe) also keeps the loop in this shell so the
+# counter persists.
 processed=0
-echo "$TARGETS" | jq -c '.[]' | while IFS= read -r issue; do
+while IFS= read -r issue <&3; do
     [ "$processed" -ge "$MAX_ISSUES" ] && break
     processed=$((processed + 1))
 
@@ -184,7 +188,7 @@ fences, no surrounding prose:
 
     RAW="$(timeout "$CLAUDE_TIMEOUT" claude -p "$PROMPT" \
               --allowedTools "Read,Edit,Write,Grep,Glob" \
-              --output-format json 2>>"$REPO/logs/triage.log" || echo '')"
+              --output-format json </dev/null 2>>"$REPO/logs/triage.log" || echo '')"
 
     # Extract the assistant's result text, then the trailing JSON verdict.
     RESULT="$(echo "$RAW" | jq -r '.result // empty' 2>/dev/null)"
@@ -235,6 +239,6 @@ Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>" || { log "#$NUM: commit
         gh issue edit "$NUM" --add-label "auto-fix-failed" >/dev/null 2>&1 || true
         queue_major "$NUM" "$TITLE" "" "auto-fix attempted but the test suite failed; needs manual work"
     fi
-done
+done 3< <(echo "$TARGETS" | jq -c '.[]')
 
 log "triage run complete"
