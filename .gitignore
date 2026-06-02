@@ -1,5 +1,8 @@
 # Secrets — never commit
 .env
+GH-Token
+*-token
+*.token
 
 # gstack internal artifacts (AI design audit, QA reports, screenshots)
 .gstack/

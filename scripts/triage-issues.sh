@@ -222,7 +222,10 @@ fences, no surrounding prose:
     log "#$NUM: minor fix applied — running test suite"
     if timeout 1200 "$PYTEST" tests/ -q >>"$REPO/logs/triage.log" 2>&1; then
         [ -n "$COMMIT_MSG" ] || COMMIT_MSG="fix: address issue (Fixes #$NUM)"
-        git add -A
+        # Stage ONLY the source dirs a fix may touch — never `git add -A`, which
+        # would sweep stray files (e.g. a loose secret in the repo root) into the
+        # commit. Minor fixes only edit app/ and tests/ by definition.
+        git add app/ tests/
         git commit -q -m "$COMMIT_MSG
 
 Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>" || { log "#$NUM: commit failed"; discard_edits; continue; }
