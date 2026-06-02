@@ -890,14 +890,6 @@
         </form>
       </div>
     </div>
-    <button id="unit-toggle" onclick="toggleUnit()"
-            title="Switch between kg and lbs"
-            style="background:transparent;border:1px solid var(--border);color:var(--muted);
-                   cursor:pointer;padding:0.35rem 0.8rem;min-height:40px;border-radius:var(--radius-xs);font-size:0.72rem;
-                   font-family:'JetBrains Mono',monospace;letter-spacing:0.04em;transition:all 0.15s;
-                   flex-shrink:0;"
-            onmouseover="this.style.color='var(--accent)';this.style.borderColor='var(--accent)'"
-            onmouseout="this.style.color='var(--muted)';this.style.borderColor='var(--border)'">kg</button>
     <div class="nav-user">
       <a href="/settings" class="username">{{ user.username }}</a>
       <form method="post" action="/logout" style="display:flex;align-items:center;">
@@ -994,11 +986,7 @@
         <span>Settings</span>
       </a>
     </div>
-    <div class="mob-more-signout" style="display:flex;gap:0.5rem;">
-      <button id="unit-toggle-mob" onclick="toggleUnit()"
-              style="background:transparent;border:1px solid var(--border);color:var(--muted);
-                     cursor:pointer;padding:0.35rem 0.9rem;min-height:40px;border-radius:var(--radius-xs);font-size:0.78rem;
-                     font-family:'JetBrains Mono',monospace;letter-spacing:0.04em;flex-shrink:0;">kg</button>
+    <div class="mob-more-signout">
       <form method="post" action="/logout" style="flex:1;">
         <button type="submit" class="btn btn-ghost" style="width:100%;justify-content:center;">Sign out</button>
       </form>

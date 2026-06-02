@@ -73,21 +73,31 @@
       </div>
     </div>
     <script>
-    function markActive(btnId) {
-      ['unit-kg','unit-lbs','dist-km','dist-mi'].forEach(function(id) {
+    // Highlight the active button WITHIN its own group only, so weight and
+    // distance selections are independent (selecting one must not clear the other).
+    function markActive(group, activeId) {
+      group.forEach(function(id) {
         var b = document.getElementById(id);
         if (!b) return;
-        var isActive = (id === btnId);
+        var isActive = (id === activeId);
         b.style.borderColor = isActive ? 'var(--accent)' : 'var(--border)';
         b.style.color = isActive ? 'var(--accent)' : 'var(--muted)';
         b.style.background = isActive ? 'var(--accent-dim)' : 'var(--surface-2)';
       });
     }
-    function setUnit(u) { if (window.toggleUnit && window.getAppUnit() !== u) window.toggleUnit(); markActive('unit-' + u); }
-    function setDistance(d) { if (window.toggleDistance && window.getDistanceUnit() !== d) window.toggleDistance(); markActive('dist-' + d); }
+    var WEIGHT_BTNS = ['unit-kg', 'unit-lbs'];
+    var DIST_BTNS = ['dist-km', 'dist-mi'];
+    function setUnit(u) {
+      if (window.toggleUnit && window.getAppUnit() !== u) window.toggleUnit();
+      markActive(WEIGHT_BTNS, 'unit-' + u);
+    }
+    function setDistance(d) {
+      if (window.toggleDistance && window.getDistanceUnit() !== d) window.toggleDistance();
+      markActive(DIST_BTNS, 'dist-' + d);
+    }
     document.addEventListener('DOMContentLoaded', function() {
-      markActive('unit-' + (window.getAppUnit ? window.getAppUnit() : 'kg'));
-      markActive('dist-' + (window.getDistanceUnit ? window.getDistanceUnit() : 'km'));
+      markActive(WEIGHT_BTNS, 'unit-' + (window.getAppUnit ? window.getAppUnit() : 'kg'));
+      markActive(DIST_BTNS, 'dist-' + (window.getDistanceUnit ? window.getDistanceUnit() : 'km'));
     });
     </script>
   </div>
