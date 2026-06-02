@@ -105,7 +105,7 @@ async def list_exercises_json(
 
     async with conn.execute(
         """
-        SELECT e.id, e.name, em.muscle, em.is_primary
+        SELECT e.id, e.name, e.equipment, em.muscle, em.is_primary
         FROM exercises e
         LEFT JOIN exercise_muscles em ON em.exercise_id = e.id
         ORDER BY e.name, em.is_primary DESC, em.muscle
@@ -116,7 +116,8 @@ async def list_exercises_json(
     _ex: dict = {}
     for r in rows:
         if r["id"] not in _ex:
-            _ex[r["id"]] = {"id": r["id"], "name": r["name"], "muscles": []}
+            _ex[r["id"]] = {"id": r["id"], "name": r["name"],
+                            "is_bodyweight": r["equipment"] == "Bodyweight", "muscles": []}
         if r["muscle"]:
             _ex[r["id"]]["muscles"].append(
                 {"name": r["muscle"], "is_primary": bool(r["is_primary"])}

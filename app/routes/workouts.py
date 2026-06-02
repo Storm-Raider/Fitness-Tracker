@@ -62,7 +62,8 @@ class WorkoutPatch(BaseModel):
 class SetIn(BaseModel):
     exercise_id: int = Field(gt=0)
     reps: int = Field(ge=1, le=999)
-    weight_kg: float = Field(ge=0.0, le=1000.0)
+    weight_kg: float = Field(ge=0.0, le=1000.0)  # effective load (bodyweight + added for BW sets)
+    added_weight_kg: float | None = Field(default=None, ge=0.0, le=500.0)  # NULL = normal weighted set
     notes: str | None = Field(default=None, max_length=500)
     rpe: int | None = Field(default=None, ge=1, le=10)
 
@@ -183,7 +184,8 @@ async def get_workout(
 
     async with conn.execute(
         """
-        SELECT s.id, s.exercise_id, e.name AS exercise_name, s.reps, s.weight_kg, s.notes, s.rpe
+        SELECT s.id, s.exercise_id, e.name AS exercise_name, s.reps, s.weight_kg,
+               s.added_weight_kg, s.notes, s.rpe
         FROM sets s
         JOIN exercises e ON e.id = s.exercise_id
         WHERE s.workout_id = ? AND s.user_id = ?
@@ -240,6 +242,15 @@ async def get_workout(
             except Exception:
                 enrichment = None
 
+    # Latest bodyweight (for bodyweight-exercise volume). None → the form prompts.
+    async with conn.execute(
+        "SELECT weight_kg FROM body_metrics WHERE user_id = ? "
+        "ORDER BY COALESCE(entry_date, DATE(recorded_at)) DESC, recorded_at DESC LIMIT 1",
+        (current_user["id"],),
+    ) as cur:
+        _bw = await cur.fetchone()
+    latest_bodyweight = _bw["weight_kg"] if _bw else None
+
     return templates.TemplateResponse(request, "workout_form.html", {
         "workout": dict(row),
         "sets": sets,
@@ -250,6 +261,7 @@ async def get_workout(
         "duration_min": duration_min,
         "template_exercises": template_exercises,
         "enrichment": enrichment,
+        "latest_bodyweight": latest_bodyweight,
     })
 
 
@@ -297,9 +309,10 @@ async def add_set(
         prior_max = prior_row["max_kg"] if prior_row and prior_row["max_kg"] else None
 
         async with conn.execute(
-            "INSERT INTO sets(workout_id, exercise_id, reps, weight_kg, notes, rpe, user_id) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?)",
-            (workout_id, body.exercise_id, body.reps, body.weight_kg, body.notes, body.rpe, uid),
+            "INSERT INTO sets(workout_id, exercise_id, reps, weight_kg, added_weight_kg, notes, rpe, user_id) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            (workout_id, body.exercise_id, body.reps, body.weight_kg, body.added_weight_kg,
+             body.notes, body.rpe, uid),
         ) as cur:
             set_id = cur.lastrowid
 
@@ -330,7 +343,8 @@ async def add_set(
         background_tasks.add_task(_fire_webhook, _http_client, webhook_url, payload)
 
     return JSONResponse(
-        {"id": set_id, "is_pr": is_pr, "current_pr": current_pr}, status_code=201
+        {"id": set_id, "is_pr": is_pr, "current_pr": current_pr,
+         "added_weight_kg": body.added_weight_kg}, status_code=201
     )
 
 

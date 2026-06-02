@@ -269,3 +269,36 @@ async def test_search_empty_query_returns_all(client, db_conn):
     r = await client.get("/workouts?q=", headers={"Accept": "text/html"})
     assert r.status_code == 200
     assert "No workouts match" not in r.text
+
+
+# ── Bodyweight sets ──────────────────────────────────────────────────────────
+
+@pytest.mark.asyncio
+async def test_bodyweight_set_stores_added_weight(client, db_conn):
+    ex = await client.post("/exercises", json={"name": "BW Test Pushup"})
+    ex_id = ex.json()["id"]
+    w = await client.post("/workouts", json={"notes": None})
+    w_id = w.json()["id"]
+    # Effective load = bodyweight(75) + added(10) = 85, added = 10
+    r = await client.post(f"/workouts/{w_id}/sets",
+                          json={"exercise_id": ex_id, "reps": 12, "weight_kg": 85.0, "added_weight_kg": 10.0})
+    assert r.status_code == 201
+    assert r.json()["added_weight_kg"] == 10.0
+    async with db_conn.execute("SELECT weight_kg, added_weight_kg FROM sets WHERE id=?", (r.json()["id"],)) as c:
+        row = await c.fetchone()
+    assert row["weight_kg"] == 85.0          # effective load drives volume
+    assert row["added_weight_kg"] == 10.0    # flags it as a bodyweight set
+
+
+@pytest.mark.asyncio
+async def test_regular_set_has_null_added_weight(client, db_conn):
+    ex = await client.post("/exercises", json={"name": "BW Test Bench"})
+    ex_id = ex.json()["id"]
+    w = await client.post("/workouts", json={"notes": None})
+    w_id = w.json()["id"]
+    r = await client.post(f"/workouts/{w_id}/sets",
+                          json={"exercise_id": ex_id, "reps": 5, "weight_kg": 100.0})
+    assert r.status_code == 201
+    assert r.json()["added_weight_kg"] is None
+    async with db_conn.execute("SELECT added_weight_kg FROM sets WHERE id=?", (r.json()["id"],)) as c:
+        assert (await c.fetchone())["added_weight_kg"] is None

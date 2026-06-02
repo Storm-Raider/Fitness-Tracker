@@ -125,3 +125,14 @@ async def test_create_exercise_invalid_muscle_falls_back_to_inference(client):
     resp = await client.post("/exercises", json={"name": "Hammer Curl Variation", "muscle_primary": "Bogus"})
     assert resp.status_code == 201
     assert resp.json()["muscle"] == "Biceps"
+
+
+@pytest.mark.asyncio
+async def test_api_exercises_flags_bodyweight(client):
+    """/api/exercises marks bodyweight exercises so the form can switch to the
+    'added weight' input."""
+    data = (await client.get("/api/exercises")).json()
+    pushup = next((e for e in data["exercises"] if e["name"] == "Push-up"), None)
+    bench = next((e for e in data["exercises"] if e["name"] == "Bench Press"), None)
+    assert pushup is not None and pushup["is_bodyweight"] is True
+    assert bench is not None and bench["is_bodyweight"] is False

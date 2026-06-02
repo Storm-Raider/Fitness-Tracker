@@ -179,6 +179,11 @@ _MIGRATIONS = [
     # (the runner swallows the "duplicate column" error). Migrations are APPEND-ONLY
     # — never insert in the middle again.
     "ALTER TABLE user_settings ADD COLUMN pref_distance TEXT NOT NULL DEFAULT 'km'",
+    # Bodyweight sets: weight_kg stores the EFFECTIVE load (bodyweight + added) so
+    # volume math is unchanged; added_weight_kg (NULL = a normal weighted set)
+    # records the extra plate/belt weight and flags the set as bodyweight for
+    # display ("BW +20kg" vs a bare number).
+    "ALTER TABLE sets ADD COLUMN added_weight_kg REAL",
 ]
 
 

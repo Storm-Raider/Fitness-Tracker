@@ -870,7 +870,7 @@
       <div class="set-body">
         <div class="set-name">{{ s.exercise_name }}</div>
         <div class="set-detail" id="detail-{{ s.id }}">
-          <span class="weight-display" data-kg="{{ s.weight_kg }}">{{ s.weight_kg }}</span> × {{ s.reps }}{% if s.rpe %} · RPE {{ s.rpe }}{% endif %}{% if s.notes %} · {{ s.notes }}{% endif %}
+          {% if s.added_weight_kg is not none %}{% if s.added_weight_kg and s.added_weight_kg > 0 %}BW +<span class="weight-display" data-kg="{{ s.added_weight_kg }}">{{ s.added_weight_kg }}</span>{% else %}BW{% endif %}{% else %}<span class="weight-display" data-kg="{{ s.weight_kg }}">{{ s.weight_kg }}</span>{% endif %} × {{ s.reps }}{% if s.rpe %} · RPE {{ s.rpe }}{% endif %}{% if s.notes %} · {{ s.notes }}{% endif %}
         </div>
         <div class="set-edit-row" id="edit-{{ s.id }}">
           <input type="number" class="edit-w" step="0.5" min="0">
@@ -1099,6 +1099,11 @@ document.getElementById('tpl-name-input')?.addEventListener('keydown', e => { if
     </div>
   </div>
 
+  {# Bodyweight load hint — shown only for bodyweight exercises #}
+  <div id="bw-hint" style="display:none;margin-bottom:0.6rem;font-size:0.78rem;color:var(--muted);
+       background:var(--surface-2);border:1px solid var(--border);border-radius:var(--radius-xs);padding:0.5rem 0.75rem;">
+  </div>
+
   {# Weight + Reps steppers #}
   <div class="steppers-row">
     <div class="stepper-field">
@@ -1264,7 +1269,7 @@ document.getElementById('tpl-name-input')?.addEventListener('keydown', e => { if
         <div class="set-body">
           <div class="set-name">{{ s.exercise_name }}</div>
           <div class="set-detail" id="detail-{{ s.id }}">
-            <span class="weight-display" data-kg="{{ s.weight_kg }}">{{ s.weight_kg }}</span> × {{ s.reps }}{% if s.rpe %} · RPE {{ s.rpe }}{% endif %}{% if s.notes %} · {{ s.notes }}{% endif %}
+            {% if s.added_weight_kg is not none %}{% if s.added_weight_kg and s.added_weight_kg > 0 %}BW +<span class="weight-display" data-kg="{{ s.added_weight_kg }}">{{ s.added_weight_kg }}</span>{% else %}BW{% endif %}{% else %}<span class="weight-display" data-kg="{{ s.weight_kg }}">{{ s.weight_kg }}</span>{% endif %} × {{ s.reps }}{% if s.rpe %} · RPE {{ s.rpe }}{% endif %}{% if s.notes %} · {{ s.notes }}{% endif %}
           </div>
           <div class="set-edit-row" id="edit-{{ s.id }}">
             <input type="number" class="edit-w" step="0.5" min="0">
@@ -1439,6 +1444,19 @@ let lastSets = {};
 let selectedMuscleGroup = '';
 let _filteredPool = [];
 
+// ── Bodyweight exercises ───────────────────────────────────────
+// For bodyweight moves the "Weight" field becomes "Added" (default 0); the load
+// is bodyweight + added so volume (= load × reps) stays meaningful.
+let BODYWEIGHT_KG = {{ latest_bodyweight if latest_bodyweight is not none else 'null' }};
+let _bwMode = false;
+function _bwBadge(addedKg, unit) {
+  // Display label for a bodyweight set: "BW" or "BW +20kg".
+  const a = unit === 'lbs' ? (addedKg || 0) * 2.2046 : (addedKg || 0);
+  return (addedKg && addedKg > 0)
+    ? `BW +${Math.round(a * 10) / 10} ${unit}`
+    : 'BW';
+}
+
 // Exercise color palette — cycles per unique exercise ID
 const EX_COLORS = ['#4f9cf9','#f59e0b','#34d399','#f472b6','#a78bfa','#fb923c'];
 const _exColorMap = {};
@@ -1523,13 +1541,14 @@ function stepWeight(dir) {
   const el    = document.getElementById('weight-input');
   el.value    = Math.max(0, parseFloat(el.value || 0) + dir * delta);
   updatePlates();
+  updateBwHint();
 }
 
 window.addEventListener('unitchange', function(e) {
   const unit    = e.detail.unit;
   const oldUnit = e.detail.oldUnit;
   const label   = document.getElementById('weight-label');
-  if (label) label.textContent = 'Weight (' + unit + ')';
+  if (label) label.textContent = (_bwMode ? 'Added (' : 'Weight (') + unit + ')';
   const input = document.getElementById('weight-input');
   if (input && oldUnit !== unit) {
     const val = parseFloat(input.value || 0);
@@ -1537,6 +1556,7 @@ window.addEventListener('unitchange', function(e) {
       ? Math.round(val * 2.2046 * 10) / 10
       : Math.round(val / 2.2046 * 10) / 10;
   }
+  updateBwHint();
   updateVolumeDisplay();
   // Update bar weight selector option labels
   const barSel = document.getElementById('bar-weight-sel');
@@ -1947,7 +1967,55 @@ function _highlight(name, q) {
     + escHtml(name.slice(idx + q.length));
 }
 
+function setBodyweightMode(on) {
+  _bwMode = on;
+  const label  = document.getElementById('weight-label');
+  const hint   = document.getElementById('bw-hint');
+  const wInput = document.getElementById('weight-input');
+  const unit   = getAppUnit();
+  if (on) {
+    label.textContent = 'Added (' + unit + ')';
+    wInput.value = '0';               // the field now means ADDED weight
+    hint.style.display = 'block';
+    updateBwHint();
+  } else {
+    label.textContent = 'Weight (' + unit + ')';
+    hint.style.display = 'none';
+  }
+}
+function updateBwHint() {
+  if (!_bwMode) return;
+  const unit = getAppUnit();
+  const hint = document.getElementById('bw-hint');
+  if (BODYWEIGHT_KG == null) {
+    hint.innerHTML =
+      `Add your bodyweight to track volume: ` +
+      `<input id="bw-quick" type="number" inputmode="decimal" step="0.5" min="1" placeholder="${unit}" ` +
+      `style="width:74px;margin:0 0.3rem;padding:0.25rem 0.4rem;font-size:16px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-xs);color:var(--text);">` +
+      `<button type="button" onclick="saveQuickBw()" class="btn btn-ghost" style="min-height:30px;padding:0.2rem 0.6rem;font-size:0.75rem;">Save</button>`;
+    return;
+  }
+  const added  = parseFloat(document.getElementById('weight-input').value) || 0;
+  const bwDisp = unit === 'lbs' ? Math.round(BODYWEIGHT_KG * 2.2046 * 10) / 10 : Math.round(BODYWEIGHT_KG * 10) / 10;
+  const eff    = Math.round((bwDisp + added) * 10) / 10;
+  hint.innerHTML =
+    `Load: bodyweight ${bwDisp} ${unit}${added > 0 ? ` + ${added}` : ''} → ` +
+    `<strong style="color:var(--text);">${eff} ${unit}</strong> × reps`;
+}
+async function saveQuickBw() {
+  const unit = getAppUnit();
+  const v = parseFloat(document.getElementById('bw-quick').value);
+  if (!v || v <= 0) return;
+  const kg = unit === 'lbs' ? v / 2.2046 : v;
+  const r = await fetch('/metrics', {
+    method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({weight_kg: kg}),
+  });
+  if (r.ok) { BODYWEIGHT_KG = kg; updateBwHint(); }
+}
+
 function applyExerciseSelection(ex) {
+  setBodyweightMode(!!(ex && ex.is_bodyweight));
   updateExerciseHero(ex);
   // Hide "+ Same" when switching exercises
   if (!ex || ex.id !== _lastLoggedExId) _hideSameBtn();
@@ -1967,7 +2035,9 @@ function applyExerciseSelection(ex) {
         : epley1RM(last.weight_kg, last.reps);
       document.getElementById('last-set-text').textContent = `${displayW} ${unit} × ${last.reps} reps`;
       document.getElementById('last-1rm').textContent      = `· est. 1RM ${display1rm} ${unit}`;
-      document.getElementById('weight-input').value        = displayW;
+      // In bodyweight mode the field is ADDED weight (kept at 0) — don't prefill
+      // the effective load. Only carry reps over.
+      if (!_bwMode) document.getElementById('weight-input').value = displayW;
       document.getElementById('reps-input').value          = last.reps;
       hint.style.display = 'flex';
 
@@ -2252,8 +2322,16 @@ async function logSet() {
   }
 
   const unit          = getAppUnit();
-  const displayWeight = parseFloat(document.getElementById('weight-input').value);
-  const weightKg      = unit === 'lbs' ? displayWeight / 2.2046 : displayWeight;
+  const fieldVal      = parseFloat(document.getElementById('weight-input').value) || 0;
+  const fieldKg       = unit === 'lbs' ? fieldVal / 2.2046 : fieldVal;
+  // Bodyweight mode: the field is ADDED weight; the logged load is bodyweight + added.
+  let weightKg, addedKg = null;
+  if (_bwMode) {
+    addedKg  = fieldKg;
+    weightKg = (BODYWEIGHT_KG || 0) + fieldKg;
+  } else {
+    weightKg = fieldKg;
+  }
   const reps          = parseInt(document.getElementById('reps-input').value);
   const notes         = document.getElementById('notes-input').value.trim() || null;
   const rpeRaw        = document.getElementById('rpe-select').value;
@@ -2262,7 +2340,7 @@ async function logSet() {
   const resp = await fetch(`/workouts/${WORKOUT_ID}/sets`, {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({exercise_id: exerciseId, reps, weight_kg: weightKg, notes, rpe}),
+    body: JSON.stringify({exercise_id: exerciseId, reps, weight_kg: weightKg, added_weight_kg: addedKg, notes, rpe}),
   });
   if (!resp.ok) { showErr('Failed to log set.'); if (logBtn) { delete logBtn.dataset.busy; logBtn.style.opacity = ''; } return; }
   const data = await resp.json();
@@ -2298,7 +2376,10 @@ async function logSet() {
     <div class="set-body">
       <div class="set-name">${escHtml(exerciseName)}${data.is_pr ? ' <span class="badge badge-pr">PR</span>' : ''}</div>
       <div class="set-detail" id="detail-${data.id}">
-        <span class="weight-display" data-kg="${weightKg}">${displayWeight} ${unit}</span> × ${reps}${rpe ? ' · RPE ' + rpe : ''} · 1RM ${fmtWeight(epley1RM(weightKg, reps), unit)}${notes ? ' · ' + escHtml(notes) : ''}
+        ${_bwMode
+          ? `<span>${_bwBadge(addedKg, unit)}</span> × ${reps}`
+          : `<span class="weight-display" data-kg="${weightKg}">${fieldVal} ${unit}</span> × ${reps} · 1RM ${fmtWeight(epley1RM(weightKg, reps), unit)}`
+        }${rpe ? ' · RPE ' + rpe : ''}${notes ? ' · ' + escHtml(notes) : ''}
       </div>
       <div class="set-edit-row" id="edit-${data.id}">
         <input type="number" class="edit-w" step="0.5" min="0">
@@ -2324,7 +2405,7 @@ async function logSet() {
   lastSets[String(exerciseId)] = {weight_kg: weightKg, reps};
   updateSetsCountBadge();
   _lastLoggedExId = exerciseId;
-  _showSameBtn(exerciseName, displayWeight, reps, unit);
+  _showSameBtn(exerciseName, fieldVal, reps, unit);
   if (window._mmapRefresh) window._mmapRefresh();
   if (logBtn) { delete logBtn.dataset.busy; logBtn.style.opacity = ''; }
 }
