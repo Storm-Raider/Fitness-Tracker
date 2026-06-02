@@ -177,9 +177,9 @@
     }
     /* Prevent iOS/Android tap-to-zoom: focused inputs must be >=16px on any
        touch device (pointer:coarse), regardless of width. Pinch-zoom unaffected. */
-    @media (pointer: coarse) {
-      input, select, textarea { font-size: 16px !important; }
-    }
+    /* Force 16px on inputs unconditionally to stop tap-to-zoom on every
+       touch device (width/pointer queries miss iPad+trackpad & landscape). */
+    input, select, textarea { font-size: 16px !important; }
   </style>
 </head>
 <body>
