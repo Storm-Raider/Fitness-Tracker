@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'v0.3.7';
+const CACHE_VERSION = 'v0.3.8';
 const CACHE_NAME = `fittrack-${CACHE_VERSION}`;
 
 const PRECACHE = [
@@ -16,11 +16,16 @@ self.addEventListener('install', event => {
 
 self.addEventListener('activate', event => {
   event.waitUntil(
-    caches.keys().then(keys =>
-      Promise.all(keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k)))
-    )
+    caches.keys()
+      .then(keys => Promise.all(keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k))))
+      .then(() => self.clients.claim())
+      // Force every open window to reload once when a NEW worker version takes
+      // over, so a device stuck on a stale cached page (common with installed
+      // iOS PWAs) self-heals on the next launch instead of needing a manual
+      // cache clear. Fires once per version bump — no reload loop.
+      .then(() => self.clients.matchAll({ type: 'window' }))
+      .then(clients => clients.forEach(c => { try { c.navigate(c.url); } catch (e) {} }))
   );
-  self.clients.claim();
 });
 
 self.addEventListener('fetch', event => {
