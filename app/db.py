@@ -172,6 +172,13 @@ _MIGRATIONS = [
         UNIQUE(user_id, log_date)
     )""",
     "CREATE INDEX IF NOT EXISTS idx_daily_logs_user ON daily_logs(user_id, log_date)",
+    # REPAIR: pref_distance was first added mid-list (index 35), which shifted the
+    # daily_logs migrations and caused the live DB to skip it (its slot was already
+    # marked applied by the old daily_logs-table migration). Re-add it as a fresh
+    # tail entry so it runs on databases that missed it. Harmless on fresh installs
+    # (the runner swallows the "duplicate column" error). Migrations are APPEND-ONLY
+    # — never insert in the middle again.
+    "ALTER TABLE user_settings ADD COLUMN pref_distance TEXT NOT NULL DEFAULT 'km'",
 ]
 
 
