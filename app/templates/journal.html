@@ -150,7 +150,7 @@
         {% if entry.day_number %}<span style="font-size:0.72rem;color:var(--muted);margin-left:0.4rem;">Day {{ entry.day_number }}</span>{% endif %}
       </div>
       <div style="font-size:0.75rem;color:var(--muted);margin-top:0.1rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
-        {% if entry.weight_kg %}{{ entry.weight_kg }} kg{% endif %}
+        {% if entry.weight_kg %}<span class="weight-display" data-kg="{{ entry.weight_kg }}">{{ entry.weight_kg }} kg</span>{% endif %}
         {% if entry.workout %}{% if entry.weight_kg %} · {% endif %}{{ entry.workout }}{% endif %}
         {% if entry.energy %}{% if entry.weight_kg or entry.workout %} · {% endif %}{{ entry.energy }} energy{% endif %}
         {% if entry.sleep_hrs %}{% if entry.weight_kg or entry.workout or entry.energy %} · {% endif %}{{ entry.sleep_hrs }}h sleep{% endif %}

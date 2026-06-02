@@ -62,7 +62,8 @@ async def get_current_user(
         raise HTTPException(status_code=401)
     async with conn.execute(
         """SELECT u.id, u.username, u.is_admin,
-                  COALESCE(us.pref_unit, 'kg') AS pref_unit
+                  COALESCE(us.pref_unit, 'kg') AS pref_unit,
+                  COALESCE(us.pref_distance, 'km') AS pref_distance
            FROM users u
            LEFT JOIN user_settings us ON us.user_id = u.id
            WHERE u.id = ?""",
@@ -103,6 +104,29 @@ async def patch_unit_pref(
     await conn.commit()
     from fastapi.responses import JSONResponse
     return JSONResponse({"unit": body.unit})
+
+
+class DistancePref(BaseModel):
+    distance: str
+
+@router.patch("/api/settings/distance")
+async def patch_distance_pref(
+    body: DistancePref,
+    conn: aiosqlite.Connection = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    from fastapi.responses import JSONResponse
+    if body.distance not in ("km", "mi"):
+        raise HTTPException(status_code=422, detail="distance must be 'km' or 'mi'")
+    uid = current_user["id"]
+    await conn.execute(
+        """INSERT INTO user_settings(user_id, pref_distance)
+           VALUES (?, ?)
+           ON CONFLICT(user_id) DO UPDATE SET pref_distance = excluded.pref_distance""",
+        (uid, body.distance),
+    )
+    await conn.commit()
+    return JSONResponse({"distance": body.distance})
 
 
 # ── Login ─────────────────────────────────────────────────────────────────────

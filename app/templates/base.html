@@ -1082,6 +1082,53 @@
       window.fmtWeight = fmtWeight;
       document.addEventListener('DOMContentLoaded', function() { applyUnit('kg'); });
     })();
+    // Distance preference (km / mi) — initialised from server, synced back on change
+    (function() {
+      const DKEY = 'fitstorm_distance';
+      var _serverDist = '{{ (user.pref_distance if user is defined and user else "km") | e }}';
+      if (_serverDist === 'km' || _serverDist === 'mi') {
+        localStorage.setItem(DKEY, _serverDist);
+      }
+      function getDistUnit() { return localStorage.getItem(DKEY) || 'km'; }
+      function fmtDistance(km, unit) {
+        var val = parseFloat(km);
+        if ((unit || getDistUnit()) === 'mi') {
+          return (Math.round(val * 0.621371 * 100) / 100).toLocaleString('en', {maximumFractionDigits: 2}) + ' mi';
+        }
+        return val.toLocaleString('en', {maximumFractionDigits: 2}) + ' km';
+      }
+      function fmtPace(minPerKm, unit) {
+        var mpm = (unit || getDistUnit()) === 'mi' ? minPerKm / 0.621371 : minPerKm;
+        var mins = Math.floor(mpm);
+        var secs = Math.round((mpm - mins) * 60);
+        if (secs === 60) { mins++; secs = 0; }
+        return mins + ':' + (secs < 10 ? '0' : '') + secs + ' /' + (getDistUnit() === 'mi' ? 'mi' : 'km');
+      }
+      function applyDistUnit() {
+        var unit = getDistUnit();
+        document.querySelectorAll('.distance-display[data-km]').forEach(function(el) {
+          el.textContent = fmtDistance(parseFloat(el.getAttribute('data-km')), unit);
+        });
+        document.querySelectorAll('.pace-unit-label').forEach(function(el) {
+          el.textContent = 'min/' + unit;
+        });
+        window.dispatchEvent(new CustomEvent('distancechange', { detail: { unit: unit } }));
+      }
+      window.toggleDistance = function() {
+        var newUnit = getDistUnit() === 'km' ? 'mi' : 'km';
+        localStorage.setItem(DKEY, newUnit);
+        applyDistUnit();
+        fetch('/api/settings/distance', {
+          method: 'PATCH',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({distance: newUnit}),
+        }).catch(function() {});
+      };
+      window.getDistanceUnit = getDistUnit;
+      window.fmtDistance = fmtDistance;
+      window.fmtPace = fmtPace;
+      document.addEventListener('DOMContentLoaded', applyDistUnit);
+    })();
     function toggleMoreMenu() {
       document.getElementById('nav-more').classList.toggle('open');
     }

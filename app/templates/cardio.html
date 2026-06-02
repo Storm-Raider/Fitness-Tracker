@@ -42,7 +42,7 @@
           </div>
           <div class="form-group" style="margin-bottom:0;">
             <label for="cardio-distance">
-              Distance (km)
+              Distance (<span class="pace-unit-label">km</span>)
               <span style="font-weight:400;color:var(--muted);text-transform:none;letter-spacing:0;">optional</span>
             </label>
             <div class="stepper-group">
@@ -65,7 +65,7 @@
 
         <div id="pace-result-wrap" style="display:none;background:var(--surface-2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:0.6rem 1rem;margin-bottom:0.75rem;align-items:baseline;gap:0.5rem;">
           <span id="pace-val" style="font-family:'JetBrains Mono',monospace;font-size:1.25rem;font-weight:700;color:var(--text);">—</span>
-          <span style="font-size:0.7rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em;">min/km</span>
+          <span class="pace-unit-label" style="font-size:0.7rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em;">min/km</span>
         </div>
 
         <button type="submit" class="btn btn-primary" style="width:100%;min-height:48px;">
@@ -99,14 +99,19 @@
             <td>{{ log.exercise_name }}</td>
             <td class="num">{{ log.duration_minutes | int }}m</td>
             <td class="num">
-              {% if log.distance_km %}{{ "%.1f"|format(log.distance_km) }} km{% else %}—{% endif %}
+              {% if log.distance_km %}
+                <span class="distance-display" data-km="{{ log.distance_km }}">{{ "%.1f"|format(log.distance_km) }} km</span>
+              {% else %}—{% endif %}
             </td>
             <td class="num" style="color:var(--muted);">
               {% if log.distance_km and log.distance_km > 0 %}
-                {{ "%d:%02d"|format(
-                     (log.duration_minutes / log.distance_km) | int,
-                     (((log.duration_minutes / log.distance_km) % 1) * 60) | int
-                   ) }}/km
+                <span class="pace-display"
+                      data-min-per-km="{{ log.duration_minutes / log.distance_km }}">
+                  {{ "%d:%02d"|format(
+                       (log.duration_minutes / log.distance_km) | int,
+                       (((log.duration_minutes / log.distance_km) % 1) * 60) | int
+                     ) }}/km
+                </span>
               {% else %}—{% endif %}
             </td>
             <td style="padding:0.4rem 0.5rem;text-align:center;">
@@ -158,23 +163,31 @@ function step(id, delta, decimals) {
 }
 
 function updatePace() {
-  const dur  = parseFloat(document.getElementById('cardio-duration').value) || 0;
-  const dist = parseFloat(document.getElementById('cardio-distance').value) || 0;
-  const wrap = document.getElementById('pace-result-wrap');
-  const val  = document.getElementById('pace-val');
-  if (dur > 0 && dist > 0) {
-    const paceMin = dur / dist;
-    const mins = Math.floor(paceMin);
-    const secs = Math.round((paceMin - mins) * 60);
-    val.textContent = `${mins}:${String(secs).padStart(2, '0')}`;
+  const dur    = parseFloat(document.getElementById('cardio-duration').value) || 0;
+  const distKm = parseFloat(document.getElementById('cardio-distance').value) || 0;
+  const wrap   = document.getElementById('pace-result-wrap');
+  const val    = document.getElementById('pace-val');
+  if (dur > 0 && distKm > 0) {
+    const minPerKm = dur / distKm;
+    val.textContent = (window.fmtPace ? window.fmtPace(minPerKm) : (() => {
+      const m = Math.floor(minPerKm), s = Math.round((minPerKm - m) * 60);
+      return `${m}:${String(s < 60 ? s : 0).padStart(2,'0')} /km`;
+    })());
     wrap.style.display = 'flex';
   } else {
     wrap.style.display = 'none';
   }
+  // Update pace-display elements in history
+  document.querySelectorAll('.pace-display[data-min-per-km]').forEach(function(el) {
+    el.textContent = window.fmtPace
+      ? window.fmtPace(parseFloat(el.dataset.minPerKm))
+      : el.dataset.minPerKm + ' /km';
+  });
 }
 
 document.getElementById('cardio-duration').addEventListener('input', updatePace);
 document.getElementById('cardio-distance').addEventListener('input', updatePace);
+window.addEventListener('distancechange', updatePace);
 
 // Default date to today
 (function () {

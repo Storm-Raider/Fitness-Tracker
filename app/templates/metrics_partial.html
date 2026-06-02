@@ -1,13 +1,13 @@
 {% if metrics %}
 <table>
   <thead>
-    <tr><th>Date</th><th>Weight (kg)</th><th>Calories</th></tr>
+    <tr><th>Date</th><th>Weight</th><th>Calories</th></tr>
   </thead>
   <tbody>
     {% for m in metrics %}
     <tr>
       <td>{{ m.recorded_at[:10] | human_date }}</td>
-      <td>{{ m.weight_kg }}</td>
+      <td><span class="weight-display" data-kg="{{ m.weight_kg }}">{{ m.weight_kg }} kg</span></td>
       <td>{{ m.calories or "—" }}</td>
     </tr>
     {% endfor %}

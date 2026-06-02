@@ -151,6 +151,7 @@ _MIGRATIONS = [
         created_at TEXT    NOT NULL DEFAULT (datetime('now','localtime'))
     )""",
     "CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions(user_id)",
+    "ALTER TABLE user_settings ADD COLUMN pref_distance TEXT NOT NULL DEFAULT 'km'",
     """CREATE TABLE IF NOT EXISTS daily_logs (
         id           INTEGER PRIMARY KEY AUTOINCREMENT,
         user_id      INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
