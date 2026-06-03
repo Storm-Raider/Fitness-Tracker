@@ -6,6 +6,10 @@
     <h1>Body Metrics</h1>
     <div class="subtitle">Weight, measurements & BMI</div>
   </div>
+  <button id="body-unit-toggle" onclick="window.toggleBodyUnit && window.toggleBodyUnit()"
+    style="background:var(--surface-2);border:1px solid var(--border);color:var(--muted-hi);
+           font-family:inherit;font-size:0.8rem;font-weight:600;padding:0.35rem 0.75rem;
+           border-radius:var(--radius-xs);cursor:pointer;letter-spacing:0.04em;min-width:44px;">cm</button>
 </div>
 
 <style>
@@ -211,7 +215,7 @@
     <div class="card">
       <div class="section-title">BMI calculator</div>
       <div class="form-group" style="margin-bottom:1rem;">
-        <label>Height (cm)</label>
+        <label id="height-label">Height (cm)</label>
         <div class="stepper-group">
           <button type="button" class="stepper-btn" onclick="stepHeight(-1)">−</button>
           <input type="number" id="height-input" class="num" value="170" step="1" min="100" max="250" oninput="saveAndCalcBmi()" style="text-align:center;">
@@ -298,17 +302,24 @@ function stepMetric(delta) {
 }
 function stepHeight(delta) {
   const el = document.getElementById('height-input');
-  el.value = Math.min(250, Math.max(100, parseInt(el.value || 170) + delta));
+  const isIn = window.getBodyUnit && window.getBodyUnit() === 'in';
+  const min = isIn ? 39 : 100, max = isIn ? 99 : 250;
+  el.value = Math.min(max, Math.max(min, Math.round((parseFloat(el.value || (isIn ? 67 : 170)) + delta) * 10) / 10));
   saveAndCalcBmi();
 }
 function saveAndCalcBmi() {
-  const h = document.getElementById('height-input').value;
-  if (h) localStorage.setItem('bmi_height_cm', h);
+  const h = parseFloat(document.getElementById('height-input').value);
+  if (h) {
+    const isIn = window.getBodyUnit && window.getBodyUnit() === 'in';
+    localStorage.setItem('bmi_height_cm', isIn ? Math.round(h * 2.54 * 10) / 10 : h);
+  }
   calcBmi();
 }
 function calcBmi() {
   const w = getWeightKg();
-  const hCm = parseFloat(document.getElementById('height-input').value);
+  const hRaw = parseFloat(document.getElementById('height-input').value);
+  const isIn = window.getBodyUnit && window.getBodyUnit() === 'in';
+  const hCm = isIn ? hRaw * 2.54 : hRaw;
   const resultEl = document.getElementById('bmi-result');
   const markerEl = document.getElementById('bmi-marker');
   if (!w || !hCm || hCm <= 0) { resultEl.innerHTML = ''; markerEl.style.display = 'none'; return; }
@@ -360,10 +371,29 @@ async function logMetric() {
   document.getElementById('metric-date').max   = today;
 
   const saved = localStorage.getItem('bmi_height_cm');
-  if (saved) document.getElementById('height-input').value = saved;
+  if (saved) {
+    const isIn = window.getBodyUnit && window.getBodyUnit() === 'in';
+    document.getElementById('height-input').value = isIn ? Math.round(parseFloat(saved) / 2.54 * 10) / 10 : parseFloat(saved);
+    const hi = document.getElementById('height-input');
+    hi.min = isIn ? '39' : '100'; hi.max = isIn ? '99' : '250';
+  }
   calcBmi();
   document.getElementById('weight-input').addEventListener('keydown', e => {
     if (e.key === 'Enter') { e.preventDefault(); logMetric(); }
+  });
+  window.addEventListener('bodyunitchange', function(e) {
+    const unit = e.detail.unit;
+    const lbl = document.getElementById('height-label');
+    if (lbl) lbl.textContent = 'Height (' + unit + ')';
+    const btn = document.getElementById('body-unit-toggle');
+    if (btn) btn.textContent = unit;
+    const hi = document.getElementById('height-input');
+    if (hi) {
+      const storedCm = parseFloat(localStorage.getItem('bmi_height_cm')) || 170;
+      hi.value = unit === 'in' ? Math.round(storedCm / 2.54 * 10) / 10 : storedCm;
+      hi.min = unit === 'in' ? '39' : '100'; hi.max = unit === 'in' ? '99' : '250';
+    }
+    calcBmi();
   });
   window.addEventListener('unitchange', function(e) {
     const unit = e.detail.unit;
@@ -413,10 +443,10 @@ async function logMetric() {
         </select>
       </div>
       <div class="form-group">
-        <label for="meas-value">Value (cm)</label>
+        <label for="meas-value" id="meas-value-label">Value (cm)</label>
         <div class="stepper-group">
           <button type="button" class="stepper-btn" onclick="stepMeas(-0.5)">−</button>
-          <input type="number" id="meas-value" class="num" value="90" step="0.1" min="1" max="500" style="text-align:center;">
+          <input type="number" id="meas-value" class="num" value="90" data-cm="90" step="0.1" min="1" max="500" style="text-align:center;" oninput="this.dataset.cm = (window.getBodyUnit && window.getBodyUnit()==='in') ? Math.round(parseFloat(this.value)*2.54*100)/100 : this.value">
           <button type="button" class="stepper-btn" onclick="stepMeas(0.5)">+</button>
         </div>
       </div>
@@ -440,14 +470,14 @@ async function logMetric() {
       {% if measurements %}
       <table id="meas-table">
         <thead>
-          <tr><th>Date</th><th>Site</th><th>cm</th><th style="width:44px;"></th></tr>
+          <tr><th>Date</th><th>Site</th><th id="meas-unit-header">cm</th><th style="width:44px;"></th></tr>
         </thead>
         <tbody>
           {% for m in measurements %}
           <tr id="meas-{{ m.id }}">
             <td style="white-space:nowrap;font-family:'JetBrains Mono',monospace;font-size:0.78rem;color:var(--muted);">{{ m.logged_date }}</td>
             <td style="font-weight:500;font-size:0.85rem;">{{ m.site }}</td>
-            <td class="num" style="font-size:0.9rem;">{{ m.value_cm }}</td>
+            <td class="num" style="font-size:0.9rem;" data-cm="{{ m.value_cm }}">{{ m.value_cm }}</td>
             <td style="padding:0.4rem 0.5rem;text-align:center;">
               <button
                 hx-delete="/measurements/{{ m.id }}"
@@ -500,6 +530,8 @@ async function logMetric() {
   const sites = Object.keys(SITE_DATA).filter(s => SITE_DATA[s].length >= 1);
   if (!sites.length) return;
 
+  const cvtMeas = v => (window.getBodyUnit && window.getBodyUnit() === 'in') ? Math.round(v / 2.54 * 10) / 10 : v;
+
   // Build legend chips
   sites.forEach(site => {
     const c = COLORS[site] || '#888';
@@ -514,20 +546,22 @@ async function logMetric() {
   const n = allDates.length;
   const dateIdx = Object.fromEntries(allDates.map((d, i) => [d, i]));
 
-  // Find global y range across all sites
-  let gMin = Infinity, gMax = -Infinity;
-  sites.forEach(s => SITE_DATA[s].forEach(p => {
-    gMin = Math.min(gMin, p.value);
-    gMax = Math.max(gMax, p.value);
-  }));
-  const span = gMax > gMin ? gMax - gMin : Math.max(gMin * 0.05, 1);
-  const yMin = gMin - span * 0.15, yMax = gMax + span * 0.15;
+  // Find global y range across all sites (in display unit)
+  function getRanges() {
+    let gMin = Infinity, gMax = -Infinity;
+    sites.forEach(s => SITE_DATA[s].forEach(p => {
+      const v = cvtMeas(p.value);
+      gMin = Math.min(gMin, v); gMax = Math.max(gMax, v);
+    }));
+    const span = gMax > gMin ? gMax - gMin : Math.max(gMin * 0.05, 1);
+    return { gMin, gMax, yMin: gMin - span * 0.15, yMax: gMax + span * 0.15 };
+  }
 
   const PL = 42, PR = 16, PT = 14, PB = 24;
   let hoverX = -1;
 
   function xAt(i, W) { return PL + (n <= 1 ? (W-PL-PR)/2 : (i/(n-1))*(W-PL-PR)); }
-  function gy(v, H) { return PT + (1-(v-yMin)/(yMax-yMin))*(H-PT-PB); }
+  function gy(v, H, yMin, yMax) { return PT + (1-(v-yMin)/(yMax-yMin))*(H-PT-PB); }
 
   function draw() {
     const dpr = window.devicePixelRatio || 1;
@@ -538,10 +572,12 @@ async function logMetric() {
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, W, H);
 
+    const { gMin, gMax, yMin, yMax } = getRanges();
+
     // Grid lines
     [0, 0.5, 1].forEach(f => {
       const gv = gMin + f*(gMax-gMin);
-      const y = gy(gv, H);
+      const y = gy(gv, H, yMin, yMax);
       ctx.strokeStyle='#1f2535'; ctx.lineWidth=1;
       ctx.beginPath(); ctx.moveTo(PL, y); ctx.lineTo(W-PR, y); ctx.stroke();
       ctx.fillStyle='#4a5568'; ctx.font='10px Inter,system-ui,sans-serif'; ctx.textAlign='right';
@@ -560,14 +596,14 @@ async function logMetric() {
     sites.forEach(site => {
       const pts = SITE_DATA[site];
       const c = COLORS[site] || '#888';
-      // Map to canvas coords
-      const mapped = pts.map(p => ({ xi: dateIdx[p.date], v: p.value }));
+      // Map to canvas coords (convert to display unit)
+      const mapped = pts.map(p => ({ xi: dateIdx[p.date], v: cvtMeas(p.value) }));
 
       if (mapped.length >= 2) {
         ctx.beginPath();
-        ctx.moveTo(xAt(mapped[0].xi, W), gy(mapped[0].v, H));
+        ctx.moveTo(xAt(mapped[0].xi, W), gy(mapped[0].v, H, yMin, yMax));
         for (let i=1; i<mapped.length; i++)
-          ctx.lineTo(xAt(mapped[i].xi, W), gy(mapped[i].v, H));
+          ctx.lineTo(xAt(mapped[i].xi, W), gy(mapped[i].v, H, yMin, yMax));
         ctx.strokeStyle = c; ctx.lineWidth = 2;
         ctx.lineJoin='round'; ctx.lineCap='round'; ctx.stroke();
       }
@@ -577,7 +613,7 @@ async function logMetric() {
         const isH = xi === hoverX;
         const r = isH ? 5 : mapped.length <= 30 ? 3 : 0;
         if (!r) return;
-        ctx.beginPath(); ctx.arc(xAt(xi, W), gy(v, H), r, 0, Math.PI*2);
+        ctx.beginPath(); ctx.arc(xAt(xi, W), gy(v, H, yMin, yMax), r, 0, Math.PI*2);
         ctx.fillStyle = isH ? c : c+'b0'; ctx.fill();
         if (isH) { ctx.strokeStyle='#0d1117'; ctx.lineWidth=1.5; ctx.stroke(); }
       });
@@ -605,10 +641,11 @@ async function logMetric() {
       const pt = SITE_DATA[site].find(p => p.date === date);
       if (!pt) return;
       const c = COLORS[site] || '#888';
+      const disp = window.fmtMeasurement ? window.fmtMeasurement(pt.value) : pt.value + ' cm';
       html += `<div style="display:flex;align-items:center;gap:0.4rem;font-size:0.8rem;">
         <span style="width:8px;height:3px;background:${c};border-radius:2px;display:inline-block;flex-shrink:0;"></span>
         <span style="color:var(--muted-hi);">${site}</span>
-        <span style="color:${c};font-weight:700;margin-left:auto;">${pt.value} cm</span></div>`;
+        <span style="color:${c};font-weight:700;margin-left:auto;">${disp}</span></div>`;
     });
     tip.innerHTML = html;
     tip.style.display = 'block';
@@ -624,27 +661,35 @@ async function logMetric() {
   canvas.addEventListener('touchmove', e => { e.preventDefault(); processHover(e.touches[0].clientX); }, { passive: false });
   canvas.addEventListener('touchend', clearH);
   window.addEventListener('resize', clearH);
+  window.addEventListener('bodyunitchange', clearH);
   requestAnimationFrame(draw);
 })();
 
 function stepMeas(delta) {
   const el = document.getElementById('meas-value');
-  el.value = Math.max(1, Math.round((parseFloat(el.value||0)+delta)*10)/10);
+  const isIn = window.getBodyUnit && window.getBodyUnit() === 'in';
+  const max = isIn ? 197 : 500;
+  el.value = Math.max(0.1, Math.min(max, Math.round((parseFloat(el.value||0)+delta)*10)/10));
+  el.dataset.cm = isIn ? Math.round(parseFloat(el.value) * 2.54 * 100) / 100 : el.value;
 }
 async function logMeasurement() {
   const site  = document.getElementById('meas-site').value;
-  const value = parseFloat(document.getElementById('meas-value').value);
+  const el    = document.getElementById('meas-value');
+  const isIn  = window.getBodyUnit && window.getBodyUnit() === 'in';
+  const value_cm = isIn
+    ? Math.round(parseFloat(el.dataset.cm || el.value) * 100) / 100
+    : parseFloat(el.value);
   const errEl = document.getElementById('meas-error');
   const okEl  = document.getElementById('meas-success');
   errEl.style.display='none'; okEl.style.display='none';
-  if (!site || isNaN(value) || value <= 0) {
+  if (!site || isNaN(value_cm) || value_cm <= 0) {
     errEl.textContent='Enter a valid measurement.'; errEl.style.display='block'; return;
   }
   const logged_date = document.getElementById('meas-date').value || null;
   const notes = document.getElementById('meas-notes').value.trim() || null;
   const resp = await fetch('/measurements', {
     method:'POST', headers:{'Content-Type':'application/json'},
-    body: JSON.stringify({site, value_cm: value, logged_date, notes})
+    body: JSON.stringify({site, value_cm, logged_date, notes})
   });
   if (resp.ok) {
     okEl.style.display='block';
@@ -661,6 +706,27 @@ async function logMeasurement() {
   if (di) { di.value = today; di.max = today; }
   document.getElementById('meas-value')?.addEventListener('keydown', e => {
     if (e.key==='Enter') { e.preventDefault(); logMeasurement(); }
+  });
+  window.addEventListener('bodyunitchange', function(e) {
+    const unit = e.detail.unit;
+    // Label + table header
+    const lbl = document.getElementById('meas-value-label');
+    if (lbl) lbl.textContent = 'Value (' + unit + ')';
+    const hdr = document.getElementById('meas-unit-header');
+    if (hdr) hdr.textContent = unit;
+    // Table cells
+    document.querySelectorAll('#meas-table td[data-cm]').forEach(function(td) {
+      const cm = parseFloat(td.dataset.cm);
+      td.textContent = unit === 'in' ? (Math.round(cm / 2.54 * 10) / 10).toFixed(1) : cm.toFixed(1);
+    });
+    // Log form input
+    const mv = document.getElementById('meas-value');
+    if (mv) {
+      const cmVal = parseFloat(mv.dataset.cm) || parseFloat(mv.value) || 90;
+      mv.value = unit === 'in' ? Math.round(cmVal / 2.54 * 10) / 10 : cmVal;
+      mv.dataset.cm = cmVal;
+      mv.max = unit === 'in' ? '197' : '500';
+    }
   });
 })();
 </script>

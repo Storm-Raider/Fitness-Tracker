@@ -1147,6 +1147,39 @@
       window.fmtPace = fmtPace;
       document.addEventListener('DOMContentLoaded', applyDistUnit);
     })();
+    // Body measurement preference (cm / in) — initialised from server, synced back on change
+    (function() {
+      const BKEY = 'fitstorm_body_unit';
+      var _serverBody = '{{ (user.pref_body_measurement if user is defined and user else "cm") | e }}';
+      if (_serverBody === 'cm' || _serverBody === 'in') {
+        localStorage.setItem(BKEY, _serverBody);
+      }
+      function getBodyUnit() { return localStorage.getItem(BKEY) || 'cm'; }
+      function fmtMeasurement(cm, unit) {
+        var val = parseFloat(cm);
+        if ((unit || getBodyUnit()) === 'in') {
+          return (Math.round(val / 2.54 * 10) / 10).toFixed(1) + ' in';
+        }
+        return val.toFixed(1) + ' cm';
+      }
+      function applyBodyUnit() {
+        var unit = getBodyUnit();
+        window.dispatchEvent(new CustomEvent('bodyunitchange', { detail: { unit: unit } }));
+      }
+      window.toggleBodyUnit = function() {
+        var newUnit = getBodyUnit() === 'cm' ? 'in' : 'cm';
+        localStorage.setItem(BKEY, newUnit);
+        applyBodyUnit();
+        fetch('/api/settings/body-measurement', {
+          method: 'PATCH',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({unit: newUnit}),
+        }).catch(function() {});
+      };
+      window.getBodyUnit = getBodyUnit;
+      window.fmtMeasurement = fmtMeasurement;
+      document.addEventListener('DOMContentLoaded', applyBodyUnit);
+    })();
     function toggleMoreMenu() {
       document.getElementById('nav-more').classList.toggle('open');
     }
