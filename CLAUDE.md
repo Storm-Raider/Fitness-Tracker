@@ -1,4 +1,32 @@
 
+## GBrain Search Guidance
+
+A knowledge graph of this codebase lives at `graphify-out/graph.json` (1,525 nodes, 2,707 edges, 122 communities). Use it for architecture questions, tracing call paths, and understanding cross-file relationships.
+
+**When to use the graph (invoke `/graphify query "<question>"`):**
+- "How does X work?" / "What calls Y?" / "Where is Z implemented?"
+- Any question that crosses multiple files or route boundaries
+- Tracing data flow end-to-end (route → DB → template)
+
+**Key communities** (what lives where):
+- `Challenge & Routine Routes` — `app/routes/challenges.py`, `app/routes/routines.py`
+- `Challenge Logic (utils)` — `app/utils/challenges.py` (streak evaluation, reset logic)
+- `Dashboard & Achievements Routes` — `app/routes/dashboard.py`, `app/routes/achievements.py`
+- `Authentication Route` — `app/routes/auth.py` (HMAC session tokens, invite gate)
+- `DB Init & Auth Core` — `app/db.py`, migration list, `init_db()`
+- `DB Layer & Utility Routes` — `get_db()` dependency used by all 16 routes; only `require_owns()` is a shared DB utility
+- `AI Coach Route` — `app/routes/coach.py`, `app/utils/ollama.py` (local Ollama, fully on-device)
+- `Base Template & Design System` — `app/templates/base.html`, global unit toggles (`unitchange`, `distancechange`, `bodyunitchange` events)
+- `Trash / Undo Utility` — `app/utils/trash.py`, `deleted_items` table, 7-day auto-purge
+- `App Core & Middleware` — `app/main.py`, `AuthMiddleware`, `lifespan()`
+
+**Architecture note:** Every route imports `get_db` and `Depends` directly — there is no service layer. Business logic lives in `app/utils/` only when it's complex enough to test independently (challenges, trash, PRs, heatmap, charts, Ollama).
+
+**To rebuild after significant code changes:**
+```
+/graphify --update
+```
+
 ## Skill routing
 
 When the user's request matches an available skill, invoke it via the Skill tool. When in doubt, invoke the skill.
