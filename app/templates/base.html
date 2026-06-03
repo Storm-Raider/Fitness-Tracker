@@ -318,7 +318,12 @@
         position: fixed;
         bottom: 0; left: 0; right: 0;
         height: calc(64px + env(safe-area-inset-bottom, 0px));
-        padding-bottom: env(safe-area-inset-bottom, 0px);
+        /* Reset the desktop nav's gap/padding/wrap (inherited because this is a
+           <nav>) — they ate ~162px and squeezed the 5 tabs, pushing "More" off.
+           Zeroing them lets the tabs fill the full width evenly. */
+        gap: 0;
+        padding: 0 0 env(safe-area-inset-bottom, 0px);
+        flex-wrap: nowrap;
         background: rgba(9,11,16,0.95);
         backdrop-filter: blur(20px) saturate(160%);
         -webkit-backdrop-filter: blur(20px) saturate(160%);
@@ -340,26 +345,40 @@
         pointer-events: none;
       }
       .mob-tab {
-        flex: 1;
+        flex: 1 1 0;
+        min-width: 0;          /* allow equal shrink so all 5 tabs always fit —
+                                  without this the items refuse to shrink below
+                                  their content and the last one ("More") is
+                                  pushed off-screen on narrow / zoomed displays */
         display: flex;
         flex-direction: column;
         align-items: center;
         justify-content: center;
         gap: 3px;
         color: var(--muted);
-        font-size: 0.63rem;
+        /* Absolute px, not rem: the mobile base is 18px so 0.63rem ballooned the
+           labels and forced truncation across 5 tabs. 10px fits all five fully
+           down to ~320px (iPhone SE / Display-Zoom widths). */
+        font-size: 10px;
         font-weight: 700;
-        letter-spacing: 0.06em;
+        letter-spacing: 0.03em;
         text-transform: uppercase;
         background: transparent;
         border: none;
         cursor: pointer;
         font-family: 'Barlow', inherit;
-        padding: 10px 2px 6px;
+        padding: 10px 1px 6px;
         transition: color 0.15s;
         position: relative;
         text-decoration: none;
         -webkit-tap-highlight-color: transparent;
+      }
+      /* Labels truncate instead of forcing the bar wider than the screen. */
+      .mob-tab span {
+        max-width: 100%;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
       }
       .mob-tab:hover { color: var(--text); }
       .mob-tab.active { color: var(--accent); }
