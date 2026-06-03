@@ -35,7 +35,7 @@ Open `http://<your-pi-ip>:8000`
 - **Stats page** — weekly volume sparkline (12 weeks), top exercises by set count, muscle coverage for the current week.
 - **Volume tracking** — live kg total per session; 7-day volume on the dashboard.
 - **Rest timer** — SVG ring countdown after each logged set. 90 s default, adjustable.
-- **Body metrics** — log weight and calories alongside workouts.
+- **Body metrics** — log weight, body measurements, and calories alongside workouts. Height and measurements display in cm or in — stored as cm, converted client-side per your preference.
 - **CSV export / import** — one-click download; import history from Strong.
 - **Webhooks** — HTTP POST on PR and session complete. Wire to Home Assistant or n8n.
 - **Multi-user** — invite-gated registration; admin creates invite links, users self-register.
@@ -206,6 +206,9 @@ DELETE /routines/{id}               → delete routine  → 204
 GET  /stats                         → analytics (weekly volume, top exercises, muscle coverage)
 GET  /metrics                       → body metrics
 POST /metrics                       → log body weight/calories
+PATCH /api/settings/unit            → set weight unit (kg / lb)       → {unit}
+PATCH /api/settings/distance        → set distance unit (km / mi)     → {distance}
+PATCH /api/settings/body-measurement → set body measurement unit (cm / in) → {unit}
 GET  /export/workouts.csv           → CSV download
 POST /import/csv                    → import Strong CSV
 GET  /webhooks                      → webhook config (admin only)
