@@ -1,0 +1,1015 @@
+{% extends "base.html" %}
+{% block title %}Training Plan — FitStorm{% endblock %}
+{% block content %}
+<style>
+/* ── Mode toggle ── */
+.plan-mode-toggle {
+  display: flex;
+  gap: 0.35rem;
+  margin-bottom: 1.5rem;
+}
+.mode-btn {
+  padding: 0.55rem 1.25rem;
+  border: 1.5px solid var(--border);
+  border-radius: 20px;
+  background: var(--surface-2);
+  color: var(--muted);
+  cursor: pointer;
+  font-family: 'Barlow', inherit;
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  transition: all 0.15s;
+  min-height: 40px;
+}
+.mode-btn:hover { border-color: var(--border-mid); color: var(--text); }
+.mode-btn.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+/* ── Plan grid (shared by both modes) ── */
+.plan-grid {
+  display: grid;
+  grid-template-columns: 320px 1fr;
+  gap: 1.5rem;
+  align-items: start;
+}
+@media (max-width: 767px) {
+  .plan-grid { grid-template-columns: 1fr; }
+}
+
+/* ── Goal buttons ── */
+.goal-btn {
+  width: 100%;
+  padding: 0.7rem 0.9rem;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-xs);
+  background: var(--surface-2);
+  color: var(--muted);
+  cursor: pointer;
+  font-family: 'Barlow', inherit;
+  font-size: 0.85rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  transition: all 0.15s;
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-height: 56px;
+  justify-content: center;
+}
+.goal-btn:hover { border-color: var(--border-mid); color: var(--text); }
+.goal-btn.selected { border-color: var(--accent); color: var(--accent); background: var(--accent-dim); }
+.goal-btn .goal-sub {
+  font-size: 0.68rem;
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: 0;
+  color: var(--muted);
+}
+
+/* Meso goal buttons — horizontal row variant */
+.meso-goals { display: flex; gap: 0.5rem; }
+.meso-goals .goal-btn {
+  flex: 1;
+  text-align: center;
+  align-items: center;
+}
+@media (max-width: 600px) {
+  .meso-goals .goal-btn { padding: 0.55rem 0.3rem; font-size: 0.72rem; }
+  .meso-goals .goal-btn .goal-sub { display: none; }
+}
+
+/* ── Training profile pills ── */
+.profile-pill {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.3rem;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 0.2rem 0.7rem;
+  font-size: 0.72rem;
+  color: var(--muted);
+}
+.profile-pill b { color: var(--text); font-family: 'JetBrains Mono', monospace; }
+
+/* ── AI day cards ── */
+.day-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1.1rem 1.25rem;
+  margin-bottom: 1rem;
+  box-shadow: var(--shadow-sm);
+}
+.day-card h3 {
+  font-size: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.85rem;
+}
+.day-num {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--accent);
+  background: var(--accent-dim);
+  border: 1px solid rgba(79,156,249,0.25);
+  border-radius: 6px;
+  padding: 0.1rem 0.45rem;
+}
+.ex-row {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid rgba(30,35,52,0.6);
+}
+.ex-row:last-child { border-bottom: none; }
+.ex-name { font-weight: 600; color: var(--text); flex: 1; min-width: 0; }
+.ex-scheme {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.8rem;
+  color: var(--accent);
+  white-space: nowrap;
+  font-weight: 700;
+}
+.ex-note {
+  display: block;
+  font-size: 0.72rem;
+  color: var(--muted);
+  margin-top: 0.15rem;
+  font-weight: 400;
+}
+
+/* ── Meso lift rows ── */
+.lift-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.55rem 0;
+  border-bottom: 1px solid var(--border);
+}
+.lift-row:last-child { border-bottom: none; }
+.lift-row input[type=number] { width: 80px; text-align: center; }
+
+/* ── Week table ── */
+.week-table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
+.week-table th {
+  font-size: 0.62rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--muted);
+  font-weight: 700;
+  padding: 0.5rem 0.75rem;
+  border-bottom: 1px solid var(--border);
+  background: rgba(255,255,255,0.015);
+  text-align: left;
+}
+.week-table td {
+  padding: 0.55rem 0.75rem;
+  border-bottom: 1px solid rgba(30,35,52,0.5);
+}
+.week-table tr:last-child td { border-bottom: none; }
+.week-table tbody tr:hover td { background: rgba(255,255,255,0.02); }
+@media (max-width: 600px) {
+  .week-table { font-size: 0.7rem; table-layout: fixed; width: 100%; }
+  .week-table th, .week-table td { padding: 0.35rem 0.4rem; overflow: hidden; }
+  .week-table th:first-child, .week-table td:first-child { width: 28px; padding: 0.35rem 0.3rem; }
+  .week-table th:nth-child(2), .week-table td:nth-child(2) { width: 95px; padding: 0.35rem 0.4rem; }
+  #meso-plan-preview { overflow-x: hidden; }
+  .week-badge { max-width: 83px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: inline-block; }
+}
+
+.week-badge {
+  display: inline-block;
+  padding: 0.1rem 0.45rem;
+  border-radius: 10px;
+  font-size: 0.62rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.plan-phase-acc   { color: #34d399; background: rgba(52,211,153,0.1); border: 1px solid rgba(52,211,153,0.25); }
+.plan-phase-int   { color: #4f9cf9; background: var(--accent-dim); border: 1px solid rgba(79,156,249,0.25); }
+.plan-phase-peak  { color: #f59e0b; background: var(--pr-dim); border: 1px solid rgba(245,158,11,0.25); }
+.plan-phase-deload { color: var(--muted); background: rgba(90,106,130,0.1); border: 1px solid rgba(90,106,130,0.25); }
+
+/* ── Spinners ── */
+.spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(255,255,255,0.2);
+  border-top-color: #fff;
+  border-radius: 50%;
+  display: inline-block;
+  animation: spin 0.7s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── Unified saved plans panel ── */
+.saved-plans-section {
+  margin-top: 2.25rem;
+}
+.saved-plan-card {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xs);
+  padding: 0.75rem 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  transition: border-color 0.15s;
+  margin-bottom: 0.5rem;
+}
+.saved-plan-card:last-child { margin-bottom: 0; }
+.saved-plan-card:hover { border-color: var(--border-mid); }
+.saved-plan-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+.saved-plan-name {
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.saved-plan-meta {
+  font-size: 0.7rem;
+  color: var(--muted);
+}
+.saved-plan-date {
+  font-size: 0.7rem;
+  color: var(--muted);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.badge-muted {
+  color: var(--muted);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0.1rem 0.45rem;
+  font-size: 0.62rem;
+  font-weight: 700;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.badge-blue {
+  color: var(--accent);
+  background: var(--accent-dim);
+  border: 1px solid rgba(79,156,249,0.25);
+  border-radius: 10px;
+  padding: 0.1rem 0.45rem;
+  font-size: 0.62rem;
+  font-weight: 700;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.empty-state {
+  color: var(--muted);
+  font-size: 0.875rem;
+  text-align: center;
+  padding: 1.5rem;
+}
+</style>
+
+{# ── Page header ── #}
+<div class="page-hd">
+  <div>
+    <h1>Training Plan</h1>
+    <div class="subtitle">Build a routine or a periodised block</div>
+  </div>
+  <span class="badge {% if ollama_available %}badge-blue{% else %}badge-muted{% endif %}"
+        title="{% if ollama_available %}Runs on-device via Ollama{% else %}Ollama not running{% endif %}">
+    <i data-lucide="cpu" style="width:12px;height:12px;vertical-align:-1px;"></i>
+    {{ ollama_model }}
+  </span>
+</div>
+
+{# ── Mode toggle ── #}
+<div class="plan-mode-toggle" id="plan-mode-toggle">
+  <button class="mode-btn active" id="mode-ai" onclick="setMode('ai')">AI Routine</button>
+  <button class="mode-btn" id="mode-meso" onclick="setMode('meso')">Mesocycle</button>
+</div>
+
+{# ══════════════════════════════════════════════════════
+   AI ROUTINE SECTION
+══════════════════════════════════════════════════════ #}
+<div id="plan-ai">
+
+  {% if not ollama_available %}
+  <div class="flash flash-error" style="display:flex;align-items:flex-start;gap:0.6rem;margin-bottom:1.25rem;">
+    <i data-lucide="alert-triangle" style="width:18px;height:18px;flex-shrink:0;margin-top:1px;"></i>
+    <div>
+      <b>Ollama is not running</b> — AI routine unavailable. Start Ollama to enable.
+    </div>
+  </div>
+  {% endif %}
+
+  <div class="plan-grid">
+
+    {# ── Left: AI controls ── #}
+    <div>
+      <div class="section-title">Goal</div>
+      <div style="display:flex;flex-direction:column;gap:0.5rem;margin-bottom:1.25rem;">
+        <button class="goal-btn selected" id="ai-goal-strength" data-goal="strength"
+                onclick="selectAiGoal(this)">
+          Strength
+          <span class="goal-sub">maximal strength — heavy compound lifts, 3–6 reps</span>
+        </button>
+        <button class="goal-btn" id="ai-goal-hypertrophy" data-goal="hypertrophy"
+                onclick="selectAiGoal(this)">
+          Hypertrophy
+          <span class="goal-sub">muscle growth — 8–15 reps, moderate load</span>
+        </button>
+        <button class="goal-btn" id="ai-goal-balance" data-goal="balance"
+                onclick="selectAiGoal(this)">
+          Balance
+          <span class="goal-sub">correct imbalances — prioritise under-trained muscle groups</span>
+        </button>
+        <button class="goal-btn" id="ai-goal-general" data-goal="general"
+                onclick="selectAiGoal(this)">
+          General
+          <span class="goal-sub">well-rounded general fitness — mix of compound and accessory</span>
+        </button>
+      </div>
+
+      <div class="section-title">Training days / week</div>
+      <div class="card" style="padding:1rem 1.25rem;margin-bottom:1.25rem;">
+        <div style="display:flex;align-items:center;gap:1rem;">
+          <input type="range" id="ai-days-slider" min="1" max="7" value="4"
+                 oninput="document.getElementById('ai-days-val').textContent=this.value;"
+                 style="flex:1;accent-color:var(--accent);cursor:pointer;">
+          <div class="num" style="font-size:1.5rem;font-weight:700;color:var(--accent);min-width:1.5rem;text-align:right;line-height:1;">
+            <span id="ai-days-val">4</span>
+          </div>
+        </div>
+      </div>
+
+      {# Training profile pills #}
+      {% if profile and profile.top_exercises %}
+      <div class="section-title">Top exercises</div>
+      <div style="display:flex;flex-wrap:wrap;gap:0.4rem;margin-bottom:1.25rem;">
+        {% for ex in profile.top_exercises[:5] %}
+        <span class="profile-pill">{{ ex.name }}</span>
+        {% endfor %}
+      </div>
+      {% endif %}
+
+      <div class="section-title">Focus / restrictions (optional)</div>
+      <textarea id="ai-focus-note" rows="2" maxlength="300"
+                placeholder="Focus or restrictions? (e.g. avoid deadlifts, focus on upper body)"
+                style="margin-bottom:1.25rem;"></textarea>
+
+      <button class="btn btn-primary" id="ai-generate-btn" onclick="generateAiRoutine()"
+              style="width:100%;justify-content:center;min-height:56px;"
+              {% if not ollama_available %}disabled title="Ollama is not running"{% endif %}>
+        <i data-lucide="sparkles" style="width:15px;height:15px;pointer-events:none;"></i>
+        Generate my routine
+      </button>
+      <div style="font-size:0.7rem;color:var(--muted);margin-top:0.5rem;text-align:center;">
+        Runs on-device — typically 1–3 minutes. Hang tight.
+      </div>
+
+      {# Profile snapshot #}
+      {% if profile %}
+      <div class="section-title" style="margin-top:1.75rem;">Your training profile</div>
+      <div style="display:flex;flex-wrap:wrap;gap:0.4rem;">
+        <span class="profile-pill"><b>{{ profile.total_workouts }}</b> sessions</span>
+        {% if profile.sessions_per_week %}<span class="profile-pill"><b>{{ profile.sessions_per_week }}</b>/wk</span>{% endif %}
+        {% if profile.top_lifts %}<span class="profile-pill"><b>{{ profile.top_lifts|length }}</b> tracked lifts</span>{% endif %}
+      </div>
+      {% if profile.undertrained %}
+      <div style="font-size:0.72rem;color:var(--muted);margin-top:0.6rem;line-height:1.5;">
+        Neglected lately: <span class="text-pr">{{ profile.undertrained | join(', ') }}</span>
+      </div>
+      {% endif %}
+      {% endif %}
+    </div>
+
+    {# ── Right: AI result ── #}
+    <div>
+      <div id="ai-result-empty" style="border:1.5px dashed var(--border);border-radius:var(--radius);padding:3rem 1.5rem;text-align:center;color:var(--muted);">
+        <i data-lucide="clipboard-list" style="width:34px;height:34px;opacity:0.5;"></i>
+        <div style="margin-top:0.75rem;font-size:0.9rem;">Pick a goal and days, then generate.<br>Your coach reads your history and writes a plan.</div>
+      </div>
+      <div id="ai-result-error" class="flash flash-error" style="display:none;"></div>
+      <div id="ai-plan-output"></div>
+    </div>
+
+  </div>{# end plan-grid (AI) #}
+</div>{# end plan-ai #}
+
+{# ══════════════════════════════════════════════════════
+   MESOCYCLE SECTION
+══════════════════════════════════════════════════════ #}
+<div id="plan-meso" style="display:none;">
+  <div class="plan-grid">
+
+    {# ── Left: Meso controls ── #}
+    <div>
+
+      {# Goal #}
+      <div style="margin-bottom:1.25rem;">
+        <div class="section-title">Goal</div>
+        <div class="meso-goals">
+          <button class="goal-btn selected" id="meso-goal-hypertrophy"
+                  onclick="setMesoGoal('hypertrophy',this)">
+            Hypertrophy
+            <span class="goal-sub">8–15 reps · high volume</span>
+          </button>
+          <button class="goal-btn" id="meso-goal-strength"
+                  onclick="setMesoGoal('strength',this)">
+            Strength
+            <span class="goal-sub">3–6 reps · heavy load</span>
+          </button>
+          <button class="goal-btn" id="meso-goal-peaking"
+                  onclick="setMesoGoal('peaking',this)">
+            Peaking
+            <span class="goal-sub">1–3 reps · meet prep</span>
+          </button>
+        </div>
+      </div>
+
+      {# Duration #}
+      <div style="margin-bottom:1.25rem;">
+        <div class="section-title">Duration</div>
+        <div class="card" style="padding:1rem 1.25rem;">
+          <div style="display:flex;align-items:center;gap:1rem;">
+            <input type="range" id="meso-weeks-slider" min="4" max="16" value="12"
+                   oninput="document.getElementById('meso-weeks-val').textContent=this.value;generatePlan()"
+                   style="flex:1;accent-color:var(--accent);cursor:pointer;">
+            <div class="num" style="font-size:1.5rem;font-weight:700;color:var(--accent);min-width:2.5rem;text-align:right;line-height:1;">
+              <span id="meso-weeks-val">12</span>
+            </div>
+            <div style="font-size:0.72rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em;">weeks</div>
+          </div>
+          <div style="display:flex;justify-content:space-between;font-size:0.65rem;color:var(--muted);margin-top:0.35rem;">
+            <span>4 wks</span><span>8 wks</span><span>12 wks</span><span>16 wks</span>
+          </div>
+        </div>
+      </div>
+
+      {# Lifts #}
+      <div style="margin-bottom:1.25rem;">
+        <div class="section-title" style="display:flex;align-items:center;justify-content:space-between;">
+          <span>Lifts &amp; estimated 1RM</span>
+          <button onclick="addLiftRow()" class="btn btn-ghost"
+                  style="font-size:0.7rem;padding:0.15rem 0.55rem;min-height:26px;letter-spacing:0.03em;">
+            + Add lift
+          </button>
+        </div>
+        <div class="card" style="padding:0.5rem 1rem;">
+          <div id="meso-lifts-container">
+            {% if top_lifts %}
+              {% for lift in top_lifts[:6] %}
+              <div class="lift-row" data-lift>
+                <input type="text" value="{{ lift.name }}" placeholder="Lift name"
+                       style="flex:1;font-size:0.8rem;"
+                       oninput="generatePlan()" class="lift-name">
+                <input type="number" value="{{ lift.e1rm | round(1) }}" min="1" step="0.5"
+                       placeholder="1RM"
+                       style="width:80px;text-align:center;font-size:0.8rem;"
+                       oninput="generatePlan()" class="lift-e1rm">
+                <span class="num" style="font-size:0.7rem;color:var(--muted);">kg</span>
+                <button onclick="this.closest('[data-lift]').remove();generatePlan()"
+                        style="background:transparent;border:none;color:var(--muted);cursor:pointer;font-size:1rem;
+                               padding:0.1rem 0.2rem;transition:color 0.12s;"
+                        onmouseover="this.style.color='var(--danger)'"
+                        onmouseout="this.style.color='var(--muted)'">×</button>
+              </div>
+              {% endfor %}
+            {% else %}
+            <div class="lift-row" data-lift>
+              <input type="text" value="Squat" placeholder="Lift name" style="flex:1;font-size:0.8rem;" oninput="generatePlan()" class="lift-name">
+              <input type="number" value="100" min="1" step="0.5" placeholder="1RM" style="width:80px;text-align:center;font-size:0.8rem;" oninput="generatePlan()" class="lift-e1rm">
+              <span class="num" style="font-size:0.7rem;color:var(--muted);">kg</span>
+              <button onclick="this.closest('[data-lift]').remove();generatePlan()" style="background:transparent;border:none;color:var(--muted);cursor:pointer;font-size:1rem;padding:0.1rem 0.2rem;transition:color 0.12s;" onmouseover="this.style.color='var(--danger)'" onmouseout="this.style.color='var(--muted)'">×</button>
+            </div>
+            <div class="lift-row" data-lift>
+              <input type="text" value="Bench Press" placeholder="Lift name" style="flex:1;font-size:0.8rem;" oninput="generatePlan()" class="lift-name">
+              <input type="number" value="80" min="1" step="0.5" placeholder="1RM" style="width:80px;text-align:center;font-size:0.8rem;" oninput="generatePlan()" class="lift-e1rm">
+              <span class="num" style="font-size:0.7rem;color:var(--muted);">kg</span>
+              <button onclick="this.closest('[data-lift]').remove();generatePlan()" style="background:transparent;border:none;color:var(--muted);cursor:pointer;font-size:1rem;padding:0.1rem 0.2rem;transition:color 0.12s;" onmouseover="this.style.color='var(--danger)'" onmouseout="this.style.color='var(--muted)'">×</button>
+            </div>
+            <div class="lift-row" data-lift>
+              <input type="text" value="Deadlift" placeholder="Lift name" style="flex:1;font-size:0.8rem;" oninput="generatePlan()" class="lift-name">
+              <input type="number" value="120" min="1" step="0.5" placeholder="1RM" style="width:80px;text-align:center;font-size:0.8rem;" oninput="generatePlan()" class="lift-e1rm">
+              <span class="num" style="font-size:0.7rem;color:var(--muted);">kg</span>
+              <button onclick="this.closest('[data-lift]').remove();generatePlan()" style="background:transparent;border:none;color:var(--muted);cursor:pointer;font-size:1rem;padding:0.1rem 0.2rem;transition:color 0.12s;" onmouseover="this.style.color='var(--danger)'" onmouseout="this.style.color='var(--muted)'">×</button>
+            </div>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+
+      {# Save #}
+      <div style="display:flex;gap:0.65rem;flex-wrap:wrap;">
+        <input type="text" id="meso-plan-name" placeholder="Plan name…"
+               style="flex:1;min-width:140px;font-size:0.875rem;">
+        <button class="btn btn-primary" onclick="saveMesoPlan()" id="meso-save-btn" style="min-height:56px;">
+          <i data-lucide="save" style="width:14px;height:14px;pointer-events:none;"></i>
+          Save Plan
+        </button>
+      </div>
+      <div id="meso-save-msg" style="font-size:0.78rem;margin-top:0.5rem;display:none;"></div>
+
+    </div>
+
+    {# ── Right: Meso preview ── #}
+    <div>
+      <div class="section-title">Week-by-week preview</div>
+      <div class="card" style="padding:0;overflow:hidden;">
+        <div id="meso-plan-preview" style="overflow-x:auto;"></div>
+      </div>
+      <div id="meso-plan-summary" style="margin-top:0.85rem;display:flex;gap:0.75rem;flex-wrap:wrap;"></div>
+    </div>
+
+  </div>{# end plan-grid (meso) #}
+</div>{# end plan-meso #}
+
+{# ══════════════════════════════════════════════════════
+   UNIFIED SAVED PLANS (outside mode sections)
+══════════════════════════════════════════════════════ #}
+<div class="saved-plans-section">
+  <div class="section-title">Saved Plans</div>
+  {% if saved_plans %}
+    {% for p in saved_plans %}
+    <div class="saved-plan-card" id="saved-plan-{{ p.id }}-{{ p.type }}">
+      <span class="badge {% if p.type == 'ai' %}badge-muted{% else %}badge-blue{% endif %}">
+        {{ 'AI' if p.type == 'ai' else 'Mesocycle' }}
+      </span>
+      <div class="saved-plan-info">
+        <span class="saved-plan-name">{{ p.display_name }}</span>
+        <span class="saved-plan-meta">{{ p.goal }}{% if p.type == 'ai' %} · {{ p.days_per_week }}d/wk{% else %} · {{ p.weeks }} wks{% endif %}</span>
+      </div>
+      <span class="saved-plan-date">{{ p.created_at[:10] }}</span>
+      <button class="btn-icon btn-danger"
+              data-id="{{ p.id }}"
+              data-type="{{ p.type }}"
+              onclick="deleteSavedPlan(this)"
+              style="min-height:40px;min-width:40px;display:flex;align-items:center;justify-content:center;">
+        <i data-lucide="trash-2" style="width:15px;height:15px;pointer-events:none;"></i>
+      </button>
+    </div>
+    {% endfor %}
+  {% else %}
+    <p class="empty-state">No plans saved yet — generate a routine or build a mesocycle above.</p>
+  {% endif %}
+</div>
+
+<script>
+/* ══════════════════════════════════════════════════
+   MODE TOGGLE
+══════════════════════════════════════════════════ */
+function setMode(m) {
+  if (!['ai','meso'].includes(m)) m = 'ai';
+  localStorage.setItem('fitstorm:plan:mode', m);
+  document.getElementById('mode-ai').classList.toggle('active', m === 'ai');
+  document.getElementById('mode-meso').classList.toggle('active', m === 'meso');
+  document.getElementById('plan-ai').style.display = m === 'ai' ? '' : 'none';
+  document.getElementById('plan-meso').style.display = m === 'meso' ? '' : 'none';
+  // Reset goal selection in the newly-shown panel
+  if (m === 'ai') {
+    document.querySelectorAll('#plan-ai .goal-btn').forEach(b => b.classList.remove('selected'));
+    const first = document.querySelector('#plan-ai .goal-btn');
+    if (first) { first.classList.add('selected'); _aiGoal = first.dataset.goal; }
+  } else {
+    document.querySelectorAll('#plan-meso .goal-btn').forEach(b => b.classList.remove('selected'));
+    const hyp = document.getElementById('meso-goal-hypertrophy');
+    if (hyp) { hyp.classList.add('selected'); _mesoGoal = 'hypertrophy'; }
+    generatePlan();
+  }
+}
+document.addEventListener('DOMContentLoaded', () => {
+  const saved = localStorage.getItem('fitstorm:plan:mode');
+  setMode(['ai','meso'].includes(saved) ? saved : 'ai');
+});
+
+/* ══════════════════════════════════════════════════
+   AI ROUTINE JS
+══════════════════════════════════════════════════ */
+let _aiGoal = 'strength';
+let _currentPlan = null;
+
+function selectAiGoal(btn) {
+  _aiGoal = btn.getAttribute('data-goal');
+  document.querySelectorAll('#plan-ai .goal-btn').forEach(b => b.classList.remove('selected'));
+  btn.classList.add('selected');
+}
+
+function esc(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g, c =>
+    ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+async function generateAiRoutine() {
+  const btn = document.getElementById('ai-generate-btn');
+  const days = parseInt(document.getElementById('ai-days-slider').value);
+  const note = document.getElementById('ai-focus-note').value;
+  const errBox = document.getElementById('ai-result-error');
+
+  document.getElementById('ai-result-empty').style.display = 'none';
+  errBox.style.display = 'none';
+  document.getElementById('ai-plan-output').innerHTML = '';
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Coaching…';
+
+  try {
+    const start = await fetch('/coach/generate', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({goal: _aiGoal, days_per_week: days, focus_note: note}),
+    });
+    const sd = await start.json();
+    if (!start.ok) throw new Error(sd.detail || sd.error || 'Could not start generation.');
+    const jobId = sd.job_id;
+
+    const overallDeadline = Date.now() + 40 * 60 * 1000;
+    let processingDeadline = null;
+    while (Date.now() < overallDeadline) {
+      await new Promise(r => setTimeout(r, 2500));
+      const pr = await fetch('/coach/generate/' + jobId);
+      const pd = await pr.json();
+      if (!pr.ok) throw new Error(pd.detail || 'Lost track of the generation job.');
+      if (pd.status === 'done') {
+        _currentPlan = pd.plan;
+        renderAiPlan(pd.plan, pd.dropped || []);
+        return;
+      }
+      if (pd.status === 'error') throw new Error(pd.error || 'Generation failed.');
+      if (pd.status === 'queued') {
+        const ahead = pd.ahead || 0;
+        btn.innerHTML = ahead > 0
+          ? `<span class="spinner"></span> In queue · ${ahead} ahead of you…`
+          : '<span class="spinner"></span> Next up…';
+        continue;
+      }
+      // processing
+      if (!processingDeadline) processingDeadline = Date.now() + 9 * 60 * 1000;
+      btn.innerHTML = '<span class="spinner"></span> Coaching…';
+      if (Date.now() > processingDeadline) {
+        throw new Error('Generation is taking too long. Try fewer days, or set OLLAMA_MODEL=gemma3:1b.');
+      }
+    }
+    throw new Error('Still waiting after 40 minutes — the coach may be overloaded. Try again later.');
+  } catch (e) {
+    errBox.textContent = e.message;
+    errBox.style.display = 'block';
+    if (!document.getElementById('ai-plan-output').innerHTML) {
+      document.getElementById('ai-result-empty').style.display = 'block';
+    }
+  } finally {
+    btn.disabled = {% if ollama_available %}false{% else %}true{% endif %};
+    btn.innerHTML = '<i data-lucide="sparkles" style="width:15px;height:15px;pointer-events:none;"></i> Generate my routine';
+    lucide.createIcons();
+  }
+}
+
+function renderAiPlan(plan, dropped) {
+  const days = (plan.days || []).map((day, i) => {
+    const rows = day.exercises.map(ex => `
+      <div class="ex-row">
+        <span class="ex-name">${esc(ex.name)}
+          ${ex.note ? `<span class="ex-note">${esc(ex.note)}</span>` : ''}
+        </span>
+        <span class="ex-scheme">${esc(ex.sets)} × ${esc(ex.reps)}</span>
+      </div>`).join('');
+    return `
+      <div class="day-card">
+        <h3><span class="day-num">Day ${i + 1}</span> ${esc(day.focus)}</h3>
+        ${rows}
+      </div>`;
+  }).join('');
+
+  const droppedNote = dropped.length
+    ? `<div style="font-size:0.72rem;color:var(--muted);margin-bottom:0.75rem;">
+         Skipped unrecognised suggestions: ${esc(dropped.join(', '))}</div>`
+    : '';
+
+  document.getElementById('ai-plan-output').innerHTML = `
+    <div class="card card-accent" style="margin-bottom:1rem;">
+      <div style="font-family:'Syne',sans-serif;font-size:1.15rem;font-weight:700;letter-spacing:-0.02em;">${esc(plan.title)}</div>
+      ${plan.summary ? `<div style="color:var(--muted);font-size:0.85rem;margin-top:0.35rem;line-height:1.5;">${esc(plan.summary)}</div>` : ''}
+    </div>
+    ${droppedNote}
+    ${days}
+    <div style="display:flex;gap:0.65rem;flex-wrap:wrap;margin-top:0.5rem;">
+      <input type="text" id="ai-save-title" value="${esc(plan.title)}" maxlength="120" style="flex:1;min-width:160px;">
+      <button class="btn btn-primary" id="ai-save-btn" onclick="saveAiPlan()" style="min-height:56px;">
+        <i data-lucide="save" style="width:14px;height:14px;pointer-events:none;"></i> Save &amp; add to Routines
+      </button>
+      <button class="btn btn-ghost" onclick="generateAiRoutine()">Regenerate</button>
+    </div>
+    <div id="ai-save-msg" style="font-size:0.78rem;margin-top:0.5rem;display:none;"></div>`;
+  lucide.createIcons();
+}
+
+async function saveAiPlan() {
+  if (!_currentPlan) return;
+  const btn = document.getElementById('ai-save-btn');
+  const msg = document.getElementById('ai-save-msg');
+  const title = (document.getElementById('ai-save-title').value || _currentPlan.title).trim();
+
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Saving…';
+
+  const payload = {
+    title: title,
+    summary: _currentPlan.summary || '',
+    goal: _currentPlan.goal,
+    days_per_week: _currentPlan.days_per_week,
+    days: _currentPlan.days.map(d => ({
+      focus: d.focus,
+      exercises: d.exercises.map(e => ({name: e.name, sets: e.sets, reps: e.reps, note: e.note || ''})),
+    })),
+  };
+
+  try {
+    const resp = await fetch('/coach/save', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(payload),
+    });
+    const data = await resp.json();
+    if (!resp.ok) throw new Error(data.detail || 'Save failed.');
+    msg.textContent = `✓ Saved — ${data.routine_ids.length} routine(s) added. Reloading…`;
+    msg.style.color = 'var(--success)';
+    msg.style.display = 'block';
+    setTimeout(() => window.location.reload(), 900);
+  } catch (e) {
+    msg.textContent = e.message;
+    msg.style.color = 'var(--danger)';
+    msg.style.display = 'block';
+    btn.disabled = false;
+    btn.innerHTML = '<i data-lucide="save" style="width:14px;height:14px;pointer-events:none;"></i> Save &amp; add to Routines';
+    lucide.createIcons();
+  }
+}
+
+async function deleteAiPlan(id, btn) {
+  if (!confirm('Delete this saved plan? (Routines it created are kept.)')) return;
+  const resp = await fetch('/coach/plans/' + id, {method: 'DELETE'});
+  if (resp.ok || resp.status === 204) {
+    const card = document.getElementById('saved-plan-' + id + '-ai');
+    if (card) card.remove();
+  }
+}
+
+/* ══════════════════════════════════════════════════
+   MESOCYCLE JS
+══════════════════════════════════════════════════ */
+let _mesoGoal = 'hypertrophy';
+
+function setMesoGoal(goal, btn) {
+  _mesoGoal = goal;
+  document.querySelectorAll('#plan-meso .goal-btn').forEach(b => b.classList.remove('selected'));
+  btn.classList.add('selected');
+  generatePlan();
+}
+
+function addLiftRow() {
+  const c = document.getElementById('meso-lifts-container');
+  const row = document.createElement('div');
+  row.className = 'lift-row';
+  row.setAttribute('data-lift', '');
+  row.innerHTML = `
+    <input type="text" placeholder="Lift name" style="flex:1;font-size:0.8rem;" oninput="generatePlan()" class="lift-name">
+    <input type="number" placeholder="1RM kg" min="1" step="0.5" style="width:80px;text-align:center;font-size:0.8rem;" oninput="generatePlan()" class="lift-e1rm">
+    <span class="num" style="font-size:0.7rem;color:var(--muted);">kg</span>
+    <button onclick="this.closest('[data-lift]').remove();generatePlan()"
+            style="background:transparent;border:none;color:var(--muted);cursor:pointer;font-size:1rem;padding:0.1rem 0.2rem;transition:color 0.12s;"
+            onmouseover="this.style.color='var(--danger)'" onmouseout="this.style.color='var(--muted)'">×</button>`;
+  c.appendChild(row);
+  row.querySelector('.lift-name').focus();
+}
+
+const GOAL_CONFIG = {
+  hypertrophy: {
+    phases: [
+      { name: 'Accumulation',    cls: 'plan-phase-acc',    sets: 4, reps: [10, 12], pct: [0.65, 0.72] },
+      { name: 'Intensification', cls: 'plan-phase-int',    sets: 4, reps: [8,  10], pct: [0.72, 0.78] },
+      { name: 'Peak',            cls: 'plan-phase-int',    sets: 5, reps: [6,   8], pct: [0.78, 0.82] },
+      { name: 'Deload',          cls: 'plan-phase-deload', sets: 3, reps: [10, 12], pct: [0.60, 0.65] },
+    ],
+  },
+  strength: {
+    phases: [
+      { name: 'Accumulation',    cls: 'plan-phase-acc',    sets: 4, reps: [5, 6],  pct: [0.75, 0.80] },
+      { name: 'Intensification', cls: 'plan-phase-int',    sets: 4, reps: [3, 5],  pct: [0.82, 0.87] },
+      { name: 'Peak',            cls: 'plan-phase-peak',   sets: 4, reps: [2, 3],  pct: [0.88, 0.92] },
+      { name: 'Deload',          cls: 'plan-phase-deload', sets: 3, reps: [5, 6],  pct: [0.70, 0.75] },
+    ],
+  },
+  peaking: {
+    phases: [
+      { name: 'Transition',      cls: 'plan-phase-acc',    sets: 4, reps: [4, 5],  pct: [0.80, 0.85] },
+      { name: 'Intensification', cls: 'plan-phase-int',    sets: 4, reps: [2, 3],  pct: [0.87, 0.92] },
+      { name: 'Peak',            cls: 'plan-phase-peak',   sets: 3, reps: [1, 2],  pct: [0.92, 0.97] },
+      { name: 'Deload',          cls: 'plan-phase-deload', sets: 2, reps: [3, 4],  pct: [0.75, 0.80] },
+    ],
+  },
+};
+
+function round5(kg) { return Math.round(kg / 2.5) * 2.5; }
+
+function generatePlan() {
+  const narrow  = window.innerWidth < 600;
+  const weeks   = parseInt(document.getElementById('meso-weeks-slider').value);
+  const cfg     = GOAL_CONFIG[_mesoGoal];
+  const phases  = cfg.phases;
+  const unit    = window.getAppUnit ? window.getAppUnit() : 'kg';
+  const cvt     = kg => unit === 'lbs' ? kg * 2.20462 : kg;
+  const unitSym = unit;
+
+  const deloadWeeks = 1;
+  const workWeeks   = weeks - deloadWeeks;
+  const p3 = Math.max(1, Math.floor(workWeeks * 0.2));
+  const p2 = Math.max(1, Math.floor(workWeeks * 0.35));
+  const p1 = workWeeks - p2 - p3;
+  const phaseLens = [Math.max(1,p1), Math.max(1,p2), Math.max(1,p3), deloadWeeks];
+
+  const liftRows = document.querySelectorAll('#meso-lifts-container [data-lift]');
+  const lifts = [];
+  liftRows.forEach(row => {
+    const name = row.querySelector('.lift-name').value.trim();
+    const e1rm = parseFloat(row.querySelector('.lift-e1rm').value);
+    if (name && e1rm > 0) lifts.push({name, e1rm});
+  });
+
+  if (!lifts.length) {
+    document.getElementById('meso-plan-preview').innerHTML =
+      '<div style="padding:1.5rem;color:var(--muted);font-size:0.875rem;text-align:center;">Add at least one lift to generate a plan.</div>';
+    document.getElementById('meso-plan-summary').innerHTML = '';
+    return;
+  }
+
+  const rows = [];
+  let wNum = 1;
+  phases.forEach((phase, pi) => {
+    const len = phaseLens[pi];
+    const [rLo, rHi] = phase.reps;
+    const [pLo, pHi] = phase.pct;
+
+    for (let w = 0; w < len; w++) {
+      const progress = len > 1 ? w / (len - 1) : 0.5;
+      const reps = Math.round(rHi - (rHi - rLo) * progress);
+      const pct  = pLo + (pHi - pLo) * progress;
+
+      const cells = lifts.map(lift => {
+        const targetKg = round5(lift.e1rm * pct);
+        const disp = cvt(targetKg).toFixed(1);
+        return narrow
+          ? `<td class="num"><span style="font-weight:600;color:var(--text);">${disp}</span><br><span style="font-size:0.68rem;color:var(--muted);">${phase.sets}×${reps}</span></td>`
+          : `<td class="num"><span style="font-weight:600;color:var(--text);">${disp}</span><span style="font-size:0.68rem;color:var(--muted);"> ${unitSym}</span><br><span style="font-size:0.68rem;color:var(--muted);">${phase.sets}×${reps}</span></td>`;
+      }).join('');
+
+      rows.push({ wNum, phaseName: phase.name, cls: phase.cls, cells });
+      wNum++;
+    }
+  });
+
+  const liftHeaders = lifts.map(l =>
+    narrow
+      ? `<th>${l.name}</th>`
+      : `<th>${l.name}<br><span style="font-weight:400;font-size:0.6rem;color:var(--muted-hi);">e1RM: ${cvt(l.e1rm).toFixed(1)} ${unitSym}</span></th>`
+  ).join('');
+
+  const tableRows = rows.map(r =>
+    `<tr>
+      <td style="white-space:nowrap;">
+        <span class="num" style="font-size:0.78rem;font-weight:700;color:var(--text);">W${r.wNum}</span>
+      </td>
+      <td><span class="week-badge ${r.cls}">${r.phaseName}</span></td>
+      ${r.cells}
+    </tr>`
+  ).join('');
+
+  document.getElementById('meso-plan-preview').innerHTML = `
+    <table class="week-table">
+      <thead><tr>
+        <th style="width:40px;">Wk</th>
+        <th>Phase</th>
+        ${liftHeaders}
+      </tr></thead>
+      <tbody>${tableRows}</tbody>
+    </table>`;
+
+  const totalSets = rows.reduce((acc, r) => {
+    const phase = phases.find(p => p.name === r.phaseName);
+    return acc + (phase ? phase.sets : 0) * lifts.length;
+  }, 0);
+
+  document.getElementById('meso-plan-summary').innerHTML = [
+    { label: 'Weeks', val: weeks },
+    { label: 'Lifts', val: lifts.length },
+    { label: 'Total sets est.', val: totalSets },
+    { label: 'Goal', val: _mesoGoal.charAt(0).toUpperCase() + _mesoGoal.slice(1) },
+  ].map(k => `
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-xs);padding:0.5rem 0.85rem;">
+      <div style="font-size:0.62rem;text-transform:uppercase;letter-spacing:0.1em;color:var(--muted);font-weight:700;">${k.label}</div>
+      <div class="num" style="font-size:1.1rem;font-weight:700;color:var(--accent);margin-top:0.15rem;">${k.val}</div>
+    </div>`).join('');
+}
+
+async function saveMesoPlan() {
+  const name  = document.getElementById('meso-plan-name').value.trim();
+  const weeks = parseInt(document.getElementById('meso-weeks-slider').value);
+  const msg   = document.getElementById('meso-save-msg');
+  const btn   = document.getElementById('meso-save-btn');
+
+  if (!name) {
+    msg.textContent = 'Enter a plan name.';
+    msg.style.color = 'var(--danger)';
+    msg.style.display = 'block';
+    document.getElementById('meso-plan-name').focus();
+    return;
+  }
+
+  const liftRows = document.querySelectorAll('#meso-lifts-container [data-lift]');
+  const lifts = [];
+  liftRows.forEach(row => {
+    const n = row.querySelector('.lift-name').value.trim();
+    const e = parseFloat(row.querySelector('.lift-e1rm').value);
+    if (n && e > 0) lifts.push({name: n, e1rm_kg: e});
+  });
+
+  if (!lifts.length) {
+    msg.textContent = 'Add at least one lift.';
+    msg.style.color = 'var(--danger)';
+    msg.style.display = 'block';
+    return;
+  }
+
+  btn.disabled = true;
+  btn.textContent = 'Saving…';
+
+  const resp = await fetch('/planner/plans', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({name, goal: _mesoGoal, weeks, lifts}),
+  });
+
+  btn.disabled = false;
+  btn.innerHTML = '<i data-lucide="save" style="width:14px;height:14px;pointer-events:none;"></i> Save Plan';
+  lucide.createIcons();
+
+  if (resp.ok) {
+    msg.textContent = '✓ Plan saved!';
+    msg.style.color = 'var(--success)';
+    msg.style.display = 'block';
+    setTimeout(() => { msg.style.display = 'none'; window.location.reload(); }, 1500);
+  } else {
+    msg.textContent = 'Failed to save. Try again.';
+    msg.style.color = 'var(--danger)';
+    msg.style.display = 'block';
+  }
+}
+
+async function deleteMesoPlan(id, btn) {
+  if (!confirm('Delete this saved plan?')) return;
+  const resp = await fetch('/planner/plans/' + id, {method: 'DELETE'});
+  if (resp.ok || resp.status === 204) {
+    const card = document.getElementById('saved-plan-' + id + '-meso');
+    if (card) card.remove();
+  }
+}
+
+/* ══════════════════════════════════════════════════
+   UNIFIED DELETE (for the shared saved-plans panel)
+══════════════════════════════════════════════════ */
+async function deleteSavedPlan(btn) {
+  const id   = btn.dataset.id;
+  const type = btn.dataset.type;
+  if (!['ai','meso'].includes(type)) return;
+  const endpoint = type === 'ai' ? `/coach/plans/${id}` : `/planner/plans/${id}`;
+  if (!confirm('Delete this plan?')) return;
+  btn.disabled = true;
+  const r = await fetch(endpoint, {method: 'DELETE'});
+  if (r.ok) btn.closest('.saved-plan-card').remove();
+  else btn.disabled = false;
+}
+
+/* Unit toggle reactivity (meso) */
+window.addEventListener('unitchange', generatePlan);
+
+/* Initial meso render — deferred until section is visible */
+document.addEventListener('DOMContentLoaded', () => {
+  // generatePlan() will be called by setMode() → setMesoGoal() when switching to meso
+  // but run it now in case the page starts in meso mode
+  const saved = localStorage.getItem('fitstorm:plan:mode');
+  if (saved === 'meso') generatePlan();
+});
+</script>
+{% endblock %}
