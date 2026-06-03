@@ -45,6 +45,20 @@ Key routing rules:
 - Save progress → invoke /context-save
 - Resume context → invoke /context-restore
 
+## Deploy Configuration (configured by /setup-deploy)
+- Platform: Local Raspberry Pi (systemd)
+- Production URL: http://localhost:8000
+- Deploy workflow: `sudo systemctl restart fitstorm`
+- Deploy status command: `systemctl is-active fitstorm`
+- Project type: Web app (FastAPI/uvicorn)
+- Post-deploy health check: http://localhost:8000
+
+### Custom deploy hooks
+- Pre-merge: none
+- Deploy trigger: `sudo systemctl restart fitstorm`
+- Deploy status: `systemctl is-active fitstorm`
+- Health check: `curl -sf http://localhost:8000 -o /dev/null`
+
 ## Design System
 
 Always read DESIGN.md before making any visual or UI decisions.
