@@ -47,6 +47,11 @@
   border-bottom: 1px solid var(--border); background: rgba(255,255,255,0.015);
   text-align: left;
 }
+@media (max-width: 600px) {
+  .week-table { font-size: 0.72rem; }
+  .week-table th, .week-table td { padding: 0.4rem 0.45rem; }
+  #plan-preview { overflow-x: hidden; }
+}
 .week-table td { padding: 0.55rem 0.75rem; border-bottom: 1px solid rgba(30,35,52,0.5); }
 .week-table tr:last-child td { border-bottom: none; }
 .week-table tbody tr:hover td { background: rgba(255,255,255,0.02); }
@@ -363,8 +368,11 @@ function generatePlan() {
   });
 
   // Build table
+  const narrow = window.innerWidth < 600;
   const liftHeaders = lifts.map(l =>
-    `<th>${l.name}<br><span style="font-weight:400;font-size:0.6rem;color:var(--muted-hi);">e1RM: ${cvt(l.e1rm).toFixed(1)} ${unitSym}</span></th>`
+    narrow
+      ? `<th>${l.name}</th>`
+      : `<th>${l.name}<br><span style="font-weight:400;font-size:0.6rem;color:var(--muted-hi);">e1RM: ${cvt(l.e1rm).toFixed(1)} ${unitSym}</span></th>`
   ).join('');
 
   const tableRows = rows.map(r =>
