@@ -4,6 +4,14 @@
 <style>
 .plan-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; }
 @media (max-width: 767px) { .plan-grid { grid-template-columns: 1fr; } }
+@media (max-width: 600px) {
+  .goal-btn { min-width: 0; padding: 0.55rem 0.3rem; font-size: 0.72rem; }
+  .goal-btn .goal-sub { display: none; }
+  .goal-btn .goal-icon { font-size: 1.1rem; }
+  .week-table th, .week-table td { padding: 0.35rem 0.4rem; }
+  .week-table { font-size: 0.7rem; table-layout: fixed; }
+  #plan-preview { overflow-x: hidden; }
+}
 
 .goal-btn {
   flex: 1;
