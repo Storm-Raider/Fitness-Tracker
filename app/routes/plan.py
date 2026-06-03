@@ -7,6 +7,8 @@ on their original routes in coach.py and planner.py.
 """
 
 
+import json as _json
+
 import aiosqlite
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import HTMLResponse
@@ -49,13 +51,33 @@ async def plan_page(
     # Saved AI coach plans
     async with conn.execute(
         """
-        SELECT id, title, goal, days_per_week, model, created_at
+        SELECT id, title, goal, days_per_week, model, created_at, plan_json
         FROM coach_plans
         WHERE user_id=? ORDER BY created_at DESC LIMIT 10
         """,
         (uid,),
     ) as c:
-        coach_plans = [dict(r) for r in await c.fetchall()]
+        coach_plans = []
+        for r in await c.fetchall():
+            p = dict(r)
+            # Parse plan_json to get routine_ids (new plans have it; legacy plans don't)
+            plan_data = {}
+            try:
+                plan_data = _json.loads(p.pop("plan_json") or "{}")
+            except (ValueError, TypeError):
+                pass
+
+            if "routine_ids" in plan_data:
+                p["routine_ids"] = plan_data["routine_ids"]
+            else:
+                # Legacy fallback: query routines matching "{title} · Day %"
+                async with conn.execute(
+                    "SELECT id FROM routines WHERE user_id=? AND name LIKE ? ORDER BY id",
+                    (uid, f"{p['title']} · Day %"),
+                ) as rc:
+                    p["routine_ids"] = [row["id"] for row in await rc.fetchall()]
+
+            coach_plans.append(p)
 
     # Saved mesocycle plans
     async with conn.execute(

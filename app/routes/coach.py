@@ -572,6 +572,13 @@ async def save_plan(
             )
         routine_ids.append(rid)
 
+    # Embed routine_ids into the stored plan_json so GET /plan can surface them
+    # without a secondary JOIN — no schema change required.
+    plan_obj["routine_ids"] = routine_ids
+    await conn.execute(
+        "UPDATE coach_plans SET plan_json=? WHERE id=?",
+        (json.dumps(plan_obj), plan_id),
+    )
     await conn.commit()
     return JSONResponse({"id": plan_id, "routine_ids": routine_ids}, status_code=201)
 
