@@ -159,6 +159,22 @@ async def challenge_detail(
         and not ch.day_complete(view["_template"], yesterday.isoformat(), view["_checks"], view["_train_dates"])
     )
 
+    # Back-dated catch-up: days from started_on up to two days ago that predate
+    # creation_date. These couldn't have been logged before the challenge existed.
+    creation_date = date.fromisoformat(row["created_at"][:10])
+    backfill_days = []
+    if start < creation_date and view["status"] == "active":
+        d = start
+        cutoff = today - timedelta(days=ch.GRACE_DAYS + 1)  # yesterday handled separately
+        while d <= min(cutoff, last_day):
+            backfill_days.append({
+                "date": d.isoformat(),
+                "day_n": (d - start).days + 1,
+                "rules": ch.today_rules(view, d),
+                "complete": ch.day_complete(view["_template"], d.isoformat(), view["_checks"], view["_train_dates"]),
+            })
+            d += timedelta(days=1)
+
     template = view["_template"]
     return templates.TemplateResponse(request, "challenge_detail.html", {
         "user": dict(current_user),
@@ -172,6 +188,7 @@ async def challenge_detail(
         "show_yesterday": show_yesterday,
         "yesterday_iso": yesterday.isoformat(),
         "yesterday_rules": ch.today_rules(view, yesterday) if show_yesterday else [],
+        "backfill_days": backfill_days,
         "cells": ch.day_cells(view, today),
         "is_editable": bool(template and template.get("editable")),
         "current_rules": template["rules"] if template else [],
@@ -198,10 +215,24 @@ async def checkin(
         raise HTTPException(status_code=422, detail="Unknown rule")
 
     today = ch.today_local()
-    # Only today and yesterday (grace) are editable.
-    editable = {today.isoformat(), (today - timedelta(days=ch.GRACE_DAYS)).isoformat()}
-    if body.day_date not in editable:
-        raise HTTPException(status_code=422, detail="That day can no longer be edited")
+    started_on = date.fromisoformat(row["started_on"])
+    creation_date = date.fromisoformat(row["created_at"][:10])
+
+    if started_on < creation_date:
+        # Back-dated challenge: every day from started_on through today is editable
+        # because the user couldn't have logged check-ins before registering.
+        last_day = started_on + timedelta(days=row["total_days"] - 1)
+        try:
+            requested = date.fromisoformat(body.day_date)
+        except ValueError:
+            raise HTTPException(status_code=422, detail="Invalid day_date format")
+        if not (started_on <= requested <= min(today, last_day)):
+            raise HTTPException(status_code=422, detail="That day is outside the challenge range")
+    else:
+        # Normal challenge: only today and yesterday (grace) are editable.
+        editable = {today.isoformat(), (today - timedelta(days=ch.GRACE_DAYS)).isoformat()}
+        if body.day_date not in editable:
+            raise HTTPException(status_code=422, detail="That day can no longer be edited")
 
     async with conn.execute(
         "SELECT rules_json FROM challenge_checkins WHERE attempt_id=? AND day_date=?",
