@@ -6,7 +6,6 @@ Write endpoints (POST /coach/generate, POST /planner/plans, etc.) stay
 on their original routes in coach.py and planner.py.
 """
 
-import json
 
 import aiosqlite
 from fastapi import APIRouter, Depends, Request
