@@ -8,8 +8,11 @@
   .goal-btn { min-width: 0; padding: 0.55rem 0.3rem; font-size: 0.72rem; }
   .goal-btn .goal-sub { display: none; }
   .goal-btn .goal-icon { font-size: 1.1rem; }
-  .week-table th, .week-table td { padding: 0.35rem 0.4rem; }
-  .week-table { font-size: 0.7rem; }
+  .week-table { font-size: 0.7rem; table-layout: fixed; width: 100%; }
+  .week-table th:first-child, .week-table td:first-child { width: 28px; padding: 0.35rem 0.3rem; }
+  .week-table th:nth-child(2), .week-table td:nth-child(2) { width: 95px; padding: 0.35rem 0.4rem; }
+  .week-table th, .week-table td { padding: 0.35rem 0.4rem; overflow: hidden; }
+  .week-badge { max-width: 83px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: inline-block; }
   #plan-preview { overflow-x: hidden; }
 }
 
@@ -315,6 +318,7 @@ const GOAL_CONFIG = {
 function round5(kg) { return Math.round(kg / 2.5) * 2.5; }
 
 function generatePlan() {
+  const narrow  = window.innerWidth < 600;
   const weeks   = parseInt(document.getElementById('weeks-slider').value);
   const cfg     = GOAL_CONFIG[_goal];
   const phases  = cfg.phases;
@@ -363,11 +367,9 @@ function generatePlan() {
       const cells = lifts.map(lift => {
         const targetKg = round5(lift.e1rm * pct);
         const disp = cvt(targetKg).toFixed(1);
-        return `<td class="num">
-          <span style="font-weight:600;color:var(--text);">${disp}</span>
-          <span style="font-size:0.68rem;color:var(--muted);"> ${unitSym}</span><br>
-          <span style="font-size:0.68rem;color:var(--muted);">${phase.sets}×${reps}</span>
-        </td>`;
+        return narrow
+          ? `<td class="num"><span style="font-weight:600;color:var(--text);">${disp}</span><br><span style="font-size:0.68rem;color:var(--muted);">${phase.sets}×${reps}</span></td>`
+          : `<td class="num"><span style="font-weight:600;color:var(--text);">${disp}</span><span style="font-size:0.68rem;color:var(--muted);"> ${unitSym}</span><br><span style="font-size:0.68rem;color:var(--muted);">${phase.sets}×${reps}</span></td>`;
       }).join('');
 
       rows.push({ wNum, phaseName: phase.name, cls: phase.cls, cells });
@@ -376,7 +378,6 @@ function generatePlan() {
   });
 
   // Build table
-  const narrow = window.innerWidth < 600;
   const liftHeaders = lifts.map(l =>
     narrow
       ? `<th>${l.name}</th>`
