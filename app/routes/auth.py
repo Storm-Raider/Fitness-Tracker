@@ -63,7 +63,8 @@ async def get_current_user(
     async with conn.execute(
         """SELECT u.id, u.username, u.is_admin,
                   COALESCE(us.pref_unit, 'kg') AS pref_unit,
-                  COALESCE(us.pref_distance, 'km') AS pref_distance
+                  COALESCE(us.pref_distance, 'km') AS pref_distance,
+                  COALESCE(us.pref_body_measurement, 'cm') AS pref_body_measurement
            FROM users u
            LEFT JOIN user_settings us ON us.user_id = u.id
            WHERE u.id = ?""",
@@ -127,6 +128,29 @@ async def patch_distance_pref(
     )
     await conn.commit()
     return JSONResponse({"distance": body.distance})
+
+
+class BodyMeasurementPref(BaseModel):
+    unit: str
+
+@router.patch("/api/settings/body-measurement")
+async def patch_body_measurement_pref(
+    body: BodyMeasurementPref,
+    conn: aiosqlite.Connection = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    if body.unit not in ("cm", "in"):
+        raise HTTPException(status_code=422, detail="unit must be 'cm' or 'in'")
+    uid = current_user["id"]
+    await conn.execute(
+        """INSERT INTO user_settings(user_id, pref_body_measurement)
+           VALUES (?, ?)
+           ON CONFLICT(user_id) DO UPDATE SET pref_body_measurement = excluded.pref_body_measurement""",
+        (uid, body.unit),
+    )
+    await conn.commit()
+    from fastapi.responses import JSONResponse
+    return JSONResponse({"unit": body.unit})
 
 
 # ── Login ─────────────────────────────────────────────────────────────────────

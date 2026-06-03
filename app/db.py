@@ -189,6 +189,8 @@ _MIGRATIONS = [
     # which is weight×reps). Holds progress by time, not volume.
     "ALTER TABLE exercises ADD COLUMN log_type TEXT",
     "ALTER TABLE sets ADD COLUMN duration_seconds INTEGER",
+    # Body measurement unit preference (cm / in) — separate from pref_unit (weight)
+    "ALTER TABLE user_settings ADD COLUMN pref_body_measurement TEXT NOT NULL DEFAULT 'cm'",
 ]
 
 
