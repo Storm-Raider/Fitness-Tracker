@@ -192,7 +192,7 @@ def day_cells(view: dict, today: date) -> list[dict]:
         elif d == today - timedelta(days=GRACE_DAYS):
             state = "grace"      # yesterday, still completable
         elif d < creation_date:
-            state = "backfilled"  # pre-dates registration; not counted as missed
+            state = "grace"  # pre-dates registration; editable via catch-up cards
         else:
             state = "missed"
         cells.append({"day": i + 1, "date": ds, "state": state})

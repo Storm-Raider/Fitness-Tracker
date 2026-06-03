@@ -99,6 +99,36 @@
 </div>
 {% endif %}
 
+{% if backfill_days %}
+<div class="card" style="margin-bottom:1.25rem;border-left:3px solid var(--border-mid);">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.5rem;">
+    <div class="section-title" style="margin:0;">Catch up — back-dated days</div>
+    <button onclick="this.closest('.card').querySelector('.backfill-list').classList.toggle('hidden');this.textContent=this.textContent==='Hide'?'Show':'Hide';"
+      style="background:transparent;border:none;color:var(--muted);font-size:0.75rem;font-family:inherit;cursor:pointer;padding:0;">Hide</button>
+  </div>
+  <div class="backfill-list">
+    {% for day in backfill_days %}
+    <div style="margin-bottom:0.85rem;padding-bottom:0.85rem;{% if not loop.last %}border-bottom:1px solid rgba(30,35,52,0.5);{% endif %}">
+      <div style="font-size:0.72rem;color:var(--muted);font-family:'JetBrains Mono',monospace;margin-bottom:0.35rem;">
+        Day {{ day.day_n }} — {{ day.date }}{% if day.complete %} <span style="color:var(--success);">✓ done</span>{% endif %}
+      </div>
+      {% for r in day.rules %}
+      <div class="rule {% if r.done %}done{% endif %} {% if r.optional %}optional{% endif %}"
+           data-rule="{{ r.key }}" data-kind="{{ r.kind }}" data-day="{{ day.date }}"
+           onclick="onRuleTap(this)">
+        <div class="box"><i data-lucide="check" style="width:16px;height:16px;{% if not r.done %}display:none;{% endif %}"></i></div>
+        <span class="lbl">{{ r.label }}
+          {% if r.kind == 'workout' and r.auto %}<span class="hint">auto ✓ — workout logged</span>{% endif %}
+        </span>
+      </div>
+      {% endfor %}
+    </div>
+    {% endfor %}
+  </div>
+</div>
+<style>.backfill-list.hidden { display: none; }</style>
+{% endif %}
+
 <div class="card" style="margin-bottom:1.25rem;">
   <div class="section-title">{{ c.total_days }}-day grid</div>
   <div class="grid">

@@ -120,12 +120,27 @@ async def test_yesterday_grace_keeps_active(client, db):
 
 
 @pytest.mark.asyncio
-async def test_checkin_rejects_locked_day(client):
+async def test_checkin_rejects_locked_day(client, db):
+    # Normally-started challenge (created_at == started_on): days ≥ 2 back are locked.
     aid = await _start(client)
     old = (date.today() - timedelta(days=3)).isoformat()
     r = await client.post(f"/challenges/{aid}/checkin",
                           json={"day_date": old, "rule_key": "diet", "done": True})
     assert r.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_backdated_challenge_allows_all_prior_days(client, db):
+    # Back-dated challenge: every day from started_on through today is editable.
+    three_days_ago = (date.today() - timedelta(days=3)).isoformat()
+    r = await client.post("/challenges", json={"template_key": "75_hard", "start_date": three_days_ago})
+    assert r.status_code == 201
+    aid = r.json()["id"]
+    # Day 1 (3 days ago) must now be editable even though it's past the grace window.
+    r = await client.post(f"/challenges/{aid}/checkin",
+                          json={"day_date": three_days_ago, "rule_key": "diet", "done": True})
+    assert r.status_code == 200
+    assert r.json()["status"] == "active"
 
 
 @pytest.mark.asyncio
