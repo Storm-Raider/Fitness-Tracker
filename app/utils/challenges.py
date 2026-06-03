@@ -115,9 +115,15 @@ async def evaluate_attempt(
 
     if template and status == "active":
         locked_end = min(today - timedelta(days=1 + GRACE_DAYS), last_day)
+        # Days before the attempt was created can never have had a check-in
+        # (the challenge didn't exist yet), so don't penalise them as missed.
+        creation_date = date.fromisoformat(attempt["created_at"][:10])
         failed_on = None
         d = start
         while d <= locked_end:
+            if d < creation_date:
+                d += timedelta(days=1)
+                continue
             ds = d.isoformat()
             if not day_complete(template, ds, checks, train_dates):
                 failed_on = ds
@@ -143,6 +149,7 @@ async def evaluate_attempt(
         "total_days": total,
         "status": status,
         "started_on": attempt["started_on"],
+        "created_at": attempt["created_at"],
         "ended_on": ended_on,
         "day_n": max(1, min(day_n, total)) if status == "completed" else day_n,
         "_template": template,
@@ -171,6 +178,7 @@ def day_cells(view: dict, today: date) -> list[dict]:
     """Calendar grid: one cell per challenge day with its state."""
     template = view["_template"]
     start = date.fromisoformat(view["started_on"])
+    creation_date = date.fromisoformat(view.get("created_at", view["started_on"])[:10])
     cells = []
     for i in range(view["total_days"]):
         d = start + timedelta(days=i)
@@ -183,6 +191,8 @@ def day_cells(view: dict, today: date) -> list[dict]:
             state = "today"
         elif d == today - timedelta(days=GRACE_DAYS):
             state = "grace"      # yesterday, still completable
+        elif d < creation_date:
+            state = "backfilled"  # pre-dates registration; not counted as missed
         else:
             state = "missed"
         cells.append({"day": i + 1, "date": ds, "state": state})

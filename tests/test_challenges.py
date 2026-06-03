@@ -77,15 +77,34 @@ async def test_workout_rule_auto_ticks_from_log(client, db):
 @pytest.mark.asyncio
 async def test_reset_on_missed_locked_day(client, db):
     aid = await _start(client)
-    # Backdate so Day 1 is locked (>= 2 days ago) and left incomplete.
+    # Simulate a challenge that has been running for 4 days: move both
+    # started_on AND created_at so the lock window sees real missed days.
     past = (date.today() - timedelta(days=4)).isoformat()
-    await db.execute("UPDATE challenge_attempts SET started_on=? WHERE id=?", (past, aid))
+    await db.execute(
+        "UPDATE challenge_attempts SET started_on=?, created_at=? WHERE id=?",
+        (past, past + " 08:00:00", aid),
+    )
     await db.commit()
     r = await client.get(f"/challenges/{aid}", headers={"Accept": "text/html"})
     assert r.status_code == 200
     async with db.execute("SELECT status FROM challenge_attempts WHERE id=?", (aid,)) as c:
         assert (await c.fetchone())["status"] == "failed"
     assert "Run reset" in r.text
+
+
+@pytest.mark.asyncio
+async def test_backdated_start_does_not_trigger_reset(client, db):
+    # Regression for: starting with a past start_date immediately tripped the
+    # reset because pre-registration days had no check-ins. created_at stays
+    # today; days before created_at must not count as missed.
+    three_days_ago = (date.today() - timedelta(days=3)).isoformat()
+    r = await client.post("/challenges", json={"template_key": "75_hard", "start_date": three_days_ago})
+    assert r.status_code == 201
+    aid = r.json()["id"]
+    # Page load triggers evaluate_attempt — must not flip to failed.
+    await client.get(f"/challenges/{aid}", headers={"Accept": "text/html"})
+    async with db.execute("SELECT status FROM challenge_attempts WHERE id=?", (aid,)) as c:
+        assert (await c.fetchone())["status"] == "active"
 
 
 @pytest.mark.asyncio
