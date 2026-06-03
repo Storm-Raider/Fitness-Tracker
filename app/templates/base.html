@@ -949,7 +949,7 @@
       <a href="/prs">Records</a>
       <a href="/workouts">Sessions</a>
       <a href="/exercises">Exercises</a>
-      <a href="/coach">Coach</a>
+      <a href="/plan">Plan</a>
       <!-- More dropdown (desktop) -->
       <div class="nav-more" id="nav-more">
         <button class="nav-more-btn" onclick="toggleMoreMenu()" aria-haspopup="true">More <i data-lucide="chevron-down" style="width:13px;height:13px;"></i></button>
@@ -961,7 +961,6 @@
           <a href="/challenges">Challenges</a>
           <a href="/metrics">Body Metrics</a>
           <a href="/achievements">Achievements</a>
-          <a href="/planner">Planner</a>
           <a href="/export">Export</a>
           <a href="/feedback">Feedback</a>
           {% if user.is_admin %}<a href="/invite">Invite</a>{% endif %}
@@ -969,7 +968,7 @@
         </div>
       </div>
       <!-- Mobile-only flat links (hamburger menu) -->
-      <a href="/coach" class="nav-more-mobile-link">Coach</a>
+      <a href="/plan" class="nav-more-mobile-link">Plan</a>
       <a href="/routines/manage" class="nav-more-mobile-link">Routines</a>
       <a href="/templates" class="nav-more-mobile-link">Templates</a>
       <a href="/journal" class="nav-more-mobile-link">Daily Log</a>
@@ -1038,9 +1037,9 @@
       <span style="color:var(--muted-hi);font-weight:500;letter-spacing:0;text-transform:none;font-size:0.8rem;">{{ user.username }}</span>
     </div>
     <div class="mob-more-grid">
-      <a href="/coach" class="mob-more-item" data-mob-more-path="/coach" onclick="closeMobMore()">
-        <div class="mob-more-icon"><i data-lucide="sparkles"></i></div>
-        <span>Coach</span>
+      <a href="/plan" class="mob-more-item" data-mob-more-path="/plan" onclick="closeMobMore()">
+        <div class="mob-more-icon"><i data-lucide="calendar-check"></i></div>
+        <span>Plan</span>
       </a>
       <a href="/exercises" class="mob-more-item" data-mob-more-path="/exercises" onclick="closeMobMore()">
         <div class="mob-more-icon"><i data-lucide="layers"></i></div>
@@ -1065,10 +1064,6 @@
       <a href="/achievements" class="mob-more-item" data-mob-more-path="/achievements" onclick="closeMobMore()">
         <div class="mob-more-icon"><i data-lucide="medal"></i></div>
         <span>Achievements</span>
-      </a>
-      <a href="/planner" class="mob-more-item" data-mob-more-path="/planner" onclick="closeMobMore()">
-        <div class="mob-more-icon"><i data-lucide="calendar-range"></i></div>
-        <span>Planner</span>
       </a>
       <a href="/export" class="mob-more-item" data-mob-more-path="/export" onclick="closeMobMore()">
         <div class="mob-more-icon"><i data-lucide="download"></i></div>
@@ -1336,7 +1331,7 @@
     // Mobile tab + More sheet active states
     (function() {
       var here = location.pathname;
-      var morePaths = ['/coach', '/exercises', '/cardio', '/challenges', '/metrics', '/export', {% if user.is_admin %}'/invite', {% endif %}'/settings', '/achievements', '/planner'];
+      var morePaths = ['/plan', '/exercises', '/cardio', '/challenges', '/metrics', '/export', {% if user.is_admin %}'/invite', {% endif %}'/settings', '/achievements'];
       document.querySelectorAll('.mob-tab[data-mob-path]').forEach(function(tab) {
         var p = tab.getAttribute('data-mob-path');
         var exact = tab.getAttribute('data-mob-exact');

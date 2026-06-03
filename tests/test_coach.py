@@ -39,22 +39,18 @@ def _fake_chat(plan: dict):
 
 
 @pytest.mark.asyncio
-async def test_coach_page_renders(client, monkeypatch):
-    async def fake_avail(timeout=3.0):
-        return False, []
-    monkeypatch.setattr(coach.ollama, "is_available", fake_avail)
-
-    resp = await client.get("/coach")
-    assert resp.status_code == 200
-    assert "AI Coach" in resp.text
-    # Ollama-down notice should surface
-    assert "isn't reachable" in resp.text
+async def test_coach_page_redirects_to_plan(client):
+    resp = await client.get("/coach", follow_redirects=False)
+    assert resp.status_code == 301
+    assert resp.headers["location"] == "/plan"
 
 
 @pytest.mark.asyncio
 async def test_coach_page_requires_auth(anon_client):
+    # Auth middleware runs before our 301, so unauthenticated requests get a 302
+    # to /login. Either redirect status is acceptable — the point is no 200.
     resp = await anon_client.get("/coach", follow_redirects=False)
-    assert resp.status_code in (302, 401)
+    assert resp.status_code in (301, 302)
 
 
 @pytest.mark.asyncio

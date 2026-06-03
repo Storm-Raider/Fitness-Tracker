@@ -23,7 +23,7 @@ import uuid
 
 import aiosqlite
 from fastapi import APIRouter, Depends, HTTPException, Request
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from pydantic import BaseModel, Field
 
 from app.db import get_db
@@ -397,44 +397,9 @@ def _normalise_plan(raw: dict, goal: str, days: int, name_map: dict) -> tuple[di
 
 # ── Routes ───────────────────────────────────────────────────────────
 
-@router.get("/coach", response_class=HTMLResponse)
-async def coach_page(
-    request: Request,
-    conn: aiosqlite.Connection = Depends(get_db),
-    current_user=Depends(get_current_user),
-):
-    uid = current_user["id"]
-    profile = await build_profile(conn, uid)
-    available, models = await ollama.is_available()
-
-    async with conn.execute(
-        """
-        SELECT id, title, goal, days_per_week, plan_json, model, created_at
-        FROM coach_plans
-        WHERE user_id = ?
-        ORDER BY created_at DESC
-        LIMIT 10
-        """,
-        (uid,),
-    ) as cur:
-        saved = []
-        for r in await cur.fetchall():
-            d = dict(r)
-            try:
-                d["plan"] = json.loads(d.pop("plan_json"))
-            except (json.JSONDecodeError, TypeError):
-                d["plan"] = {"days": []}
-            saved.append(d)
-
-    return templates.TemplateResponse(request, "coach.html", {
-        "user": dict(current_user),
-        "profile": profile,
-        "saved_plans": saved,
-        "ollama_available": available,
-        "ollama_models": models,
-        "ollama_model": ollama.ollama_model(),
-        "goals": GOALS,
-    })
+@router.get("/coach")
+async def coach_page(request: Request):
+    return RedirectResponse("/plan", status_code=301)
 
 
 async def _run_generation(

@@ -2,7 +2,7 @@ import json
 
 import aiosqlite
 from fastapi import APIRouter, Depends, HTTPException, Request
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from pydantic import BaseModel, Field
 
 from app.db import get_db
@@ -19,45 +19,9 @@ class PlanIn(BaseModel):
     lifts: list[dict]  # [{name, e1rm_kg}]
 
 
-@router.get("/planner", response_class=HTMLResponse)
-async def planner_page(
-    request: Request,
-    conn: aiosqlite.Connection = Depends(get_db),
-    current_user=Depends(get_current_user),
-):
-    uid = current_user["id"]
-
-    # Recent e1RM estimates for compound lifts (Epley)
-    async with conn.execute(
-        """
-        SELECT e.name, MAX(ROUND(s.weight_kg*(1+s.reps/30.0),1)) AS e1rm
-        FROM sets s
-        JOIN exercises e ON e.id=s.exercise_id
-        WHERE s.user_id=? AND e.category NOT IN ('Cardio')
-        GROUP BY s.exercise_id
-        ORDER BY e1rm DESC
-        LIMIT 20
-        """,
-        (uid,),
-    ) as c:
-        top_lifts = [dict(r) for r in await c.fetchall()]
-
-    # Saved plans
-    async with conn.execute(
-        "SELECT id, name, goal, weeks, plan_json, created_at FROM mesocycle_plans WHERE user_id=? ORDER BY created_at DESC LIMIT 10",
-        (uid,),
-    ) as c:
-        saved_plans = [dict(r) for r in await c.fetchall()]
-
-    return render(
-        request,
-        "planner",
-        {
-            "top_lifts": top_lifts,
-            "saved_plans": saved_plans,
-            "user": dict(current_user),
-        },
-    )
+@router.get("/planner")
+async def planner_page(request: Request):
+    return RedirectResponse("/plan", status_code=301)
 
 
 @router.post("/planner/plans", status_code=201)
