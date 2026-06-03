@@ -226,7 +226,35 @@
   gap: 0.75rem;
   transition: border-color 0.15s;
   margin-bottom: 0.5rem;
+  flex-wrap: wrap;
 }
+.plan-day-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  width: 100%;
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--border);
+  margin-top: 0.1rem;
+}
+.plan-day-chip {
+  background: transparent;
+  border: 1px solid var(--accent);
+  color: var(--accent);
+  border-radius: var(--radius-xs);
+  padding: 0.25rem 0.65rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  transition: all 0.13s;
+  min-height: 30px;
+}
+.plan-day-chip:hover { background: var(--accent-dim); }
+.plan-day-chip:disabled { opacity: 0.5; cursor: not-allowed; }
 .saved-plan-card:last-child { margin-bottom: 0; }
 .saved-plan-card:hover { border-color: var(--border-mid); }
 .saved-plan-info {
@@ -562,6 +590,17 @@
               style="min-height:40px;min-width:40px;display:flex;align-items:center;justify-content:center;">
         <i data-lucide="trash-2" style="width:15px;height:15px;pointer-events:none;"></i>
       </button>
+      {% if p.type == 'ai' and p.routine_ids %}
+      <div class="plan-day-chips">
+        <span style="font-size:0.62rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em;font-weight:700;align-self:center;">Start:</span>
+        {% for rid in p.routine_ids %}
+        <button class="plan-day-chip" onclick="startPlanDay({{ rid }}, this)">
+          <i data-lucide="play" style="width:11px;height:11px;pointer-events:none;"></i>
+          Day {{ loop.index }}
+        </button>
+        {% endfor %}
+      </div>
+      {% endif %}
     </div>
     {% endfor %}
   {% else %}
@@ -989,6 +1028,25 @@ async function deleteMesoPlan(id, btn) {
 /* ══════════════════════════════════════════════════
    UNIFIED DELETE (for the shared saved-plans panel)
 ══════════════════════════════════════════════════ */
+async function startPlanDay(routineId, btn) {
+  btn.disabled = true;
+  btn.textContent = 'Starting…';
+  try {
+    const r = await fetch('/workouts', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({}),
+    });
+    if (!r.ok) throw new Error('Could not create session');
+    const data = await r.json();
+    window.location.href = `/workouts/${data.id}?routine=${routineId}`;
+  } catch (e) {
+    btn.disabled = false;
+    btn.innerHTML = '<i data-lucide="play" style="width:11px;height:11px;pointer-events:none;"></i> Day ' + btn.textContent.replace('Starting…','').trim();
+    alert('Could not start session. Try again.');
+  }
+}
+
 async function deleteSavedPlan(btn) {
   const id   = btn.dataset.id;
   const type = btn.dataset.type;
