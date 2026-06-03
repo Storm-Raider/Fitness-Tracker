@@ -228,6 +228,20 @@ async def get_workout(
         ) as cur:
             template_exercises = [dict(r) for r in await cur.fetchall()]
 
+    routine_id = request.query_params.get("routine")
+    if routine_id and not is_finished and not template_exercises:
+        async with conn.execute(
+            """
+            SELECT e.id, e.name
+            FROM routine_exercises re
+            JOIN exercises e ON e.id = re.exercise_id
+            WHERE re.routine_id = ?
+            ORDER BY re.order_idx
+            """,
+            (routine_id,),
+        ) as cur:
+            template_exercises = [dict(r) for r in await cur.fetchall()]
+
     # Form info enrichment (generated nightly by scripts/enrich_workouts.py)
     enrichment = None
     if is_finished:
