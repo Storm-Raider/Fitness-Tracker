@@ -33,6 +33,22 @@ async def test_start_unknown_template_404(client):
 
 
 @pytest.mark.asyncio
+async def test_start_with_past_start_date(client, db):
+    yesterday = (date.today() - timedelta(days=1)).isoformat()
+    r = await client.post("/challenges", json={"template_key": "75_hard", "start_date": yesterday})
+    assert r.status_code == 201
+    async with db.execute("SELECT started_on FROM challenge_attempts WHERE id=?", (r.json()["id"],)) as c:
+        assert (await c.fetchone())["started_on"] == yesterday
+
+
+@pytest.mark.asyncio
+async def test_start_with_future_date_rejected(client):
+    future = (date.today() + timedelta(days=1)).isoformat()
+    r = await client.post("/challenges", json={"template_key": "75_hard", "start_date": future})
+    assert r.status_code == 422
+
+
+@pytest.mark.asyncio
 async def test_checkin_toggles_and_persists(client, db):
     aid = await _start(client)
     today = date.today().isoformat()

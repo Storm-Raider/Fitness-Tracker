@@ -87,19 +87,27 @@
                    font-size:0.78rem;font-family:inherit;margin-bottom:0.75rem;transition:all 0.15s;"
             onmouseover="this.style.borderColor='var(--border-mid)';this.style.color='var(--text)'"
             onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">+ Add rule</button>
-    <button class="btn btn-primary" style="align-self:flex-start;"
-            onclick="startEditableChallenge('{{ p.key }}', '{{ p.total_days }}', this)">
-      Start {{ p.total_days }} days
-    </button>
+    <div style="display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;">
+      <input type="date" id="sd-{{ p.key }}" value="{{ today_iso }}" max="{{ today_iso }}"
+             style="font-size:0.8rem;padding:0.3rem 0.5rem;background:var(--surface-2);border:1px solid var(--border);border-radius:var(--radius-xs);color:var(--text);font-family:inherit;">
+      <button class="btn btn-primary"
+              onclick="startEditableChallenge('{{ p.key }}', '{{ p.total_days }}', this)">
+        Start {{ p.total_days }} days
+      </button>
+    </div>
 
     {% else %}
     {# Static rule list for non-editable challenges #}
     <ul>
       {% for r in p.rules %}<li>{{ r.label }}{% if r.optional %} (optional){% endif %}</li>{% endfor %}
     </ul>
-    <button class="btn btn-primary" style="align-self:flex-start;" onclick="startChallenge('{{ p.key }}', this)">
-      Start {{ p.total_days }} days
-    </button>
+    <div style="display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;">
+      <input type="date" id="sd-{{ p.key }}" value="{{ today_iso }}" max="{{ today_iso }}"
+             style="font-size:0.8rem;padding:0.3rem 0.5rem;background:var(--surface-2);border:1px solid var(--border);border-radius:var(--radius-xs);color:var(--text);font-family:inherit;">
+      <button class="btn btn-primary" onclick="startChallenge('{{ p.key }}', this)">
+        Start {{ p.total_days }} days
+      </button>
+    </div>
     {% endif %}
   </div>
   {% endfor %}
@@ -127,9 +135,12 @@
 <script>
 async function startChallenge(key, btn) {
   btn.disabled = true;
+  const body = {template_key: key};
+  const sd = document.getElementById('sd-' + key)?.value;
+  if (sd) body.start_date = sd;
   const r = await fetch('/challenges', {
     method: 'POST', headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({template_key: key}),
+    body: JSON.stringify(body),
   });
   if (r.ok) { const d = await r.json(); location.href = '/challenges/' + d.id; }
   else { btn.disabled = false; }
@@ -150,9 +161,12 @@ async function startEditableChallenge(key, days, btn) {
   const rules = collectRules(key);
   if (!rules.length) { alert('Add at least one rule.'); return; }
   btn.disabled = true;
+  const body = {template_key: key, rules};
+  const sd = document.getElementById('sd-' + key)?.value;
+  if (sd) body.start_date = sd;
   const r = await fetch('/challenges', {
     method: 'POST', headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({template_key: key, rules}),
+    body: JSON.stringify(body),
   });
   if (r.ok) { const d = await r.json(); location.href = '/challenges/' + d.id; }
   else { btn.disabled = false; }

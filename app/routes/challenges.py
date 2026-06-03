@@ -25,6 +25,7 @@ router = APIRouter()
 
 class StartIn(BaseModel):
     template_key: str
+    start_date: str | None = None    # ISO date; defaults to today when omitted
     rules: list[dict] | None = None  # custom rules for editable challenges
 
 
@@ -75,6 +76,7 @@ async def challenges_page(
         "presets": CHALLENGES,
         "active": active,
         "past": past,
+        "today_iso": today.isoformat(),
     })
 
 
@@ -88,6 +90,16 @@ async def start_challenge(
     if not template:
         raise HTTPException(status_code=404, detail="Unknown challenge")
     uid = current_user["id"]
+
+    # Validate optional back-dated start.
+    if body.start_date is not None:
+        try:
+            sd = date.fromisoformat(body.start_date)
+        except ValueError:
+            raise HTTPException(status_code=422, detail="Invalid start_date; expected YYYY-MM-DD")
+        if sd > date.today():
+            raise HTTPException(status_code=422, detail="start_date cannot be in the future")
+    started_on = body.start_date or date.today().isoformat()
 
     # Validate and store custom rules for editable challenges.
     rules_json = None
@@ -109,8 +121,8 @@ async def start_challenge(
 
     async with conn.execute(
         """INSERT INTO challenge_attempts(user_id, template_key, title, total_days, started_on, rules_json)
-           VALUES (?, ?, ?, ?, date('now','localtime'), ?)""",
-        (uid, template["key"], template["name"], template["total_days"], rules_json),
+           VALUES (?, ?, ?, ?, ?, ?)""",
+        (uid, template["key"], template["name"], template["total_days"], started_on, rules_json),
     ) as c:
         attempt_id = c.lastrowid
     await conn.commit()
