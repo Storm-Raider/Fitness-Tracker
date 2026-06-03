@@ -272,23 +272,6 @@ Re-action if a dedicated routine management page is built: add `user_id` to `GET
 
 **Depends on:** User request or community feedback after v1 launch.
 
-## ISSUE-15: [Feature] Unit conversion between inches and centimeters
+## Completed
 
-**Source:** auto-triage (2026-06-03)
-**Why major:** Adds a new UI unit-toggle for body measurements and BMI height (cm↔in) that touches the form input, step logic, chart tooltip, chart y-axis, server-rendered history table cells, BMI calculation, and localStorage plumbing — exceeding ~30 lines and requiring design/placement judgment.
-**Link:** https://github.com/Storm-Raider/Fitness-Tracker/issues/15
-
-## #15 — Unit conversion: inches ↔ cm for body metrics
-
-**Scope:** `app/templates/metrics.html` only (no schema or route changes — DB always stores `value_cm`/`weight_kg`).
-
-**What needs doing:**
-1. Add a cm/in toggle control in the Measurements tab (decide: standalone toggle near the form label, or re-use the global `unitchange` system with a separate length-unit event).
-2. Make the "Value (cm)" form label, stepper step size (`0.5` cm → `0.2` in), and min/max dynamic based on selected unit.
-3. In `logMeasurement()`: convert inches → cm before POSTing (`value_cm: inchMode ? value / 0.393701 : value`).
-4. History table `<th>cm</th>` → dynamic; each `<td>{{ m.value_cm }}</td>` needs `data-cm="{{ m.value_cm }}"` + JS pass on unit change to rewrite cell text.
-5. Measurements chart tooltip (`${pt.value} cm`) and y-axis grid labels need unit-aware conversion.
-6. BMI height input: add its own in/cm toggle (or share the same length-unit state); update `stepHeight` delta (1 cm → 0.5 in) and guard the BMI formula so it always converts to metres (`hCm / 100` stays correct when the stored value is cm).
-7. Persist preference to `localStorage` (`meas_unit_in`).
-
-**Design decision needed:** Should height (BMI) and body measurements share one length-unit toggle, or should height be a separate ft+in composite input (more conventional for US users)? Recommend: single cm/in toggle shared by both, decimal inches, ft+in composite deferred.
+- **#15/#16 — Body measurement unit toggle (cm ↔ in)** — `cm | in` toggle in the Body Metrics page header; preference persisted in `user_settings.pref_body_measurement`; measurements, BMI height, chart, and table all unit-aware; DB always stores cm. **Completed:** 2026-06-03
