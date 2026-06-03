@@ -2,12 +2,11 @@ import json
 
 import aiosqlite
 from fastapi import APIRouter, Depends, HTTPException, Request
-from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
+from fastapi.responses import JSONResponse, RedirectResponse
 from pydantic import BaseModel, Field
 
 from app.db import get_db
 from app.routes.auth import get_current_user
-from app.utils.render import render
 
 router = APIRouter()
 
