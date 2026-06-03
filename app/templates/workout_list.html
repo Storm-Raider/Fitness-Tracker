@@ -102,9 +102,14 @@ async function repeatWorkout(sourceId, btn) {
 
 async function startSession(btn) {
   if (_activeWorkoutId) {
-    const go = confirm('You have a session in progress. Start a new one anyway?\n\nYour current session will remain open until you finish it.');
-    if (!go) return;
+    window.showConfirm('You have a session in progress. Start a new one anyway?\n\nYour current session will remain open until you finish it.', async function() {
+      await _doStartSession(btn);
+    });
+    return;
   }
+  await _doStartSession(btn);
+}
+async function _doStartSession(btn) {
   btn.disabled = true;
   btn.textContent = 'Starting…';
   const resp = await fetch('/workouts', {

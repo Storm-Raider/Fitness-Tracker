@@ -79,7 +79,7 @@
   flex-direction: column;
   gap: 1.25rem;
 }
-@media (max-width: 759px) {
+@media (max-width: 767px) {
   /* Pull session log above the form on mobile */
   .workout-sets-col { order: -1; }
   /* Hide when empty (no sets yet) — nothing useful to show */
@@ -87,7 +87,7 @@
   /* Keep the log compact so the form is still immediately visible */
   .sets-card { max-height: 210px; overflow-y: auto; }
 }
-@media (min-width: 760px) {
+@media (min-width: 768px) {
   .workout-grid { flex-direction: row; align-items: start; }
   .workout-form-col { flex: 0 0 420px; min-width: 0; }
   .workout-sets-col { flex: 1; min-width: 0; }
@@ -2300,6 +2300,8 @@ async function logSet() {
     </button>
     <div class="set-row-swipe-bg"><i data-lucide="trash-2" style="width:16px;height:16px;pointer-events:none;"></i></div>`;
   addSetToGroup(row, exerciseId, exerciseName);
+  row.classList.add('set-enter');
+  if (data.is_pr) row.classList.add('pr-flash');
   lucide.createIcons();
   row.scrollIntoView({behavior: 'smooth', block: 'nearest'});
 
@@ -2486,38 +2488,54 @@ async function saveEdit(id) {
 }
 
 async function deleteSet(id, btn) {
-  if (!confirm('Remove this set?')) return;
-  const resp = await fetch(`/workouts/${WORKOUT_ID}/sets/${id}`, {method: 'DELETE'});
-  if (resp.ok || resp.status === 204) {
-    window.showUndoToast(resp.headers.get('X-Undo-Token'), decodeURIComponent(resp.headers.get('X-Undo-Label') || ''));
-    const row   = document.getElementById('set-' + id);
-    const group = row?.closest('.ex-group');
-    row?.remove();
-    if (group) {
-      const remaining = group.querySelectorAll('.set-row[id^="set-"]').length;
-      if (remaining === 0) {
-        group.remove();
-      } else {
-        const badge = group.querySelector('.ex-group-badge');
-        if (badge) badge.textContent = remaining + ' set' + (remaining !== 1 ? 's' : '');
+  window.showConfirm('Remove this set?', async function() {
+    const resp = await fetch(`/workouts/${WORKOUT_ID}/sets/${id}`, {method: 'DELETE'});
+    if (resp.ok || resp.status === 204) {
+      window.showUndoToast(resp.headers.get('X-Undo-Token'), decodeURIComponent(resp.headers.get('X-Undo-Label') || ''));
+      const row   = document.getElementById('set-' + id);
+      const group = row?.closest('.ex-group');
+      if (row) {
+        row.classList.add('set-exit');
+        row.addEventListener('animationend', () => {
+          row.remove();
+          if (group) {
+            const remaining = group.querySelectorAll('.set-row[id^="set-"]').length;
+            if (remaining === 0) {
+              group.remove();
+            } else {
+              const badge = group.querySelector('.ex-group-badge');
+              if (badge) badge.textContent = remaining + ' set' + (remaining !== 1 ? 's' : '');
+            }
+          }
+        }, { once: true });
+      } else if (group) {
+        const remaining = group.querySelectorAll('.set-row[id^="set-"]').length;
+        if (remaining === 0) {
+          group.remove();
+        } else {
+          const badge = group.querySelector('.ex-group-badge');
+          if (badge) badge.textContent = remaining + ' set' + (remaining !== 1 ? 's' : '');
+        }
       }
+      if (setVolumes[id] !== undefined) {
+        sessionVolume -= setVolumes[id];
+        delete setVolumes[id];
+        delete setExercises[id];
+        updateVolumeDisplay();
+        if (window._mmapRefresh) window._mmapRefresh();
+      }
+      updateSetsCountBadge();
     }
-    if (setVolumes[id] !== undefined) {
-      sessionVolume -= setVolumes[id];
-      delete setVolumes[id];
-      delete setExercises[id];
-      updateVolumeDisplay();
-      if (window._mmapRefresh) window._mmapRefresh();
-    }
-    updateSetsCountBadge();
-  }
+  });
 }
 
 async function finishWorkout() {
   if (Object.keys(setVolumes).length === 0) {
-    if (!confirm('No sets logged — discard this session?')) return;
-    await fetch(`/workouts/${WORKOUT_ID}`, {method: 'DELETE'});
-    window.location.href = '/workouts'; return;
+    window.showConfirm('No sets logged — discard this session?', async function() {
+      await fetch(`/workouts/${WORKOUT_ID}`, {method: 'DELETE'});
+      window.location.href = '/workouts';
+    });
+    return;
   }
   // Flush any unsaved session notes before finishing
   await saveNotes();
@@ -2541,12 +2559,13 @@ function showErr(msg) {
 }
 
 async function deleteCardio(id, btn) {
-  if (!confirm('Remove this cardio entry?')) return;
-  const resp = await fetch(`/workouts/${WORKOUT_ID}/cardio/${id}`, {method: 'DELETE'});
-  if (resp.ok || resp.status === 204) {
-    window.showUndoToast(resp.headers.get('X-Undo-Token'), decodeURIComponent(resp.headers.get('X-Undo-Label') || ''));
-    document.getElementById('cardio-' + id)?.remove();
-  }
+  window.showConfirm('Remove this cardio entry?', async function() {
+    const resp = await fetch(`/workouts/${WORKOUT_ID}/cardio/${id}`, {method: 'DELETE'});
+    if (resp.ok || resp.status === 204) {
+      window.showUndoToast(resp.headers.get('X-Undo-Token'), decodeURIComponent(resp.headers.get('X-Undo-Label') || ''));
+      document.getElementById('cardio-' + id)?.remove();
+    }
+  });
 }
 
 async function deleteWorkout() {
@@ -2554,13 +2573,14 @@ async function deleteWorkout() {
   const msg = setCount > 0
     ? `Delete this workout and its ${setCount} set${setCount !== 1 ? 's' : ''}?`
     : 'Delete this empty workout?';
-  if (!confirm(msg)) return;
-  const resp = await fetch(`/workouts/${WORKOUT_ID}`, {method: 'DELETE'});
-  if (resp.ok) {
-    // Navigating away — relay the undo toast to the workouts page.
-    window.stashUndoToast(resp.headers.get('X-Undo-Token'), decodeURIComponent(resp.headers.get('X-Undo-Label') || ''));
-    window.location.href = '/workouts';
-  }
+  window.showConfirm(msg, async function() {
+    const resp = await fetch(`/workouts/${WORKOUT_ID}`, {method: 'DELETE'});
+    if (resp.ok) {
+      // Navigating away — relay the undo toast to the workouts page.
+      window.stashUndoToast(resp.headers.get('X-Undo-Token'), decodeURIComponent(resp.headers.get('X-Undo-Label') || ''));
+      window.location.href = '/workouts';
+    }
+  });
 }
 
 {% if not is_finished %}

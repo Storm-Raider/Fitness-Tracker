@@ -3,7 +3,7 @@
 {% block content %}
 <style>
 .coach-grid { display: grid; grid-template-columns: 320px 1fr; gap: 1.5rem; align-items: start; }
-@media (max-width: 860px) { .coach-grid { grid-template-columns: 1fr; } }
+@media (max-width: 767px) { .coach-grid { grid-template-columns: 1fr; } }
 
 .goal-btn {
   width: 100%;
@@ -112,7 +112,7 @@
         <input type="range" id="days-slider" min="1" max="6" value="3"
                oninput="document.getElementById('days-val').textContent=this.value;"
                style="flex:1;accent-color:var(--accent);cursor:pointer;">
-        <div style="font-family:'JetBrains Mono',monospace;font-size:1.5rem;font-weight:700;color:var(--accent);min-width:1.5rem;text-align:right;line-height:1;">
+        <div class="num" style="font-size:1.5rem;font-weight:700;color:var(--accent);min-width:1.5rem;text-align:right;line-height:1;">
           <span id="days-val">3</span>
         </div>
       </div>

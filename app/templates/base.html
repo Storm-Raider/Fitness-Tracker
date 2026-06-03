@@ -505,6 +505,20 @@
       50%       { box-shadow: 0 0 0 7px rgba(79,156,249,0); }
     }
     .session-dot { animation: pulse 2s ease-in-out infinite; }
+    @keyframes setSlideIn {
+      from { opacity: 0; transform: translateY(6px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .set-enter { animation: setSlideIn 0.18s ease-out both; }
+    @keyframes prPulse {
+      0%, 100% { box-shadow: none; }
+      40%      { box-shadow: 0 0 0 2px var(--pr); }
+    }
+    .pr-flash { animation: prPulse 0.55s ease-out; }
+    @keyframes setSlideOut {
+      to { opacity: 0; transform: translateX(-8px); }
+    }
+    .set-exit { animation: setSlideOut 0.15s ease-in both; }
 
     /* ── Cards ───────────────────────────────────────── */
     .card {
@@ -803,6 +817,65 @@
       background: var(--danger-dim);
       border: 1px solid rgba(248,113,113,0.22);
       color: var(--danger);
+    }
+
+    /* ── Confirm sheet ───────────────────────────────── */
+    .confirm-sheet {
+      position: fixed;
+      left: 0; right: 0; bottom: 0;
+      z-index: 400;
+      background: var(--surface-2);
+      border-top: 1px solid var(--border-mid);
+      border-radius: var(--radius) var(--radius) 0 0;
+      box-shadow: 0 -4px 24px rgba(0,0,0,0.4);
+      padding: 1.25rem 1.25rem calc(1.25rem + env(safe-area-inset-bottom, 0px));
+      transform: translateY(100%);
+      transition: transform 0.22s cubic-bezier(0.32, 0.72, 0, 1);
+    }
+    .confirm-sheet.show { transform: translateY(0); }
+    .confirm-sheet-msg {
+      font-size: 0.9rem;
+      color: var(--text);
+      margin-bottom: 1.1rem;
+      line-height: 1.45;
+    }
+    .confirm-sheet-actions {
+      display: flex;
+      gap: 0.6rem;
+    }
+    .confirm-sheet-cancel {
+      flex: 1;
+      padding: 0.75rem;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-xs);
+      color: var(--muted-hi);
+      font-size: 0.875rem;
+      font-weight: 600;
+      cursor: pointer;
+      font-family: inherit;
+      transition: background 0.15s, color 0.15s;
+    }
+    .confirm-sheet-cancel:hover { background: var(--surface-hover); color: var(--text); }
+    .confirm-sheet-confirm {
+      flex: 1;
+      padding: 0.75rem;
+      background: rgba(239,68,68,0.12);
+      border: 1px solid rgba(239,68,68,0.3);
+      border-radius: var(--radius-xs);
+      color: var(--danger);
+      font-size: 0.875rem;
+      font-weight: 700;
+      cursor: pointer;
+      font-family: inherit;
+      transition: background 0.15s;
+    }
+    .confirm-sheet-confirm:hover { background: rgba(239,68,68,0.22); }
+    .confirm-sheet-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 399;
+      background: transparent;
     }
 
     /* ── Undo toast ──────────────────────────────────── */
@@ -1302,6 +1375,67 @@
       if (!token) return;
       try { sessionStorage.setItem('fitstorm_undo', JSON.stringify({token: token, label: label})); } catch (e) {}
     };
+
+    window.showConfirm = function(message, onConfirm, opts) {
+      var prev = document.getElementById('confirm-sheet');
+      if (prev) prev.remove();
+      var prevOvl = document.getElementById('confirm-overlay');
+      if (prevOvl) prevOvl.remove();
+
+      var overlay = document.createElement('div');
+      overlay.id = 'confirm-overlay';
+      overlay.className = 'confirm-sheet-overlay';
+
+      var sheet = document.createElement('div');
+      sheet.id = 'confirm-sheet';
+      sheet.className = 'confirm-sheet';
+
+      var msg = document.createElement('div');
+      msg.className = 'confirm-sheet-msg';
+      msg.textContent = message;
+
+      var actions = document.createElement('div');
+      actions.className = 'confirm-sheet-actions';
+
+      var cancelBtn = document.createElement('button');
+      cancelBtn.className = 'confirm-sheet-cancel';
+      cancelBtn.textContent = 'Cancel';
+
+      var confirmBtn = document.createElement('button');
+      confirmBtn.className = 'confirm-sheet-confirm';
+      confirmBtn.textContent = (opts && opts.confirmLabel) || 'Confirm';
+
+      actions.appendChild(cancelBtn);
+      actions.appendChild(confirmBtn);
+      sheet.appendChild(msg);
+      sheet.appendChild(actions);
+
+      document.body.appendChild(overlay);
+      document.body.appendChild(sheet);
+      requestAnimationFrame(function() { sheet.classList.add('show'); });
+
+      function dismiss() {
+        sheet.classList.remove('show');
+        overlay.remove();
+        setTimeout(function() { sheet.remove(); }, 230);
+      }
+
+      cancelBtn.addEventListener('click', dismiss);
+      overlay.addEventListener('click', dismiss);
+      document.addEventListener('keydown', function esc(e) {
+        if (e.key === 'Escape') { dismiss(); document.removeEventListener('keydown', esc); }
+      });
+      confirmBtn.addEventListener('click', function() {
+        dismiss();
+        onConfirm();
+      });
+    };
+
+    // Route htmx:confirm through showConfirm instead of native confirm()
+    document.addEventListener('htmx:confirm', function(e) {
+      e.preventDefault();
+      window.showConfirm(e.detail.question, function() { e.detail.issueRequest(); });
+    });
     document.addEventListener('DOMContentLoaded', function() {
       try {
         var raw = sessionStorage.getItem('fitstorm_undo');

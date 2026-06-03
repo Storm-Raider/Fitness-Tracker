@@ -65,7 +65,7 @@
     </div>
     <div style="display:flex;gap:0.4rem;align-items:center;flex-shrink:0;" id="goal-actions">
       <div id="goal-edit-form" style="display:none;align-items:center;gap:0.4rem;">
-        <input id="goal-input" type="number" min="0.5" max="1000" step="0.5" value="{{ exercise_goal_kg }}" style="width:72px;text-align:center;padding:0.25rem 0.4rem;font-family:'JetBrains Mono',monospace;font-size:0.9rem;border-radius:var(--radius-xs);border:1px solid var(--border);background:var(--surface-2);color:var(--text);">
+        <input id="goal-input" type="number" min="0.5" max="1000" step="0.5" value="{{ exercise_goal_kg }}" class="num" style="width:72px;text-align:center;padding:0.25rem 0.4rem;font-size:0.9rem;border-radius:var(--radius-xs);border:1px solid var(--border);background:var(--surface-2);color:var(--text);">
         <span style="font-size:0.78rem;color:var(--muted);" id="goal-unit-lbl">kg</span>
         <button onclick="saveExGoal()" class="btn btn-ghost" style="font-size:0.75rem;min-height:30px;padding:0.2rem 0.55rem;">Save</button>
       </div>
@@ -82,7 +82,7 @@
   </button>
   <div id="goal-edit-form" style="display:none;margin-top:0.5rem;align-items:center;gap:0.5rem;flex-wrap:wrap;" class="card" style="padding:0.75rem 1rem;">
     <span style="font-size:0.82rem;color:var(--muted);">Target:</span>
-    <input id="goal-input" type="number" min="0.5" max="1000" step="0.5" value="{{ pr_kg or 100 }}" style="width:80px;text-align:center;padding:0.3rem 0.4rem;font-family:'JetBrains Mono',monospace;font-size:0.9rem;border-radius:var(--radius-xs);border:1px solid var(--border);background:var(--surface-2);color:var(--text);">
+    <input id="goal-input" type="number" min="0.5" max="1000" step="0.5" value="{{ pr_kg or 100 }}" class="num" style="width:80px;text-align:center;padding:0.3rem 0.4rem;font-size:0.9rem;border-radius:var(--radius-xs);border:1px solid var(--border);background:var(--surface-2);color:var(--text);">
     <span style="font-size:0.78rem;color:var(--muted);" id="goal-unit-lbl">kg</span>
     <button onclick="saveExGoal()" class="btn btn-primary" style="font-size:0.8rem;min-height:34px;padding:0.25rem 0.75rem;">Set goal</button>
     <button onclick="toggleExGoal()" class="btn btn-ghost" style="font-size:0.8rem;min-height:34px;">Cancel</button>
@@ -112,9 +112,10 @@ async function saveExGoal() {
   location.reload();
 }
 async function deleteExGoal() {
-  if (!confirm('Remove goal?')) return;
-  await fetch(`/exercises/${EX_ID}/goal`, {method:'DELETE'});
-  location.reload();
+  window.showConfirm('Remove goal?', async function() {
+    await fetch(`/exercises/${EX_ID}/goal`, {method:'DELETE'});
+    location.reload();
+  });
 }
 document.getElementById('goal-input')?.addEventListener('keydown', e => { if(e.key==='Enter') saveExGoal(); });
 // Sync unit label

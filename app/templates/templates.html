@@ -24,7 +24,7 @@
       {% else %}
       <span style="font-size:0.8rem;color:var(--muted);">No exercises</span>
       {% endif %}
-      <div style="font-size:0.7rem;color:var(--muted);margin-top:0.4rem;font-family:'JetBrains Mono',monospace;">{{ t.created_at[:10] }}</div>
+      <div class="num" style="font-size:0.7rem;color:var(--muted);margin-top:0.4rem;">{{ t.created_at[:10] }}</div>
     </div>
     <div style="display:flex;gap:0.5rem;flex-shrink:0;">
       <form method="post" action="/workouts/from-template/{{ t.id }}" style="margin:0;">

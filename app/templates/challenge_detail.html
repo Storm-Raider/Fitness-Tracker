@@ -109,7 +109,7 @@
   <div class="backfill-list">
     {% for day in backfill_days %}
     <div style="margin-bottom:0.85rem;padding-bottom:0.85rem;{% if not loop.last %}border-bottom:1px solid rgba(30,35,52,0.5);{% endif %}">
-      <div style="font-size:0.72rem;color:var(--muted);font-family:'JetBrains Mono',monospace;margin-bottom:0.35rem;">
+      <div class="num" style="font-size:0.72rem;color:var(--muted);margin-bottom:0.35rem;">
         Day {{ day.day_n }} — {{ day.date }}{% if day.complete %} <span style="color:var(--success);">✓ done</span>{% endif %}
       </div>
       {% for r in day.rules %}

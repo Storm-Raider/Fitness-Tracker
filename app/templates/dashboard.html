@@ -171,9 +171,10 @@ async function saveGoal() {
   location.reload();
 }
 async function deleteGoal() {
-  if (!confirm('Remove weekly goal?')) return;
-  await fetch('/settings/goal', {method:'DELETE'});
-  location.reload();
+  window.showConfirm('Remove weekly goal?', async function() {
+    await fetch('/settings/goal', {method:'DELETE'});
+    location.reload();
+  });
 }
 document.getElementById('goal-input')?.addEventListener('keydown', e => { if (e.key==='Enter') saveGoal(); });
 </script>

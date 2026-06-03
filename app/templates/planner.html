@@ -3,7 +3,7 @@
 {% block content %}
 <style>
 .plan-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; }
-@media (max-width: 800px) { .plan-grid { grid-template-columns: 1fr; } }
+@media (max-width: 767px) { .plan-grid { grid-template-columns: 1fr; } }
 
 .goal-btn {
   flex: 1;
@@ -118,7 +118,7 @@
           <input type="range" id="weeks-slider" min="4" max="16" value="8"
                  oninput="document.getElementById('weeks-val').textContent=this.value;generatePlan()"
                  style="flex:1;accent-color:var(--accent);cursor:pointer;">
-          <div style="font-family:'JetBrains Mono',monospace;font-size:1.5rem;font-weight:700;
+          <div class="num" style="font-size:1.5rem;font-weight:700;
                       color:var(--accent);min-width:2.5rem;text-align:right;line-height:1;">
             <span id="weeks-val">8</span>
           </div>
@@ -151,7 +151,7 @@
                      placeholder="1RM"
                      style="width:80px;text-align:center;font-size:0.8rem;"
                      oninput="generatePlan()" class="lift-e1rm">
-              <span style="font-size:0.7rem;color:var(--muted);font-family:'JetBrains Mono',monospace;">kg</span>
+              <span class="num" style="font-size:0.7rem;color:var(--muted);">kg</span>
               <button onclick="this.closest('[data-lift]').remove();generatePlan()"
                       style="background:transparent;border:none;color:var(--muted);cursor:pointer;font-size:1rem;
                              padding:0.1rem 0.2rem;transition:color 0.12s;"
@@ -163,19 +163,19 @@
           <div class="lift-row" data-lift>
             <input type="text" value="Squat" placeholder="Lift name" style="flex:1;font-size:0.8rem;" oninput="generatePlan()" class="lift-name">
             <input type="number" value="100" min="1" step="0.5" placeholder="1RM" style="width:80px;text-align:center;font-size:0.8rem;" oninput="generatePlan()" class="lift-e1rm">
-            <span style="font-size:0.7rem;color:var(--muted);font-family:'JetBrains Mono',monospace;">kg</span>
+            <span class="num" style="font-size:0.7rem;color:var(--muted);">kg</span>
             <button onclick="this.closest('[data-lift]').remove();generatePlan()" style="background:transparent;border:none;color:var(--muted);cursor:pointer;font-size:1rem;padding:0.1rem 0.2rem;transition:color 0.12s;" onmouseover="this.style.color='var(--danger)'" onmouseout="this.style.color='var(--muted)'">×</button>
           </div>
           <div class="lift-row" data-lift>
             <input type="text" value="Bench Press" placeholder="Lift name" style="flex:1;font-size:0.8rem;" oninput="generatePlan()" class="lift-name">
             <input type="number" value="80" min="1" step="0.5" placeholder="1RM" style="width:80px;text-align:center;font-size:0.8rem;" oninput="generatePlan()" class="lift-e1rm">
-            <span style="font-size:0.7rem;color:var(--muted);font-family:'JetBrains Mono',monospace;">kg</span>
+            <span class="num" style="font-size:0.7rem;color:var(--muted);">kg</span>
             <button onclick="this.closest('[data-lift]').remove();generatePlan()" style="background:transparent;border:none;color:var(--muted);cursor:pointer;font-size:1rem;padding:0.1rem 0.2rem;transition:color 0.12s;" onmouseover="this.style.color='var(--danger)'" onmouseout="this.style.color='var(--muted)'">×</button>
           </div>
           <div class="lift-row" data-lift>
             <input type="text" value="Deadlift" placeholder="Lift name" style="flex:1;font-size:0.8rem;" oninput="generatePlan()" class="lift-name">
             <input type="number" value="120" min="1" step="0.5" placeholder="1RM" style="width:80px;text-align:center;font-size:0.8rem;" oninput="generatePlan()" class="lift-e1rm">
-            <span style="font-size:0.7rem;color:var(--muted);font-family:'JetBrains Mono',monospace;">kg</span>
+            <span class="num" style="font-size:0.7rem;color:var(--muted);">kg</span>
             <button onclick="this.closest('[data-lift]').remove();generatePlan()" style="background:transparent;border:none;color:var(--muted);cursor:pointer;font-size:1rem;padding:0.1rem 0.2rem;transition:color 0.12s;" onmouseover="this.style.color='var(--danger)'" onmouseout="this.style.color='var(--muted)'">×</button>
           </div>
           {% endif %}
@@ -261,7 +261,7 @@ function addLiftRow() {
   row.innerHTML = `
     <input type="text" placeholder="Lift name" style="flex:1;font-size:0.8rem;" oninput="generatePlan()" class="lift-name">
     <input type="number" placeholder="1RM kg" min="1" step="0.5" style="width:80px;text-align:center;font-size:0.8rem;" oninput="generatePlan()" class="lift-e1rm">
-    <span style="font-size:0.7rem;color:var(--muted);font-family:'JetBrains Mono',monospace;">kg</span>
+    <span class="num" style="font-size:0.7rem;color:var(--muted);">kg</span>
     <button onclick="this.closest('[data-lift]').remove();generatePlan()"
             style="background:transparent;border:none;color:var(--muted);cursor:pointer;font-size:1rem;padding:0.1rem 0.2rem;transition:color 0.12s;"
             onmouseover="this.style.color='var(--danger)'" onmouseout="this.style.color='var(--muted)'">×</button>`;
@@ -350,7 +350,7 @@ function generatePlan() {
       const cells = lifts.map(lift => {
         const targetKg = round5(lift.e1rm * pct);
         const disp = cvt(targetKg).toFixed(1);
-        return `<td style="font-family:'JetBrains Mono',monospace;">
+        return `<td class="num">
           <span style="font-weight:600;color:var(--text);">${disp}</span>
           <span style="font-size:0.68rem;color:var(--muted);"> ${unitSym}</span><br>
           <span style="font-size:0.68rem;color:var(--muted);">${phase.sets}×${reps}</span>
@@ -370,7 +370,7 @@ function generatePlan() {
   const tableRows = rows.map(r =>
     `<tr>
       <td style="white-space:nowrap;">
-        <span style="font-family:'JetBrains Mono',monospace;font-size:0.78rem;font-weight:700;color:var(--text);">W${r.wNum}</span>
+        <span class="num" style="font-size:0.78rem;font-weight:700;color:var(--text);">W${r.wNum}</span>
       </td>
       <td><span class="week-badge ${r.cls}">${r.phaseName}</span></td>
       ${r.cells}
@@ -402,7 +402,7 @@ function generatePlan() {
   ].map(k => `
     <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-xs);padding:0.5rem 0.85rem;">
       <div style="font-size:0.62rem;text-transform:uppercase;letter-spacing:0.1em;color:var(--muted);font-weight:700;">${k.label}</div>
-      <div style="font-family:'JetBrains Mono',monospace;font-size:1.1rem;font-weight:700;color:var(--accent);margin-top:0.15rem;">${k.val}</div>
+      <div class="num" style="font-size:1.1rem;font-weight:700;color:var(--accent);margin-top:0.15rem;">${k.val}</div>
     </div>`).join('');
 }
 
@@ -512,7 +512,7 @@ function loadPlan(goal, weeks, planJson) {
              style="flex:1;font-size:0.8rem;" oninput="generatePlan()" class="lift-name">
       <input type="number" value="${lift.e1rm_kg}" min="1" step="0.5" placeholder="1RM"
              style="width:80px;text-align:center;font-size:0.8rem;" oninput="generatePlan()" class="lift-e1rm">
-      <span style="font-size:0.7rem;color:var(--muted);font-family:'JetBrains Mono',monospace;">kg</span>
+      <span class="num" style="font-size:0.7rem;color:var(--muted);">kg</span>
       <button onclick="this.closest('[data-lift]').remove();generatePlan()"
               style="background:transparent;border:none;color:var(--muted);cursor:pointer;font-size:1rem;
                      padding:0.1rem 0.2rem;transition:color 0.12s;"
