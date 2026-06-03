@@ -221,20 +221,30 @@ fences, no surrounding prose:
 
     log "#$NUM: minor fix applied — running test suite"
     if timeout 1200 "$PYTEST" tests/ -q >>"$REPO/logs/triage.log" 2>&1; then
-        [ -n "$COMMIT_MSG" ] || COMMIT_MSG="fix: address issue (Fixes #$NUM)"
-        # Stage ONLY the source dirs a fix may touch — never `git add -A`, which
-        # would sweep stray files (e.g. a loose secret in the repo root) into the
-        # commit. Minor fixes only edit app/ and tests/ by definition.
-        git add app/ tests/
-        git commit -q -m "$COMMIT_MSG
+        log "#$NUM: unit tests passed — running user-perspective smoke test"
+        if PYTHONPATH="$REPO" timeout 120 "$REPO/.venv/bin/python" \
+                "$REPO/scripts/smoke_test.py" >>"$REPO/logs/triage.log" 2>&1; then
+            log "#$NUM: smoke test passed — committing and pushing"
+            [ -n "$COMMIT_MSG" ] || COMMIT_MSG="fix: address issue (Fixes #$NUM)"
+            # Stage ONLY the source dirs a fix may touch — never `git add -A`, which
+            # would sweep stray files (e.g. a loose secret in the repo root) into the
+            # commit. Minor fixes only edit app/ and tests/ by definition.
+            git add app/ tests/
+            git commit -q -m "$COMMIT_MSG
 
 Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>" || { log "#$NUM: commit failed"; discard_edits; continue; }
-        if git push -q origin "$BRANCH" 2>/dev/null; then
-            gh issue edit "$NUM" --add-label "auto-fixed" >/dev/null 2>&1 || true
-            gh issue close "$NUM" --comment "Auto-fixed by daily triage in \`$(git rev-parse --short HEAD)\` and deploying to the live app shortly. Reopen if it isn't resolved." >/dev/null 2>&1 || true
-            log "#$NUM -> MINOR fixed, pushed $(git rev-parse --short HEAD)"
+            if git push -q origin "$BRANCH" 2>/dev/null; then
+                gh issue edit "$NUM" --add-label "auto-fixed" >/dev/null 2>&1 || true
+                gh issue close "$NUM" --comment "Auto-fixed by daily triage in \`$(git rev-parse --short HEAD)\` and deploying to the live app shortly. Reopen if it isn't resolved." >/dev/null 2>&1 || true
+                log "#$NUM -> MINOR fixed, pushed $(git rev-parse --short HEAD)"
+            else
+                log "#$NUM: push failed — leaving commit local for next run"
+            fi
         else
-            log "#$NUM: push failed — leaving commit local for next run"
+            log "#$NUM: smoke test FAILED after auto-fix — discarding and escalating"
+            discard_edits
+            gh issue edit "$NUM" --add-label "auto-fix-failed" >/dev/null 2>&1 || true
+            queue_major "$NUM" "$TITLE" "" "auto-fix passed unit tests but failed user-perspective smoke test; needs manual review"
         fi
     else
         log "#$NUM: tests FAILED after auto-fix — discarding and escalating"
