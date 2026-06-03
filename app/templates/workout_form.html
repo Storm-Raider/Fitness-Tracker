@@ -440,37 +440,6 @@
 .same-btn:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-dim); }
 .same-btn:active { transform: scale(0.975); }
 
-/* ── Plate calculator ────────────────────────────────────────── */
-.plate-calc {
-  margin-top: 0.45rem;
-  background: var(--surface-2);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-xs);
-  padding: 0.55rem 0.75rem;
-  display: none;
-}
-.plate-calc-hdr {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 0.4rem;
-  font-size: 0.62rem;
-  text-transform: uppercase;
-  letter-spacing: 0.09em;
-  color: var(--muted);
-}
-.plate-chips { display: flex; flex-wrap: wrap; gap: 0.3rem; min-height: 1.4rem; align-items: center; }
-.plate-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.2rem;
-  padding: 0.2rem 0.5rem;
-  border-radius: 100px;
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 0.72rem;
-  font-weight: 700;
-  border: 1px solid transparent;
-}
 
 /* ── Rest timer ──────────────────────────────────────────────── */
 .rest-bar {
@@ -1135,28 +1104,7 @@ document.getElementById('tpl-name-input')?.addEventListener('keydown', e => { if
     </div>
   </div>
 
-  {# Plate calculator #}
-  <div class="plate-calc" id="plate-calc">
-    <div class="plate-calc-hdr">
-      <span>Plates per side</span>
-      <label style="text-transform:none;letter-spacing:0;font-size:0.7rem;color:var(--muted);display:flex;align-items:center;gap:0.3rem;">
-        Bar
-        <select id="bar-weight-sel"
-                onchange="updatePlates()"
-                style="font-size:0.7rem;padding:0.1rem 0.3rem;border-radius:4px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-family:'JetBrains Mono',monospace;">
-          <option value="20">20 kg</option>
-          <option value="15">15 kg</option>
-          <option value="10">10 kg</option>
-          <option value="0">no bar</option>
-        </select>
-      </label>
-    </div>
-    <div class="plate-chips" id="plate-chips">
-      <span style="color:var(--muted);font-size:0.75rem;">—</span>
-    </div>
-  </div>
-
-  {# RPE chips #}
+{# RPE chips #}
   <div class="rpe-wrap">
     <div class="rpe-lbl">
       RPE <span class="rpe-opt">(optional)</span>
@@ -1557,7 +1505,6 @@ function stepWeight(dir) {
   const delta = unit === 'lbs' ? 5 : 2.5;
   const el    = document.getElementById('weight-input');
   el.value    = Math.max(0, parseFloat(el.value || 0) + dir * delta);
-  updatePlates();
   updateBwHint();
 }
 
@@ -1575,18 +1522,7 @@ window.addEventListener('unitchange', function(e) {
   }
   updateBwHint();
   updateVolumeDisplay();
-  // Update bar weight selector option labels
-  const barSel = document.getElementById('bar-weight-sel');
-  if (barSel) {
-    const BAR_MAP = {20: 44, 15: 33, 10: 22};
-    barSel.querySelectorAll('option').forEach(function(opt) {
-      const kg = parseFloat(opt.value);
-      if (!isNaN(kg) && BAR_MAP[kg] !== undefined) {
-        opt.textContent = unit === 'lbs' ? BAR_MAP[kg] + ' lb' : kg + ' kg';
-      }
-    });
-  }
-  // Update cardio distance label (km ↔ mi)
+// Update cardio distance label (km ↔ mi)
   const distLabel = document.getElementById('cardio-distance-label');
   if (distLabel) distLabel.textContent = 'Distance (' + (unit === 'lbs' ? 'mi' : 'km') + ')';
 });
@@ -2232,84 +2168,6 @@ function step(field, delta) {
   el.value = Math.max(field === 'reps' ? 1 : 0, parseFloat(el.value || 0) + delta);
 }
 
-// ── Plate calculator ──────────────────────────────────────────
-const PLATE_COLORS = {
-  25: { bg:'rgba(248,113,113,0.15)', border:'rgba(248,113,113,0.5)', color:'#f87171' },
-  20: { bg:'rgba(79,156,249,0.15)',  border:'rgba(79,156,249,0.5)',  color:'#4f9cf9' },
-  15: { bg:'rgba(245,158,11,0.15)', border:'rgba(245,158,11,0.5)', color:'#f59e0b' },
-  10: { bg:'rgba(52,211,153,0.15)', border:'rgba(52,211,153,0.5)', color:'#34d399' },
-  5:  { bg:'rgba(255,255,255,0.08)',border:'rgba(255,255,255,0.2)', color:'var(--muted-hi)' },
-  2.5:{ bg:'rgba(148,163,184,0.12)',border:'rgba(148,163,184,0.3)', color:'#94a3b8' },
-  1.25:{ bg:'rgba(100,116,139,0.1)',border:'rgba(100,116,139,0.25)',color:'#64748b' },
-};
-const PLATE_SIZES = [25, 20, 15, 10, 5, 2.5, 1.25];
-
-function calcPlates(totalKg, barKg) {
-  let rem = Math.round(((totalKg - barKg) / 2) * 1000) / 1000;
-  if (rem < 0) return null; // weight below bar weight
-  const result = [];
-  for (const p of PLATE_SIZES) {
-    const n = Math.floor(rem / p + 0.001);
-    if (n > 0) { result.push({ kg: p, count: n }); rem = Math.round((rem - n * p) * 1000) / 1000; }
-  }
-  return { plates: result, remainder: rem };
-}
-
-function updatePlates() {
-  const unit    = getAppUnit ? getAppUnit() : 'kg';
-  const dispW   = parseFloat(document.getElementById('weight-input').value) || 0;
-  const weightKg = unit === 'lbs' ? dispW / 2.2046 : dispW;
-  const barSel  = document.getElementById('bar-weight-sel');
-  const barKg   = parseFloat(barSel?.value || '20');
-  const calcEl  = document.getElementById('plate-calc');
-  const chipsEl = document.getElementById('plate-chips');
-
-  if (!calcEl || !chipsEl) return;
-
-  // Restore saved bar preference
-  const savedBar = localStorage.getItem('fitstorm_bar_kg');
-  if (savedBar && barSel && barSel.value !== savedBar) {
-    barSel.value = savedBar;
-  }
-  if (barSel) barSel.onchange = () => {
-    localStorage.setItem('fitstorm_bar_kg', barSel.value);
-    updatePlates();
-  };
-
-  if (weightKg <= 0) { calcEl.style.display = 'none'; return; }
-
-  const result = calcPlates(weightKg, parseFloat(barSel?.value || '20'));
-  if (!result) { calcEl.style.display = 'none'; return; }
-  calcEl.style.display = 'block';
-
-  if (!result.plates.length) {
-    chipsEl.innerHTML = `<span style="color:var(--muted);font-size:0.75rem;">bar only</span>`;
-    return;
-  }
-
-  chipsEl.innerHTML = result.plates.map(({ kg, count }) => {
-    const c = PLATE_COLORS[kg] || PLATE_COLORS[2.5];
-    const label = unit === 'lbs' ? Math.round(kg * 2.20462 * 10) / 10 : kg;
-    return `<span class="plate-chip" style="background:${c.bg};border-color:${c.border};color:${c.color};">` +
-           `${count > 1 ? count + '×' : ''}${label}${unit === 'lbs' ? 'lb' : 'kg'}</span>`;
-  }).join('') +
-  (result.remainder > 0.05 ? `<span style="color:var(--danger);font-size:0.72rem;margin-left:0.2rem;">+${Math.round(result.remainder*100)/100} unloaded</span>` : '');
-}
-
-// Hook weight input to live-update plate calc
-(function () {
-  const wi = document.getElementById('weight-input');
-  if (wi) {
-    wi.addEventListener('input', updatePlates);
-    wi.addEventListener('change', updatePlates);
-  }
-  window.addEventListener('unitchange', updatePlates);
-  // Restore saved bar weight on load
-  const savedBar = localStorage.getItem('fitstorm_bar_kg');
-  const barSel = document.getElementById('bar-weight-sel');
-  if (savedBar && barSel) barSel.value = savedBar;
-  updatePlates();
-})();
 
 // ── Quick-repeat last set ──────────────────────────────────────
 var _lastLoggedExId = null;
@@ -2564,13 +2422,10 @@ function startEdit(id) {
   [wIn, rIn].forEach(inp => {
     inp.onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); saveEdit(id); } };
   });
-  // Sync edit weight → plate calculator
   const mainW = document.getElementById('weight-input');
   if (mainW) {
     mainW._editPrev = mainW.value;
     mainW.value = displayW;
-    updatePlates();
-    wIn.oninput = () => { mainW.value = wIn.value || '0'; updatePlates(); };
   }
 }
 
@@ -2578,7 +2433,7 @@ function cancelEdit(id) {
   document.getElementById('detail-' + id).style.display = '';
   document.getElementById('edit-' + id).style.display = 'none';
   const mainW = document.getElementById('weight-input');
-  if (mainW && mainW._editPrev !== undefined) { mainW.value = mainW._editPrev; delete mainW._editPrev; updatePlates(); }
+  if (mainW && mainW._editPrev !== undefined) { mainW.value = mainW._editPrev; delete mainW._editPrev; }
 }
 
 async function saveEdit(id) {
