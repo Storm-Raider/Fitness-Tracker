@@ -1,8 +1,8 @@
 {% extends "base.html" %}
-{% block title %}Workouts — FitStorm{% endblock %}
+{% block title %}Sessions — FitStorm{% endblock %}
 {% block content %}
 <div class="page-hd">
-  <h1>Workouts</h1>
+  <h1>Sessions</h1>
   <div>
     {% if active_workout %}
     <a href="/workouts/{{ active_workout.id }}" class="btn btn-primary">Resume Session →</a>
