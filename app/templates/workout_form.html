@@ -112,8 +112,8 @@
     max-width: calc(100vw - 48px);
   }
 
-  /* ── Section chapter markers ── */
-  .section-label { font-size: 13px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); }
+  /* ── Section chapter markers: mobile font-size override ── */
+  .section-label { font-size: 13px; }
 
   /* ── Stepper input values ── */
   .stepper-xl .sx-val { font-size: 18px; }
@@ -372,6 +372,16 @@
   letter-spacing: -0.03em;
 }
 .stepper-xl .sx-val:focus { color: var(--accent); }
+
+/* ── Section labels ──────────────────────────────────────────── */
+.section-label {
+  font-size: 0.6rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--muted);
+  margin-bottom: 0.35rem;
+}
 
 /* ── RPE chips ───────────────────────────────────────────────── */
 .rpe-wrap { margin-bottom: 1rem; }
