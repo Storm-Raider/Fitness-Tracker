@@ -354,3 +354,43 @@ The workout form JS (`workouts/{id}`) owns all interactions below. No HTMX.
 | Patch notes | `PATCH /workouts/{id}` | No DOM update; debounced autosave |
 
 **Why fetch() not HTMX on the workout form:** The log-set response drives multiple DOM mutations simultaneously (append row, show/hide PR badge, update volume total, reset form). HTMX's single-target swap model can't express that without `hx-swap-oob`, which would require the server to render partial fragments it doesn't currently own. The JS approach is 30 lines and keeps the server returning clean JSON.
+
+## Mobile Vocabulary
+
+Rules for `@media (max-width: 767px)` overrides. Base font is 18px on mobile (set in base.html), so rem values scale up automatically.
+
+### Type Scale
+
+| Element | Mobile floor |
+|---|---|
+| Key numeric values (weight, reps, KPIs) | ≥20px, JetBrains Mono |
+| Section/screen headers | ≥22px, Syne Bold |
+| Body text / labels | ≥16px (16px floor prevents iOS auto-zoom on inputs) |
+| Secondary / muted text | ≥14px |
+| Chip / badge text | ≥14px |
+| Uppercase tracking labels (section markers, stat labels) | 13px minimum |
+
+### Card Patterns
+
+Two patterns — pick based on the card's role:
+
+- **Edge-to-edge:** `margin-left: -1rem; margin-right: -1rem; border-radius: 0`. Use for cards that span full viewport width (`.ex-card` on workout form).
+- **Inset card:** `margin: 0 16px; border-radius: 12px`. Use for floating cards (`.day-card` on plan, stat cards).
+
+### Touch Targets
+
+| Element | Minimum |
+|---|---|
+| Primary CTA (Log Set, Start Day) | 56px height |
+| Secondary actions (Finish, mode toggle) | 48px height |
+| Data entry chips (RPE) | 44px height — use `grid-template-columns: repeat(5, 1fr)` not `min-width` |
+| Exercise/routine chips | 40px height via padding |
+| Destructive actions | 40px height |
+
+### CSS Convention
+
+All mobile overrides go inside `@media (max-width: 767px)` in the template's own `<style>` block. Per-template duplication is intentional — do not extract to base.html or a shared file (except the `table { min-width: 0 }` global reset in PR 2).
+
+To override an inline `style=` font-size: extract to a CSS class first, then override in `@media`.
+
+**Never** use JavaScript for mobile detection. **Never** change the desktop layout.
