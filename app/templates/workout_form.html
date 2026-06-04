@@ -2443,9 +2443,15 @@ async function saveEdit(id) {
   const editEl = document.getElementById('edit-' + id);
   if (!row || !editEl) return;
   const unit     = getAppUnit();
-  const displayW = parseFloat(editEl.querySelector('.edit-w').value) || 0;
-  const reps     = parseInt(editEl.querySelector('.edit-r').value) || 0;
-  if (displayW <= 0 || reps < 1) return;
+  // Use valueAsNumber for locale-safe parsing (avoids empty-string/NaN on comma-decimal keyboards)
+  const wEl      = editEl.querySelector('.edit-w');
+  const rEl      = editEl.querySelector('.edit-r');
+  const displayW = wEl ? (isNaN(wEl.valueAsNumber) ? parseFloat(wEl.value) || 0 : wEl.valueAsNumber) : 0;
+  const reps     = rEl ? (isNaN(rEl.valueAsNumber) ? parseInt(rEl.value) || 0 : Math.round(rEl.valueAsNumber)) : 0;
+  if (displayW < 0 || reps < 1) {
+    showErr(reps < 1 ? 'Enter at least 1 rep.' : 'Enter a valid weight.');
+    return;
+  }
   const weightKg = unit === 'lbs' ? displayW / 2.2046 : displayW;
   const rpeRaw   = editEl.querySelector('.edit-rpe')?.value;
   const rpe      = rpeRaw ? parseInt(rpeRaw) : null;
@@ -2456,7 +2462,7 @@ async function saveEdit(id) {
     headers: {'Content-Type': 'application/json'},
     body: JSON.stringify({reps, weight_kg: weightKg, notes: notes || null, rpe: rpe || null}),
   });
-  if (!resp.ok) return;
+  if (!resp.ok) { showErr('Failed to save — try again.'); return; }
 
   row.dataset.kg    = weightKg;
   row.dataset.reps  = reps;

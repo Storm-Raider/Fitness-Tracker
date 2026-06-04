@@ -73,6 +73,61 @@ async def test_patch_missing_workout_returns_404(client):
 
 
 @pytest.mark.asyncio
+async def test_patch_set_updates_weight_and_reps(client, db):
+    ex = await client.post("/exercises", json={"name": "Test Bench Press Edit"})
+    ex_id = ex.json()["id"]
+    w = await client.post("/workouts", json={"notes": None})
+    w_id = w.json()["id"]
+    s = await client.post(f"/workouts/{w_id}/sets",
+                          json={"exercise_id": ex_id, "reps": 5, "weight_kg": 60.0})
+    s_id = s.json()["id"]
+
+    r = await client.patch(f"/workouts/{w_id}/sets/{s_id}",
+                           json={"reps": 8, "weight_kg": 65.0, "notes": "felt strong", "rpe": 8})
+    assert r.status_code == 200
+    assert r.json()["weight_kg"] == 65.0
+    assert r.json()["reps"] == 8
+    assert r.json()["notes"] == "felt strong"
+
+    async with db.execute("SELECT reps, weight_kg, notes FROM sets WHERE id=?", (s_id,)) as c:
+        row = await c.fetchone()
+    assert row["weight_kg"] == 65.0
+    assert row["reps"] == 8
+    assert row["notes"] == "felt strong"
+
+
+@pytest.mark.asyncio
+async def test_patch_set_wrong_workout_returns_404(client):
+    ex = await client.post("/exercises", json={"name": "Test Squat Edit"})
+    ex_id = ex.json()["id"]
+    w1 = await client.post("/workouts", json={"notes": None})
+    w2 = await client.post("/workouts", json={"notes": None})
+    s = await client.post(f"/workouts/{w1.json()['id']}/sets",
+                          json={"exercise_id": ex_id, "reps": 5, "weight_kg": 100.0})
+    s_id = s.json()["id"]
+
+    # Try to patch set from w1 using w2's ID — should 404
+    r = await client.patch(f"/workouts/{w2.json()['id']}/sets/{s_id}",
+                           json={"reps": 5, "weight_kg": 105.0})
+    assert r.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_patch_set_invalid_reps_returns_422(client):
+    ex = await client.post("/exercises", json={"name": "Test Deadlift Edit"})
+    ex_id = ex.json()["id"]
+    w = await client.post("/workouts", json={"notes": None})
+    w_id = w.json()["id"]
+    s = await client.post(f"/workouts/{w_id}/sets",
+                          json={"exercise_id": ex_id, "reps": 5, "weight_kg": 100.0})
+    s_id = s.json()["id"]
+
+    r = await client.patch(f"/workouts/{w_id}/sets/{s_id}",
+                           json={"reps": 0, "weight_kg": 100.0})
+    assert r.status_code == 422
+
+
+@pytest.mark.asyncio
 async def test_finish_workout_returns_summary(client):
     ex = await client.post("/exercises", json={"name": "Test Deadlift"})
     ex_id = ex.json()["id"]
