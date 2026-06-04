@@ -1,5 +1,16 @@
 {% extends "base.html" %}
 {% block title %}Stats — FitStorm{% endblock %}
+{% block head %}
+<style>
+@media (max-width: 767px) {
+  .kpi .kpi-val { font-size: 20px; }
+  .kpi .kpi-label { font-size: 14px; }
+  td.num { font-size: 16px; }
+  #pr-tl-search { height: 44px !important; }
+  .recovery-chip > span { font-size: 14px; }
+}
+</style>
+{% endblock %}
 {% block content %}
 <div class="page-hd">
   <div>
@@ -62,7 +73,7 @@
         {% set color = "var(--success)" %}
         {% set label = "fresh" %}
       {% endif %}
-      <div style="background:{{ bg }};border:1px solid {{ border }};border-radius:var(--radius-xs);padding:0.35rem 0.7rem;display:flex;flex-direction:column;align-items:center;gap:0.1rem;min-width:72px;"
+      <div class="recovery-chip" style="background:{{ bg }};border:1px solid {{ border }};border-radius:var(--radius-xs);padding:0.35rem 0.7rem;display:flex;flex-direction:column;align-items:center;gap:0.1rem;min-width:72px;"
            title="{{ m.muscle }}: last trained {{ m.last_date }}">
         <span style="font-size:0.78rem;font-weight:600;color:{{ color }};">{{ m.muscle }}</span>
         <span style="font-size:0.65rem;color:{{ color }};opacity:0.8;font-family:'JetBrains Mono',monospace;">
