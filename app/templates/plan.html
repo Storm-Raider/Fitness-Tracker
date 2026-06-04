@@ -159,6 +159,37 @@
 .lift-row:last-child { border-bottom: none; }
 .lift-row input[type=number] { width: 80px; text-align: center; }
 
+/* ── Mobile overrides ── */
+@media (max-width: 767px) {
+  .mode-btn {
+    min-height: 52px;
+    font-size: 16px;
+  }
+  .plan-day-chip {
+    min-height: 56px;
+    width: 100%;
+    font-size: 16px;
+  }
+  .day-card h3 {
+    font-size: 16px;
+  }
+  .day-card .day-num {
+    font-size: 18px;
+  }
+  .day-card {
+    margin-left: 16px;
+    margin-right: 16px;
+    border-radius: 12px;
+  }
+  .saved-plan-name {
+    font-size: 16px;
+  }
+  .saved-plan-meta,
+  .saved-plan-date {
+    font-size: 14px;
+  }
+}
+
 /* ── Week table ── */
 .week-table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
 .week-table th {
