@@ -225,6 +225,8 @@ Re-action if a dedicated routine management page is built: add `user_id` to `GET
 
 ## TODO-EL-3: Migrate exercise detail page from muscle_primary/muscle_secondary to exercise_muscles table
 
+**SHIPPED (already done — confirmed 2026-06-03)** — `GET /exercises/{id}` already joins `exercise_muscles` and builds `exercise.muscles` list. Template reads `exercise.muscles`. No action needed.
+
 **What:** Update `GET /exercises/{id}` (`app/routes/exercises.py`) and `exercise_detail.html` to read muscle data from the `exercise_muscles` join table instead of the `muscle_primary`/`muscle_secondary` string columns on the exercises table.
 
 **Why:** The cascading dropdown feature (2026-05-15) introduces the `exercise_muscles` table as the normalized source of truth. The exercise detail page still reads from the legacy string columns — these two sources will drift if exercises.py data changes. Migrating the detail page completes the normalization.
@@ -243,6 +245,8 @@ Re-action if a dedicated routine management page is built: add `user_id` to `GET
 ---
 
 ## TODO-EL-4: Remove muscle_primary and muscle_secondary columns from exercises table
+
+**SHIPPED (already done — confirmed 2026-06-03)** — `DROP COLUMN muscle_primary` and `DROP COLUMN muscle_secondary` migrations already exist in `_MIGRATIONS` in `app/db.py` (indices 28-29). Columns are already removed from the live DB.
 
 **What:** Once TODO-EL-3 ships and the exercise detail page reads from `exercise_muscles`, the `muscle_primary` and `muscle_secondary` columns on the `exercises` table become dead. Remove them: add a migration to `_MIGRATIONS` in `app/db.py` — SQLite doesn't support DROP COLUMN before 3.35; for older Pi SQLite, this requires a table rebuild.
 
