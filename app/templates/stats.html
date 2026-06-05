@@ -2,11 +2,12 @@
 {% block title %}Stats — FitStorm{% endblock %}
 {% block head %}
 <style>
+#pr-tl-search { height: 32px; }
 @media (max-width: 767px) {
   .kpi .kpi-val { font-size: 20px; }
   .kpi .kpi-label { font-size: 14px; }
   td.num { font-size: 16px; }
-  #pr-tl-search { height: 44px !important; }
+  #pr-tl-search { height: 44px; }
   .recovery-chip > span { font-size: 14px; }
 }
 </style>
@@ -100,7 +101,7 @@
       <i data-lucide="search" style="position:absolute;left:0.6rem;top:50%;transform:translateY(-50%);width:12px;height:12px;color:var(--muted);pointer-events:none;"></i>
       <input id="pr-tl-search" type="search" placeholder="Filter exercise…"
              oninput="filterTimeline()"
-             style="padding:0.28rem 0.7rem 0.28rem 2rem;font-size:0.78rem;border-radius:var(--radius-xs);min-width:170px;height:32px;">
+             style="padding:0.28rem 0.7rem 0.28rem 2rem;font-size:0.78rem;border-radius:var(--radius-xs);min-width:170px;">
     </div>
   </div>
   <div class="card" style="padding:0;overflow:hidden;">

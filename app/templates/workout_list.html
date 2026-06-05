@@ -2,8 +2,9 @@
 {% block title %}Sessions — FitStorm{% endblock %}
 {% block head %}
 <style>
+#workout-search { font-size: 0.875rem; }
 @media (max-width: 767px) {
-  #workout-search { font-size: 16px !important; height: 44px !important; }
+  #workout-search { font-size: 16px; height: 44px; }
   .wl-stat-label { font-size: 13px; }
 }
 </style>
@@ -38,7 +39,7 @@
   <input id="workout-search" type="search" value="{{ q }}" placeholder="Search by exercise, date, or notes…"
          autocomplete="off" spellcheck="false"
          style="width:100%;padding:0.55rem 0.75rem 0.55rem 2.3rem;background:var(--surface);border:1px solid var(--border);
-                border-radius:var(--radius-xs);color:var(--text);font-size:0.875rem;font-family:inherit;transition:border-color 0.15s;">
+                border-radius:var(--radius-xs);color:var(--text);font-family:inherit;transition:border-color 0.15s;">
 </div>
 
 <div id="workout-list">

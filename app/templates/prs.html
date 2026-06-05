@@ -12,7 +12,7 @@
       <i data-lucide="search" style="position:absolute;left:0.65rem;top:50%;transform:translateY(-50%);width:13px;height:13px;color:var(--muted);pointer-events:none;"></i>
       <input id="pr-search" type="search" placeholder="Filter exercises…"
              oninput="filterPRs()"
-             style="padding:0.3rem 0.75rem 0.3rem 2.1rem;height:36px;font-size:0.8rem;border-radius:var(--radius-xs);min-width:180px;">
+             style="padding:0.3rem 0.75rem 0.3rem 2.1rem;border-radius:var(--radius-xs);min-width:180px;">
     </div>
     <div style="display:flex;gap:0.25rem;">
       <button class="sort-btn active" data-sort="name" onclick="sortPRs('name', this)" style="font-size:0.75rem;padding:0.25rem 0.65rem;min-height:36px;">A–Z</button>
@@ -50,11 +50,12 @@
 }
 .spark-cell { width: 52px; padding: 0 0.5rem 0 0 !important; }
 .spark-cell canvas { display: block; }
+#pr-search { height: 36px; font-size: 0.8rem; }
 
 /* ── Mobile overrides ── */
 @media (max-width: 767px) {
   .sort-btn { font-size: 14px; min-height: 44px; }
-  #pr-search { font-size: 16px !important; height: 44px !important; }
+  #pr-search { font-size: 16px; height: 44px; }
   .badge-plateau { font-size: 13px; }
   .strength-card .lift-name { font-size: 14px; }
   .strength-card .lift-level { font-size: 13px; }
