@@ -43,7 +43,7 @@
     {% if active_workout %}
     <a href="/workouts/{{ active_workout.id }}" class="btn btn-primary">Resume Session →</a>
     {% else %}
-    <a href="/workouts" class="btn btn-primary">Start Session</a>
+    <button class="btn btn-primary" onclick="startSession(this)">Start Session</button>
     {% endif %}
   </div>
 </div>
@@ -187,6 +187,18 @@ async function deleteGoal() {
   });
 }
 document.getElementById('goal-input')?.addEventListener('keydown', e => { if (e.key==='Enter') saveGoal(); });
+async function startSession(btn) {
+  btn.disabled = true;
+  btn.textContent = 'Starting…';
+  const resp = await fetch('/workouts', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({notes:null})});
+  if (resp.ok) {
+    const data = await resp.json();
+    window.location.href = '/workouts/' + data.id;
+  } else {
+    btn.disabled = false;
+    btn.textContent = 'Start Session';
+  }
+}
 </script>
 
 <div style="margin-bottom:1.5rem;">
