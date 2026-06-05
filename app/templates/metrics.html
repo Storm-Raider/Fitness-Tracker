@@ -24,6 +24,13 @@
 .tab-btn.active { color:var(--accent); border-bottom-color:var(--accent); }
 .tab-panel { display:none; }
 .tab-panel.active { display:block; }
+
+/* ── Mobile overrides ── */
+@media (max-width: 767px) {
+  .tab-btn { font-size: 16px; min-height: 44px; }
+  #body-unit-toggle { font-size: 16px; min-height: 44px; }
+  #meas-site { height: 44px; }
+}
 </style>
 
 <div class="tab-bar">
@@ -241,7 +248,7 @@
 
   <div>
     <div class="section-title">History</div>
-    <div class="card" id="metrics-table" style="padding:0;overflow:hidden;">
+    <div class="card" id="metrics-table" style="padding:0;overflow-x:auto;">
       {% if metrics %}
       <table>
         <thead>
@@ -466,7 +473,7 @@ async function logMetric() {
 
   <div>
     <div class="section-title">History</div>
-    <div class="card" style="padding:0;overflow:hidden;">
+    <div class="card" style="padding:0;overflow-x:auto;">
       {% if measurements %}
       <table id="meas-table">
         <thead>

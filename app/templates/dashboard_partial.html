@@ -1,3 +1,9 @@
+<style>
+@media (max-width: 767px) {
+  .dash-row-name { font-size: 16px; }
+  .dash-row-meta { font-size: 14px; }
+}
+</style>
 <div id="recent-workouts">
   {% if workouts %}
   <div style="display:flex;flex-direction:column;gap:0.4rem;">
@@ -9,9 +15,9 @@
         <!-- Left accent -->
         <div style="position:absolute;left:0;top:0;bottom:0;width:3px;background:{% if w.ended_at %}var(--border-mid){% else %}var(--accent){% endif %};"></div>
         <div style="padding-left:0.25rem;flex:1;min-width:0;">
-          <div style="font-weight:600;font-size:0.875rem;letter-spacing:-0.01em;">{{ w.started_at[:10] | human_date }}</div>
+          <div class="dash-row-name" style="font-weight:600;font-size:0.875rem;letter-spacing:-0.01em;">{{ w.started_at[:10] | human_date }}</div>
           {% if w.notes %}
-          <div style="font-size:0.78rem;color:var(--muted);margin-top:0.1rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ w.notes }}</div>
+          <div class="dash-row-meta" style="font-size:0.78rem;color:var(--muted);margin-top:0.1rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ w.notes }}</div>
           {% endif %}
         </div>
         <div style="display:flex;align-items:center;gap:0.75rem;flex-shrink:0;">

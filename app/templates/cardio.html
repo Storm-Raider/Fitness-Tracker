@@ -1,5 +1,12 @@
 {% extends "base.html" %}
 {% block title %}Cardio — FitStorm{% endblock %}
+{% block head %}
+<style>
+@media (max-width: 767px) {
+  .pace-unit-label { font-size: 13px; }
+}
+</style>
+{% endblock %}
 {% block content %}
 <div class="page-hd">
   <div>
@@ -79,7 +86,7 @@
   <div>
     <div class="section-title">History</div>
     {% if logs %}
-    <div class="card" style="padding:0;overflow:hidden;">
+    <div class="card" style="padding:0;overflow-x:auto;">
       <table>
         <thead>
           <tr>

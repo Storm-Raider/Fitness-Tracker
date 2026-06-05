@@ -72,6 +72,7 @@
   transition: all 0.15s;
 }
 .hdr-delete-btn:hover { color: var(--danger); border-color: rgba(248,113,113,0.35); background: rgba(248,113,113,0.06); }
+.hdr-finish-btn { min-height: 32px; }
 
 /* ── Workout grid ────────────────────────────────────────────── */
 .workout-grid {
@@ -85,7 +86,43 @@
   /* Hide when empty (no sets yet) — nothing useful to show */
   .workout-sets-col:has(#empty-msg) { display: none; }
   /* Keep the log compact so the form is still immediately visible */
-  .sets-card { max-height: 210px; overflow-y: auto; }
+  .sets-card { max-height: max(210px, 40vh); overflow-y: auto; }
+
+  /* ── RPE chips: 5 columns so each chip is ~67px at 390px ── */
+  .rpe-chips { grid-template-columns: repeat(5, 1fr); }
+  .rpe-chip { min-height: 44px; font-size: 15px; }
+
+  /* ── Session header: truncate long workout titles ── */
+  .session-hdr-info { flex: 1; min-width: 0; }
+  .session-title { font-size: 22px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  /* ── Finish Workout button: 48px touch target ── */
+  .hdr-finish-btn { min-height: 48px; padding: 0 16px; }
+
+  /* ── Set detail values: mono + readable size ── */
+  .set-detail { font-size: 15px; font-family: 'JetBrains Mono', monospace; }
+
+  /* ── Exercise chips: readable size + truncate long names ── */
+  .new-ex-chip {
+    font-size: 15px;
+    padding: 10px 12px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: calc(100vw - 48px);
+  }
+
+  /* ── Section chapter markers: mobile font-size override ── */
+  .section-label { font-size: 13px; }
+
+  /* ── Stepper input values ── */
+  .stepper-xl .sx-val { font-size: 18px !important; }
+
+  /* ── Exercise card: edge-to-edge ── */
+  .ex-card { margin-left: -1rem; margin-right: -1rem; border-radius: 0; }
+
+  /* ── Finish stat labels ── */
+  .finish-stat-lbl { font-size: 13px; }
 }
 @media (min-width: 768px) {
   .workout-grid { flex-direction: row; align-items: start; }
@@ -335,6 +372,16 @@
   letter-spacing: -0.03em;
 }
 .stepper-xl .sx-val:focus { color: var(--accent); }
+
+/* ── Section labels ──────────────────────────────────────────── */
+.section-label {
+  font-size: 0.6rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--muted);
+  margin-bottom: 0.35rem;
+}
 
 /* ── RPE chips ───────────────────────────────────────────────── */
 .rpe-wrap { margin-bottom: 1rem; }
@@ -802,8 +849,8 @@
                    cursor:pointer;padding:0.2rem 0.6rem;border-radius:var(--radius-xs);
                    font-size:0.72rem;font-family:'JetBrains Mono',monospace;letter-spacing:0.04em;
                    min-height:28px;transition:color 0.15s,border-color 0.15s;">kg</button>
-    <button class="btn btn-primary" onclick="finishWorkout()"
-            style="min-height:32px;padding:0.3rem 0.85rem;font-size:0.8rem;font-weight:700;letter-spacing:0.02em;">
+    <button class="btn btn-primary hdr-finish-btn" onclick="finishWorkout()"
+            style="padding:0.3rem 0.85rem;font-size:0.8rem;font-weight:700;letter-spacing:0.02em;">
       Finish
     </button>
     {% endif %}
@@ -832,7 +879,7 @@
 
 {% if workout.notes %}
 <div class="card card-accent" style="margin-bottom:1.25rem;padding:0.85rem 1.1rem;">
-  <div style="font-size:0.6rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted);margin-bottom:0.35rem;">Session notes</div>
+  <div class="section-label" style="font-weight:700;letter-spacing:0.1em;margin-bottom:0.35rem;">Session notes</div>
   <div style="font-size:0.875rem;color:var(--text);line-height:1.55;white-space:pre-wrap;">{{ workout.notes }}</div>
 </div>
 {% endif %}
@@ -964,7 +1011,7 @@ document.getElementById('tpl-name-input')?.addEventListener('keydown', e => { if
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem;">
         {% if info.cues %}
         <div>
-          <div style="font-size:0.6rem;text-transform:uppercase;letter-spacing:0.1em;color:var(--accent);
+          <div class="section-label" style="letter-spacing:0.1em;color:var(--accent);
                       font-weight:700;margin-bottom:0.4rem;">Form Cues</div>
           <ul style="list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:0.3rem;">
             {% for cue in info.cues %}
@@ -977,7 +1024,7 @@ document.getElementById('tpl-name-input')?.addEventListener('keydown', e => { if
         {% endif %}
         {% if info.mistakes %}
         <div>
-          <div style="font-size:0.6rem;text-transform:uppercase;letter-spacing:0.1em;color:var(--danger);
+          <div class="section-label" style="letter-spacing:0.1em;color:var(--danger);
                       font-weight:700;margin-bottom:0.4rem;">Common Mistakes</div>
           <ul style="list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:0.3rem;">
             {% for m in info.mistakes %}

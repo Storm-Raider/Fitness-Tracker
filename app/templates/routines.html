@@ -1,5 +1,13 @@
 {% extends "base.html" %}
 {% block title %}Routines — FitStorm{% endblock %}
+{% block head %}
+<style>
+@media (max-width: 767px) {
+  .routine-btn { min-height: 44px; }
+  .ex-tag { font-size: 13px; }
+}
+</style>
+{% endblock %}
 {% block content %}
 {% set own_routines = routines | selectattr('is_own') | list %}
 {% set lib_routines = routines | rejectattr('is_own') | list %}
@@ -55,7 +63,7 @@
 
         <div style="display:flex;flex-wrap:wrap;gap:0.3rem;">
           {% for ex in r.exercises %}
-          <span style="font-size:0.72rem;color:var(--muted);background:var(--surface-2);border:1px solid var(--border);border-radius:100px;padding:0.1rem 0.6rem;white-space:nowrap;">{{ ex.name }}</span>
+          <span class="ex-tag" style="font-size:0.72rem;color:var(--muted);background:var(--surface-2);border:1px solid var(--border);border-radius:100px;padding:0.1rem 0.6rem;white-space:nowrap;">{{ ex.name }}</span>
           {% else %}
           <span style="font-size:0.75rem;color:var(--muted);">No exercises recorded</span>
           {% endfor %}
@@ -63,9 +71,9 @@
       </div>
 
       <div style="display:flex;gap:0.4rem;flex-shrink:0;align-items:center;">
-        <button class="btn btn-primary" style="font-size:0.78rem;padding:0.3rem 0.75rem;min-height:34px;"
+        <button class="btn btn-primary routine-btn" style="font-size:0.78rem;padding:0.3rem 0.75rem;"
                 onclick="startFromRoutine({{ r.id }}, this)">Start</button>
-        <button style="background:transparent;border:1px solid transparent;color:var(--muted);cursor:pointer;padding:0.3rem 0.45rem;border-radius:6px;display:flex;align-items:center;transition:all 0.13s;min-height:34px;"
+        <button class="routine-btn" style="background:transparent;border:1px solid transparent;color:var(--muted);cursor:pointer;padding:0.3rem 0.45rem;border-radius:6px;display:flex;align-items:center;transition:all 0.13s;"
                 onmouseover="this.style.color='var(--danger)';this.style.borderColor='rgba(248,113,113,0.3)';this.style.background='rgba(248,113,113,0.06)'"
                 onmouseout="this.style.color='var(--muted)';this.style.borderColor='transparent';this.style.background='transparent'"
                 onclick="deleteRoutine({{ r.id }})" title="Delete routine">
@@ -93,11 +101,11 @@
         </div>
         <div style="display:flex;flex-wrap:wrap;gap:0.3rem;">
           {% for ex in r.exercises %}
-          <span style="font-size:0.72rem;color:var(--muted);background:var(--surface-2);border:1px solid var(--border);border-radius:100px;padding:0.1rem 0.6rem;white-space:nowrap;">{{ ex.name }}</span>
+          <span class="ex-tag" style="font-size:0.72rem;color:var(--muted);background:var(--surface-2);border:1px solid var(--border);border-radius:100px;padding:0.1rem 0.6rem;white-space:nowrap;">{{ ex.name }}</span>
           {% endfor %}
         </div>
       </div>
-      <button class="btn btn-ghost" style="font-size:0.78rem;padding:0.3rem 0.75rem;min-height:34px;flex-shrink:0;"
+      <button class="btn btn-ghost routine-btn" style="font-size:0.78rem;padding:0.3rem 0.75rem;flex-shrink:0;"
               onclick="startFromRoutine({{ r.id }}, this)">Start</button>
     </div>
   </div>

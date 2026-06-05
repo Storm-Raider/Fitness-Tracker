@@ -8,6 +8,9 @@ GH-Token
 .gstack/
 screenshots-audit/
 
+# Playwright screenshot diffs / actuals (baselines are tracked)
+tests/snapshots/actual/
+
 # Live database and WAL files
 /data/
 *.db

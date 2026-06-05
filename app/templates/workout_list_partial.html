@@ -22,19 +22,19 @@
           {% if w.set_count > 0 %}
           <div style="text-align:right;">
             <div class="num" style="font-size:1.05rem;font-weight:700;letter-spacing:-0.02em;">{{ w.set_count }}</div>
-            <div style="font-size:0.62rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;">sets</div>
+            <div class="wl-stat-label" style="font-size:0.62rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;">sets</div>
           </div>
           {% endif %}
           {% if w.volume_kg and w.volume_kg > 0 %}
           <div style="text-align:right;">
             <div class="num" style="font-size:1.05rem;font-weight:700;letter-spacing:-0.02em;color:var(--success);"><span class="weight-display" data-kg="{{ w.volume_kg }}">{{ "{:,.0f}".format(w.volume_kg) }} kg</span></div>
-            <div style="font-size:0.62rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;">volume</div>
+            <div class="wl-stat-label" style="font-size:0.62rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;">volume</div>
           </div>
           {% endif %}
           {% if w.duration_min is not none %}
           <div style="text-align:right;">
             <div class="num" style="font-size:1.05rem;font-weight:700;letter-spacing:-0.02em;color:var(--accent);">{{ w.duration_min }}</div>
-            <div style="font-size:0.62rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;">min</div>
+            <div class="wl-stat-label" style="font-size:0.62rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;">min</div>
           </div>
           {% endif %}
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--border-mid)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>

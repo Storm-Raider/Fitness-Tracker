@@ -2,6 +2,19 @@
 
 All notable changes to FitStorm are documented here.
 
+## [0.1.0.0] - 2026-06-04
+
+### Added
+- **Phone-first layout** — every page is now fully usable on a phone screen (390px and up). Touch targets meet the 44px minimum throughout; primary actions (Log Set, Start Session) are 56px. Mobile overrides added across all templates: dashboard, workout form, plan, stats, exercise list, exercise detail, achievements, challenges, PRs, routines, cardio, metrics, settings, and workout history.
+- **Playwright mobile screenshot baseline** — 5 representative pages captured at 390×844 px (iPhone 14 portrait) in `tests/snapshots/baseline/`. Run `pytest tests/screenshots/ -v` any time to refresh after template changes.
+- **DESIGN.md mobile vocabulary** — mobile font-size scale, touch target floors, and the 767px viewport breakpoint are now documented as a first-class section alongside the existing design system.
+
+### Fixed
+- Stats page PR timeline, Stalled, and Top exercises tables now scroll horizontally on narrow viewports instead of clipping (`overflow:hidden` → `overflow-x:auto`).
+- Stepper weight/rep input correctly renders at 18px on mobile (base global input rule was suppressing the override; added `!important` to the mobile-specific rule).
+- Routines Start/delete buttons had inline `min-height:34px` that fought the mobile 44px touch-target override; removed the conflicting inline value.
+- Search inputs on PRs, Stats, and Sessions now control font-size and height via CSS rather than inline attributes, so mobile overrides work without `!important`.
+
 ## [Unreleased]
 
 ### Added

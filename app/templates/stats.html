@@ -1,5 +1,17 @@
 {% extends "base.html" %}
 {% block title %}Stats — FitStorm{% endblock %}
+{% block head %}
+<style>
+#pr-tl-search { height: 32px; }
+@media (max-width: 767px) {
+  .kpi .kpi-val { font-size: 20px; }
+  .kpi .kpi-label { font-size: 14px; }
+  td.num { font-size: 16px; }
+  #pr-tl-search { height: 44px; }
+  .recovery-chip > span { font-size: 14px; }
+}
+</style>
+{% endblock %}
 {% block content %}
 <div class="page-hd">
   <div>
@@ -62,7 +74,7 @@
         {% set color = "var(--success)" %}
         {% set label = "fresh" %}
       {% endif %}
-      <div style="background:{{ bg }};border:1px solid {{ border }};border-radius:var(--radius-xs);padding:0.35rem 0.7rem;display:flex;flex-direction:column;align-items:center;gap:0.1rem;min-width:72px;"
+      <div class="recovery-chip" style="background:{{ bg }};border:1px solid {{ border }};border-radius:var(--radius-xs);padding:0.35rem 0.7rem;display:flex;flex-direction:column;align-items:center;gap:0.1rem;min-width:72px;"
            title="{{ m.muscle }}: last trained {{ m.last_date }}">
         <span style="font-size:0.78rem;font-weight:600;color:{{ color }};">{{ m.muscle }}</span>
         <span style="font-size:0.65rem;color:{{ color }};opacity:0.8;font-family:'JetBrains Mono',monospace;">
@@ -89,10 +101,10 @@
       <i data-lucide="search" style="position:absolute;left:0.6rem;top:50%;transform:translateY(-50%);width:12px;height:12px;color:var(--muted);pointer-events:none;"></i>
       <input id="pr-tl-search" type="search" placeholder="Filter exercise…"
              oninput="filterTimeline()"
-             style="padding:0.28rem 0.7rem 0.28rem 2rem;font-size:0.78rem;border-radius:var(--radius-xs);min-width:170px;height:32px;">
+             style="padding:0.28rem 0.7rem 0.28rem 2rem;font-size:0.78rem;border-radius:var(--radius-xs);min-width:170px;">
     </div>
   </div>
-  <div class="card" style="padding:0;overflow:hidden;">
+  <div class="card" style="padding:0;overflow-x:auto;">
     <table id="pr-tl-table">
       <thead>
         <tr>
@@ -140,7 +152,7 @@ document.getElementById('pr-tl-search').addEventListener('keydown', e => {
 {% if stalled %}
 <div style="margin-bottom:1.5rem;">
   <div class="section-title">Stalled — no 1RM gain in 4 weeks</div>
-  <div class="card" style="padding:0;overflow:hidden;">
+  <div class="card" style="padding:0;overflow-x:auto;">
     <table>
       <thead>
         <tr>
@@ -210,7 +222,7 @@ document.getElementById('pr-tl-search').addEventListener('keydown', e => {
 {% if top_exercises %}
 <div>
   <div class="section-title">Top exercises — all time</div>
-  <div class="card" style="padding:0;overflow:hidden;">
+  <div class="card" style="padding:0;overflow-x:auto;">
     <table>
       <thead><tr><th>Exercise</th><th>Sets</th></tr></thead>
       <tbody>

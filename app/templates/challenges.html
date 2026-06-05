@@ -19,6 +19,15 @@
 .preset ul { list-style: none; display: flex; flex-wrap: wrap; gap: 0.35rem; margin: 0.3rem 0 0.6rem; }
 .preset li { font-size: 0.72rem; color: var(--muted-hi); background: var(--surface-2); border: 1px solid var(--border);
   border-radius: 20px; padding: 0.2rem 0.6rem; }
+
+/* ── Mobile overrides ── */
+@media (max-width: 767px) {
+  .ch-badge { font-size: 14px; }
+  .preset .tag { font-size: 16px; }
+  .preset li { font-size: 13px; }
+  .preset input[type="text"],
+  .preset input[type="date"] { font-size: 16px; }
+}
 </style>
 
 <div class="page-hd">
