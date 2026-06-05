@@ -50,6 +50,15 @@
 }
 .spark-cell { width: 52px; padding: 0 0.5rem 0 0 !important; }
 .spark-cell canvas { display: block; }
+
+/* ── Mobile overrides ── */
+@media (max-width: 767px) {
+  .sort-btn { font-size: 14px; min-height: 44px; }
+  #pr-search { font-size: 16px !important; height: 44px !important; }
+  .badge-plateau { font-size: 13px; }
+  .strength-card .lift-name { font-size: 14px; }
+  .strength-card .lift-level { font-size: 13px; }
+}
 </style>
 
 {% if records and bodyweight_kg %}
@@ -133,11 +142,12 @@
     const display = window.fmtWeight ? window.fmtWeight(rec.e1rm, unit) : rec.e1rm.toFixed(1) + ' kg';
 
     const card = document.createElement('div');
+    card.className = 'strength-card';
     card.style.cssText = 'background:var(--surface-2);border:1px solid var(--border);border-radius:var(--radius-xs);padding:0.85rem 1rem;';
     card.innerHTML = `
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.5rem;">
-        <div style="font-size:0.78rem;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:60%;">${liftName}</div>
-        <div style="font-size:0.7rem;font-weight:700;color:${color};white-space:nowrap;">${level}</div>
+        <div class="lift-name" style="font-size:0.78rem;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:60%;">${liftName}</div>
+        <div class="lift-level" style="font-size:0.7rem;font-weight:700;color:${color};white-space:nowrap;">${level}</div>
       </div>
       <div style="font-family:'JetBrains Mono',monospace;font-size:1.15rem;font-weight:700;color:${color};line-height:1;margin-bottom:0.45rem;">${display}</div>
       <div style="font-size:0.68rem;color:var(--muted);margin-bottom:0.5rem;">${ratio}× bodyweight · est 1RM</div>
