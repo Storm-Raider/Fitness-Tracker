@@ -948,8 +948,7 @@
     <span class="nav-sep"></span>
     <div class="nav-links" id="nav-links">
       <a href="/">Dashboard</a>
-      <a href="/stats">Stats</a>
-      <a href="/prs">Records</a>
+      <a href="/analytics">Analytics</a>
       <a href="/workouts">Sessions</a>
       <a href="/exercises">Exercises</a>
       <a href="/plan">Plan</a>
@@ -1015,13 +1014,13 @@
       <i data-lucide="dumbbell" class="mob-tab-icon"></i>
       <span>Sessions</span>
     </a>
-    <a href="/prs" class="mob-tab" data-mob-path="/prs">
-      <i data-lucide="trophy" class="mob-tab-icon"></i>
-      <span>Records</span>
-    </a>
-    <a href="/stats" class="mob-tab" data-mob-path="/stats">
+    <a href="/analytics" class="mob-tab" data-mob-path="/analytics">
       <i data-lucide="bar-chart-2" class="mob-tab-icon"></i>
-      <span>Stats</span>
+      <span>Analytics</span>
+    </a>
+    <a href="/plan" class="mob-tab" data-mob-path="/plan">
+      <i data-lucide="calendar-check" class="mob-tab-icon"></i>
+      <span>Plan</span>
     </a>
     <button class="mob-tab" id="mob-more-btn" onclick="openMobMore()" aria-haspopup="true">
       <i data-lucide="layout-grid" class="mob-tab-icon"></i>
@@ -1040,10 +1039,6 @@
       <span style="color:var(--muted-hi);font-weight:500;letter-spacing:0;text-transform:none;font-size:0.8rem;">{{ user.username }}</span>
     </div>
     <div class="mob-more-grid">
-      <a href="/plan" class="mob-more-item" data-mob-more-path="/plan" onclick="closeMobMore()">
-        <div class="mob-more-icon"><i data-lucide="calendar-check"></i></div>
-        <span>Plan</span>
-      </a>
       <a href="/exercises" class="mob-more-item" data-mob-more-path="/exercises" onclick="closeMobMore()">
         <div class="mob-more-icon"><i data-lucide="layers"></i></div>
         <span>Exercises</span>

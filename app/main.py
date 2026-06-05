@@ -15,7 +15,7 @@ from starlette.responses import RedirectResponse
 
 from app.db import open_db, set_db, clear_db
 import app.db as _db
-from app.routes import achievements, cardio, challenges, coach, dashboard, exercises, export, feedback, import_, journal, metrics, plan, planner, prs, routines, settings, stats, templates, trash, webhooks, workouts
+from app.routes import achievements, analytics, cardio, challenges, coach, dashboard, exercises, export, feedback, import_, journal, metrics, plan, planner, prs, routines, settings, stats, templates, trash, webhooks, workouts
 from app.routes.auth import router as auth_router, COOKIE_NAME, _serializer, _hash_password, _verify_password
 from app.routes.workouts import set_http_client
 
@@ -200,6 +200,7 @@ app.include_router(import_.router)
 app.include_router(webhooks.router)
 app.include_router(routines.router)
 app.include_router(settings.router)
+app.include_router(analytics.router)
 app.include_router(stats.router)
 app.include_router(prs.router)
 app.include_router(templates.router)

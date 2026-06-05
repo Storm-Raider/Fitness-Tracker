@@ -1,0 +1,595 @@
+{% extends "base.html" %}
+{% block title %}Analytics — FitStorm{% endblock %}
+{% block content %}
+<div class="page-hd">
+  <div>
+    <h1>Analytics</h1>
+    <div class="subtitle">
+      {% if records %}<span class="num">{{ records | length }}</span> exercise{{ 's' if records | length != 1 }} tracked{% endif %}
+      {% if muscle_recovery %} · <span class="num">{{ muscle_recovery | length }}</span> muscles{% endif %}
+    </div>
+  </div>
+</div>
+
+<style>
+.sort-btn {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--muted);
+  border-radius: var(--radius-xs);
+  cursor: pointer;
+  font-family: inherit;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  transition: all 0.13s;
+}
+.sort-btn:hover { color: var(--text); border-color: var(--border-mid); }
+.sort-btn.active { background: var(--accent-dim); border-color: rgba(79,156,249,0.4); color: var(--accent); }
+.pr-age-fresh { color: var(--success); }
+.pr-age-mid   { color: var(--accent); }
+.pr-age-old   { color: var(--muted); }
+.badge-plateau {
+  display: inline-flex; align-items: center; gap: 0.2rem;
+  font-size: 0.62rem; font-weight: 700; letter-spacing: 0.05em;
+  text-transform: uppercase; padding: 0.1rem 0.35rem;
+  border-radius: 3px; border: 1px solid rgba(251,146,60,0.45);
+  background: rgba(251,146,60,0.1); color: #fb923c;
+  vertical-align: middle; margin-left: 0.35rem;
+}
+.spark-cell { width: 52px; padding: 0 0.5rem 0 0 !important; }
+.spark-cell canvas { display: block; }
+</style>
+
+{# ── 1. Muscle heatmap ───────────────────────────────────────────── #}
+<div style="margin-bottom:1.5rem;">
+  <div class="section-title">Muscle volume — all time</div>
+  <div class="card" style="padding:1.25rem;">
+    {% set map_id = "analytics" %}
+    {% include 'partials/muscle_map.html' %}
+  </div>
+</div>
+
+{# ── 2. Muscle recovery ──────────────────────────────────────────── #}
+{% if muscle_recovery %}
+<div style="margin-bottom:1.5rem;">
+  <div class="section-title">Muscle recovery</div>
+  <div class="card" style="padding:1rem 1.25rem;">
+    <div style="display:flex;flex-wrap:wrap;gap:0.5rem;">
+      {% for m in muscle_recovery %}
+      {% if m.days_ago <= 1 %}
+        {% set bg = "rgba(248,113,113,0.1)" %}
+        {% set border = "rgba(248,113,113,0.3)" %}
+        {% set color = "var(--danger)" %}
+        {% set label = "fatigued" %}
+      {% elif m.days_ago <= 3 %}
+        {% set bg = "rgba(251,146,60,0.1)" %}
+        {% set border = "rgba(251,146,60,0.3)" %}
+        {% set color = "#fb923c" %}
+        {% set label = "recovering" %}
+      {% else %}
+        {% set bg = "rgba(52,211,153,0.1)" %}
+        {% set border = "rgba(52,211,153,0.3)" %}
+        {% set color = "var(--success)" %}
+        {% set label = "fresh" %}
+      {% endif %}
+      <div style="background:{{ bg }};border:1px solid {{ border }};border-radius:var(--radius-xs);padding:0.35rem 0.7rem;display:flex;flex-direction:column;align-items:center;gap:0.1rem;min-width:72px;"
+           title="{{ m.muscle }}: last trained {{ m.last_date }}">
+        <span style="font-size:0.78rem;font-weight:600;color:{{ color }};">{{ m.muscle }}</span>
+        <span style="font-size:0.65rem;color:{{ color }};opacity:0.8;font-family:'JetBrains Mono',monospace;">
+          {% if m.days_ago == 0 %}today{% elif m.days_ago == 1 %}1 day{% else %}{{ m.days_ago }}d{% endif %}
+        </span>
+      </div>
+      {% endfor %}
+    </div>
+    <div style="display:flex;gap:1.25rem;margin-top:0.85rem;flex-wrap:wrap;">
+      <span style="font-size:0.7rem;color:var(--success);display:flex;align-items:center;gap:0.3rem;"><span style="width:8px;height:8px;background:rgba(52,211,153,0.6);border-radius:50%;display:inline-block;"></span>Fresh (4+ days)</span>
+      <span style="font-size:0.7rem;color:#fb923c;display:flex;align-items:center;gap:0.3rem;"><span style="width:8px;height:8px;background:rgba(251,146,60,0.6);border-radius:50%;display:inline-block;"></span>Recovering (2–3 days)</span>
+      <span style="font-size:0.7rem;color:var(--danger);display:flex;align-items:center;gap:0.3rem;"><span style="width:8px;height:8px;background:rgba(248,113,113,0.6);border-radius:50%;display:inline-block;"></span>Fatigued (0–1 days)</span>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+{# ── 3. Strength percentiles ─────────────────────────────────────── #}
+{% if records and bodyweight_kg %}
+<div style="margin-bottom:1.5rem;">
+  <div class="section-title">Strength levels — bodyweight ratios</div>
+  <div class="card" style="padding:1.1rem 1.25rem;">
+    <div style="font-size:0.72rem;color:var(--muted);margin-bottom:1rem;display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;">
+      <span>Based on your bodyweight of <strong style="color:var(--text);"><span class="weight-display" id="bw-display" data-kg="{{ bodyweight_kg | round(1) }}">{{ bodyweight_kg | round(1) }} kg</span></strong></span>
+      <span style="color:var(--border-mid);">·</span>
+      <span>Standard strength classification benchmarks</span>
+    </div>
+    <div id="percentile-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:0.75rem;"></div>
+  </div>
+</div>
+<script>
+(function() {
+  const BW_KG = {{ bodyweight_kg }};
+
+  const LIFT_NORMS = {
+    'Bench Press':       [0.50, 0.75, 1.00, 1.25, 1.50],
+    'Squat':             [0.75, 1.00, 1.25, 1.50, 1.75],
+    'Deadlift':          [1.00, 1.25, 1.50, 1.75, 2.00],
+    'Overhead Press':    [0.35, 0.55, 0.75, 1.00, 1.25],
+    'Barbell Row':       [0.50, 0.75, 1.00, 1.25, 1.50],
+    'Romanian Deadlift': [0.75, 1.00, 1.25, 1.50, 1.75],
+    'Front Squat':       [0.55, 0.80, 1.00, 1.25, 1.50],
+    'Incline Bench Press':[0.40, 0.60, 0.85, 1.10, 1.35],
+  };
+  const LEVELS = ['Untrained','Novice','Intermediate','Advanced','Elite'];
+  const LEVEL_COLORS = {
+    'Untrained':    '#5a6a82',
+    'Novice':       '#34d399',
+    'Intermediate': '#4f9cf9',
+    'Advanced':     '#a78bfa',
+    'Elite':        '#f59e0b',
+  };
+
+  const records = [
+    {% for r in records %}
+    { name: {{ r.name | tojson }}, e1rm: {{ r.est_1rm }} },
+    {% endfor %}
+  ];
+
+  const unit = window.getAppUnit ? window.getAppUnit() : 'kg';
+  const bwEl = document.getElementById('bw-display');
+  if (bwEl) bwEl.textContent = window.fmtWeight ? window.fmtWeight(BW_KG, unit) : BW_KG.toFixed(1) + ' kg';
+
+  function getLevel(liftKg, norms) {
+    const ratio = liftKg / BW_KG;
+    let level = 'Untrained', pct = 0;
+    for (let i = norms.length - 1; i >= 0; i--) {
+      if (ratio >= norms[i]) {
+        level = LEVELS[i];
+        const lo = norms[i], hi = norms[i + 1] || norms[i] * 1.25;
+        const progress = Math.min(1, (ratio - lo) / (hi - lo));
+        pct = Math.round((i / (LEVELS.length - 1) + progress / (LEVELS.length - 1)) * 100);
+        break;
+      }
+      if (i === 0 && ratio < norms[0]) {
+        pct = Math.round(Math.min(1, ratio / norms[0]) * (100 / LEVELS.length));
+      }
+    }
+    return { level, pct: Math.min(99, pct) };
+  }
+
+  const grid = document.getElementById('percentile-grid');
+  if (!grid) return;
+
+  let rendered = 0;
+  for (const [liftName, norms] of Object.entries(LIFT_NORMS)) {
+    const rec = records.find(r => r.name.toLowerCase().includes(liftName.toLowerCase().split(' ')[0]) ||
+                                  liftName.toLowerCase().includes(r.name.toLowerCase().split(' ')[0]));
+    if (!rec) continue;
+    const { level, pct } = getLevel(rec.e1rm, norms);
+    const color = LEVEL_COLORS[level] || '#4f9cf9';
+    const ratio = (rec.e1rm / BW_KG).toFixed(2);
+    const display = window.fmtWeight ? window.fmtWeight(rec.e1rm, unit) : rec.e1rm.toFixed(1) + ' kg';
+
+    const card = document.createElement('div');
+    card.style.cssText = 'background:var(--surface-2);border:1px solid var(--border);border-radius:var(--radius-xs);padding:0.85rem 1rem;';
+    card.innerHTML = `
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.5rem;">
+        <div style="font-size:0.78rem;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:60%;">${liftName}</div>
+        <div style="font-size:0.7rem;font-weight:700;color:${color};white-space:nowrap;">${level}</div>
+      </div>
+      <div style="font-family:'JetBrains Mono',monospace;font-size:1.15rem;font-weight:700;color:${color};line-height:1;margin-bottom:0.45rem;">${display}</div>
+      <div style="font-size:0.68rem;color:var(--muted);margin-bottom:0.5rem;">${ratio}× bodyweight · est 1RM</div>
+      <div style="height:5px;background:var(--surface);border-radius:3px;overflow:hidden;">
+        <div style="height:100%;width:${pct}%;background:linear-gradient(90deg,${color}88,${color});border-radius:3px;transition:width 0.6s cubic-bezier(0.16,1,0.3,1);"></div>
+      </div>
+      <div style="display:flex;justify-content:space-between;margin-top:0.3rem;font-size:0.6rem;color:var(--muted);">
+        <span>Untrained</span><span>Elite</span>
+      </div>`;
+    grid.appendChild(card);
+    rendered++;
+  }
+
+  if (rendered === 0) {
+    grid.innerHTML = '<div style="color:var(--muted);font-size:0.85rem;padding:0.5rem 0;">Log bench press, squat, or deadlift to see strength levels.</div>';
+  }
+
+  window.addEventListener('unitchange', function() {
+    const u = window.getAppUnit ? window.getAppUnit() : 'kg';
+    const bwEl2 = document.getElementById('bw-display');
+    if (bwEl2) bwEl2.textContent = window.fmtWeight ? window.fmtWeight(BW_KG, u) : BW_KG + ' kg';
+    grid.querySelectorAll('[data-e1rm]').forEach(function(el) {
+      el.textContent = window.fmtWeight ? window.fmtWeight(parseFloat(el.dataset.e1rm), u) : el.dataset.e1rm + ' kg';
+    });
+  });
+})();
+</script>
+{% endif %}
+
+{# ── 4. PR records table ─────────────────────────────────────────── #}
+{% if records %}
+<div style="margin-bottom:1.5rem;">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.6rem;flex-wrap:wrap;gap:0.5rem;">
+    <div class="section-title" style="margin-bottom:0;">Personal records</div>
+    <div style="display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;">
+      <div style="position:relative;">
+        <i data-lucide="search" style="position:absolute;left:0.65rem;top:50%;transform:translateY(-50%);width:13px;height:13px;color:var(--muted);pointer-events:none;"></i>
+        <input id="pr-search" type="search" placeholder="Filter exercises…"
+               oninput="filterPRs()"
+               style="padding:0.3rem 0.75rem 0.3rem 2.1rem;height:36px;font-size:0.8rem;border-radius:var(--radius-xs);min-width:180px;">
+      </div>
+      <div style="display:flex;gap:0.25rem;">
+        <button class="sort-btn active" data-sort="name" onclick="sortPRs('name', this)" style="font-size:0.75rem;padding:0.25rem 0.65rem;min-height:36px;">A–Z</button>
+        <button class="sort-btn" data-sort="date" onclick="sortPRs('date', this)" style="font-size:0.75rem;padding:0.25rem 0.65rem;min-height:36px;">Recent</button>
+        <button class="sort-btn" data-sort="weight" onclick="sortPRs('weight', this)" style="font-size:0.75rem;padding:0.25rem 0.65rem;min-height:36px;">Heaviest</button>
+      </div>
+    </div>
+  </div>
+  <div class="card" style="padding:0;overflow-x:auto;">
+    <table id="pr-table">
+      <thead>
+        <tr>
+          <th>Exercise</th>
+          <th>PR weight</th>
+          <th>Est. 1RM</th>
+          <th class="spark-cell" title="12-week e1RM trend">Trend</th>
+          <th>Sessions</th>
+          <th>Sets</th>
+          <th>PR set</th>
+        </tr>
+      </thead>
+      <tbody id="pr-tbody">
+        {% for r in records %}
+        <tr data-name="{{ r.name | lower }}"
+            data-weight="{{ r.pr_kg }}"
+            data-days="{{ r.days_ago if r.days_ago is not none else 99999 }}">
+          <td style="font-weight:500;">
+            <a href="/exercises/{{ r.id }}" style="color:inherit;text-decoration:none;"
+               onmouseover="this.style.color='var(--accent)'"
+               onmouseout="this.style.color='inherit'">{{ r.name }}</a>
+            {% if r.stalled %}<span class="badge-plateau" title="No new PR in 3+ weeks">Plateau</span>{% endif %}
+          </td>
+          <td>
+            <span class="badge badge-pr num weight-display" data-kg="{{ r.pr_kg }}">{{ r.pr_kg }} kg</span>
+          </td>
+          <td class="num" style="color:var(--muted);">
+            <span class="weight-display" data-kg="{{ r.est_1rm }}">{{ r.est_1rm }} kg</span>
+          </td>
+          <td class="spark-cell">
+            <canvas class="spark" data-id="{{ r.id }}" width="52" height="24"></canvas>
+          </td>
+          <td class="num">{{ r.sessions }}</td>
+          <td class="num" style="color:var(--muted);">{{ r.total_sets }}</td>
+          <td style="white-space:nowrap;">
+            <span class="{% if r.days_ago is not none and r.days_ago <= 30 %}pr-age-fresh{% elif r.days_ago is not none and r.days_ago <= 90 %}pr-age-mid{% else %}pr-age-old{% endif %}"
+                  style="font-family:'JetBrains Mono',monospace;font-size:0.78rem;font-weight:600;"
+                  title="{{ r.pr_date or '' }}">{{ r.time_ago }}</span>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div id="pr-empty" style="display:none;text-align:center;padding:1.5rem;color:var(--muted);font-size:0.875rem;">
+    No exercises match your search.
+  </div>
+</div>
+
+<script>
+function filterPRs() {
+  const q = document.getElementById('pr-search').value.toLowerCase();
+  let visible = 0;
+  document.querySelectorAll('#pr-tbody tr').forEach(row => {
+    const match = !q || row.dataset.name.includes(q);
+    row.style.display = match ? '' : 'none';
+    if (match) visible++;
+  });
+  document.getElementById('pr-empty').style.display = visible === 0 ? 'block' : 'none';
+}
+
+function sortPRs(key, btn) {
+  document.querySelectorAll('.sort-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  const tbody = document.getElementById('pr-tbody');
+  const rows  = [...tbody.querySelectorAll('tr')];
+  rows.sort((a, b) => {
+    if (key === 'name')   return a.dataset.name.localeCompare(b.dataset.name);
+    if (key === 'weight') return parseFloat(b.dataset.weight) - parseFloat(a.dataset.weight);
+    if (key === 'date')   return parseInt(a.dataset.days) - parseInt(b.dataset.days);
+    return 0;
+  });
+  rows.forEach(r => tbody.appendChild(r));
+}
+
+document.getElementById('pr-search').addEventListener('keydown', e => {
+  if (e.key === 'Escape') { e.target.value = ''; filterPRs(); }
+});
+
+// Sparklines
+(function() {
+  const TREND = {{ trend_json | safe }};
+  const dpr = window.devicePixelRatio || 1;
+
+  function drawSpark(canvas, values, stalled) {
+    if (!values || values.length < 2) {
+      if (values && values.length === 1) {
+        const ctx = canvas.getContext('2d');
+        canvas.width = 52 * dpr; canvas.height = 24 * dpr;
+        canvas.style.width = '52px'; canvas.style.height = '24px';
+        ctx.setTransform(dpr,0,0,dpr,0,0);
+        ctx.fillStyle = '#4f9cf9';
+        ctx.beginPath(); ctx.arc(26, 12, 2.5, 0, Math.PI*2); ctx.fill();
+      }
+      return;
+    }
+    const W = 52, H = 24, PAD = 3;
+    canvas.width = W * dpr; canvas.height = H * dpr;
+    canvas.style.width = W + 'px'; canvas.style.height = H + 'px';
+    const ctx = canvas.getContext('2d');
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+
+    const mn = Math.min(...values), mx = Math.max(...values);
+    const range = mx - mn || 1;
+    const n = values.length;
+    const x = i => PAD + (i / (n-1)) * (W - PAD*2);
+    const y = v => H - PAD - ((v - mn) / range) * (H - PAD*2);
+
+    const grad = ctx.createLinearGradient(0, PAD, 0, H);
+    const col = stalled ? '#fb923c' : '#4f9cf9';
+    grad.addColorStop(0, col + '44');
+    grad.addColorStop(1, col + '00');
+    ctx.beginPath();
+    ctx.moveTo(x(0), y(values[0]));
+    for (let i = 1; i < n; i++) ctx.lineTo(x(i), y(values[i]));
+    ctx.lineTo(x(n-1), H); ctx.lineTo(x(0), H); ctx.closePath();
+    ctx.fillStyle = grad; ctx.fill();
+
+    ctx.beginPath();
+    ctx.moveTo(x(0), y(values[0]));
+    for (let i = 1; i < n; i++) ctx.lineTo(x(i), y(values[i]));
+    ctx.strokeStyle = col; ctx.lineWidth = 1.5; ctx.stroke();
+
+    ctx.fillStyle = col;
+    ctx.beginPath(); ctx.arc(x(n-1), y(values[n-1]), 2.5, 0, Math.PI*2); ctx.fill();
+  }
+
+  document.querySelectorAll('canvas.spark').forEach(canvas => {
+    const id = canvas.dataset.id;
+    const row = canvas.closest('tr');
+    const stalled = row && row.querySelector('.badge-plateau') !== null;
+    drawSpark(canvas, TREND[id], stalled);
+  });
+
+  window.addEventListener('unitchange', function() {
+    const unit = window.getAppUnit ? window.getAppUnit() : 'kg';
+    document.querySelectorAll('canvas.spark').forEach(canvas => {
+      const id = canvas.dataset.id;
+      const raw = TREND[id];
+      if (!raw) return;
+      const vals = unit === 'lbs' ? raw.map(v => v * 2.20462) : raw;
+      const row = canvas.closest('tr');
+      const stalled = row && row.querySelector('.badge-plateau') !== null;
+      drawSpark(canvas, vals, stalled);
+    });
+  });
+})();
+</script>
+
+{% else %}
+<div class="card" style="text-align:center;padding:3rem 1.25rem;margin-bottom:1.5rem;">
+  <div style="display:flex;flex-direction:column;align-items:center;gap:0.75rem;">
+    <div style="width:52px;height:52px;border-radius:50%;background:rgba(255,255,255,0.04);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;">
+      <i data-lucide="bar-chart-2" style="width:22px;height:22px;color:var(--muted-hi);pointer-events:none;"></i>
+    </div>
+    <p style="color:var(--muted);font-size:0.875rem;max-width:240px;line-height:1.5;">No sets logged yet — your analytics will appear here.</p>
+    <a href="/workouts" class="btn btn-primary" style="margin-top:0.25rem;">Start a workout</a>
+  </div>
+</div>
+{% endif %}
+
+{# ── 5. Volume trend ─────────────────────────────────────────────── #}
+<div style="margin-bottom:1.5rem;">
+  <div class="section-title">Volume — last 12 weeks</div>
+  <div class="card" style="padding:0.85rem 1.25rem 0.65rem;">
+    {% if weekly_rows %}
+    <div id="vol-chart-wrap" style="position:relative;">
+      <canvas id="vol-chart" style="display:block;width:100%;cursor:crosshair;"></canvas>
+      <div id="vol-chart-tip" style="display:none;position:absolute;top:4px;background:var(--surface-2);border:1px solid var(--border-mid);border-radius:var(--radius-xs);padding:0.4rem 0.6rem;pointer-events:none;z-index:10;white-space:nowrap;box-shadow:0 4px 16px rgba(0,0,0,0.4);"></div>
+    </div>
+    {% if has_cardio %}
+    <div style="display:flex;gap:1rem;margin-top:0.5rem;font-size:0.7rem;color:var(--muted);">
+      <span style="display:flex;align-items:center;gap:0.35rem;"><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:#4f9cf9;"></span>Strength volume</span>
+      <span style="display:flex;align-items:center;gap:0.35rem;"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#34d399;"></span>Cardio session</span>
+    </div>
+    {% endif %}
+    {% else %}
+    <div style="display:flex;flex-direction:column;align-items:center;text-align:center;padding:1.5rem 0 0.75rem;gap:0.7rem;">
+      <div style="width:48px;height:48px;border-radius:50%;background:rgba(255,255,255,0.04);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;">
+        <i data-lucide="bar-chart-2" style="width:20px;height:20px;color:var(--muted-hi);pointer-events:none;"></i>
+      </div>
+      <p style="color:var(--muted);font-size:0.875rem;max-width:240px;line-height:1.55;">Volume trend appears once you've logged a few sessions.</p>
+      <a href="/workouts" class="btn btn-primary" style="margin-top:0.1rem;">Start a session</a>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+{# ── 6. Stalled exercises ────────────────────────────────────────── #}
+{% if stalled %}
+<div style="margin-bottom:1.5rem;">
+  <div class="section-title">Stalled — no 1RM gain in 4 weeks</div>
+  <div class="card" style="padding:0;overflow:hidden;">
+    <table>
+      <thead>
+        <tr>
+          <th>Exercise</th>
+          <th>Recent 1RM</th>
+          <th>Previous best</th>
+          <th>Δ</th>
+          <th>Sessions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for s in stalled %}
+        {% set delta = (s.recent_1rm - s.prior_1rm) | round(1) %}
+        <tr>
+          <td style="font-weight:500;">
+            <a href="/exercises/{{ s.id }}" style="color:inherit;text-decoration:none;"
+               onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='inherit'">{{ s.name }}</a>
+          </td>
+          <td class="num">
+            <span class="weight-display" data-kg="{{ s.recent_1rm }}">{{ s.recent_1rm }} kg</span>
+          </td>
+          <td class="num" style="color:var(--muted);">
+            <span class="weight-display" data-kg="{{ s.prior_1rm }}">{{ s.prior_1rm }} kg</span>
+          </td>
+          <td class="num" style="color:{% if delta < 0 %}var(--danger){% else %}var(--muted){% endif %};font-weight:600;">
+            <span class="weight-display" data-kg="{{ delta }}" data-prefix="{% if delta > 0 %}+{% endif %}">{% if delta > 0 %}+{% endif %}{{ delta }} kg</span>
+          </td>
+          <td class="num" style="color:var(--muted);">{{ s.session_count }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
+{% if weekly_rows %}
+<script>
+(function () {
+  const DATA = {{ weekly_json | safe }};
+  if (!DATA.length) return;
+
+  const canvas = document.getElementById('vol-chart');
+  const tip    = document.getElementById('vol-chart-tip');
+  const ctx    = canvas.getContext('2d');
+  let hoverIdx = -1;
+
+  const getUnit = () => window.getAppUnit ? window.getAppUnit() : 'kg';
+  const cvt     = v  => getUnit() === 'lbs' ? v * 2.20462 : v;
+
+  const PL = 52, PR = 16, PT = 14, PB = 28;
+
+  function xAt(i, W, n) { return PL + (n <= 1 ? (W-PL-PR)/2 : (i/(n-1))*(W-PL-PR)); }
+
+  function draw() {
+    const dpr = window.devicePixelRatio || 1;
+    const W   = canvas.offsetWidth || 600;
+    const H   = 200;
+    canvas.width  = W * dpr; canvas.height = H * dpr;
+    canvas.style.height = H + 'px';
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+    const vs = DATA.map(d => cvt(d.volume));
+    const n  = vs.length;
+    const cW = W - PL - PR, cH = H - PT - PB;
+
+    const vMax = Math.max(...vs, 1);
+    const yMin = 0, yMax = vMax * 1.15;
+
+    const gx = i => xAt(i, W, n);
+    const gy = v => PT + (1 - (v - yMin) / (yMax - yMin)) * cH;
+
+    ctx.clearRect(0, 0, W, H);
+
+    [0, 0.5, 1].forEach(f => {
+      const gv = vMax * f, y = gy(gv);
+      ctx.strokeStyle = '#1f2535'; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(PL, y); ctx.lineTo(PL + cW, y); ctx.stroke();
+      if (f > 0) {
+        ctx.fillStyle = '#4a5568'; ctx.font = "10px 'JetBrains Mono',monospace"; ctx.textAlign = 'right';
+        const label = cvt(gv);
+        ctx.fillText(label >= 1000 ? (label/1000).toFixed(1)+'k' : Math.round(label), PL - 4, y + 4);
+      }
+    });
+
+    if (n >= 2) {
+      ctx.beginPath(); ctx.moveTo(gx(0), gy(vs[0]));
+      for (let i = 1; i < n; i++) ctx.lineTo(gx(i), gy(vs[i]));
+      ctx.lineTo(gx(n-1), PT+cH); ctx.lineTo(gx(0), PT+cH);
+      ctx.closePath(); ctx.fillStyle = '#4f9cf912'; ctx.fill();
+    }
+
+    if (hoverIdx >= 0) {
+      ctx.strokeStyle = '#4f9cf938'; ctx.lineWidth = 1; ctx.setLineDash([3,3]);
+      ctx.beginPath(); ctx.moveTo(gx(hoverIdx), PT); ctx.lineTo(gx(hoverIdx), PT+cH); ctx.stroke();
+      ctx.setLineDash([]);
+    }
+
+    const barW = Math.max(4, Math.min(28, (cW / n) * 0.55));
+    vs.forEach((v, i) => {
+      const x  = gx(i) - barW / 2;
+      const isH = i === hoverIdx;
+      if (v) {
+        const bH = Math.max(3, gy(0) - gy(v));
+        const y  = gy(v);
+        ctx.fillStyle = isH ? '#4f9cf9' : '#4f9cf988';
+        ctx.beginPath();
+        ctx.roundRect(x, y, barW, bH, [3, 3, 0, 0]);
+        ctx.fill();
+      }
+      if (DATA[i].cardio) {
+        const dotY = PT + cH + 6;
+        const dotR = 3;
+        ctx.fillStyle = isH ? '#34d399' : '#34d39988';
+        ctx.beginPath();
+        ctx.arc(gx(i), dotY, dotR, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    });
+
+    ctx.fillStyle = '#4a5568'; ctx.font = '9px JetBrains Mono,monospace';
+    const step = n <= 6 ? 1 : n <= 12 ? 2 : 3;
+    DATA.forEach((d, i) => {
+      if (i % step !== 0 && i !== n - 1) return;
+      ctx.textAlign = i === 0 ? 'left' : i === n - 1 ? 'right' : 'center';
+      ctx.fillText(d.label, gx(i), H - 8);
+    });
+  }
+
+  function showTip(idx) {
+    const d = DATA[idx];
+    const u = getUnit();
+    const v = cvt(d.volume);
+    const disp = v >= 1000 ? (v/1000).toFixed(1) + 'k' : Math.round(v).toLocaleString();
+    const cardioLine = d.cardio
+      ? `<div style="color:#34d399;font-size:0.72rem;margin-top:0.15rem;">+ ${d.cardio} cardio</div>`
+      : '';
+    tip.innerHTML =
+      `<div style="font-size:0.7rem;color:var(--muted);margin-bottom:0.2rem;font-family:'JetBrains Mono',monospace;">${d.label}</div>` +
+      (v ? `<span style="color:#4f9cf9;font-size:0.82rem;font-weight:700;">${disp} ${u}</span>` : '') +
+      cardioLine;
+    tip.style.display = 'block';
+    const W = canvas.offsetWidth, tw = tip.offsetWidth;
+    tip.style.left = Math.max(0, Math.min(W - tw, xAt(idx, W, DATA.length) - tw / 2)) + 'px';
+    tip.style.top  = '4px';
+  }
+
+  function processHover(cx) {
+    const rect = canvas.getBoundingClientRect(), mx = cx - rect.left;
+    const W = canvas.offsetWidth, n = DATA.length;
+    const frac = Math.max(0, Math.min(1, (mx - PL) / (W - PL - PR)));
+    const idx  = Math.max(0, Math.min(n - 1, Math.round(frac * (n - 1))));
+    if (idx !== hoverIdx) { hoverIdx = idx; draw(); }
+    showTip(idx);
+  }
+  function clearH() { hoverIdx = -1; tip.style.display = 'none'; draw(); }
+
+  canvas.addEventListener('mousemove',  e => processHover(e.clientX));
+  canvas.addEventListener('mouseleave', clearH);
+  canvas.addEventListener('touchmove',  e => { e.preventDefault(); processHover(e.touches[0].clientX); }, { passive: false });
+  canvas.addEventListener('touchend',   clearH);
+  canvas.addEventListener('click', e => {
+    const rect = canvas.getBoundingClientRect(), mx = e.clientX - rect.left;
+    const W = canvas.offsetWidth, n = DATA.length;
+    const frac = Math.max(0, Math.min(1, (mx - PL) / (W - PL - PR)));
+    const idx  = Math.max(0, Math.min(n - 1, Math.round(frac * (n - 1))));
+    if (DATA[idx] && DATA[idx].week_start) {
+      window.location.href = '/workouts?from=' + DATA[idx].week_start;
+    }
+  });
+  canvas.style.cursor = 'pointer';
+  window.addEventListener('unitchange', draw);
+  window.addEventListener('resize',     clearH);
+  requestAnimationFrame(draw);
+})();
+</script>
+{% endif %}
+{% endblock %}
