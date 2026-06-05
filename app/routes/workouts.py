@@ -387,7 +387,8 @@ async def finish_workout(
     if not row:
         raise HTTPException(status_code=404, detail="Workout not found")
 
-    if not row["ended_at"]:
+    just_ended = not row["ended_at"]
+    if just_ended:
         await conn.execute(
             "UPDATE workouts SET ended_at = datetime('now','localtime') WHERE id = ?",
             (workout_id,),
@@ -422,7 +423,7 @@ async def finish_workout(
     }
 
     webhook_url = os.environ.get("WEBHOOK_URL", "").strip()
-    if webhook_url and _http_client is not None:
+    if just_ended and webhook_url and _http_client is not None:
         background_tasks.add_task(
             _fire_webhook, _http_client, webhook_url,
             {"event": "session_complete", "user_id": uid, "username": current_user["username"], **summary},

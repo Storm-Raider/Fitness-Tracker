@@ -7,7 +7,7 @@ async def fetch_prs(conn: aiosqlite.Connection, uid: int) -> list[dict]:
         """
         WITH mx AS (
             SELECT exercise_id, MAX(weight_kg) AS pr_kg
-            FROM sets WHERE user_id = ?
+            FROM sets WHERE user_id = ? AND weight_kg > 0
             GROUP BY exercise_id
         )
         SELECT e.id,

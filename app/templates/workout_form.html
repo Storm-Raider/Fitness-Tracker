@@ -1865,7 +1865,7 @@ async function logCardio() {
   if (!resp.ok) { errEl.textContent = 'Failed to log cardio.'; errEl.style.display = 'block'; return; }
   const data    = await resp.json();
   const exName  = cardioExercises.find(e => e.id === exerciseId)?.name || 'Cardio';
-  const distDisplay = distRaw ? ` · ${distRaw} ${unit === 'lbs' ? 'mi' : 'km'}` : '';
+  const distDisplay = distRaw ? ` · ${distRaw} ${getDistanceUnit() === 'mi' ? 'mi' : 'km'}` : '';
   const container = document.getElementById('sets-container');
   const emptyMsg  = document.getElementById('empty-msg');
   if (emptyMsg) emptyMsg.remove();

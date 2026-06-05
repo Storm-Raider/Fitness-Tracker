@@ -52,5 +52,5 @@ async def delete_plan(
     ) as c:
         if not await c.fetchone():
             raise HTTPException(status_code=404, detail="Plan not found")
-    await conn.execute("DELETE FROM mesocycle_plans WHERE id=?", (plan_id,))
+    await conn.execute("DELETE FROM mesocycle_plans WHERE id=? AND user_id=?", (plan_id, current_user["id"]))
     await conn.commit()

@@ -63,7 +63,7 @@ async def add_standalone_cardio(
         if not await cur.fetchone():
             raise HTTPException(status_code=400, detail="Invalid cardio exercise")
 
-    dist = float(distance_km) if distance_km.strip() else None
+    dist = (float(distance_km) or None) if distance_km.strip() else None
     note = notes.strip() or None
     date = logged_date.strip() or None
 

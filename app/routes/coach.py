@@ -595,5 +595,5 @@ async def delete_plan(
     ) as cur:
         if not await cur.fetchone():
             raise HTTPException(status_code=404, detail="Plan not found")
-    await conn.execute("DELETE FROM coach_plans WHERE id = ?", (plan_id,))
+    await conn.execute("DELETE FROM coach_plans WHERE id = ? AND user_id = ?", (plan_id, current_user["id"]))
     await conn.commit()

@@ -8,6 +8,7 @@ from fastapi import FastAPI, Request
 from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+from urllib.parse import quote
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.middleware.gzip import GZipMiddleware
 from starlette.responses import RedirectResponse
@@ -75,16 +76,18 @@ class _AuthMiddleware(BaseHTTPMiddleware):
                 payload = _serializer().loads(cookie, max_age=session_days * 86400)
                 if isinstance(payload, dict) and "user_id" in payload:
                     sid = payload.get("sid")
-                    # Cookies without a sid are legacy (pre-revocation); reject them
-                    # so existing sessions gracefully force a re-login once.
-                    if sid and _db._conn is not None:
-                        async with _db._conn.execute(
-                            "SELECT 1 FROM sessions WHERE id=? AND user_id=? "
-                            "AND expires_at > datetime('now','localtime')",
-                            (sid, payload["user_id"]),
-                        ) as cur:
-                            if await cur.fetchone() is None:
-                                sid = None  # revoked or expired
+                    # Cookies without a sid are legacy (pre-revocation); reject them.
+                    if sid:
+                        if _db._conn is None:
+                            sid = None  # DB not ready — can't validate, reject
+                        else:
+                            async with _db._conn.execute(
+                                "SELECT 1 FROM sessions WHERE id=? AND user_id=? "
+                                "AND expires_at > datetime('now','localtime')",
+                                (sid, payload["user_id"]),
+                            ) as cur:
+                                if await cur.fetchone() is None:
+                                    sid = None  # revoked or expired
                     if sid:
                         request.state.user_id = payload["user_id"]
                         return await call_next(request)
@@ -93,7 +96,7 @@ class _AuthMiddleware(BaseHTTPMiddleware):
         next_url = request.url.path
         if request.url.query:
             next_url += "?" + request.url.query
-        return RedirectResponse(url=f"/login?next={next_url}", status_code=302)
+        return RedirectResponse(url=f"/login?next={quote(next_url, safe='')}", status_code=302)
 
 
 @asynccontextmanager

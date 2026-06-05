@@ -238,7 +238,7 @@ async def logout(
         except Exception:
             pass  # malformed/expired cookie — nothing to revoke
     response = RedirectResponse(url="/login", status_code=303)
-    response.delete_cookie(COOKIE_NAME, httponly=True, samesite="strict")
+    response.delete_cookie(COOKIE_NAME, httponly=True, samesite="strict", secure=True)
     return response
 
 
@@ -351,6 +351,7 @@ async def reset_password_post(
         "UPDATE password_reset_tokens SET used_at = datetime('now','localtime') WHERE token = ?",
         (token,),
     )
+    await conn.execute("DELETE FROM sessions WHERE user_id = ?", (row["user_id"],))
     await conn.commit()
     return RedirectResponse(url="/login?reset=1", status_code=303)
 
