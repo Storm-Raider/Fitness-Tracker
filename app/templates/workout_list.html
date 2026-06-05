@@ -1,5 +1,13 @@
 {% extends "base.html" %}
 {% block title %}Sessions — FitStorm{% endblock %}
+{% block head %}
+<style>
+@media (max-width: 767px) {
+  #workout-search { font-size: 16px !important; height: 44px !important; }
+  .wl-stat-label { font-size: 13px; }
+}
+</style>
+{% endblock %}
 {% block content %}
 <div class="page-hd">
   <h1>Sessions</h1>
