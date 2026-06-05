@@ -1458,7 +1458,7 @@
       confirmBtn.addEventListener('click', function() {
         dismiss();
         onConfirm();
-      });
+      }, { once: true });
     };
 
     // Route htmx:confirm through showConfirm instead of native confirm()
