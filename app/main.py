@@ -9,6 +9,7 @@ from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.middleware.gzip import GZipMiddleware
 from starlette.responses import RedirectResponse
 
 from app.db import open_db, set_db, clear_db
@@ -165,6 +166,7 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="Fitness Tracker", lifespan=lifespan)
+app.add_middleware(GZipMiddleware, minimum_size=1000)
 app.add_middleware(_SecurityHeadersMiddleware)
 app.add_middleware(_AuthMiddleware)
 
