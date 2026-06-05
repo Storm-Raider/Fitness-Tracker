@@ -18,7 +18,9 @@ Open `http://<your-pi-ip>:8000`
 
 ## Screenshot
 
-*(coming soon — screenshot at ~1440px dashboard and ~375px workout form)*
+*(coming soon — desktop screenshot at ~1440px)*
+
+Mobile baseline screenshots (390×844 px, iPhone 14 portrait) are captured for 5 key pages and live in `tests/snapshots/baseline/`. Run `pytest tests/screenshots/ -v` to refresh them.
 
 ---
 
@@ -417,6 +419,12 @@ DATABASE_PATH=/tmp/fitstorm.db uvicorn app.main:app --reload
 Tests:
 ```bash
 pytest tests/ -v
+```
+
+Mobile screenshot baseline (Playwright — requires `playwright install chromium`):
+```bash
+pytest tests/screenshots/test_mobile_screenshots.py -v
+# Screenshots land in tests/snapshots/baseline/
 ```
 
 ---
