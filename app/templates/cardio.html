@@ -14,7 +14,7 @@
   <div>
     <div class="card">
       <div class="section-title" style="margin-bottom:1rem;">Log session</div>
-      <form method="post" action="/cardio">
+      <form method="post" action="/cardio" onsubmit="convertDistBeforeSubmit(this)">
 
         <div class="form-group">
           <label for="cardio-activity">Activity</label>
@@ -154,6 +154,13 @@
 </div>
 
 <script>
+function convertDistBeforeSubmit(form) {
+  if (window.getDistanceUnit && window.getDistanceUnit() === 'mi') {
+    const el = document.getElementById('cardio-distance');
+    const val = parseFloat(el.value);
+    if (!isNaN(val) && val > 0) el.value = (val * 1.60934).toFixed(4);
+  }
+}
 function step(id, delta, decimals) {
   const el = document.getElementById(id);
   const cur = parseFloat(el.value) || 0;

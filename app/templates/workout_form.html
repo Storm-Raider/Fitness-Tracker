@@ -878,7 +878,7 @@
           {{ c.exercise_name }}
         </div>
         <div class="set-detail">
-          {{ c.duration_minutes | int }} min{% if c.distance_km %} · <span class="cardio-distance" data-km="{{ c.distance_km }}">{{ c.distance_km }}</span> km{% endif %}{% if c.notes %} · {{ c.notes }}{% endif %}
+          {{ c.duration_minutes | int }} min{% if c.distance_km %} · <span class="distance-display" data-km="{{ c.distance_km }}">{{ c.distance_km }}</span> km{% endif %}{% if c.notes %} · {{ c.notes }}{% endif %}
         </div>
       </div>
       <button class="set-del" onclick="deleteCardio({{ c.id }}, this)">
@@ -1256,7 +1256,7 @@ document.getElementById('tpl-name-input')?.addEventListener('keydown', e => { if
             {{ c.exercise_name }}
           </div>
           <div class="set-detail">
-            {{ c.duration_minutes | int }} min{% if c.distance_km %} · <span class="cardio-distance" data-km="{{ c.distance_km }}">{{ c.distance_km }}</span> km{% endif %}{% if c.notes %} · {{ c.notes }}{% endif %}
+            {{ c.duration_minutes | int }} min{% if c.distance_km %} · <span class="distance-display" data-km="{{ c.distance_km }}">{{ c.distance_km }}</span> km{% endif %}{% if c.notes %} · {{ c.notes }}{% endif %}
           </div>
         </div>
         <button class="set-del" onclick="deleteCardio({{ c.id }}, this)">
@@ -1522,9 +1522,12 @@ window.addEventListener('unitchange', function(e) {
   }
   updateBwHint();
   updateVolumeDisplay();
-// Update cardio distance label (km ↔ mi)
+});
+
+window.addEventListener('distancechange', function(e) {
+  const distUnit = e.detail.unit;
   const distLabel = document.getElementById('cardio-distance-label');
-  if (distLabel) distLabel.textContent = 'Distance (' + (unit === 'lbs' ? 'mi' : 'km') + ')';
+  if (distLabel) distLabel.textContent = 'Distance (' + distUnit + ')';
 });
 
 // ── Rest timer ────────────────────────────────────────────────
@@ -1851,9 +1854,8 @@ async function logCardio() {
   if (!exerciseId) { errEl.textContent = 'Select a cardio exercise.'; errEl.style.display = 'block'; return; }
   const duration   = parseFloat(document.getElementById('cardio-duration').value);
   if (!duration || duration < 1) { errEl.textContent = 'Enter a duration.'; errEl.style.display = 'block'; return; }
-  const unit    = getAppUnit();
   const distRaw = parseFloat(document.getElementById('cardio-distance').value) || null;
-  const distKm  = distRaw ? (unit === 'lbs' ? distRaw * 1.60934 : distRaw) : null;
+  const distKm  = distRaw ? (getDistanceUnit() === 'mi' ? distRaw * 1.60934 : distRaw) : null;
   const notes   = document.getElementById('cardio-notes').value.trim() || null;
   const resp = await fetch(`/workouts/${WORKOUT_ID}/cardio`, {
     method: 'POST',
