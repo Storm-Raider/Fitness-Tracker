@@ -135,6 +135,11 @@ document.getElementById('goal-input')?.addEventListener('keydown', e => { if(e.k
 }
 .metric-btn:hover { color: var(--text); border-color: var(--border-mid); }
 .metric-btn.active { background: var(--accent-dim); border-color: rgba(79,156,249,0.4); color: var(--accent); }
+
+/* ── Mobile overrides ── */
+@media (max-width: 767px) {
+  .metric-btn { font-size: 14px; min-height: 40px; padding: 0.3rem 0.75rem; }
+}
 </style>
 <div style="margin-bottom:1.5rem;">
   <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.6rem;flex-wrap:wrap;gap:0.5rem;">
@@ -157,7 +162,7 @@ document.getElementById('goal-input')?.addEventListener('keydown', e => { if(e.k
 
 {% if sessions %}
 <div class="section-title">Session history</div>
-<div class="card" style="padding:0;overflow:hidden;">
+<div class="card" style="padding:0;overflow-x:auto;">
   <table>
     <thead>
       <tr>
