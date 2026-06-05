@@ -83,12 +83,21 @@ async def build_profile(conn: aiosqlite.Connection, uid: int) -> dict:
             weeks = (await cur.fetchone())["weeks"] or 1
         sessions_per_week = round(freq["n"] / weeks, 1)
 
-    # Under-trained muscles = library muscles with the fewest logged sets.
+    # Neglected muscles = muscles the user has worked in the last 90 days
+    # but has NOT touched in the last 7 days.
     async with conn.execute(
-        "SELECT DISTINCT muscle FROM exercise_muscles WHERE is_primary = 1 ORDER BY muscle"
+        """
+        SELECT DISTINCT em.muscle
+        FROM sets s
+        JOIN exercise_muscles em ON em.exercise_id = s.exercise_id AND em.is_primary = 1
+        JOIN workouts w ON w.id = s.workout_id
+        WHERE s.user_id = ?
+          AND DATE(w.started_at) >= DATE('now', '-7 days')
+        """,
+        (uid,),
     ) as cur:
-        all_muscles = [r["muscle"] for r in await cur.fetchall()]
-    undertrained = sorted(all_muscles, key=lambda m: muscle_sets.get(m, 0))[:4]
+        recently_trained = {r["muscle"] for r in await cur.fetchall()}
+    undertrained = [m for m in muscle_sets if m not in recently_trained]
 
     return {
         "total_workouts": freq["n"],
