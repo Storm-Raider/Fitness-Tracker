@@ -151,6 +151,18 @@ async def build_profile(conn: aiosqlite.Connection, uid: int) -> dict:
     ) as cur:
         stalled = [r["name"] for r in await cur.fetchall()]
 
+    # Feedback on the most recent coach plan — informs next generation's intensity.
+    async with conn.execute(
+        """
+        SELECT feedback FROM coach_plans
+        WHERE user_id = ? AND feedback IS NOT NULL
+        ORDER BY created_at DESC LIMIT 1
+        """,
+        (uid,),
+    ) as cur:
+        fb_row = await cur.fetchone()
+    last_plan_feedback = fb_row["feedback"] if fb_row else None
+
     return {
         "total_workouts": freq["n"],
         "first_day": freq["first_day"],
@@ -162,4 +174,5 @@ async def build_profile(conn: aiosqlite.Connection, uid: int) -> dict:
         "top_lifts": top_lifts,
         "muscle_recovery": muscle_recovery,
         "stalled": stalled,
+        "last_plan_feedback": last_plan_feedback,
     }

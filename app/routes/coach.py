@@ -201,6 +201,10 @@ class PlanIn(BaseModel):
     days: list[PlanDay]
 
 
+class FeedbackIn(BaseModel):
+    feedback: str = Field(pattern=r"^(too_easy|just_right|too_hard|skipped_often)$")
+
+
 # Equipment ranked by how "staple" it is — biases the shortlist toward
 # compound barbell/dumbbell work over isolation machines.
 _EQUIP_RANK = {"Barbell": 0, "Dumbbell": 1, "Bodyweight": 2, "Cable": 3, "Machine": 4}
@@ -257,6 +261,14 @@ def _build_prompt(goal: str, days: int, profile: dict, catalog: dict, focus_note
     lines.append(f"TRAINING DAYS PER WEEK: {days}")
     if focus_note.strip():
         lines.append(f"ATHLETE REQUEST: {focus_note.strip()}")
+    _fb_map = {
+        "too_easy":     "previous plan was too easy — increase overall intensity and volume",
+        "just_right":   "previous plan difficulty was appropriate — maintain similar intensity",
+        "too_hard":     "previous plan was too hard — reduce volume or intensity by ~10–15%",
+        "skipped_often": "athlete skipped exercises often — choose simpler movements and fewer days",
+    }
+    if profile.get("last_plan_feedback") and profile["last_plan_feedback"] in _fb_map:
+        lines.append(f"ATHLETE FEEDBACK ON LAST PLAN: {_fb_map[profile['last_plan_feedback']]}")
     lines.append("")
 
     lines.append("ATHLETE TRAINING PROFILE (last 90 days):")
@@ -609,4 +621,24 @@ async def delete_plan(
         if not await cur.fetchone():
             raise HTTPException(status_code=404, detail="Plan not found")
     await conn.execute("DELETE FROM coach_plans WHERE id = ? AND user_id = ?", (plan_id, current_user["id"]))
+    await conn.commit()
+
+
+@router.post("/coach/plans/{plan_id}/feedback", status_code=204)
+async def set_plan_feedback(
+    plan_id: int,
+    body: FeedbackIn,
+    conn: aiosqlite.Connection = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    async with conn.execute(
+        "SELECT id FROM coach_plans WHERE id = ? AND user_id = ?",
+        (plan_id, current_user["id"]),
+    ) as cur:
+        if not await cur.fetchone():
+            raise HTTPException(status_code=404, detail="Plan not found")
+    await conn.execute(
+        "UPDATE coach_plans SET feedback = ? WHERE id = ? AND user_id = ?",
+        (body.feedback, plan_id, current_user["id"]),
+    )
     await conn.commit()

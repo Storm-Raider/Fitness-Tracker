@@ -191,6 +191,8 @@ _MIGRATIONS = [
     "ALTER TABLE sets ADD COLUMN duration_seconds INTEGER",
     # Body measurement unit preference (cm / in) — separate from pref_unit (weight)
     "ALTER TABLE user_settings ADD COLUMN pref_body_measurement TEXT NOT NULL DEFAULT 'cm'",
+    # Post-plan feedback — too_easy | just_right | too_hard | skipped_often | NULL
+    "ALTER TABLE coach_plans ADD COLUMN feedback TEXT",
 ]
 
 

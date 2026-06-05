@@ -257,6 +257,41 @@
 .plan-day-chip:disabled { opacity: 0.5; cursor: not-allowed; }
 .saved-plan-card:last-child { margin-bottom: 0; }
 .saved-plan-card:hover { border-color: var(--border-mid); }
+.plan-feedback-row {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+  width: 100%;
+  margin-top: 0.5rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--border);
+}
+.plan-feedback-label {
+  font-size: 0.62rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 700;
+  margin-right: 0.15rem;
+  white-space: nowrap;
+}
+.plan-fb-btn {
+  font-size: 0.7rem;
+  padding: 0.22rem 0.6rem;
+  border-radius: 99px;
+  border: 1px solid var(--border-mid);
+  background: transparent;
+  color: var(--muted-hi);
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+  min-height: 26px;
+}
+.plan-fb-btn:hover { border-color: var(--accent); color: var(--accent); }
+.plan-fb-btn.fb-selected.fb-easy  { background: var(--success-dim);  border-color: var(--success);  color: var(--success); }
+.plan-fb-btn.fb-selected.fb-ok    { background: var(--accent-dim);   border-color: var(--accent);   color: var(--accent); }
+.plan-fb-btn.fb-selected.fb-hard  { background: var(--danger-dim);   border-color: var(--danger);   color: var(--danger); }
+.plan-fb-btn.fb-selected.fb-skip  { background: var(--surface-2);    border-color: var(--muted-hi); color: var(--muted-hi); }
 .saved-plan-info {
   flex: 1;
   min-width: 0;
@@ -599,6 +634,16 @@
           Day {{ loop.index }}
         </button>
         {% endfor %}
+      </div>
+      {% endif %}
+      {% if p.type == 'ai' %}
+      <div class="plan-feedback-row" data-plan-id="{{ p.id }}">
+        <span class="plan-feedback-label">How was it?</span>
+        {% set fb = p.get('feedback') %}
+        <button class="plan-fb-btn{% if fb == 'too_easy' %} fb-selected fb-easy{% endif %}" data-value="too_easy" onclick="setPlanFeedback({{ p.id }}, 'too_easy', this)">Too easy</button>
+        <button class="plan-fb-btn{% if fb == 'just_right' %} fb-selected fb-ok{% endif %}" data-value="just_right" onclick="setPlanFeedback({{ p.id }}, 'just_right', this)">Just right</button>
+        <button class="plan-fb-btn{% if fb == 'too_hard' %} fb-selected fb-hard{% endif %}" data-value="too_hard" onclick="setPlanFeedback({{ p.id }}, 'too_hard', this)">Too hard</button>
+        <button class="plan-fb-btn{% if fb == 'skipped_often' %} fb-selected fb-skip{% endif %}" data-value="skipped_often" onclick="setPlanFeedback({{ p.id }}, 'skipped_often', this)">Skipped often</button>
       </div>
       {% endif %}
     </div>
@@ -1057,6 +1102,21 @@ async function deleteSavedPlan(btn) {
   const r = await fetch(endpoint, {method: 'DELETE'});
   if (r.ok) btn.closest('.saved-plan-card').remove();
   else btn.disabled = false;
+}
+
+async function setPlanFeedback(planId, value, btn) {
+  const row = btn.closest('.plan-feedback-row');
+  const colorMap = {too_easy:'fb-easy', just_right:'fb-ok', too_hard:'fb-hard', skipped_often:'fb-skip'};
+  const r = await fetch(`/coach/plans/${planId}/feedback`, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({feedback: value}),
+  });
+  if (!r.ok) return;
+  row.querySelectorAll('.plan-fb-btn').forEach(b => {
+    b.classList.remove('fb-selected', 'fb-easy', 'fb-ok', 'fb-hard', 'fb-skip');
+  });
+  btn.classList.add('fb-selected', colorMap[value]);
 }
 
 /* Unit toggle reactivity (meso) */

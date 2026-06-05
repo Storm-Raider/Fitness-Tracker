@@ -51,7 +51,7 @@ async def plan_page(
     # Saved AI coach plans
     async with conn.execute(
         """
-        SELECT id, title, goal, days_per_week, model, created_at, plan_json
+        SELECT id, title, goal, days_per_week, model, created_at, plan_json, feedback
         FROM coach_plans
         WHERE user_id=? ORDER BY created_at DESC LIMIT 10
         """,
