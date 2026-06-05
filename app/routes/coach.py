@@ -151,8 +151,8 @@ def _plan_schema(days: int) -> dict:
                         "focus": {"type": "string"},
                         "exercises": {
                             "type": "array",
-                            "minItems": 4,
-                            "maxItems": 7,
+                            "minItems": 6,
+                            "maxItems": 8,
                             "items": {
                                 "type": "object",
                                 "properties": {
@@ -328,7 +328,7 @@ def _build_prompt(goal: str, days: int, profile: dict, catalog: dict, focus_note
         "2. Order exercises hardest-first: big compounds before isolation.\n"
         "3. Give each day a clear focus label (e.g. 'Push', 'Pull', 'Legs', "
         "'Upper Body', 'Full Body') matching the recommended split.\n"
-        "4. 4–7 exercises per day. Use the goal's set/rep scheme above.\n"
+        "4. 6–8 exercises per day. Use the goal's set/rep scheme above.\n"
         "5. Every exercise needs sets (integer), a rep target (e.g. '8-12' or "
         "'5'), and a note that includes a PROGRESSION cue (e.g. 'add 2.5kg when "
         "you hit the top of the rep range', 'add 1 rep per week').\n"
