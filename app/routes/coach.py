@@ -282,6 +282,15 @@ def _build_prompt(goal: str, days: int, profile: dict, catalog: dict, focus_note
     if profile["top_lifts"]:
         lifts = ", ".join(f"{l['name']} e1RM {l['e1rm']}kg" for l in profile["top_lifts"])
         lines.append(f"- Estimated 1RMs: {lifts}")
+    if profile.get("muscle_recovery"):
+        fatigued = [m for m, s in profile["muscle_recovery"].items() if s == "fatigued"]
+        recovering = [m for m, s in profile["muscle_recovery"].items() if s == "recovering"]
+        if fatigued:
+            lines.append(f"- Muscles trained ≤1 day ago (do NOT load heavily on Day 1): {', '.join(fatigued)}")
+        if recovering:
+            lines.append(f"- Muscles trained 2-3 days ago (light/moderate only until Day 3+): {', '.join(recovering)}")
+    if profile.get("stalled"):
+        lines.append(f"- Strength plateaued (no 1RM gain in 4 weeks): {', '.join(profile['stalled'])}")
     lines.append("")
 
     lines.append(f"RECOMMENDED SPLIT for {days} day(s)/week:")
@@ -315,7 +324,11 @@ def _build_prompt(goal: str, days: int, profile: dict, catalog: dict, focus_note
         "48h recovery for a muscle group.\n"
         "7. Favour movements the athlete already trains, but deliberately add "
         "work for the under-trained muscles listed above.\n"
-        "8. Only use exercise names from the ALLOWED list — exact spelling."
+        "8. Only use exercise names from the ALLOWED list — exact spelling.\n"
+        "9. Never schedule heavy loading for a muscle marked 'trained ≤1 day ago' "
+        "in Day 1 — place it in a later day or use a light accessory only.\n"
+        "10. For plateaued exercises, change the rep range (e.g. switch to 3×3 or "
+        "4×15) or substitute a variation from the ALLOWED list."
     )
     return "\n".join(lines)
 

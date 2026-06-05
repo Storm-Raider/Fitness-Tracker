@@ -99,6 +99,58 @@ async def build_profile(conn: aiosqlite.Connection, uid: int) -> dict:
         recently_trained = {r["muscle"] for r in await cur.fetchall()}
     undertrained = [m for m in muscle_sets if m not in recently_trained]
 
+    # Muscle recovery state — days since each primary muscle was last trained.
+    async with conn.execute(
+        """
+        SELECT em.muscle,
+               CAST(julianday('now','localtime') -
+                    julianday(MAX(DATE(w.started_at,'localtime'))) AS INTEGER) AS days_ago
+        FROM sets s
+        JOIN workouts w ON w.id = s.workout_id
+        JOIN exercise_muscles em ON em.exercise_id = s.exercise_id AND em.is_primary = 1
+        WHERE s.user_id = ?
+        GROUP BY em.muscle
+        """,
+        (uid,),
+    ) as cur:
+        _recovery_rows = await cur.fetchall()
+
+    muscle_recovery = {
+        r["muscle"]: (
+            "fatigued" if r["days_ago"] <= 1 else
+            "recovering" if r["days_ago"] <= 3 else
+            "fresh"
+        )
+        for r in _recovery_rows
+    }
+
+    # Stalled exercises — no meaningful 1RM progress in the last 28 days
+    # vs. the 28–84-day window before that.
+    async with conn.execute(
+        """
+        SELECT e.name,
+               COUNT(DISTINCT DATE(w.started_at,'localtime')) AS session_count,
+               MAX(CASE WHEN DATE(w.started_at,'localtime') >= DATE('now','-28 days')
+                        THEN ROUND(s.weight_kg * (1.0 + s.reps / 30.0), 1) END) AS recent_1rm,
+               MAX(CASE WHEN DATE(w.started_at,'localtime') <  DATE('now','-28 days')
+                        AND  DATE(w.started_at,'localtime') >= DATE('now','-84 days')
+                        THEN ROUND(s.weight_kg * (1.0 + s.reps / 30.0), 1) END) AS prior_1rm
+        FROM sets s
+        JOIN exercises e ON e.id = s.exercise_id
+        JOIN workouts w ON w.id = s.workout_id AND w.ended_at IS NOT NULL
+        WHERE s.user_id = ?
+        GROUP BY s.exercise_id
+        HAVING recent_1rm IS NOT NULL
+           AND prior_1rm IS NOT NULL
+           AND session_count >= 4
+           AND recent_1rm <= prior_1rm * 1.02
+        ORDER BY (prior_1rm - recent_1rm) DESC
+        LIMIT 6
+        """,
+        (uid,),
+    ) as cur:
+        stalled = [r["name"] for r in await cur.fetchall()]
+
     return {
         "total_workouts": freq["n"],
         "first_day": freq["first_day"],
@@ -108,4 +160,6 @@ async def build_profile(conn: aiosqlite.Connection, uid: int) -> dict:
         "muscle_sets": muscle_sets,
         "undertrained": undertrained,
         "top_lifts": top_lifts,
+        "muscle_recovery": muscle_recovery,
+        "stalled": stalled,
     }
