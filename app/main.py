@@ -168,7 +168,7 @@ async def lifespan(app: FastAPI):
         clear_db()
 
 
-app = FastAPI(title="Fitness Tracker", lifespan=lifespan)
+app = FastAPI(title="Zenkai", lifespan=lifespan)
 app.add_middleware(GZipMiddleware, minimum_size=1000)
 app.add_middleware(_SecurityHeadersMiddleware)
 app.add_middleware(_AuthMiddleware)

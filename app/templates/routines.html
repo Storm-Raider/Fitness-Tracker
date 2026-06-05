@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}Routines — FitStorm{% endblock %}
+{% block title %}Routines — Zenkai{% endblock %}
 {% block content %}
 {% set own_routines = routines | selectattr('is_own') | list %}
 {% set lib_routines = routines | rejectattr('is_own') | list %}

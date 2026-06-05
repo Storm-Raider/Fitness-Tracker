@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}{{ c.title }} — FitStorm{% endblock %}
+{% block title %}{{ c.title }} — Zenkai{% endblock %}
 {% block content %}
 <style>
 .rule { display: flex; align-items: center; gap: 0.85rem; padding: 0.7rem 0; border-bottom: 1px solid rgba(30,35,52,0.6); cursor: pointer; }
@@ -220,7 +220,7 @@ const ATTEMPT_ID = {{ c.id }};
 // ── Device-local photo store (IndexedDB) — images NEVER leave this device ──
 function idb() {
   return new Promise((res, rej) => {
-    const req = indexedDB.open('fitstorm-challenge-photos', 1);
+    const req = indexedDB.open('zenkai-challenge-photos', 1);
     req.onupgradeneeded = () => req.result.createObjectStore('photos', {keyPath: 'id'});
     req.onsuccess = () => res(req.result);
     req.onerror = () => rej(req.error);

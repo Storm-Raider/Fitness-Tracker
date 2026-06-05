@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <title>{% block title %}FitStorm{% endblock %}</title>
+  <title>{% block title %}Zenkai{% endblock %}</title>
   <link rel="manifest" href="/static/manifest.json">
   <meta name="theme-color" content="#090b10">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -943,7 +943,7 @@
   <nav aria-label="Main navigation">
     <span class="brand">
       <span class="brand-dot"></span>
-      FitStorm
+      Zenkai
     </span>
     <span class="nav-sep"></span>
     <div class="nav-links" id="nav-links">
@@ -1122,7 +1122,7 @@
     })();
     // Unit preference (kg / lbs) — initialised from server, synced back on change
     (function() {
-      const KEY = 'fitstorm_unit';
+      const KEY = 'zenkai_unit';
       // Seed localStorage from server preference so cross-device preference works
       var _serverPref = '{{ (user.pref_unit if user is defined and user else "kg") | e }}';
       if (_serverPref === 'kg' || _serverPref === 'lbs') {
@@ -1168,7 +1168,7 @@
     })();
     // Distance preference (km / mi) — initialised from server, synced back on change
     (function() {
-      const DKEY = 'fitstorm_distance';
+      const DKEY = 'zenkai_distance';
       var _serverDist = '{{ (user.pref_distance if user is defined and user else "km") | e }}';
       if (_serverDist === 'km' || _serverDist === 'mi') {
         localStorage.setItem(DKEY, _serverDist);
@@ -1215,7 +1215,7 @@
     })();
     // Body measurement preference (cm / in) — initialised from server, synced back on change
     (function() {
-      const BKEY = 'fitstorm_body_unit';
+      const BKEY = 'zenkai_body_unit';
       var _serverBody = '{{ (user.pref_body_measurement if user is defined and user else "cm") | e }}';
       if (_serverBody === 'cm' || _serverBody === 'in') {
         localStorage.setItem(BKEY, _serverBody);
@@ -1401,7 +1401,7 @@
     // redirects to /workouts). Stash the undo token and show it on next load.
     window.stashUndoToast = function(token, label) {
       if (!token) return;
-      try { sessionStorage.setItem('fitstorm_undo', JSON.stringify({token: token, label: label})); } catch (e) {}
+      try { sessionStorage.setItem('zenkai_undo', JSON.stringify({token: token, label: label})); } catch (e) {}
     };
 
     window.showConfirm = function(message, onConfirm, opts) {
@@ -1466,9 +1466,9 @@
     });
     document.addEventListener('DOMContentLoaded', function() {
       try {
-        var raw = sessionStorage.getItem('fitstorm_undo');
+        var raw = sessionStorage.getItem('zenkai_undo');
         if (raw) {
-          sessionStorage.removeItem('fitstorm_undo');
+          sessionStorage.removeItem('zenkai_undo');
           var u = JSON.parse(raw);
           if (u && u.token) window.showUndoToast(u.token, u.label);
         }

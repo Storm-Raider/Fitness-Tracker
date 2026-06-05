@@ -1,6 +1,6 @@
 {
-  "name": "FitStorm",
-  "short_name": "FitStorm",
+  "name": "Zenkai",
+  "short_name": "Zenkai",
   "description": "Self-hosted fitness tracker",
   "start_url": "/",
   "scope": "/",

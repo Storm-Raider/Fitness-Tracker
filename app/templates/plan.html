@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}Training Plan — FitStorm{% endblock %}
+{% block title %}Training Plan — Zenkai{% endblock %}
 {% block content %}
 <style>
 /* ── Mode toggle ── */
@@ -659,7 +659,7 @@
 ══════════════════════════════════════════════════ */
 function setMode(m) {
   if (!['ai','meso'].includes(m)) m = 'ai';
-  localStorage.setItem('fitstorm:plan:mode', m);
+  localStorage.setItem('zenkai:plan:mode', m);
   document.getElementById('mode-ai').classList.toggle('active', m === 'ai');
   document.getElementById('mode-meso').classList.toggle('active', m === 'meso');
   document.getElementById('plan-ai').style.display = m === 'ai' ? '' : 'none';
@@ -677,7 +677,7 @@ function setMode(m) {
   }
 }
 document.addEventListener('DOMContentLoaded', () => {
-  const saved = localStorage.getItem('fitstorm:plan:mode');
+  const saved = localStorage.getItem('zenkai:plan:mode');
   setMode(['ai','meso'].includes(saved) ? saved : 'ai');
 });
 
@@ -1126,7 +1126,7 @@ window.addEventListener('unitchange', generatePlan);
 document.addEventListener('DOMContentLoaded', () => {
   // generatePlan() will be called by setMode() → setMesoGoal() when switching to meso
   // but run it now in case the page starts in meso mode
-  const saved = localStorage.getItem('fitstorm:plan:mode');
+  const saved = localStorage.getItem('zenkai:plan:mode');
   if (saved === 'meso') generatePlan();
 });
 </script>
