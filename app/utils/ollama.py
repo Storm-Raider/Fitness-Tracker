@@ -19,7 +19,7 @@ import os
 import httpx
 
 DEFAULT_URL = "http://localhost:11434"
-DEFAULT_MODEL = "qwen2.5:3b"
+DEFAULT_MODEL = "qwen2.5:1.5b"
 
 
 def ollama_url() -> str:
@@ -89,8 +89,8 @@ async def chat_json(
         ) from exc
     except httpx.TimeoutException as exc:
         raise OllamaError(
-            "Ollama timed out generating the routine. Try fewer training days "
-            "or a smaller model (set OLLAMA_MODEL=gemma3:1b)."
+            "Ollama timed out generating the routine. Try fewer training days, "
+            "or switch to a faster model (set OLLAMA_MODEL=qwen2.5:1.5b in your .env)."
         ) from exc
     except httpx.HTTPStatusError as exc:
         detail = exc.response.text[:200]
