@@ -5,9 +5,9 @@
   <div>
     <h1>Stats</h1>
     <div class="subtitle">
-      {{ weekly_rows | length }} week{{ 's' if weekly_rows | length != 1 }}
-      {% if pr_timeline %} · {{ pr_timeline | length }}{% if pr_timeline | length == 120 %}+{% endif %} PRs{% endif %}
-      {% if muscle_recovery %} · {{ muscle_recovery | length }} muscles tracked{% endif %}
+      <span class="num">{{ weekly_rows | length }}</span> week{{ 's' if weekly_rows | length != 1 }}
+      {% if pr_timeline %} · <span class="num">{{ pr_timeline | length }}{% if pr_timeline | length == 120 %}+{% endif %}</span> PRs{% endif %}
+      {% if muscle_recovery %} · <span class="num">{{ muscle_recovery | length }}</span> muscles tracked{% endif %}
     </div>
   </div>
 </div>
@@ -52,9 +52,9 @@
         {% set color = "var(--danger)" %}
         {% set label = "fatigued" %}
       {% elif m.days_ago <= 3 %}
-        {% set bg = "rgba(245,158,11,0.1)" %}
-        {% set border = "rgba(245,158,11,0.3)" %}
-        {% set color = "#f59e0b" %}
+        {% set bg = "rgba(251,146,60,0.1)" %}
+        {% set border = "rgba(251,146,60,0.3)" %}
+        {% set color = "#fb923c" %}
         {% set label = "recovering" %}
       {% else %}
         {% set bg = "rgba(52,211,153,0.1)" %}
@@ -73,7 +73,7 @@
     </div>
     <div style="display:flex;gap:1.25rem;margin-top:0.85rem;flex-wrap:wrap;">
       <span style="font-size:0.7rem;color:var(--success);display:flex;align-items:center;gap:0.3rem;"><span style="width:8px;height:8px;background:rgba(52,211,153,0.6);border-radius:50%;display:inline-block;"></span>Fresh (4+ days)</span>
-      <span style="font-size:0.7rem;color:#f59e0b;display:flex;align-items:center;gap:0.3rem;"><span style="width:8px;height:8px;background:rgba(245,158,11,0.6);border-radius:50%;display:inline-block;"></span>Recovering (2–3 days)</span>
+      <span style="font-size:0.7rem;color:#fb923c;display:flex;align-items:center;gap:0.3rem;"><span style="width:8px;height:8px;background:rgba(251,146,60,0.6);border-radius:50%;display:inline-block;"></span>Recovering (2–3 days)</span>
       <span style="font-size:0.7rem;color:var(--danger);display:flex;align-items:center;gap:0.3rem;"><span style="width:8px;height:8px;background:rgba(248,113,113,0.6);border-radius:50%;display:inline-block;"></span>Fatigued (0–1 days)</span>
     </div>
   </div>
@@ -208,7 +208,7 @@ document.getElementById('pr-tl-search').addEventListener('keydown', e => {
 
 {# ── 7. Top exercises ────────────────────────────────────────────── #}
 {% if top_exercises %}
-<div>
+<div style="margin-bottom:1.5rem;">
   <div class="section-title">Top exercises — all time</div>
   <div class="card" style="padding:0;overflow:hidden;">
     <table>
@@ -270,7 +270,7 @@ document.getElementById('pr-tl-search').addEventListener('keydown', e => {
       ctx.strokeStyle = '#1f2535'; ctx.lineWidth = 1;
       ctx.beginPath(); ctx.moveTo(PL, y); ctx.lineTo(PL + cW, y); ctx.stroke();
       if (f > 0) {
-        ctx.fillStyle = '#4a5568'; ctx.font = '10px Inter,system-ui,sans-serif'; ctx.textAlign = 'right';
+        ctx.fillStyle = '#4a5568'; ctx.font = "10px 'JetBrains Mono',monospace"; ctx.textAlign = 'right';
         const label = cvt(gv);
         ctx.fillText(label >= 1000 ? (label/1000).toFixed(1)+'k' : Math.round(label), PL - 4, y + 4);
       }

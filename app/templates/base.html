@@ -528,7 +528,9 @@
       padding: 1.25rem;
       box-shadow: var(--shadow-sm);
       position: relative;
+      transition: border-color 0.18s;
     }
+    .card:hover { border-color: var(--border-mid); }
     .card::before {
       content: '';
       position: absolute;
@@ -771,6 +773,7 @@
       font-size: 0.825rem;
       color: var(--muted);
       margin-top: 0.2rem;
+      font-variant-numeric: tabular-nums;
     }
 
     /* ── Steppers ────────────────────────────────────── */
