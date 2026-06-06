@@ -279,3 +279,32 @@ Re-action if a dedicated routine management page is built: add `user_id` to `GET
 ## Completed
 
 - **#15/#16 — Body measurement unit toggle (cm ↔ in)** — `cm | in` toggle in the Body Metrics page header; preference persisted in `user_settings.pref_body_measurement`; measurements, BMI height, chart, and table all unit-aware; DB always stores cm. **Completed:** 2026-06-03
+
+## ISSUE-24: feat: merge Records + Stats into unified Analytics page
+
+**Source:** auto-triage (2026-06-06)
+**Why major:** The implementation spans 7 files (new route, new template, 2 redirect stubs, base.html, dashboard.html, main.py) with substantial new query logic and template authoring, far exceeding the 2-file/~30-line minor threshold.
+**Link:** https://github.com/Storm-Raider/Fitness-Tracker/issues/24
+
+## feat: Unified Analytics page (Fixes #24)
+
+**Scope:** 7 files, new route + template, navigation restructure.
+
+### Files to create
+- `app/routes/analytics.py` — combine query logic from `prs.py` (108 lines) and `stats.py` (221 lines); omit `pr_timeline`, `top_exercises`, `weekly_muscle_sets`
+- `app/templates/analytics.html` — 6 sections in order: heatmap → recovery badges → strength percentiles → PR table → volume trend → stalled exercises
+
+### Files to modify
+- `app/routes/prs.py` — replace body with `RedirectResponse("/analytics", status_code=301)`
+- `app/routes/stats.py` — replace body with `RedirectResponse("/analytics", status_code=301)`
+- `app/main.py` — import `analytics` router and add `app.include_router(analytics.router)`
+- `app/templates/base.html` — (a) desktop nav: remove Stats + Records, add Analytics; (b) mobile tab: Records→Analytics (bar-chart-2); (c) mobile tab: Stats→Plan (calendar-check); (d) More sheet: remove Plan mob-more-item block
+- `app/templates/dashboard.html` — update 2 `/prs` hrefs to `/analytics`
+
+### Success criteria
+- `/analytics` loads all 6 sections in specified order
+- `/prs` and `/stats` return 301 redirects
+- Mobile tab bar: Home / Sessions / Analytics / Plan / More
+- Desktop nav has single Analytics item
+- No broken `/prs` or `/stats` references in templates
+- `prs.html` and `stats.html` can be deleted in follow-up cleanup
