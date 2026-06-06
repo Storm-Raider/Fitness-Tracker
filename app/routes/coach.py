@@ -461,13 +461,36 @@ _SYSTEM_PROMPT = (
 
 # ── Validation / name resolution ─────────────────────────────────────
 
-async def _name_to_id_map(conn: aiosqlite.Connection) -> dict[str, dict]:
-    """lowercased exercise name -> {id, name} for resolving model output."""
+async def _name_to_id_map(conn: aiosqlite.Connection) -> tuple[dict[str, dict], dict[str, dict]]:
+    """
+    Returns (name_map, norm_map).
+
+    name_map: lowercased exact name → {id, name}
+    norm_map: normalized variants → {id, name}, covering:
+      - hyphens replaced with spaces ("Pull-up" → "pull up")
+      - trailing plural 's' stripped ("Lateral Raises" → "lateral raise")
+    Normalized variants are only added when they don't collide with a real name,
+    so "Press" (real) is never overwritten by stripping 's' from "Presses".
+    """
     async with conn.execute("SELECT id, name FROM exercises") as cur:
-        return {r["name"].lower(): {"id": r["id"], "name": r["name"]} for r in await cur.fetchall()}
+        rows = await cur.fetchall()
+    name_map = {r["name"].lower(): {"id": r["id"], "name": r["name"]} for r in rows}
+    norm_map: dict[str, dict] = {}
+    for key, val in name_map.items():
+        # hyphen → space ("pull-up" → "pull up")
+        spaced = key.replace("-", " ")
+        if spaced != key and spaced not in name_map:
+            norm_map[spaced] = val
+        for base in (key, spaced):
+            # +s plural  ("lateral raise" → "lateral raises")
+            for suffix in ("s", "es"):
+                variant = base + suffix
+                if variant not in name_map and variant not in norm_map:
+                    norm_map[variant] = val
+    return name_map, norm_map
 
 
-def _normalise_plan(raw: dict, goal: str, days: int, name_map: dict) -> tuple[dict, list[str]]:
+def _normalise_plan(raw: dict, goal: str, days: int, name_map: dict, norm_map: dict | None = None) -> tuple[dict, list[str]]:
     """
     Coerce the model's output into our shape, resolve exercise names to real
     library entries, drop anything unrecognised, and cap to `days` days.
@@ -481,9 +504,17 @@ def _normalise_plan(raw: dict, goal: str, days: int, name_map: dict) -> tuple[di
         for ex in (day.get("exercises") or []):
             name = str(ex.get("name", "")).strip()
             match = name_map.get(name.lower())
-            if not match:
-                if name:
+            if not match and name:
+                # Recover common model errors without risking false-positive fuzzy matches:
+                # 1) hyphen/en-dash ↔ space  ("Pull Up" → "Pull-up")
+                # 2) trailing plural 's'      ("Lateral Raises" → "Lateral Raise")
+                key = name.lower()
+                alt = _norm_map.get(key) or _norm_map.get(key.replace("-", " ").replace("–", " "))
+                match = alt
+                if not match:
                     dropped.append(name)
+                    continue
+            elif not match:
                 continue
             try:
                 sets = max(1, min(20, int(ex.get("sets") or 3)))
@@ -544,8 +575,8 @@ async def _run_generation(
                 _SYSTEM_PROMPT, prompt, _plan_schema(days, min_ex, max_ex),
                 timeout=480.0, temperature=0.2,
             )
-            name_map = await _name_to_id_map(conn)
-            plan, dropped = _normalise_plan(raw, goal, days, name_map)
+            name_map, _norm_map = await _name_to_id_map(conn)
+            plan, dropped = _normalise_plan(raw, goal, days, name_map, _norm_map)
         if not plan["days"]:
             _JOBS[job_id] = {"status": "error", "user_id": uid,
                              "error": "The model didn't return any usable exercises. Try again."}
@@ -637,7 +668,7 @@ async def save_plan(
     current_user=Depends(get_current_user),
 ):
     uid = current_user["id"]
-    name_map = await _name_to_id_map(conn)
+    name_map, _ = await _name_to_id_map(conn)
 
     # Re-resolve names server-side; never trust client-supplied ids.
     stored_days = []
