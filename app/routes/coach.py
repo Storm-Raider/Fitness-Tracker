@@ -466,9 +466,10 @@ async def _name_to_id_map(conn: aiosqlite.Connection) -> tuple[dict[str, dict], 
     Returns (name_map, norm_map).
 
     name_map: lowercased exact name → {id, name}
-    norm_map: normalized variants → {id, name}, covering:
-      - hyphens replaced with spaces ("Pull-up" → "pull up")
-      - trailing plural 's' stripped ("Lateral Raises" → "lateral raise")
+    norm_map: model-output variants → canonical {id, name}, covering:
+      - hyphen ↔ space          ("pull up"        → Pull-up)
+      - +s / +es plural forms   ("lateral raises" → Lateral Raise,
+                                  "overhead presses" → Overhead Press)
     Normalized variants are only added when they don't collide with a real name,
     so "Press" (real) is never overwritten by stripping 's' from "Presses".
     """
@@ -509,7 +510,7 @@ def _normalise_plan(raw: dict, goal: str, days: int, name_map: dict, norm_map: d
                 # 1) hyphen/en-dash ↔ space  ("Pull Up" → "Pull-up")
                 # 2) trailing plural 's'      ("Lateral Raises" → "Lateral Raise")
                 key = name.lower()
-                alt = _norm_map.get(key) or _norm_map.get(key.replace("-", " ").replace("–", " "))
+                alt = norm_map and (norm_map.get(key) or norm_map.get(key.replace("-", " ").replace("–", " ")))
                 match = alt
                 if not match:
                     dropped.append(name)
