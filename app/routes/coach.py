@@ -205,10 +205,9 @@ class FeedbackIn(BaseModel):
     feedback: str = Field(pattern=r"^(too_easy|just_right|too_hard|skipped_often)$")
 
 
-# Equipment ranked by how "staple" it is — biases the shortlist toward
-# compound barbell/dumbbell work over isolation machines.
+# Equipment ranked by how "staple" it is — biases the catalog toward
+# compound barbell/dumbbell work over isolation machines within each category.
 _EQUIP_RANK = {"Barbell": 0, "Dumbbell": 1, "Bodyweight": 2, "Cable": 3, "Machine": 4}
-_PER_CATEGORY = 12  # cap names per category to keep the prompt small enough for on-device inference
 
 # Rank lookup for the conventional staples — lower index = higher priority.
 _PRIORITY_RANK = {name.lower(): i for i, name in enumerate(_PRIORITY_EXERCISES)}
@@ -216,15 +215,12 @@ _PRIORITY_RANK = {name.lower(): i for i, name in enumerate(_PRIORITY_EXERCISES)}
 
 async def _exercise_catalog(conn: aiosqlite.Connection, uid: int) -> dict[str, list[str]]:
     """
-    A focused, capped shortlist of pickable exercises grouped by category
-    (Cardio excluded). Ordering within each category:
-      1. Conventional staples (_PRIORITY_EXERCISES) — always surfaced first so
-         the model has the textbook compounds to build a real split from.
-      2. Movements the athlete already trains.
-      3. Barbell/dumbbell staples over isolation machines.
-    Kept small so the prompt fits the time budget of a local model — generated
-    names are still validated against the full library at save time, so nothing
-    here limits what can ultimately be stored.
+    Full library of pickable exercises grouped by category (Cardio excluded),
+    ordered so the model sees conventional staples first, then movements the
+    athlete already trains, then by equipment tier.
+
+    No per-category cap — the model is shown every available exercise so it
+    cannot justify using a name that isn't in the library.
     """
     async with conn.execute(
         """
@@ -248,9 +244,7 @@ async def _exercise_catalog(conn: aiosqlite.Connection, uid: int) -> dict[str, l
 
     catalog: dict[str, list[str]] = {}
     for r in rows:
-        bucket = catalog.setdefault(r["category"], [])
-        if len(bucket) < _PER_CATEGORY:
-            bucket.append(r["name"])
+        catalog.setdefault(r["category"], []).append(r["name"])
     return catalog
 
 
