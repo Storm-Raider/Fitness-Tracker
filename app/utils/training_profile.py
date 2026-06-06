@@ -168,6 +168,46 @@ async def build_profile(conn: aiosqlite.Connection, uid: int) -> dict:
     ) as cur:
         stalled = [r["name"] for r in await cur.fetchall()]
 
+    # Average session duration — guides the model on how many exercises to include.
+    async with conn.execute(
+        """
+        SELECT AVG((julianday(ended_at) - julianday(started_at)) * 1440) AS avg_min
+        FROM workouts
+        WHERE user_id = ? AND ended_at IS NOT NULL
+          AND (julianday(ended_at) - julianday(started_at)) BETWEEN 0.01 AND 0.25
+          AND DATE(started_at) >= DATE('now', '-90 days')
+        """,
+        (uid,),
+    ) as cur:
+        dur_row = await cur.fetchone()
+    avg_session_minutes = round(dur_row["avg_min"]) if dur_row and dur_row["avg_min"] else None
+
+    # Most recent bodyweight — for BW exercise load notation.
+    async with conn.execute(
+        """
+        SELECT weight_kg FROM body_metrics
+        WHERE user_id = ? AND weight_kg > 0
+        ORDER BY recorded_at DESC LIMIT 1
+        """,
+        (uid,),
+    ) as cur:
+        bw_row = await cur.fetchone()
+    bodyweight_kg = bw_row["weight_kg"] if bw_row else None
+
+    # User-set strength targets — plan should progress toward these.
+    async with conn.execute(
+        """
+        SELECT e.name, eg.target_kg
+        FROM exercise_goals eg
+        JOIN exercises e ON e.id = eg.exercise_id
+        WHERE eg.user_id = ?
+        ORDER BY eg.target_kg DESC
+        LIMIT 6
+        """,
+        (uid,),
+    ) as cur:
+        exercise_goals = [dict(r) for r in await cur.fetchall()]
+
     # Feedback on the most recent coach plan — informs next generation's intensity.
     async with conn.execute(
         """
@@ -185,12 +225,15 @@ async def build_profile(conn: aiosqlite.Connection, uid: int) -> dict:
         "first_day": freq["first_day"],
         "last_day": freq["last_day"],
         "sessions_per_week": sessions_per_week,
+        "avg_session_minutes": avg_session_minutes,
         "top_exercises": top_exercises,
         "muscle_sets": muscle_sets,
         "avg_weekly_sets": avg_weekly_sets,
         "undertrained": undertrained,
         "preferred_equipment": preferred_equipment,
         "top_lifts": top_lifts,
+        "bodyweight_kg": bodyweight_kg,
+        "exercise_goals": exercise_goals,
         "muscle_recovery": muscle_recovery,
         "stalled": stalled,
         "last_plan_feedback": last_plan_feedback,

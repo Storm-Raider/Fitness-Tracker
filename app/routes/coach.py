@@ -213,20 +213,25 @@ _EQUIP_RANK = {"Barbell": 0, "Dumbbell": 1, "Bodyweight": 2, "Cable": 3, "Machin
 _PRIORITY_RANK = {name.lower(): i for i, name in enumerate(_PRIORITY_EXERCISES)}
 
 
-async def _exercise_catalog(conn: aiosqlite.Connection, uid: int) -> dict[str, list[str]]:
+async def _exercise_catalog(
+    conn: aiosqlite.Connection, uid: int
+) -> dict[str, dict[str, list[str]]]:
     """
-    Full library of pickable exercises grouped by category (Cardio excluded),
-    ordered so the model sees conventional staples first, then movements the
-    athlete already trains, then by equipment tier.
+    Full library grouped as {category: {primary_muscle: ['Name [Equipment]', ...]}}
+    ordered so conventional staples appear first within each group.
 
-    No per-category cap — the model is shown every available exercise so it
-    cannot justify using a name that isn't in the library.
+    Including equipment and primary muscle lets the model pick exercises that
+    match the athlete's preferred equipment and address their undertrained muscles
+    — without having to infer these from the exercise name alone.
     """
     async with conn.execute(
         """
         SELECT e.name,
                COALESCE(e.category, 'Other') AS category,
                COALESCE(e.equipment, '') AS equipment,
+               (SELECT em.muscle FROM exercise_muscles em
+                WHERE em.exercise_id = e.id AND em.is_primary = 1
+                ORDER BY em.rowid ASC LIMIT 1) AS primary_muscle,
                (SELECT COUNT(*) FROM sets s WHERE s.exercise_id = e.id AND s.user_id = ?) AS used
         FROM exercises e
         WHERE COALESCE(e.category, '') != 'Cardio'
@@ -236,15 +241,19 @@ async def _exercise_catalog(conn: aiosqlite.Connection, uid: int) -> dict[str, l
         rows = [dict(r) for r in await cur.fetchall()]
 
     rows.sort(key=lambda r: (
-        _PRIORITY_RANK.get(r["name"].lower(), 999),  # conventional staples first
-        0 if r["used"] else 1,                        # then exercises the user trains
-        _EQUIP_RANK.get(r["equipment"], 5),           # then staple equipment
+        _PRIORITY_RANK.get(r["name"].lower(), 999),
+        0 if r["used"] else 1,
+        _EQUIP_RANK.get(r["equipment"], 5),
         r["name"],
     ))
 
-    catalog: dict[str, list[str]] = {}
+    catalog: dict[str, dict[str, list[str]]] = {}
     for r in rows:
-        catalog.setdefault(r["category"], []).append(r["name"])
+        cat = r["category"]
+        muscle = r["primary_muscle"] or cat
+        equip = r["equipment"]
+        label = f"{r['name']} [{equip}]" if equip else r["name"]
+        catalog.setdefault(cat, {}).setdefault(muscle, []).append(label)
     return catalog
 
 
@@ -343,6 +352,29 @@ def _build_prompt(goal: str, days: int, profile: dict, catalog: dict, focus_note
             f"- Strength stalled (no e1RM gain in 4 weeks) — vary rep range or swap variation: "
             + ", ".join(profile["stalled"]) + "."
         )
+
+    # Bodyweight — for BW exercise notation and relative load context
+    bw = profile.get("bodyweight_kg")
+    if bw:
+        lines.append(f"- Current bodyweight: {bw} kg (use for BW exercise load notation, e.g. 'BW+20 kg').")
+
+    # Average session length — guides exercise count per day
+    asm = profile.get("avg_session_minutes")
+    if asm:
+        # ~7 min/exercise is a practical estimate for warm-up + working sets + rest
+        ex_count = max(4, min(10, round(asm / 7)))
+        lines.append(
+            f"- Average session length: {asm} min → target ~{ex_count} exercises per session."
+        )
+
+    # User-set strength targets — plan should progress toward these
+    goals_list = profile.get("exercise_goals") or []
+    if goals_list:
+        goal_parts = [f"{g['name']} → {g['target_kg']} kg" for g in goals_list]
+        lines.append(
+            "- ATHLETE STRENGTH GOALS (design the plan to progress toward these): "
+            + "; ".join(goal_parts) + "."
+        )
     lines.append("")
 
     # ── Split & prescription ──────────────────────────────────────────
@@ -355,9 +387,10 @@ def _build_prompt(goal: str, days: int, profile: dict, catalog: dict, focus_note
     lines.append("")
 
     # ── Exercise catalog ──────────────────────────────────────────────
-    lines.append("ALLOWED EXERCISES — use these EXACT names, no others:")
-    for cat, names in catalog.items():
-        lines.append(f"  {cat}: {', '.join(names)}")
+    lines.append("ALLOWED EXERCISES — use EXACT names from this list, grouped by Category/Muscle:")
+    for cat, muscle_map in catalog.items():
+        for muscle, exercise_labels in muscle_map.items():
+            lines.append(f"  {cat}/{muscle}: {', '.join(exercise_labels)}")
     lines.append("")
 
     # ── Rules ─────────────────────────────────────────────────────────
@@ -371,7 +404,7 @@ def _build_prompt(goal: str, days: int, profile: dict, catalog: dict, focus_note
         "one direct exercise somewhere in the week.\n"
         "4. SPLIT LABEL. Give each day a clear focus matching the recommended split "
         "(e.g. 'Push', 'Pull', 'Legs', 'Upper Body', 'Full Body').\n"
-        "5. VOLUME. 6–8 exercises per day; use the set/rep scheme from the prescription.\n"
+        "5. VOLUME. Match the session length from the profile; use the set/rep scheme from the prescription.\n"
         "6. PROGRESSION. Every exercise note must contain a specific overload cue "
         "(e.g. 'add 2.5 kg when all reps completed with good form', 'add 1 rep per week').\n"
         "7. RECOVERY. No heavy loading of the same primary muscle on consecutive days.\n"
