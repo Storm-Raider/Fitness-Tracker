@@ -214,15 +214,16 @@ _PRIORITY_RANK = {name.lower(): i for i, name in enumerate(_PRIORITY_EXERCISES)}
 
 
 async def _exercise_catalog(
-    conn: aiosqlite.Connection, uid: int
+    conn: aiosqlite.Connection, uid: int,
+    preferred_equipment: list[str] | None = None,
 ) -> dict[str, dict[str, list[str]]]:
     """
-    Full library grouped as {category: {primary_muscle: ['Name [Equipment]', ...]}}
+    Library grouped as {category: {primary_muscle: ['Name [Equipment]', ...]}}
     ordered so conventional staples appear first within each group.
 
-    Including equipment and primary muscle lets the model pick exercises that
-    match the athlete's preferred equipment and address their undertrained muscles
-    — without having to infer these from the exercise name alone.
+    When preferred_equipment is provided the catalog is filtered to exercises
+    that use that equipment OR are conventional staples — keeping the prompt
+    short enough for a small model to handle without losing core movements.
     """
     async with conn.execute(
         """
@@ -239,6 +240,16 @@ async def _exercise_catalog(
         (uid,),
     ) as cur:
         rows = [dict(r) for r in await cur.fetchall()]
+
+    # Filter to preferred equipment while always preserving conventional staples.
+    # New users with no equipment history get the full library.
+    if preferred_equipment:
+        preferred_set = set(preferred_equipment)
+        priority_names = {n.lower() for n in _PRIORITY_EXERCISES}
+        rows = [
+            r for r in rows
+            if r["equipment"] in preferred_set or r["name"].lower() in priority_names
+        ]
 
     rows.sort(key=lambda r: (
         _PRIORITY_RANK.get(r["name"].lower(), 999),
@@ -436,7 +447,15 @@ _SYSTEM_PROMPT = (
     "undertrained muscles receive proportionally more work.\n"
     "- PROVEN SPLITS: Full Body, Upper/Lower, Push/Pull/Legs only.\n\n"
     "You ONLY use exercise names from the provided ALLOWED list, spelled exactly. "
-    "You return your answer strictly as JSON matching the schema — zero prose outside the JSON."
+    "You return your answer strictly as JSON matching the schema — zero prose outside the JSON.\n\n"
+    "Example of one well-formed day (follow this exact shape):\n"
+    '{"focus": "Push", "exercises": ['
+    '{"name": "Bench Press", "sets": 4, "reps": "5", "note": "@ 90 kg — add 2.5 kg when all reps clean"}, '
+    '{"name": "Overhead Press", "sets": 3, "reps": "8", "note": "@ 55 kg — add 1 rep/week to 10, then +2.5 kg"}, '
+    '{"name": "Incline Dumbbell Press", "sets": 3, "reps": "10-12", "note": "@ 28 kg — increase by 2 kg when hitting 12"}, '
+    '{"name": "Lateral Raise", "sets": 3, "reps": "15", "note": "@ 12 kg — slow eccentric, increase when form is solid"}, '
+    '{"name": "Tricep Pushdown", "sets": 3, "reps": "12", "note": "@ 30 kg — add 2.5 kg every 2 weeks"}'
+    "]}"
 )
 
 
@@ -516,7 +535,7 @@ async def _run_generation(
             if _JOBS.get(job_id, {}).get("status") == "queued":
                 _JOBS[job_id] = {"status": "processing", "user_id": uid}
             profile = await build_profile(conn, uid)
-            catalog = await _exercise_catalog(conn, uid)
+            catalog = await _exercise_catalog(conn, uid, profile.get("preferred_equipment"))
             prompt = _build_prompt(goal, days, profile, catalog, focus_note)
             raw = await ollama.chat_json(
                 _SYSTEM_PROMPT, prompt, _plan_schema(days),
