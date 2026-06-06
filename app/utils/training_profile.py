@@ -83,21 +83,38 @@ async def build_profile(conn: aiosqlite.Connection, uid: int) -> dict:
             weeks = (await cur.fetchone())["weeks"] or 1
         sessions_per_week = round(freq["n"] / weeks, 1)
 
-    # Neglected muscles = muscles the user has worked in the last 90 days
-    # but has NOT touched in the last 7 days.
+    # Average weekly sets per muscle over the 90-day window (≈13 weeks).
+    avg_weekly_sets = {m: round(n / 13.0, 1) for m, n in muscle_sets.items()}
+
+    # Genuinely undertrained: muscles with < 50% of the peak muscle's weekly
+    # volume, plus canonical muscles never touched in the 90-day window.
+    _ALL_MUSCLES = {"Abs", "Back", "Biceps", "Chest", "Forearms", "Legs", "Shoulders", "Triceps"}
+    if avg_weekly_sets:
+        _peak = max(avg_weekly_sets.values())
+        undertrained = sorted(
+            {m for m, v in avg_weekly_sets.items() if _peak > 0 and v < _peak * 0.5}
+            | (_ALL_MUSCLES - set(avg_weekly_sets))
+        )
+    else:
+        undertrained = []
+
+    # Most-used equipment types (top 3) — tells the coach what the athlete
+    # actually has access to and prefers.
     async with conn.execute(
         """
-        SELECT DISTINCT em.muscle
+        SELECT COALESCE(e.equipment, 'Other') AS equipment, COUNT(*) AS n
         FROM sets s
-        JOIN exercise_muscles em ON em.exercise_id = s.exercise_id AND em.is_primary = 1
+        JOIN exercises e ON e.id = s.exercise_id
         JOIN workouts w ON w.id = s.workout_id
         WHERE s.user_id = ?
-          AND DATE(w.started_at) >= DATE('now', '-7 days')
+          AND DATE(w.started_at) >= DATE('now', '-90 days')
+        GROUP BY equipment
+        ORDER BY n DESC
+        LIMIT 3
         """,
         (uid,),
     ) as cur:
-        recently_trained = {r["muscle"] for r in await cur.fetchall()}
-    undertrained = [m for m in muscle_sets if m not in recently_trained]
+        preferred_equipment = [r["equipment"] for r in await cur.fetchall()]
 
     # Muscle recovery state — days since each primary muscle was last trained.
     async with conn.execute(
@@ -170,7 +187,9 @@ async def build_profile(conn: aiosqlite.Connection, uid: int) -> dict:
         "sessions_per_week": sessions_per_week,
         "top_exercises": top_exercises,
         "muscle_sets": muscle_sets,
+        "avg_weekly_sets": avg_weekly_sets,
         "undertrained": undertrained,
+        "preferred_equipment": preferred_equipment,
         "top_lifts": top_lifts,
         "muscle_recovery": muscle_recovery,
         "stalled": stalled,

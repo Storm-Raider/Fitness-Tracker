@@ -251,112 +251,159 @@ async def _exercise_catalog(conn: aiosqlite.Connection, uid: int) -> dict[str, l
 def _build_prompt(goal: str, days: int, profile: dict, catalog: dict, focus_note: str) -> str:
     """Render the human-readable context block handed to the model."""
     lines: list[str] = []
+
+    # ── Goal & request ────────────────────────────────────────────────
     lines.append(f"GOAL: {GOALS[goal]}")
     lines.append(f"TRAINING DAYS PER WEEK: {days}")
     if focus_note.strip():
         lines.append(f"ATHLETE REQUEST: {focus_note.strip()}")
+
     _fb_map = {
-        "too_easy":     "previous plan was too easy — increase overall intensity and volume",
-        "just_right":   "previous plan difficulty was appropriate — maintain similar intensity",
-        "too_hard":     "previous plan was too hard — reduce volume or intensity by ~10–15%",
-        "skipped_often": "athlete skipped exercises often — choose simpler movements and fewer days",
+        "too_easy":      "previous plan was too easy — step up intensity and total volume",
+        "just_right":    "previous plan difficulty was appropriate — maintain similar intensity",
+        "too_hard":      "previous plan was too hard — cut volume or intensity by ~15%",
+        "skipped_often": "athlete skipped often — simplify movements and reduce session length",
     }
-    if profile.get("last_plan_feedback") and profile["last_plan_feedback"] in _fb_map:
-        lines.append(f"ATHLETE FEEDBACK ON LAST PLAN: {_fb_map[profile['last_plan_feedback']]}")
+    fb = profile.get("last_plan_feedback")
+    if fb and fb in _fb_map:
+        lines.append(f"FEEDBACK ON LAST PLAN: {_fb_map[fb]}")
     lines.append("")
 
-    lines.append("ATHLETE TRAINING PROFILE (last 90 days):")
-    if profile["total_workouts"]:
+    # ── Athlete profile ───────────────────────────────────────────────
+    lines.append("ATHLETE PROFILE (last 90 days):")
+
+    if not profile["total_workouts"]:
+        lines.append("- No workout history — design a beginner full-body programme.")
+    else:
         spw = profile["sessions_per_week"]
+        last = profile.get("last_day", "")
         lines.append(
             f"- {profile['total_workouts']} sessions logged"
             + (f", ~{spw}/week" if spw else "")
+            + (f". Last session: {last}." if last else "")
         )
-    else:
-        lines.append("- No workout history yet — treat as a beginner.")
 
+    # Preferred equipment
+    equip = profile.get("preferred_equipment") or []
+    if equip:
+        lines.append(f"- Preferred equipment: {', '.join(equip)} (bias the plan toward these).")
+
+    # Top movements
     if profile["top_exercises"]:
         movers = ", ".join(
-            f"{e['name']} ({e['sets']} sets)" for e in profile["top_exercises"][:10]
+            f"{e['name']} ({e['sets']} sets)" for e in profile["top_exercises"][:8]
         )
-        lines.append(f"- Most-trained movements: {movers}")
-    if profile["muscle_sets"]:
-        cov = ", ".join(f"{m}:{n}" for m, n in profile["muscle_sets"].items())
-        lines.append(f"- Sets per muscle: {cov}")
-    if profile["undertrained"]:
-        lines.append(f"- Under-trained / neglected: {', '.join(profile['undertrained'])}")
+        lines.append(f"- Most-trained movements: {movers}.")
+
+    # Estimated 1RMs + load targets for the chosen goal
     if profile["top_lifts"]:
-        lifts = ", ".join(f"{l['name']} e1RM {l['e1rm']}kg" for l in profile["top_lifts"])
-        lines.append(f"- Estimated 1RMs: {lifts}")
-    if profile.get("muscle_recovery"):
-        fatigued = [m for m, s in profile["muscle_recovery"].items() if s == "fatigued"]
-        recovering = [m for m, s in profile["muscle_recovery"].items() if s == "recovering"]
-        if fatigued:
-            lines.append(f"- Muscles trained ≤1 day ago (do NOT load heavily on Day 1): {', '.join(fatigued)}")
-        if recovering:
-            lines.append(f"- Muscles trained 2-3 days ago (light/moderate only until Day 3+): {', '.join(recovering)}")
+        pct_map = {"strength": 0.825, "hypertrophy": 0.70, "balance": 0.70, "general": 0.75}
+        pct = pct_map[goal]
+        lift_parts = []
+        for l in profile["top_lifts"]:
+            e1rm = l["e1rm"]
+            target = round(e1rm * pct / 2.5) * 2.5  # round to nearest 2.5 kg
+            lift_parts.append(f"{l['name']} e1RM {e1rm}kg (use ~{target}kg)")
+        lines.append(f"- Estimated 1RMs and suggested working loads: {'; '.join(lift_parts)}.")
+
+    # Weekly volume per muscle with undertrained flag
+    wvol = profile.get("avg_weekly_sets") or {}
+    if wvol:
+        ut = set(profile.get("undertrained") or [])
+        vol_parts = []
+        for m, v in sorted(wvol.items(), key=lambda x: -x[1]):
+            flag = " ⬇" if m in ut else ""
+            vol_parts.append(f"{m}: {v}{flag}")
+        lines.append(
+            f"- Weekly sets per muscle (target ≥10 for primary movers; ⬇ = under-trained): "
+            + ", ".join(vol_parts) + "."
+        )
+    if profile.get("undertrained"):
+        lines.append(
+            f"- PRIORITY — under-trained muscles that MUST receive direct work every week: "
+            + ", ".join(profile["undertrained"]) + "."
+        )
+
+    # Recovery state
+    rec = profile.get("muscle_recovery") or {}
+    fatigued = [m for m, s in rec.items() if s == "fatigued"]
+    recovering = [m for m, s in rec.items() if s == "recovering"]
+    if fatigued:
+        lines.append(
+            f"- Muscles trained ≤1 day ago — do NOT load heavily on Day 1: {', '.join(fatigued)}."
+        )
+    if recovering:
+        lines.append(
+            f"- Muscles trained 2–3 days ago — keep moderate until Day 3+: {', '.join(recovering)}."
+        )
+
+    # Stalled lifts
     if profile.get("stalled"):
-        lines.append(f"- Strength plateaued (no 1RM gain in 4 weeks): {', '.join(profile['stalled'])}")
+        lines.append(
+            f"- Strength stalled (no e1RM gain in 4 weeks) — vary rep range or swap variation: "
+            + ", ".join(profile["stalled"]) + "."
+        )
     lines.append("")
 
+    # ── Split & prescription ──────────────────────────────────────────
     lines.append(f"RECOMMENDED SPLIT for {days} day(s)/week:")
-    lines.append(f"- {_SPLIT_GUIDE.get(days, 'Distribute muscle groups evenly across the week.')}")
+    lines.append(_SPLIT_GUIDE.get(days, "Distribute muscle groups evenly across the week."))
     lines.append("")
 
-    lines.append(f"PRESCRIPTION for this goal ({goal}):")
+    lines.append(f"PRESCRIPTION ({goal}):")
     lines.append(_GOAL_PRESCRIPTION[goal])
     lines.append("")
 
-    lines.append("ALLOWED EXERCISES (use these EXACT names only):")
+    # ── Exercise catalog ──────────────────────────────────────────────
+    lines.append("ALLOWED EXERCISES — use these EXACT names, no others:")
     for cat, names in catalog.items():
-        lines.append(f"- {cat}: {', '.join(names)}")
+        lines.append(f"  {cat}: {', '.join(names)}")
     lines.append("")
 
+    # ── Rules ─────────────────────────────────────────────────────────
     lines.append(
-        f"Design a {days}-day weekly training split for this athlete following "
-        f"the recommended split and prescription above. Return exactly {days} "
-        "day(s).\n"
-        "RULES:\n"
-        "1. Each day starts with 1–2 heavy COMPOUND lifts (Squat, Deadlift, "
-        "Bench Press, Overhead Press, Row, Pull-up), then accessories.\n"
-        "2. Order exercises hardest-first: big compounds before isolation.\n"
-        "3. Give each day a clear focus label (e.g. 'Push', 'Pull', 'Legs', "
-        "'Upper Body', 'Full Body') matching the recommended split.\n"
-        "4. 6–8 exercises per day. Use the goal's set/rep scheme above.\n"
-        "5. Every exercise needs sets (integer), a rep target (e.g. '8-12' or "
-        "'5'), and a note that includes a PROGRESSION cue (e.g. 'add 2.5kg when "
-        "you hit the top of the rep range', 'add 1 rep per week').\n"
-        "6. Don't repeat the same primary compound on back-to-back days — allow "
-        "48h recovery for a muscle group.\n"
-        "7. Favour movements the athlete already trains, but deliberately add "
-        "work for the under-trained muscles listed above.\n"
-        "8. Only use exercise names from the ALLOWED list — exact spelling.\n"
-        "9. Never schedule heavy loading for a muscle marked 'trained ≤1 day ago' "
-        "in Day 1 — place it in a later day or use a light accessory only.\n"
-        "10. For plateaued exercises, change the rep range (e.g. switch to 3×3 or "
-        "4×15) or substitute a variation from the ALLOWED list."
+        f"Now design a {days}-day training split. Return exactly {days} day(s). RULES:\n"
+        "1. PERSONALISE. Use the athlete's actual movements and loads from the profile above — "
+        "not a generic template. Reference their real e1RMs in the note field.\n"
+        "2. COMPOUND FIRST. Each day opens with 1–2 heavy compound lifts (Squat / Deadlift / "
+        "Bench Press / Overhead Press / Row / Pull-up), then accessories, then isolation last.\n"
+        "3. COVER UNDER-TRAINED MUSCLES. Every priority muscle marked ⬇ must receive at least "
+        "one direct exercise somewhere in the week.\n"
+        "4. SPLIT LABEL. Give each day a clear focus matching the recommended split "
+        "(e.g. 'Push', 'Pull', 'Legs', 'Upper Body', 'Full Body').\n"
+        "5. VOLUME. 6–8 exercises per day; use the set/rep scheme from the prescription.\n"
+        "6. PROGRESSION. Every exercise note must contain a specific overload cue "
+        "(e.g. 'add 2.5 kg when all reps completed with good form', 'add 1 rep per week').\n"
+        "7. RECOVERY. No heavy loading of the same primary muscle on consecutive days.\n"
+        "8. RESPECT FATIGUE. Do not heavily load muscles marked 'trained ≤1 day ago' on Day 1.\n"
+        "9. STALLED LIFTS. For plateaued exercises, change the rep range or substitute a "
+        "variation from the ALLOWED list.\n"
+        "10. EXACT NAMES. Use only exercise names from the ALLOWED list, spelled exactly."
     )
     return "\n".join(lines)
 
 
 _SYSTEM_PROMPT = (
     "You are an elite strength & conditioning coach with 20 years of experience "
-    "programming for powerlifters, bodybuilders, and general-population clients. "
-    "You build conventional, evidence-based weekly routines grounded in the "
-    "athlete's real logged history.\n\n"
-    "Core principles you ALWAYS follow:\n"
-    "- Compound lifts first, isolation last. Every session is anchored by a big "
-    "barbell or bodyweight compound.\n"
-    "- Progressive overload: every exercise note tells the athlete how to add "
-    "weight or reps over time.\n"
-    "- Recovery: 48h between training the same muscle group hard; no heavy "
-    "squats and deadlifts on consecutive days.\n"
-    "- Balanced push/pull ratio and adequate weekly volume per muscle group "
-    "(10–20 hard sets/week).\n"
-    "- Proven splits (Full Body, Upper/Lower, Push/Pull/Legs) over novel ones.\n\n"
-    "You only prescribe exercises from the provided allowed list, using their "
-    "exact names. You return your plan strictly as JSON matching the requested "
-    "schema — no prose outside the JSON."
+    "programming for powerlifters, bodybuilders, and general-population clients.\n\n"
+    "Your ONLY job is to read the athlete's real logged data — their actual "
+    "movements, estimated 1RMs, weekly muscle volumes, recovery state, and goal — "
+    "and produce a specific, personalised weekly plan. A plan that could apply to "
+    "anyone is a failed plan.\n\n"
+    "Non-negotiable principles:\n"
+    "- SPECIFICITY: reference the athlete's actual lifts and loads. If they squat "
+    "120 kg e1RM, write '4×4 @ 100 kg' not '4×5'. If their chest is undertrained, "
+    "every session in a full-body split includes a chest movement.\n"
+    "- COMPOUND ANCHOR: every session opens with 1–2 heavy compound lifts from "
+    "the allowed list, in order of loading demand.\n"
+    "- PROGRESSIVE OVERLOAD: every exercise note specifies exactly how to progress "
+    "(weight increment, rep target, or deload trigger).\n"
+    "- RECOVERY: 48 h minimum between heavy loading of the same primary muscle.\n"
+    "- VOLUME BALANCE: target 10–20 hard sets per primary muscle per week; "
+    "undertrained muscles receive proportionally more work.\n"
+    "- PROVEN SPLITS: Full Body, Upper/Lower, Push/Pull/Legs only.\n\n"
+    "You ONLY use exercise names from the provided ALLOWED list, spelled exactly. "
+    "You return your answer strictly as JSON matching the schema — zero prose outside the JSON."
 )
 
 
@@ -439,7 +486,8 @@ async def _run_generation(
             catalog = await _exercise_catalog(conn, uid)
             prompt = _build_prompt(goal, days, profile, catalog, focus_note)
             raw = await ollama.chat_json(
-                _SYSTEM_PROMPT, prompt, _plan_schema(days), timeout=480.0
+                _SYSTEM_PROMPT, prompt, _plan_schema(days),
+                timeout=480.0, temperature=0.2,
             )
             name_map = await _name_to_id_map(conn)
             plan, dropped = _normalise_plan(raw, goal, days, name_map)
