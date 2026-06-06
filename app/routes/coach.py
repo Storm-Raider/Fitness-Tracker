@@ -571,12 +571,43 @@ async def _run_generation(
             asm = profile.get("avg_session_minutes")
             ex_target = max(4, min(10, round(asm / 7))) if asm else 7
             min_ex, max_ex = max(3, ex_target - 1), min(10, ex_target + 1)
+            schema = _plan_schema(days, min_ex, max_ex)
             raw = await ollama.chat_json(
-                _SYSTEM_PROMPT, prompt, _plan_schema(days, min_ex, max_ex),
+                _SYSTEM_PROMPT, prompt, schema,
                 timeout=480.0, temperature=0.2,
             )
             name_map, _norm_map = await _name_to_id_map(conn)
             plan, dropped = _normalise_plan(raw, goal, days, name_map, _norm_map)
+
+            # Auto-retry if the plan is thin: missing days or >30% of exercises dropped.
+            total_exercises = sum(len(d["exercises"]) for d in plan["days"])
+            total_dropped = len(dropped)
+            drop_ratio = total_dropped / max(1, total_exercises + total_dropped)
+            if len(plan["days"]) < days or drop_ratio > 0.30:
+                logging.warning(
+                    "coach retry: days=%d/%d dropped=%d/%d (%.0f%%)",
+                    len(plan["days"]), days, total_dropped,
+                    total_exercises + total_dropped, drop_ratio * 100,
+                )
+                retry_prompt = (
+                    prompt
+                    + "\n\nIMPORTANT: Use ONLY the exact exercise names from the ALLOWED list above. "
+                    "Do not invent names. Return all "
+                    + str(days)
+                    + " day(s) — do not omit any."
+                )
+                raw2 = await ollama.chat_json(
+                    _SYSTEM_PROMPT, retry_prompt, schema,
+                    timeout=480.0, temperature=0.1,
+                )
+                plan2, dropped2 = _normalise_plan(raw2, goal, days, name_map, _norm_map)
+                # Keep whichever attempt produced the more complete plan.
+                if len(plan2["days"]) > len(plan["days"]) or (
+                    len(plan2["days"]) == len(plan["days"])
+                    and len(dropped2) < len(dropped)
+                ):
+                    plan, dropped = plan2, dropped2
+
         if not plan["days"]:
             _JOBS[job_id] = {"status": "error", "user_id": uid,
                              "error": "The model didn't return any usable exercises. Try again."}
