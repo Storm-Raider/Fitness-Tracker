@@ -135,7 +135,7 @@ _PRIORITY_EXERCISES = [
 # (minItems == maxItems == days) and a minimum exercises-per-day pushes the
 # small model toward a complete plan rather than stopping after one or two
 # movements, while keeping output deterministic to parse.
-def _plan_schema(days: int) -> dict:
+def _plan_schema(days: int, min_ex: int = 6, max_ex: int = 8) -> dict:
     return {
         "type": "object",
         "properties": {
@@ -151,8 +151,8 @@ def _plan_schema(days: int) -> dict:
                         "focus": {"type": "string"},
                         "exercises": {
                             "type": "array",
-                            "minItems": 6,
-                            "maxItems": 8,
+                            "minItems": min_ex,
+                            "maxItems": max_ex,
                             "items": {
                                 "type": "object",
                                 "properties": {
@@ -537,8 +537,11 @@ async def _run_generation(
             profile = await build_profile(conn, uid)
             catalog = await _exercise_catalog(conn, uid, profile.get("preferred_equipment"))
             prompt = _build_prompt(goal, days, profile, catalog, focus_note)
+            asm = profile.get("avg_session_minutes")
+            ex_target = max(4, min(10, round(asm / 7))) if asm else 7
+            min_ex, max_ex = max(3, ex_target - 1), min(10, ex_target + 1)
             raw = await ollama.chat_json(
-                _SYSTEM_PROMPT, prompt, _plan_schema(days),
+                _SYSTEM_PROMPT, prompt, _plan_schema(days, min_ex, max_ex),
                 timeout=480.0, temperature=0.2,
             )
             name_map = await _name_to_id_map(conn)
