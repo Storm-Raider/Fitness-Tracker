@@ -71,6 +71,7 @@ async def chat_json(
     temperature: float = 0.4,
     timeout: float = 240.0,
     num_ctx: int | None = None,
+    on_tokens: "object | None" = None,  # async callable(count: int) → None; enables streaming
 ) -> dict:
     """
     Send a chat request to Ollama with a JSON-schema-constrained response and
@@ -79,47 +80,100 @@ async def chat_json(
     `schema` is passed as Ollama's `format` field (structured outputs), which
     forces small models to emit valid JSON matching the shape we expect.
 
+    When `on_tokens` is an async callable it receives a running chunk count every
+    15 streaming chunks so callers can push progress events to connected clients.
+
     Raises OllamaError on any transport/parse failure with a user-friendly
     message — callers surface this to the UI rather than a 500.
     """
     model = model or ollama_model()
+    opts: dict = {"temperature": temperature}
+    if num_ctx:
+        opts["num_ctx"] = num_ctx
     payload = {
         "model": model,
-        "stream": False,
+        "stream": on_tokens is not None,
         "messages": [
             {"role": "system", "content": system},
             {"role": "user", "content": user},
         ],
         "format": schema,
-        "keep_alive": "10m",  # keep the model resident so repeat generations skip the load cost
-        "options": {"temperature": temperature, **({"num_ctx": num_ctx} if num_ctx else {})},
+        "keep_alive": "10m",
+        "options": opts,
     }
-    try:
-        async with httpx.AsyncClient(timeout=timeout) as client:
-            resp = await client.post(f"{ollama_url()}/api/chat", json=payload)
-            resp.raise_for_status()
-            data = resp.json()
-    except httpx.ConnectError as exc:
-        raise OllamaError(
-            f"Couldn't reach Ollama at {ollama_url()}. Is the server running "
-            f"(`ollama serve`)?"
-        ) from exc
-    except httpx.TimeoutException as exc:
-        raise OllamaError(
-            "Ollama timed out generating the routine. Try fewer training days, "
-            "or switch to a faster model (set OLLAMA_MODEL=qwen2.5:1.5b in your .env)."
-        ) from exc
-    except httpx.HTTPStatusError as exc:
-        detail = exc.response.text[:200]
-        if exc.response.status_code == 404:
-            raise OllamaError(
-                f"Model '{model}' is not installed. Run `ollama pull {model}`."
-            ) from exc
-        raise OllamaError(
-            f"Ollama returned HTTP {exc.response.status_code}: {detail}"
-        ) from exc
 
-    content = (data.get("message") or {}).get("content", "").strip()
+    if on_tokens is not None:
+        # Streaming path: accumulate tokens, fire progress callbacks every 15 chunks.
+        content_parts: list[str] = []
+        chunk_count = 0
+        try:
+            async with httpx.AsyncClient(timeout=timeout) as client:
+                async with client.stream("POST", f"{ollama_url()}/api/chat", json=payload) as resp:
+                    if resp.status_code == 404:
+                        raise OllamaError(
+                            f"Model '{model}' is not installed. Run `ollama pull {model}`."
+                        )
+                    if resp.status_code != 200:
+                        body = await resp.aread()
+                        raise OllamaError(
+                            f"Ollama returned HTTP {resp.status_code}: {body.decode()[:200]}"
+                        )
+                    async for raw_line in resp.aiter_lines():
+                        if not raw_line:
+                            continue
+                        try:
+                            chunk = json.loads(raw_line)
+                        except json.JSONDecodeError:
+                            continue
+                        token = (chunk.get("message") or {}).get("content", "")
+                        if token:
+                            content_parts.append(token)
+                            chunk_count += 1
+                            if chunk_count % 15 == 0:
+                                await on_tokens(chunk_count)
+                        if chunk.get("done"):
+                            break
+        except httpx.ConnectError as exc:
+            raise OllamaError(
+                f"Couldn't reach Ollama at {ollama_url()}. Is the server running "
+                f"(`ollama serve`)?"
+            ) from exc
+        except httpx.TimeoutException as exc:
+            raise OllamaError(
+                "Ollama timed out generating the routine. Try fewer training days, "
+                "or switch to a faster model (set OLLAMA_MODEL=qwen2.5:1.5b in your .env)."
+            ) from exc
+        except OllamaError:
+            raise
+        content = "".join(content_parts).strip()
+    else:
+        # Non-streaming path (warm-up, spec generation, tests).
+        try:
+            async with httpx.AsyncClient(timeout=timeout) as client:
+                resp = await client.post(f"{ollama_url()}/api/chat", json=payload)
+                resp.raise_for_status()
+                data = resp.json()
+        except httpx.ConnectError as exc:
+            raise OllamaError(
+                f"Couldn't reach Ollama at {ollama_url()}. Is the server running "
+                f"(`ollama serve`)?"
+            ) from exc
+        except httpx.TimeoutException as exc:
+            raise OllamaError(
+                "Ollama timed out generating the routine. Try fewer training days, "
+                "or switch to a faster model (set OLLAMA_MODEL=qwen2.5:1.5b in your .env)."
+            ) from exc
+        except httpx.HTTPStatusError as exc:
+            detail = exc.response.text[:200]
+            if exc.response.status_code == 404:
+                raise OllamaError(
+                    f"Model '{model}' is not installed. Run `ollama pull {model}`."
+                ) from exc
+            raise OllamaError(
+                f"Ollama returned HTTP {exc.response.status_code}: {detail}"
+            ) from exc
+        content = (data.get("message") or {}).get("content", "").strip()
+
     if not content:
         raise OllamaError("Ollama returned an empty response.")
     try:

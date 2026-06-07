@@ -718,36 +718,64 @@ async function generateAiRoutine() {
     });
     const sd = await start.json();
     if (!start.ok) throw new Error(sd.detail || sd.error || 'Could not start generation.');
-    const jobId = sd.job_id;
 
-    const overallDeadline = Date.now() + 40 * 60 * 1000;
-    let processingDeadline = null;
-    while (Date.now() < overallDeadline) {
-      await new Promise(r => setTimeout(r, 2500));
-      const pr = await fetch('/coach/generate/' + jobId);
-      const pd = await pr.json();
-      if (!pr.ok) throw new Error(pd.detail || 'Lost track of the generation job.');
-      if (pd.status === 'done') {
-        _currentPlan = pd.plan;
-        renderAiPlan(pd.plan, pd.dropped || []);
-        return;
-      }
-      if (pd.status === 'error') throw new Error(pd.error || 'Generation failed.');
-      if (pd.status === 'queued') {
-        const ahead = pd.ahead || 0;
-        btn.innerHTML = ahead > 0
-          ? `<span class="spinner"></span> In queue · ${ahead} ahead of you…`
-          : '<span class="spinner"></span> Next up…';
-        continue;
-      }
-      // processing
-      if (!processingDeadline) processingDeadline = Date.now() + 9 * 60 * 1000;
-      btn.innerHTML = '<span class="spinner"></span> Coaching…';
-      if (Date.now() > processingDeadline) {
-        throw new Error('Generation is taking too long. Try fewer days, or set OLLAMA_MODEL=gemma3:1b.');
-      }
+    // Speculative cache hit: server returned the plan instantly (HTTP 200).
+    if (sd.plan) {
+      _currentPlan = sd.plan;
+      renderAiPlan(sd.plan, sd.dropped || []);
+      return;
     }
-    throw new Error('Still waiting after 40 minutes — the coach may be overloaded. Try again later.');
+
+    // Normal async path: open SSE stream for live progress, hard-deadline 40 min.
+    const jobId = sd.job_id;
+    const { plan, dropped } = await new Promise((resolve, reject) => {
+      const es = new EventSource('/coach/stream/' + jobId);
+      let settled = false;
+      const deadline = setTimeout(() => {
+        if (settled) return;
+        settled = true;
+        es.close();
+        reject(new Error('Still waiting after 40 minutes — the coach may be overloaded. Try again later.'));
+      }, 40 * 60 * 1000);
+
+      es.addEventListener('queued', e => {
+        const d = JSON.parse(e.data);
+        const ahead = d.ahead || 0;
+        btn.innerHTML = ahead > 0
+          ? `<span class="spinner"></span> In queue · ${ahead} ahead…`
+          : '<span class="spinner"></span> Next up…';
+      });
+      es.addEventListener('phase', e => {
+        const d = JSON.parse(e.data);
+        btn.innerHTML = `<span class="spinner"></span> ${d.message}`;
+      });
+      es.addEventListener('tokens', e => {
+        const d = JSON.parse(e.data);
+        btn.innerHTML = `<span class="spinner"></span> Generating… (${d.count} tokens)`;
+      });
+      es.addEventListener('done', e => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(deadline);
+        es.close();
+        const d = JSON.parse(e.data);
+        resolve({ plan: d.plan, dropped: d.dropped || [] });
+      });
+      es.addEventListener('failed', e => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(deadline);
+        es.close();
+        const d = JSON.parse(e.data);
+        reject(new Error(d.error || 'Generation failed.'));
+      });
+      // onerror fires when the server closes the stream after done/failed —
+      // already settled at that point so this is a no-op in the normal case.
+      es.onerror = () => { if (settled) es.close(); };
+    });
+
+    _currentPlan = plan;
+    renderAiPlan(plan, dropped);
   } catch (e) {
     errBox.textContent = e.message;
     errBox.style.display = 'block';

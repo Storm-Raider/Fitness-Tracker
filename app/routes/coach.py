@@ -19,11 +19,12 @@ import asyncio
 import json
 import logging
 import os
+import time as _time
 import uuid
 
 import aiosqlite
 from fastapi import APIRouter, Depends, HTTPException, Request
-from fastapi.responses import JSONResponse, RedirectResponse
+from fastapi.responses import JSONResponse, RedirectResponse, StreamingResponse
 from pydantic import BaseModel, Field
 
 from app.db import get_db
@@ -54,6 +55,11 @@ _MAX_QUEUE = int(os.environ.get("COACH_MAX_QUEUE", "5"))
 
 # A job occupies a slot while it's waiting (queued) or running (processing).
 _ACTIVE_STATES = ("queued", "processing")
+
+_JOB_EVENTS: dict[str, asyncio.Queue] = {}  # per-job SSE queues for live progress
+
+_SPEC_CACHE: dict[int, dict] = {}  # uid → {goal, days, plan, dropped, model, ts}
+_SPEC_CACHE_TTL = 1800.0           # seconds; matches profile cache TTL
 
 
 def _active_count() -> int:
@@ -135,7 +141,13 @@ _PRIORITY_EXERCISES = [
 # (minItems == maxItems == days) and a minimum exercises-per-day pushes the
 # small model toward a complete plan rather than stopping after one or two
 # movements, while keeping output deterministic to parse.
-def _plan_schema(days: int, min_ex: int = 6, max_ex: int = 8) -> dict:
+def _plan_schema(
+    days: int, min_ex: int = 6, max_ex: int = 8,
+    allowed_names: list[str] | None = None,
+) -> dict:
+    name_field: dict = {"type": "string"}
+    if allowed_names:
+        name_field["enum"] = allowed_names
     return {
         "type": "object",
         "properties": {
@@ -156,7 +168,7 @@ def _plan_schema(days: int, min_ex: int = 6, max_ex: int = 8) -> dict:
                             "items": {
                                 "type": "object",
                                 "properties": {
-                                    "name": {"type": "string"},
+                                    "name": name_field,
                                     "sets": {"type": "integer"},
                                     "reps": {"type": "string"},
                                     "note": {"type": "string"},
@@ -283,6 +295,19 @@ async def _exercise_catalog(
         label = f"{r['name']} [{equip}]" if equip else r["name"]
         catalog.setdefault(cat, {}).setdefault(muscle, []).append(label)
     return catalog
+
+
+def _catalog_names(catalog: dict[str, dict[str, list[str]]]) -> list[str]:
+    """Extract unique plain exercise names from catalog (strips [Equipment] suffix)."""
+    names, seen = [], set()
+    for muscle_map in catalog.values():
+        for labels in muscle_map.values():
+            for label in labels:
+                name = label.split(" [")[0] if " [" in label else label
+                if name not in seen:
+                    seen.add(name)
+                    names.append(name)
+    return names
 
 
 def _build_prompt(goal: str, days: int, profile: dict, catalog: dict, focus_note: str) -> str:
@@ -565,6 +590,13 @@ def _normalise_plan(raw: dict, goal: str, days: int, name_map: dict, norm_map: d
     return plan, dropped
 
 
+async def _emit(job_id: str, event: dict) -> None:
+    """Push a progress event into the SSE queue for this job (no-op if no subscriber)."""
+    q = _JOB_EVENTS.get(job_id)
+    if q is not None:
+        await q.put(event)
+
+
 async def warm_caches(conn: aiosqlite.Connection) -> None:
     """Pre-populate exercise caches during lifespan startup (runs before first request)."""
     await _exercise_catalog(conn, 0)
@@ -590,7 +622,12 @@ async def _run_generation(
     """Background worker: build the profile, ask Ollama, validate, store result.
 
     Serialized by _GEN_LOCK so concurrent jobs can't thrash the Pi's CPU (which
-    makes every generation crawl past the timeout)."""
+    makes every generation crawl past the timeout). Emits phase/token/done events
+    to any connected SSE subscriber via _JOB_EVENTS."""
+
+    async def _on_tokens(count: int) -> None:
+        await _emit(job_id, {"type": "tokens", "count": count})
+
     try:
         async with _GEN_LOCK:
             # Our turn: leave the waiting queue and flip to processing.
@@ -598,21 +635,27 @@ async def _run_generation(
                 _QUEUE.remove(job_id)
             if _JOBS.get(job_id, {}).get("status") == "queued":
                 _JOBS[job_id] = {"status": "processing", "user_id": uid}
+
+            await _emit(job_id, {"type": "phase", "message": "Building your training profile…"})
             profile = await build_profile(conn, uid)
             catalog = await _exercise_catalog(conn, uid, profile.get("preferred_equipment"))
             prompt = _build_prompt(goal, days, profile, catalog, focus_note)
             asm = profile.get("avg_session_minutes")
             ex_target = max(4, min(10, round(asm / 7))) if asm else 7
             min_ex, max_ex = max(3, ex_target - 1), min(10, ex_target + 1)
-            schema = _plan_schema(days, min_ex, max_ex)
+            allowed_names = _catalog_names(catalog)
+            schema = _plan_schema(days, min_ex, max_ex, allowed_names)
             # Size the KV cache to the actual prompt rather than the model's full default
             # (32k on qwen2.5 variants). input estimate + 1024 output budget, rounded up
             # to the next power of 2, clamped to [2048, 8192].
             _tok_est = (len(_SYSTEM_PROMPT) + len(prompt)) // 4 + 1024
             num_ctx = max(2048, min(8192, 1 << (_tok_est - 1).bit_length()))
+
+            await _emit(job_id, {"type": "phase", "message": "Generating your plan…"})
             raw = await ollama.chat_json(
                 _SYSTEM_PROMPT, prompt, schema,
                 timeout=480.0, temperature=0.2, num_ctx=num_ctx,
+                on_tokens=_on_tokens,
             )
             name_map, _norm_map = await _name_to_id_map(conn)
             plan, dropped = _normalise_plan(raw, goal, days, name_map, _norm_map)
@@ -627,6 +670,7 @@ async def _run_generation(
                     len(plan["days"]), days, total_dropped,
                     total_exercises + total_dropped, drop_ratio * 100,
                 )
+                await _emit(job_id, {"type": "phase", "message": "Refining your plan…"})
                 retry_prompt = (
                     prompt
                     + "\n\nIMPORTANT: Use ONLY the exact exercise names from the ALLOWED list above. "
@@ -637,6 +681,7 @@ async def _run_generation(
                 raw2 = await ollama.chat_json(
                     _SYSTEM_PROMPT, retry_prompt, schema,
                     timeout=480.0, temperature=0.1, num_ctx=num_ctx,
+                    on_tokens=_on_tokens,
                 )
                 plan2, dropped2 = _normalise_plan(raw2, goal, days, name_map, _norm_map)
                 # Keep whichever attempt produced the more complete plan.
@@ -647,24 +692,84 @@ async def _run_generation(
                     plan, dropped = plan2, dropped2
 
         if not plan["days"]:
-            _JOBS[job_id] = {"status": "error", "user_id": uid,
-                             "error": "The model didn't return any usable exercises. Try again."}
+            err = "The model didn't return any usable exercises. Try again."
+            _JOBS[job_id] = {"status": "error", "user_id": uid, "error": err}
+            await _emit(job_id, {"type": "failed", "error": err})
             return
+
+        final_dropped = sorted(set(dropped))
         _JOBS[job_id] = {
             "status": "done", "user_id": uid,
-            "plan": plan, "dropped": sorted(set(dropped)), "model": ollama.ollama_model(),
+            "plan": plan, "dropped": final_dropped, "model": ollama.ollama_model(),
         }
+        await _emit(job_id, {
+            "type": "done", "plan": plan,
+            "dropped": final_dropped, "model": ollama.ollama_model(),
+        })
+        # Pre-generate next plan in background so the user's NEXT request is instant.
+        _spec_task = asyncio.create_task(
+            _run_spec_generation(conn, uid, goal, days, focus_note)
+        )
+        _TASKS.add(_spec_task)
+        _spec_task.add_done_callback(_TASKS.discard)
+
     except ollama.OllamaError as exc:
-        _JOBS[job_id] = {"status": "error", "user_id": uid, "error": str(exc)}
+        err = str(exc)
+        _JOBS[job_id] = {"status": "error", "user_id": uid, "error": err}
+        await _emit(job_id, {"type": "failed", "error": err})
     except Exception:
         logging.exception("coach generation failed (job %s)", job_id)
-        _JOBS[job_id] = {"status": "error", "user_id": uid,
-                         "error": "Generation failed unexpectedly. Check the server logs."}
+        err = "Generation failed unexpectedly. Check the server logs."
+        _JOBS[job_id] = {"status": "error", "user_id": uid, "error": err}
+        await _emit(job_id, {"type": "failed", "error": err})
     finally:
         if job_id in _QUEUE:        # defensive: drop from queue on any exit path
             _QUEUE.remove(job_id)
         if _ACTIVE_BY_USER.get(uid) == job_id:
             _ACTIVE_BY_USER.pop(uid, None)
+
+
+async def _run_spec_generation(
+    conn: aiosqlite.Connection, uid: int,
+    goal: str, days: int, focus_note: str,
+) -> None:
+    """Pre-generate the next plan silently and cache it for instant serve.
+
+    Only runs when no other generation is active. Acquires _GEN_LOCK so it
+    doesn't conflict with real user jobs — if a real job is submitted while
+    spec gen is running it will queue and proceed after spec gen releases."""
+    if _active_count() > 0:
+        return
+    try:
+        async with _GEN_LOCK:
+            # Re-check inside lock in case a real job queued while we waited.
+            if _active_count() > 0:
+                return
+            profile = await build_profile(conn, uid)
+            catalog = await _exercise_catalog(conn, uid, profile.get("preferred_equipment"))
+            prompt = _build_prompt(goal, days, profile, catalog, focus_note)
+            asm = profile.get("avg_session_minutes")
+            ex_target = max(4, min(10, round(asm / 7))) if asm else 7
+            min_ex, max_ex = max(3, ex_target - 1), min(10, ex_target + 1)
+            allowed_names = _catalog_names(catalog)
+            schema = _plan_schema(days, min_ex, max_ex, allowed_names)
+            _tok_est = (len(_SYSTEM_PROMPT) + len(prompt)) // 4 + 1024
+            num_ctx = max(2048, min(8192, 1 << (_tok_est - 1).bit_length()))
+            raw = await ollama.chat_json(
+                _SYSTEM_PROMPT, prompt, schema,
+                timeout=480.0, temperature=0.3, num_ctx=num_ctx,
+            )
+            name_map, _norm_map = await _name_to_id_map(conn)
+            plan, dropped = _normalise_plan(raw, goal, days, name_map, _norm_map)
+            if plan["days"]:
+                _SPEC_CACHE[uid] = {
+                    "goal": goal, "days": days, "plan": plan,
+                    "dropped": sorted(set(dropped)), "model": ollama.ollama_model(),
+                    "ts": _time.monotonic(),
+                }
+                logging.info("coach: speculative plan cached for uid=%d", uid)
+    except Exception:
+        logging.debug("coach: speculative generation skipped or failed", exc_info=True)
 
 
 @router.post("/coach/generate", status_code=202)
@@ -674,9 +779,30 @@ async def generate(
     current_user=Depends(get_current_user),
 ):
     """Kick off generation as a background job and return its id immediately.
-    The client polls GET /coach/generate/{job_id}. Keeps every request short so
-    the long (minutes-on-Pi) inference never hits the reverse-proxy timeout."""
+    The client polls GET /coach/generate/{job_id} or opens EventSource at
+    /coach/stream/{job_id}. Keeps every request short so the long (minutes-on-Pi)
+    inference never hits the reverse-proxy timeout.
+
+    Returns HTTP 200 with {plan, dropped, model} when a speculative pre-generated
+    plan is available and matches the request — zero perceived latency.
+    Returns HTTP 202 with {job_id} for the normal async path."""
     uid = current_user["id"]
+
+    # Spec cache hit: serve the pre-generated plan instantly (HTTP 200, no job).
+    spec = _SPEC_CACHE.pop(uid, None)
+    if spec and (_time.monotonic() - spec["ts"]) < _SPEC_CACHE_TTL:
+        if spec["goal"] == body.goal and spec["days"] == body.days_per_week:
+            # Kick off a background refresh so the NEXT request is also instant.
+            _spec_task = asyncio.create_task(
+                _run_spec_generation(conn, uid, body.goal, body.days_per_week, body.focus_note)
+            )
+            _TASKS.add(_spec_task)
+            _spec_task.add_done_callback(_TASKS.discard)
+            return JSONResponse({
+                "plan": spec["plan"],
+                "dropped": spec["dropped"],
+                "model": spec["model"],
+            }, status_code=200)
 
     # Single-flight: if this user already has a generation queued or running, hand
     # back the same job id. Repeated clicks (or a stale tab) then attach to the one
@@ -728,6 +854,64 @@ async def generation_status(
         "dropped": job["dropped"],
         "model": job["model"],
     })
+
+
+@router.get("/coach/stream/{job_id}")
+async def stream_job_events(
+    job_id: str,
+    current_user=Depends(get_current_user),
+):
+    """Server-Sent Events stream for live generation progress.
+
+    Events: queued (initial position), phase (step message), tokens (running count),
+    done (plan ready), failed (error message). Heartbeat comment every 20 s to keep
+    the connection alive through proxies."""
+    job = _JOBS.get(job_id)
+    if not job or job["user_id"] != current_user["id"]:
+        raise HTTPException(status_code=404, detail="Unknown generation job")
+
+    # Register queue BEFORE returning the response — no await between here and
+    # return, so the background task cannot run in between (asyncio is cooperative).
+    q: asyncio.Queue = asyncio.Queue()
+    _JOB_EVENTS[job_id] = q
+
+    async def event_stream():
+        try:
+            # Fast-path: job may have finished before the browser opened the stream.
+            current = _JOBS.get(job_id, {})
+            status = current.get("status")
+            if status == "done":
+                payload = {
+                    "type": "done", "plan": current["plan"],
+                    "dropped": current["dropped"], "model": current["model"],
+                }
+                yield f"event: done\ndata: {json.dumps(payload)}\n\n"
+                return
+            if status == "error":
+                yield f"event: failed\ndata: {json.dumps({'type': 'failed', 'error': current['error']})}\n\n"
+                return
+            if status == "queued":
+                pos = (_QUEUE.index(job_id) + 1) if job_id in _QUEUE else 1
+                yield f"event: queued\ndata: {json.dumps({'position': pos, 'ahead': max(0, pos - 1)})}\n\n"
+
+            deadline = _time.monotonic() + 40 * 60
+            while _time.monotonic() < deadline:
+                try:
+                    event = await asyncio.wait_for(q.get(), timeout=20.0)
+                    etype = event.get("type", "message")
+                    yield f"event: {etype}\ndata: {json.dumps(event)}\n\n"
+                    if etype in ("done", "failed"):
+                        return
+                except asyncio.TimeoutError:
+                    yield ": heartbeat\n\n"
+        finally:
+            _JOB_EVENTS.pop(job_id, None)
+
+    return StreamingResponse(
+        event_stream(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
 
 
 @router.post("/coach/save", status_code=201)
