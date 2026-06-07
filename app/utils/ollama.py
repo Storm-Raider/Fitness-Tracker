@@ -98,7 +98,7 @@ async def chat_json(
             {"role": "user", "content": user},
         ],
         "format": schema,
-        "keep_alive": "-1",
+        "keep_alive": -1,
         "options": opts,
     }
 
