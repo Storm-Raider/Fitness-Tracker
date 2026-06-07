@@ -162,7 +162,9 @@ async def lifespan(app: FastAPI):
 
     client = httpx.AsyncClient()
     set_http_client(client)
-    # Pre-load the Ollama model into RAM in the background so the first real
+    # Pre-populate exercise caches (synchronous with startup — DB is open, costs ~5 ms).
+    await coach.warm_caches(conn)
+    # Pre-load Ollama model weights into RAM in the background so the first
     # generation doesn't pay the cold-start penalty (~5-15 s on the Pi).
     asyncio.create_task(_ollama.warm_up())
     try:

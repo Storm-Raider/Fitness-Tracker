@@ -264,6 +264,17 @@ async def _exercise_catalog(
         r["name"],
     ))
 
+    # Cap entries per muscle bucket — the sort already put the best choices first,
+    # so we keep the top 8. Cuts prompt tokens by ~50% on unfiltered catalogs.
+    _seen: dict[tuple, int] = {}
+    capped = []
+    for r in rows:
+        key = (r["category"], r["primary_muscle"] or r["category"])
+        if _seen.get(key, 0) < 8:
+            _seen[key] = _seen.get(key, 0) + 1
+            capped.append(r)
+    rows = capped
+
     catalog: dict[str, dict[str, list[str]]] = {}
     for r in rows:
         cat = r["category"]
@@ -552,6 +563,17 @@ def _normalise_plan(raw: dict, goal: str, days: int, name_map: dict, norm_map: d
         "days": out_days,
     }
     return plan, dropped
+
+
+async def warm_caches(conn: aiosqlite.Connection) -> None:
+    """Pre-populate exercise caches during lifespan startup (runs before first request)."""
+    await _exercise_catalog(conn, 0)
+    await _name_to_id_map(conn)
+    logging.info(
+        "coach: caches warmed — %d exercise rows, %d name entries",
+        len(_EXERCISE_BASE_ROWS or []),
+        len((_NAME_MAP_CACHE or ({},))[0]),
+    )
 
 
 # ── Routes ───────────────────────────────────────────────────────────

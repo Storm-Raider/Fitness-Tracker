@@ -7,11 +7,26 @@ can be imported by other routes (e.g. /plan) without pulling in the full coach
 router.
 """
 
+import time
+
 import aiosqlite
+
+# 30-minute TTL cache keyed by uid. Invalidated automatically on expiry.
+# Fine-grained invalidation (e.g. on workout save) can call invalidate_profile().
+_PROFILE_CACHE: dict[int, tuple[dict, float]] = {}
+_PROFILE_TTL = 1800.0
+
+
+def invalidate_profile(uid: int) -> None:
+    _PROFILE_CACHE.pop(uid, None)
 
 
 async def build_profile(conn: aiosqlite.Connection, uid: int) -> dict:
     """Summarise the user's recent training for the coach prompt."""
+    _cached = _PROFILE_CACHE.get(uid)
+    if _cached and (time.monotonic() - _cached[1]) < _PROFILE_TTL:
+        return _cached[0]
+
     # Frequency / span (finished workouts only).
     async with conn.execute(
         """
@@ -220,7 +235,7 @@ async def build_profile(conn: aiosqlite.Connection, uid: int) -> dict:
         fb_row = await cur.fetchone()
     last_plan_feedback = fb_row["feedback"] if fb_row else None
 
-    return {
+    profile = {
         "total_workouts": freq["n"],
         "first_day": freq["first_day"],
         "last_day": freq["last_day"],
@@ -238,3 +253,5 @@ async def build_profile(conn: aiosqlite.Connection, uid: int) -> dict:
         "stalled": stalled,
         "last_plan_feedback": last_plan_feedback,
     }
+    _PROFILE_CACHE[uid] = (profile, time.monotonic())
+    return profile
