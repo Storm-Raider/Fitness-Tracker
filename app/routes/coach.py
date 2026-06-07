@@ -583,9 +583,14 @@ async def _run_generation(
             ex_target = max(4, min(10, round(asm / 7))) if asm else 7
             min_ex, max_ex = max(3, ex_target - 1), min(10, ex_target + 1)
             schema = _plan_schema(days, min_ex, max_ex)
+            # Size the KV cache to the actual prompt rather than the model's full default
+            # (32k on qwen2.5 variants). input estimate + 1024 output budget, rounded up
+            # to the next power of 2, clamped to [2048, 8192].
+            _tok_est = (len(_SYSTEM_PROMPT) + len(prompt)) // 4 + 1024
+            num_ctx = max(2048, min(8192, 1 << (_tok_est - 1).bit_length()))
             raw = await ollama.chat_json(
                 _SYSTEM_PROMPT, prompt, schema,
-                timeout=480.0, temperature=0.2,
+                timeout=480.0, temperature=0.2, num_ctx=num_ctx,
             )
             name_map, _norm_map = await _name_to_id_map(conn)
             plan, dropped = _normalise_plan(raw, goal, days, name_map, _norm_map)
@@ -609,7 +614,7 @@ async def _run_generation(
                 )
                 raw2 = await ollama.chat_json(
                     _SYSTEM_PROMPT, retry_prompt, schema,
-                    timeout=480.0, temperature=0.1,
+                    timeout=480.0, temperature=0.1, num_ctx=num_ctx,
                 )
                 plan2, dropped2 = _normalise_plan(raw2, goal, days, name_map, _norm_map)
                 # Keep whichever attempt produced the more complete plan.

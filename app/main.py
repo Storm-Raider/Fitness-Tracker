@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import os
 from contextlib import asynccontextmanager
@@ -15,6 +16,7 @@ from starlette.responses import RedirectResponse
 
 from app.db import open_db, set_db, clear_db
 import app.db as _db
+from app.utils import ollama as _ollama
 from app.routes import achievements, analytics, cardio, challenges, coach, dashboard, exercises, export, feedback, import_, journal, metrics, plan, planner, prs, routines, settings, stats, templates, trash, webhooks, workouts
 from app.routes.auth import router as auth_router, COOKIE_NAME, _serializer, _hash_password, _verify_password
 from app.routes.workouts import set_http_client
@@ -160,6 +162,9 @@ async def lifespan(app: FastAPI):
 
     client = httpx.AsyncClient()
     set_http_client(client)
+    # Pre-load the Ollama model into RAM in the background so the first real
+    # generation doesn't pay the cold-start penalty (~5-15 s on the Pi).
+    asyncio.create_task(_ollama.warm_up())
     try:
         yield
     finally:

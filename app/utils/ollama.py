@@ -14,6 +14,7 @@ In Docker, the host's Ollama is reachable at http://host.docker.internal:11434
 """
 
 import json
+import logging
 import os
 
 import httpx
@@ -46,6 +47,21 @@ async def is_available(timeout: float = 3.0) -> tuple[bool, list[str]]:
         return False, []
 
 
+async def warm_up() -> None:
+    """Pre-load model weights into RAM so the first real generation doesn't pay the load cost."""
+    try:
+        await chat_json(
+            "You are ready.",
+            "ok",
+            {"type": "object", "properties": {"ok": {"type": "string"}}, "required": ["ok"]},
+            timeout=60.0,
+            num_ctx=512,
+        )
+        logging.info("ollama: model warm-up complete (%s)", ollama_model())
+    except Exception as exc:
+        logging.debug("ollama: warm-up skipped (%s)", exc)
+
+
 async def chat_json(
     system: str,
     user: str,
@@ -54,6 +70,7 @@ async def chat_json(
     model: str | None = None,
     temperature: float = 0.4,
     timeout: float = 240.0,
+    num_ctx: int | None = None,
 ) -> dict:
     """
     Send a chat request to Ollama with a JSON-schema-constrained response and
@@ -75,7 +92,7 @@ async def chat_json(
         ],
         "format": schema,
         "keep_alive": "10m",  # keep the model resident so repeat generations skip the load cost
-        "options": {"temperature": temperature},
+        "options": {"temperature": temperature, **({"num_ctx": num_ctx} if num_ctx else {})},
     }
     try:
         async with httpx.AsyncClient(timeout=timeout) as client:
