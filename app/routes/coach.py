@@ -212,6 +212,11 @@ _EQUIP_RANK = {"Barbell": 0, "Dumbbell": 1, "Bodyweight": 2, "Cable": 3, "Machin
 # Rank lookup for the conventional staples — lower index = higher priority.
 _PRIORITY_RANK = {name.lower(): i for i, name in enumerate(_PRIORITY_EXERCISES)}
 
+# Process-lifetime caches for data that is seeded from a static Python dict and
+# never mutated at runtime.  Both are cleared automatically on service restart.
+_EXERCISE_BASE_ROWS: list[dict] | None = None   # raw exercise rows for catalog
+_NAME_MAP_CACHE: tuple[dict, dict] | None = None  # (name_map, norm_map)
+
 
 async def _exercise_catalog(
     conn: aiosqlite.Connection, uid: int,
@@ -225,21 +230,23 @@ async def _exercise_catalog(
     that use that equipment OR are conventional staples — keeping the prompt
     short enough for a small model to handle without losing core movements.
     """
-    async with conn.execute(
-        """
-        SELECT e.name,
-               COALESCE(e.category, 'Other') AS category,
-               COALESCE(e.equipment, '') AS equipment,
-               (SELECT em.muscle FROM exercise_muscles em
-                WHERE em.exercise_id = e.id AND em.is_primary = 1
-                ORDER BY em.rowid ASC LIMIT 1) AS primary_muscle,
-               (SELECT COUNT(*) FROM sets s WHERE s.exercise_id = e.id AND s.user_id = ?) AS used
-        FROM exercises e
-        WHERE COALESCE(e.category, '') != 'Cardio'
-        """,
-        (uid,),
-    ) as cur:
-        rows = [dict(r) for r in await cur.fetchall()]
+    global _EXERCISE_BASE_ROWS
+    if _EXERCISE_BASE_ROWS is None:
+        async with conn.execute(
+            """
+            SELECT e.name,
+                   COALESCE(e.category, 'Other') AS category,
+                   COALESCE(e.equipment, '') AS equipment,
+                   (SELECT em.muscle FROM exercise_muscles em
+                    WHERE em.exercise_id = e.id AND em.is_primary = 1
+                    ORDER BY em.rowid ASC LIMIT 1) AS primary_muscle
+            FROM exercises e
+            WHERE COALESCE(e.category, '') != 'Cardio'
+            """
+        ) as cur:
+            _EXERCISE_BASE_ROWS = [dict(r) for r in await cur.fetchall()]
+
+    rows = list(_EXERCISE_BASE_ROWS)
 
     # Filter to preferred equipment while always preserving conventional staples.
     # New users with no equipment history get the full library.
@@ -253,7 +260,6 @@ async def _exercise_catalog(
 
     rows.sort(key=lambda r: (
         _PRIORITY_RANK.get(r["name"].lower(), 999),
-        0 if r["used"] else 1,
         _EQUIP_RANK.get(r["equipment"], 5),
         r["name"],
     ))
@@ -473,6 +479,9 @@ async def _name_to_id_map(conn: aiosqlite.Connection) -> tuple[dict[str, dict], 
     Normalized variants are only added when they don't collide with a real name,
     so "Press" (real) is never overwritten by stripping 's' from "Presses".
     """
+    global _NAME_MAP_CACHE
+    if _NAME_MAP_CACHE is not None:
+        return _NAME_MAP_CACHE
     async with conn.execute("SELECT id, name FROM exercises") as cur:
         rows = await cur.fetchall()
     name_map = {r["name"].lower(): {"id": r["id"], "name": r["name"]} for r in rows}
@@ -488,7 +497,8 @@ async def _name_to_id_map(conn: aiosqlite.Connection) -> tuple[dict[str, dict], 
                 variant = base + suffix
                 if variant not in name_map and variant not in norm_map:
                     norm_map[variant] = val
-    return name_map, norm_map
+    _NAME_MAP_CACHE = (name_map, norm_map)
+    return _NAME_MAP_CACHE
 
 
 def _normalise_plan(raw: dict, goal: str, days: int, name_map: dict, norm_map: dict | None = None) -> tuple[dict, list[str]]:
