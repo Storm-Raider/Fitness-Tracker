@@ -3,8 +3,7 @@
 One-time migration: encrypt an existing plaintext fitness.db with SQLCipher.
 
 Prerequisites:
-  sudo apt install libsqlcipher-dev
-  pip install pysqlcipher3
+  pip install sqlcipher3
 
 Usage:
   Generate a key:
@@ -45,11 +44,9 @@ def main() -> None:
         sys.exit(1)
 
     try:
-        import pysqlcipher3.dbapi2 as sqlcipher
+        import sqlcipher3.dbapi2 as sqlcipher
     except ImportError:
-        log.error("pysqlcipher3 not installed.")
-        log.error("  sudo apt install libsqlcipher-dev")
-        log.error("  pip install pysqlcipher3")
+        log.error("sqlcipher3 not installed. Run: pip install sqlcipher3")
         sys.exit(1)
 
     db_path = Path(sys.argv[1] if len(sys.argv) > 1 else "/data/fitness.db")

@@ -10,10 +10,9 @@ bcrypt==5.0.0
 # Nightly workout enrichment (scripts/enrich_workouts.py)
 anthropic==0.103.1
 
-# SQLCipher: whole-database encryption at rest
-# Requires: sudo apt install libsqlcipher-dev  (then pip install pysqlcipher3)
+# SQLCipher: whole-database encryption at rest (pre-built ARM64 wheel, no system libs needed)
 # Only active when DB_ENCRYPTION_KEY is set in .env; tests run unencrypted if unset.
-pysqlcipher3
+sqlcipher3==0.6.2
 
 # Test dependencies
 pytest==8.3.3

@@ -6,15 +6,15 @@ import sys as _sys
 _DB_ENCRYPTION_KEY = _os.environ.get("DB_ENCRYPTION_KEY", "").strip()
 if _DB_ENCRYPTION_KEY:
     try:
-        import pysqlcipher3.dbapi2 as _pysqlcipher3  # noqa: F401
-        _sys.modules.setdefault("sqlite3", _pysqlcipher3)
+        import sqlcipher3.dbapi2 as _sqlcipher3  # noqa: F401
+        _sys.modules.setdefault("sqlite3", _sqlcipher3)
     except ImportError:
         import logging as _early_log
         _early_log.basicConfig()
         _early_log.getLogger(__name__).warning(
-            "DB_ENCRYPTION_KEY is set but pysqlcipher3 is not installed — "
+            "DB_ENCRYPTION_KEY is set but sqlcipher3 is not installed — "
             "database will run UNENCRYPTED. "
-            "Install: sudo apt install libsqlcipher-dev && pip install pysqlcipher3"
+            "Install: pip install sqlcipher3"
         )
         _DB_ENCRYPTION_KEY = ""
 
