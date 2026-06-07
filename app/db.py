@@ -1,3 +1,23 @@
+import os as _os
+import sys as _sys
+
+# SQLCipher: replace sqlite3 with pysqlcipher3 before aiosqlite is imported.
+# PRAGMA key must be the first command after connect — see open_db().
+_DB_ENCRYPTION_KEY = _os.environ.get("DB_ENCRYPTION_KEY", "").strip()
+if _DB_ENCRYPTION_KEY:
+    try:
+        import pysqlcipher3.dbapi2 as _pysqlcipher3  # noqa: F401
+        _sys.modules.setdefault("sqlite3", _pysqlcipher3)
+    except ImportError:
+        import logging as _early_log
+        _early_log.basicConfig()
+        _early_log.getLogger(__name__).warning(
+            "DB_ENCRYPTION_KEY is set but pysqlcipher3 is not installed — "
+            "database will run UNENCRYPTED. "
+            "Install: sudo apt install libsqlcipher-dev && pip install pysqlcipher3"
+        )
+        _DB_ENCRYPTION_KEY = ""
+
 import logging
 import aiosqlite
 from pathlib import Path
@@ -340,6 +360,19 @@ async def init_db(conn: aiosqlite.Connection) -> None:
 async def open_db(path: str) -> aiosqlite.Connection:
     conn = await aiosqlite.connect(path, isolation_level=None)
     conn.row_factory = aiosqlite.Row
+    if _DB_ENCRYPTION_KEY:
+        # SQLCipher: must precede every other query, including PRAGMAs.
+        # Hex-blob format avoids injection: x'<64 lowercase hex chars>'
+        await conn.execute(f"PRAGMA key=\"x'{_DB_ENCRYPTION_KEY}'\"")
+        try:
+            await conn.execute("SELECT count(*) FROM sqlite_master")
+        except Exception as exc:
+            await conn.close()
+            raise RuntimeError(
+                "DB_ENCRYPTION_KEY is set but the database could not be opened. "
+                "Either the key is wrong or the database is not yet encrypted. "
+                "Run: python scripts/encrypt_db.py"
+            ) from exc
     await conn.execute("PRAGMA journal_mode=WAL")
     await conn.execute("PRAGMA foreign_keys=ON")
     await init_db(conn)
