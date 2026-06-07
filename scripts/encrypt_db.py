@@ -46,7 +46,8 @@ def main() -> None:
     try:
         import sqlcipher3.dbapi2 as sqlcipher
     except ImportError:
-        log.error("sqlcipher3 not installed. Run: pip install sqlcipher3")
+        log.error("sqlcipher3 not found in this Python interpreter.")
+        log.error("Run with the venv Python: .venv/bin/python3 scripts/encrypt_db.py")
         sys.exit(1)
 
     db_path = Path(sys.argv[1] if len(sys.argv) > 1 else "/data/fitness.db")
