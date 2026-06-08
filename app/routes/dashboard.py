@@ -65,13 +65,17 @@ async def dashboard(
 
     async with conn.execute(
         """
-        SELECT DISTINCT DATE(started_at) AS day
-        FROM workouts
-        WHERE user_id = ?
-          AND started_at >= date('now', '-364 days')
-        ORDER BY day
+        SELECT DISTINCT day FROM (
+            SELECT DATE(started_at,'localtime') AS day
+            FROM workouts
+            WHERE user_id = ? AND started_at >= date('now', '-364 days', 'localtime')
+            UNION
+            SELECT logged_date AS day
+            FROM cardio_logs
+            WHERE user_id = ? AND logged_date >= date('now', '-364 days', 'localtime')
+        ) ORDER BY day
         """,
-        (uid,),
+        (uid, uid),
     ) as cur:
         heatmap_dates = [r["day"] for r in await cur.fetchall()]
 
@@ -79,12 +83,13 @@ async def dashboard(
 
     async with conn.execute(
         """
-        SELECT DISTINCT DATE(started_at) AS day
-        FROM workouts
-        WHERE user_id = ?
-        ORDER BY day DESC
+        SELECT DISTINCT day FROM (
+            SELECT DATE(started_at,'localtime') AS day FROM workouts WHERE user_id = ?
+            UNION
+            SELECT logged_date AS day FROM cardio_logs WHERE user_id = ?
+        ) ORDER BY day DESC
         """,
-        (uid,),
+        (uid, uid),
     ) as cur:
         all_days = [r["day"] for r in await cur.fetchall()]
 
@@ -94,16 +99,30 @@ async def dashboard(
 
     async with conn.execute(
         """
-        SELECT COALESCE(SUM(s.weight_kg * s.reps), 0) AS weekly_volume,
-               COUNT(DISTINCT s.workout_id)            AS weekly_sessions
+        SELECT COALESCE(SUM(s.weight_kg * s.reps), 0) AS weekly_volume
         FROM sets s
         JOIN workouts w ON w.id = s.workout_id
         WHERE s.user_id = ?
-          AND DATE(w.started_at) >= DATE('now', '-6 days')
+          AND DATE(w.started_at,'localtime') >= DATE('now', '-6 days', 'localtime')
         """,
         (uid,),
     ) as cur:
         vol_row = dict(await cur.fetchone())
+
+    async with conn.execute(
+        """
+        SELECT COUNT(*) AS weekly_sessions FROM (
+            SELECT DISTINCT DATE(started_at,'localtime') AS day
+            FROM workouts WHERE user_id = ?
+            AND DATE(started_at,'localtime') >= DATE('now', '-6 days', 'localtime')
+            UNION
+            SELECT DISTINCT logged_date AS day FROM cardio_logs WHERE user_id = ?
+            AND logged_date >= DATE('now', '-6 days', 'localtime')
+        )
+        """,
+        (uid, uid),
+    ) as cur:
+        vol_row["weekly_sessions"] = (await cur.fetchone())["weekly_sessions"]
 
     async with conn.execute(
         "SELECT COUNT(*) AS total_workouts FROM workouts WHERE user_id = ?",
@@ -165,8 +184,7 @@ async def dashboard(
     # Last-week aggregate for delta comparison
     async with conn.execute(
         """
-        SELECT COALESCE(SUM(s.weight_kg * s.reps), 0) AS volume,
-               COUNT(DISTINCT s.workout_id) AS sessions
+        SELECT COALESCE(SUM(s.weight_kg * s.reps), 0) AS volume
         FROM sets s
         JOIN workouts w ON w.id = s.workout_id
         WHERE s.user_id = ?
@@ -176,8 +194,24 @@ async def dashboard(
         (uid,),
     ) as cur:
         _lw = dict(await cur.fetchone())
-    last_week_volume   = _lw["volume"]
-    last_week_sessions = _lw["sessions"]
+    last_week_volume = _lw["volume"]
+
+    async with conn.execute(
+        """
+        SELECT COUNT(*) AS sessions FROM (
+            SELECT DISTINCT DATE(started_at,'localtime') AS day
+            FROM workouts WHERE user_id = ?
+            AND DATE(started_at,'localtime') >= DATE('now', '-13 days', 'localtime')
+            AND DATE(started_at,'localtime') <  DATE('now', '-6 days',  'localtime')
+            UNION
+            SELECT DISTINCT logged_date AS day FROM cardio_logs WHERE user_id = ?
+            AND logged_date >= DATE('now', '-13 days', 'localtime')
+            AND logged_date <  DATE('now', '-6 days',  'localtime')
+        )
+        """,
+        (uid, uid),
+    ) as cur:
+        last_week_sessions = (await cur.fetchone())["sessions"]
 
     weekly_volume = vol_row["weekly_volume"]
     if last_week_volume and last_week_volume > 0:
