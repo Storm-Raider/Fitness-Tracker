@@ -15,10 +15,18 @@
 .grid { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 0.5rem; }
 .cell { width: 16px; height: 16px; border-radius: 3px; background: var(--surface-2); border: 1px solid var(--border); }
 .cell.done { background: var(--success); border-color: var(--success); }
+.cell.partial { background: rgba(245,158,11,0.45); border-color: var(--pr); }
 .cell.missed { background: var(--danger); border-color: var(--danger); opacity: 0.8; }
 .cell.today { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-dim); }
 .cell.grace { background: var(--pr-dim); border-color: var(--pr); }
 .cell.future { background: var(--surface-2); }
+.partial-notice { display:flex; align-items:center; gap:0.5rem; padding:0.6rem 0.75rem; margin:0.6rem 0 0.25rem;
+  background:rgba(245,158,11,0.08); border:1px solid rgba(245,158,11,0.25); border-radius:var(--radius-xs);
+  color:var(--pr); font-size:0.875rem; font-weight:600; }
+.btn-partial { background:transparent; border:1px solid var(--pr); color:var(--pr); border-radius:var(--radius-xs);
+  padding:0.5rem 1rem; font-family:inherit; font-size:0.82rem; cursor:pointer; transition:all 0.15s;
+  min-height:40px; margin-top:0.6rem; }
+.btn-partial:hover { background:rgba(245,158,11,0.08); }
 
 .ch-banner { padding: 0.9rem 1.1rem; border-radius: var(--radius-sm); margin-bottom: 1.25rem; font-size: 0.9rem; line-height: 1.5; }
 .ch-banner.failed { background: var(--danger-dim); border: 1px solid rgba(248,113,113,0.3); color: var(--danger); }
@@ -77,6 +85,18 @@
     </div>
     {% endfor %}
   </div>
+  {% if is_partial_allowed and today_done < today_total %}
+    {% if today_partial_submitted %}
+    <div class="partial-notice" id="partial-submitted-notice">
+      <i data-lucide="check-circle-2" style="width:16px;height:16px;flex-shrink:0;"></i>
+      Partial day submitted — streak continues
+    </div>
+    {% else %}
+    <button class="btn-partial" id="submit-partial-btn" onclick="submitPartialDay('{{ today_iso }}')">
+      Submit partial day
+    </button>
+    {% endif %}
+  {% endif %}
   <div id="photo-gallery" style="display:flex;gap:0.5rem;flex-wrap:wrap;margin-top:0.85rem;"></div>
 </div>
 {% endif %}
@@ -96,6 +116,18 @@
     </div>
     {% endfor %}
   </div>
+  {% if is_partial_allowed %}
+    {% if yesterday_partial_submitted %}
+    <div class="partial-notice" style="margin-top:0.5rem;">
+      <i data-lucide="check-circle-2" style="width:16px;height:16px;flex-shrink:0;"></i>
+      Partial day submitted — streak continues
+    </div>
+    {% else %}
+    <button class="btn-partial" style="margin-top:0.5rem;" onclick="submitPartialDay('{{ yesterday_iso }}')">
+      Submit partial day
+    </button>
+    {% endif %}
+  {% endif %}
 </div>
 {% endif %}
 
@@ -136,6 +168,7 @@
   </div>
   <div style="display:flex;gap:1rem;flex-wrap:wrap;margin-top:0.75rem;font-size:0.68rem;color:var(--muted);">
     <span><span class="cell done" style="display:inline-block;vertical-align:-2px;"></span> done</span>
+    {% if is_partial_allowed %}<span><span class="cell partial" style="display:inline-block;vertical-align:-2px;"></span> partial</span>{% endif %}
     <span><span class="cell missed" style="display:inline-block;vertical-align:-2px;"></span> missed</span>
     <span><span class="cell grace" style="display:inline-block;vertical-align:-2px;"></span> grace</span>
     <span><span class="cell future" style="display:inline-block;vertical-align:-2px;"></span> upcoming</span>
@@ -326,6 +359,19 @@ async function applyCheckin(row, dayDate, ruleKey, done) {
   // A check-in can flip the whole attempt (e.g. completing the final day, or a
   // grace save). Reload so the banner/grid reflect the new status.
   if (res.status !== 'active') location.reload();
+}
+
+async function submitPartialDay(dayDate) {
+  const btn = document.getElementById('submit-partial-btn');
+  if (btn) btn.disabled = true;
+  const r = await fetch('/challenges/' + ATTEMPT_ID + '/submit-partial', {
+    method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({day_date: dayDate}),
+  });
+  if (!r.ok) { if (btn) btn.disabled = false; return; }
+  const data = await r.json();
+  if (data.status !== 'active') { location.reload(); return; }
+  location.reload();
 }
 
 async function abandonChallenge() {

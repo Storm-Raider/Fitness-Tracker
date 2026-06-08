@@ -75,13 +75,26 @@ def rule_done(rule: dict, day_str: str, checks: dict, train_dates: set[str]) -> 
     return val
 
 
-def day_complete(template: dict, day_str: str, checks: dict, train_dates: set[str]) -> bool:
-    """`checks` is the full {day: {rule: bool}} map for the attempt."""
+def day_full_complete(template: dict, day_str: str, checks: dict, train_dates: set[str]) -> bool:
+    """All required rules are done (strict — ignores _submitted)."""
     day_checks = checks.get(day_str, {})
     return all(
         rule_done(r, day_str, day_checks, train_dates)
         for r in template["rules"] if not r.get("optional")
     )
+
+
+def day_complete(template: dict, day_str: str, checks: dict, train_dates: set[str]) -> bool:
+    """`checks` is the full {day: {rule: bool}} map for the attempt.
+
+    For allow_partial challenges an explicit partial-submit also counts as
+    complete so the streak is preserved.
+    """
+    if day_full_complete(template, day_str, checks, train_dates):
+        return True
+    if template.get("allow_partial") and checks.get(day_str, {}).get("_submitted"):
+        return True
+    return False
 
 
 async def evaluate_attempt(
@@ -186,7 +199,10 @@ def day_cells(view: dict, today: date) -> list[dict]:
         if d > today:
             state = "future"
         elif day_complete(template, ds, view["_checks"], view["_train_dates"]):
-            state = "done"
+            if day_full_complete(template, ds, view["_checks"], view["_train_dates"]):
+                state = "done"
+            else:
+                state = "partial"
         elif d == today:
             state = "today"
         elif d == today - timedelta(days=GRACE_DAYS):

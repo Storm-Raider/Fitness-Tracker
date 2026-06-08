@@ -39,6 +39,10 @@ class UpdateRulesIn(BaseModel):
     rules: list[dict]
 
 
+class SubmitPartialIn(BaseModel):
+    day_date: str
+
+
 async def _attempt_row(conn, attempt_id: int, uid: int) -> dict | None:
     async with conn.execute(
         "SELECT * FROM challenge_attempts WHERE id=? AND user_id=?", (attempt_id, uid)
@@ -156,7 +160,7 @@ async def challenge_detail(
         view["status"] == "active"
         and start <= yesterday <= last_day
         and yesterday < today
-        and not ch.day_complete(view["_template"], yesterday.isoformat(), view["_checks"], view["_train_dates"])
+        and not ch.day_full_complete(view["_template"], yesterday.isoformat(), view["_checks"], view["_train_dates"])
     )
 
     # Back-dated catch-up: days from started_on up to two days ago that predate
@@ -176,6 +180,10 @@ async def challenge_detail(
             d += timedelta(days=1)
 
     template = view["_template"]
+    allow_partial = bool(template and template.get("allow_partial"))
+    checks = view["_checks"]
+    today_partial_submitted = checks.get(today.isoformat(), {}).get("_submitted", False)
+    yesterday_partial_submitted = checks.get(yesterday.isoformat(), {}).get("_submitted", False)
     return templates.TemplateResponse(request, "challenge_detail.html", {
         "user": dict(current_user),
         "c": view,
@@ -192,6 +200,9 @@ async def challenge_detail(
         "cells": ch.day_cells(view, today),
         "is_editable": bool(template and template.get("editable")),
         "current_rules": template["rules"] if template else [],
+        "is_partial_allowed": allow_partial,
+        "today_partial_submitted": today_partial_submitted,
+        "yesterday_partial_submitted": yesterday_partial_submitted,
     })
 
 
@@ -266,6 +277,63 @@ async def checkin(
         "rule_key": body.rule_key,
         "done": body.done,
         "day_complete": done == total,
+        "day_done": done,
+        "day_total": total,
+        "status": view["status"],
+    })
+
+
+@router.post("/challenges/{attempt_id}/submit-partial")
+async def submit_partial(
+    attempt_id: int,
+    body: SubmitPartialIn,
+    conn: aiosqlite.Connection = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    uid = current_user["id"]
+    row = await _attempt_row(conn, attempt_id, uid)
+    if not row:
+        raise HTTPException(status_code=404, detail="Challenge not found")
+    if row["status"] != "active":
+        raise HTTPException(status_code=409, detail="This challenge is no longer active")
+    template = CHALLENGE_INDEX.get(row["template_key"])
+    if not template or not template.get("allow_partial"):
+        raise HTTPException(status_code=422, detail="This challenge does not support partial submission")
+
+    today = ch.today_local()
+    editable = {today.isoformat(), (today - timedelta(days=ch.GRACE_DAYS)).isoformat()}
+    if body.day_date not in editable:
+        raise HTTPException(status_code=422, detail="That day can no longer be edited")
+
+    async with conn.execute(
+        "SELECT rules_json FROM challenge_checkins WHERE attempt_id=? AND day_date=?",
+        (attempt_id, body.day_date),
+    ) as c:
+        existing = await c.fetchone()
+    rules = {}
+    if existing:
+        try:
+            rules = json.loads(existing["rules_json"])
+        except (json.JSONDecodeError, TypeError):
+            rules = {}
+    rules["_submitted"] = True
+
+    await conn.execute(
+        """INSERT INTO challenge_checkins(attempt_id, user_id, day_date, rules_json, updated_at)
+           VALUES (?, ?, ?, ?, datetime('now','localtime'))
+           ON CONFLICT(attempt_id, day_date)
+           DO UPDATE SET rules_json=excluded.rules_json, updated_at=excluded.updated_at""",
+        (attempt_id, uid, body.day_date, json.dumps(rules)),
+    )
+    await conn.commit()
+
+    row = await _attempt_row(conn, attempt_id, uid)
+    view = await ch.evaluate_attempt(conn, row, today)
+    day = date.fromisoformat(body.day_date)
+    done, total = ch.rules_done_count(view, day)
+    return JSONResponse({
+        "day_date": body.day_date,
+        "submitted": True,
         "day_done": done,
         "day_total": total,
         "status": view["status"],
