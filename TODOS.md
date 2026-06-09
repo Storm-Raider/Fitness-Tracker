@@ -315,3 +315,10 @@ Re-action if a dedicated routine management page is built: add `user_id` to `GET
 **Why major:** auto-fix attempted but the test suite failed; needs manual work
 **Link:** https://github.com/Storm-Raider/Fitness-Tracker/issues/26
 
+
+## ISSUE-25: [Bug] Body metric chart visual
+
+**Source:** auto-triage (2026-06-09)
+**Why major:** auto-fix attempted but the test suite failed; needs manual work
+**Link:** https://github.com/Storm-Raider/Fitness-Tracker/issues/25
+
