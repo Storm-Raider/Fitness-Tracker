@@ -308,3 +308,10 @@ Re-action if a dedicated routine management page is built: add `user_id` to `GET
 - Desktop nav has single Analytics item
 - No broken `/prs` or `/stats` references in templates
 - `prs.html` and `stats.html` can be deleted in follow-up cleanup
+
+## ISSUE-26: [Bug] Clutter on the dashboard
+
+**Source:** auto-triage (2026-06-09)
+**Why major:** auto-fix attempted but the test suite failed; needs manual work
+**Link:** https://github.com/Storm-Raider/Fitness-Tracker/issues/26
+
