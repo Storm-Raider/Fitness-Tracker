@@ -322,3 +322,21 @@ Re-action if a dedicated routine management page is built: add `user_id` to `GET
 **Why major:** auto-fix attempted but the test suite failed; needs manual work
 **Link:** https://github.com/Storm-Raider/Fitness-Tracker/issues/25
 
+
+## ISSUE-27: [Feature] Acheivements
+
+**Source:** auto-triage (2026-06-11)
+**Why major:** Vague feature request requiring product and design judgment to decide which new achievements, thresholds, and criteria to add — no fix is unambiguously correct.
+**Link:** https://github.com/Storm-Raider/Fitness-Tracker/issues/27
+
+## Issue #27 — Add More Achievements
+
+**Reporter:** Sibi (in-app feedback, 2026-06-10)
+**Page:** `/achievements`
+
+Request to expand the achievements list beyond the current 24. Needs product decisions:
+- Which categories are under-represented (e.g. cardio milestones, PR streaks, routine/challenge completions)?
+- What thresholds make sense for a solo-user tracker?
+- Should existing tiers (bronze/silver/gold) be balanced first?
+
+**Implementation notes:** All achievement logic lives in `app/routes/achievements.py` — add entries to `ACHIEVEMENTS[]` and a corresponding SQL block in `_compute_earned()`. No schema change needed; `user_achievements` table stores arbitrary string IDs.
