@@ -38,6 +38,17 @@ def _fake_chat(plan: dict):
     return _inner
 
 
+@pytest.fixture(autouse=True)
+def _reset_coach_state():
+    """Coach module state is process-global — clear it around every test so a
+    speculative plan cached by one test can't satisfy the next test's request."""
+    coach._JOBS.clear(); coach._QUEUE.clear()
+    coach._ACTIVE_BY_USER.clear(); coach._SPEC_CACHE.clear()
+    yield
+    coach._JOBS.clear(); coach._QUEUE.clear()
+    coach._ACTIVE_BY_USER.clear(); coach._SPEC_CACHE.clear()
+
+
 @pytest.mark.asyncio
 async def test_coach_page_redirects_to_plan(client):
     resp = await client.get("/coach", follow_redirects=False)
@@ -251,7 +262,7 @@ async def test_catalog_prioritises_conventional_compounds(db):
     """The exercise catalog must surface staple compounds (Back Squat, Bench
     Press, Deadlift) even for a user with no logged history."""
     catalog = await coach._exercise_catalog(db, uid=1)
-    flat = [name for names in catalog.values() for name in names]
+    flat = coach._catalog_names(catalog)
     for staple in ("Back Squat", "Bench Press", "Deadlift", "Barbell Row", "Overhead Press"):
         assert staple in flat, f"{staple} missing from coach catalog"
 
@@ -331,3 +342,107 @@ async def test_single_flight_attaches_to_queued_job(client, monkeypatch):
     assert r.status_code == 202
     assert r.json()["job_id"] == "existing"  # attached, not a new job
     coach._JOBS.clear(); coach._QUEUE.clear(); coach._ACTIVE_BY_USER.clear()
+
+
+# ── Plan diversity: detection + deterministic repair ─────────────────
+
+def _mk_plan(days_per_week, day_specs):
+    """day_specs: list of [(exercise_id, name), ...] per day."""
+    return {
+        "title": "T", "summary": "", "goal": "general",
+        "days_per_week": days_per_week,
+        "days": [
+            {"focus": f"Day {i+1}", "exercises": [
+                {"exercise_id": eid, "name": name, "sets": 3, "reps": "8-12", "note": ""}
+                for eid, name in spec
+            ]}
+            for i, spec in enumerate(day_specs)
+        ],
+    }
+
+
+def test_max_weekly_repeats_boundaries():
+    assert coach._max_weekly_repeats(1) == 1
+    assert coach._max_weekly_repeats(2) == 1
+    assert coach._max_weekly_repeats(3) == 2
+    assert coach._max_weekly_repeats(5) == 2
+    assert coach._max_weekly_repeats(6) == 3
+    assert coach._max_weekly_repeats(7) == 3
+
+
+def test_quality_issues_flags_identical_days():
+    plan = _mk_plan(2, [
+        [(1, "A"), (2, "B"), (3, "C")],
+        [(1, "A"), (2, "B"), (3, "C")],
+    ])
+    issues = coach._plan_quality_issues(plan)
+    assert any("share" in i for i in issues)
+
+
+def test_quality_issues_flags_over_repeated_exercise():
+    # 3-day plan (cap 2): exercise 1 on all 3 days.
+    plan = _mk_plan(3, [
+        [(1, "Squat"), (2, "B")],
+        [(1, "Squat"), (3, "C")],
+        [(1, "Squat"), (4, "D")],
+    ])
+    issues = coach._plan_quality_issues(plan)
+    assert any("Squat" in i and "3 days" in i for i in issues)
+
+
+def test_quality_issues_clean_plan_passes():
+    plan = _mk_plan(3, [
+        [(1, "A"), (2, "B")],
+        [(3, "C"), (4, "D")],
+        [(5, "E"), (6, "F")],
+    ])
+    assert coach._plan_quality_issues(plan) == []
+
+
+@pytest.mark.asyncio
+async def test_repair_dedupes_within_day(db):
+    await coach._exercise_catalog(db, 0)          # populate _EXERCISE_BASE_ROWS
+    name_map, _ = await coach._name_to_id_map(db)
+    sq = name_map["back squat"]
+    plan = _mk_plan(1, [[(sq["id"], sq["name"]), (sq["id"], sq["name"])]])
+    repaired, _swaps = coach._repair_plan(plan, name_map)
+    assert len(repaired["days"][0]["exercises"]) == 1
+
+
+@pytest.mark.asyncio
+async def test_repair_swaps_over_repeated_exercise(db):
+    await coach._exercise_catalog(db, 0)
+    name_map, _ = await coach._name_to_id_map(db)
+    sq = name_map["back squat"]
+    # 3-day plan (cap 2): Back Squat on all 3 days → day 3 must get a swap.
+    plan = _mk_plan(3, [
+        [(sq["id"], sq["name"])],
+        [(sq["id"], sq["name"])],
+        [(sq["id"], sq["name"])],
+    ])
+    repaired, swaps = coach._repair_plan(plan, name_map)
+    day3 = repaired["days"][2]["exercises"]
+    assert day3[0]["exercise_id"] != sq["id"], "third occurrence should be swapped"
+    assert swaps and "Back Squat →" in swaps[0]
+    # Replacement must be a real library exercise.
+    assert day3[0]["name"].lower() in name_map
+
+
+@pytest.mark.asyncio
+async def test_generation_repairs_copy_paste_days(client, db, monkeypatch):
+    """A model that returns the same day twice still yields a diverse plan."""
+    names = await _real_exercise_names(db, 4)
+    same_day = {
+        "focus": "Full Body",
+        "exercises": [{"name": n, "sets": 3, "reps": "8-12", "note": ""} for n in names],
+    }
+    fake = {"title": "Copy Paste", "summary": "", "days": [same_day, dict(same_day)]}
+    monkeypatch.setattr(coach.ollama, "chat_json", _fake_chat(fake))
+    coach._JOBS.clear(); coach._QUEUE.clear(); coach._ACTIVE_BY_USER.clear()
+
+    pd = await _generate(client, "general", 2)
+    assert pd["status"] == "done"
+    d1 = {e["exercise_id"] for e in pd["plan"]["days"][0]["exercises"]}
+    d2 = {e["exercise_id"] for e in pd["plan"]["days"][1]["exercises"]}
+    # cap for 2 days/week is 1 — repair must make the days fully disjoint.
+    assert d1.isdisjoint(d2), f"days still overlap after repair: {d1 & d2}"

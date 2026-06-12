@@ -464,7 +464,10 @@ def _build_prompt(goal: str, days: int, profile: dict, catalog: dict, focus_note
         "8. RESPECT FATIGUE. Do not heavily load muscles marked 'trained ≤1 day ago' on Day 1.\n"
         "9. STALLED LIFTS. For plateaued exercises, change the rep range or substitute a "
         "variation from the ALLOWED list.\n"
-        "10. EXACT NAMES. Use only exercise names from the ALLOWED list, spelled exactly."
+        "10. EXACT NAMES. Use only exercise names from the ALLOWED list, spelled exactly.\n"
+        f"11. VARIETY. No two days may be near-copies of each other, and no exercise may "
+        f"appear on more than {_max_weekly_repeats(days)} day(s) in the week. Rotate "
+        "variations instead (e.g. Bench Press one day, Incline Dumbbell Press another)."
     )
     return "\n".join(lines)
 
@@ -487,7 +490,10 @@ _SYSTEM_PROMPT = (
     "- RECOVERY: 48 h minimum between heavy loading of the same primary muscle.\n"
     "- VOLUME BALANCE: target 10–20 hard sets per primary muscle per week; "
     "undertrained muscles receive proportionally more work.\n"
-    "- PROVEN SPLITS: Full Body, Upper/Lower, Push/Pull/Legs only.\n\n"
+    "- PROVEN SPLITS: Full Body, Upper/Lower, Push/Pull/Legs only.\n"
+    "- VARIETY: every day in the week must be distinct — never return two days "
+    "with the same exercise list, and rotate movement variations across the week "
+    "rather than repeating one exercise on most days.\n\n"
     "You ONLY use exercise names from the provided ALLOWED list, spelled exactly. "
     "You return your answer strictly as JSON matching the schema — zero prose outside the JSON.\n\n"
     "Example of one well-formed day (follow this exact shape):\n"
@@ -590,6 +596,122 @@ def _normalise_plan(raw: dict, goal: str, days: int, name_map: dict, norm_map: d
     return plan, dropped
 
 
+def _max_weekly_repeats(days_per_week: int) -> int:
+    """How many days one exercise may appear on before the plan counts as repetitive.
+
+    Mirrors conventional programming: U/L and PPL repeat a movement at most
+    twice a week; only high-frequency 6–7-day splits justify a third exposure."""
+    if days_per_week <= 2:
+        return 1
+    if days_per_week <= 5:
+        return 2
+    return 3
+
+
+def _plan_quality_issues(plan: dict) -> list[str]:
+    """Detect diversity failures the schema can't express: near-identical days
+    and exercises repeated across too many days. Returns human-readable issue
+    strings — non-empty list triggers a retry with this feedback in the prompt."""
+    issues: list[str] = []
+    days = plan["days"]
+    sigs = [{ex["exercise_id"] for ex in d["exercises"]} for d in days]
+
+    for i in range(len(days)):
+        for j in range(i + 1, len(days)):
+            if not sigs[i] or not sigs[j]:
+                continue
+            overlap = len(sigs[i] & sigs[j]) / min(len(sigs[i]), len(sigs[j]))
+            if overlap >= 0.6:
+                issues.append(
+                    f"Day {i + 1} ('{days[i]['focus']}') and Day {j + 1} "
+                    f"('{days[j]['focus']}') share {round(overlap * 100)}% of their "
+                    "exercises — the days must be distinct"
+                )
+
+    cap = _max_weekly_repeats(plan["days_per_week"])
+    counts: dict[int, int] = {}
+    names: dict[int, str] = {}
+    for d, sig in zip(days, sigs):
+        for eid in sig:
+            counts[eid] = counts.get(eid, 0) + 1
+        for ex in d["exercises"]:
+            names[ex["exercise_id"]] = ex["name"]
+    for eid, c in counts.items():
+        if c > cap:
+            issues.append(f"{names[eid]} appears on {c} days (maximum {cap} per week)")
+    return issues
+
+
+def _repair_plan(plan: dict, name_map: dict) -> tuple[dict, list[str]]:
+    """Deterministic last line of defence against a repetitive model output.
+
+    1. Removes duplicate exercises within each day (keeps the first).
+    2. Caps how many days an exercise appears on (_max_weekly_repeats); excess
+       occurrences are swapped for an unused same-muscle alternative from the
+       library, preferring conventional staples.
+
+    Runs after every generation regardless of retries, so a saved plan can
+    never contain copy-paste days even when the small model ignores the prompt.
+    Returns (plan, swap_descriptions) — swaps are logged, not user-facing."""
+    rows = _EXERCISE_BASE_ROWS or []
+    muscle_of = {r["name"].lower(): (r["primary_muscle"] or r["category"]) for r in rows}
+    by_muscle: dict[str, list[str]] = {}
+    for r in sorted(rows, key=lambda r: (
+        _PRIORITY_RANK.get(r["name"].lower(), 999),
+        _EQUIP_RANK.get(r["equipment"], 5),
+        r["name"],
+    )):
+        by_muscle.setdefault(r["primary_muscle"] or r["category"], []).append(r["name"])
+
+    swaps: list[str] = []
+    cap = _max_weekly_repeats(plan["days_per_week"])
+
+    # 1 — within-day dedupe.
+    for day in plan["days"]:
+        seen: set[int] = set()
+        deduped = []
+        for ex in day["exercises"]:
+            if ex["exercise_id"] in seen:
+                continue
+            seen.add(ex["exercise_id"])
+            deduped.append(ex)
+        day["exercises"] = deduped
+
+    # 2 — cross-day cap. Earlier days keep the exercise; later occurrences get
+    # swapped for a same-muscle alternative that isn't already in that day and
+    # isn't itself at the cap.
+    used_count: dict[int, int] = {}
+    for day in plan["days"]:
+        day_ids = {ex["exercise_id"] for ex in day["exercises"]}
+        for ex in day["exercises"]:
+            eid = ex["exercise_id"]
+            if used_count.get(eid, 0) < cap:
+                used_count[eid] = used_count.get(eid, 0) + 1
+                continue
+            muscle = muscle_of.get(ex["name"].lower())
+            replacement = None
+            for cand in by_muscle.get(muscle, []):
+                cand_match = name_map.get(cand.lower())
+                if not cand_match:
+                    continue
+                cid = cand_match["id"]
+                if cid == eid or cid in day_ids or used_count.get(cid, 0) >= cap:
+                    continue
+                replacement = cand_match
+                break
+            if replacement:
+                swaps.append(f"{ex['name']} → {replacement['name']}")
+                ex["exercise_id"] = replacement["id"]
+                ex["name"] = replacement["name"]
+                ex["note"] = "Variation swap for weekly variety — match the loading of the movement it replaces."
+                day_ids.add(replacement["id"])
+                used_count[replacement["id"]] = used_count.get(replacement["id"], 0) + 1
+            else:
+                # No viable alternative — accept the repeat rather than drop work.
+                used_count[eid] = used_count.get(eid, 0) + 1
+    return plan, swaps
+
+
 async def _emit(job_id: str, event: dict) -> None:
     """Push a progress event into the SSE queue for this job (no-op if no subscriber)."""
     q = _JOB_EVENTS.get(job_id)
@@ -659,16 +781,18 @@ async def _run_generation(
             )
             name_map, _norm_map = await _name_to_id_map(conn)
             plan, dropped = _normalise_plan(raw, goal, days, name_map, _norm_map)
+            issues = _plan_quality_issues(plan)
 
-            # Auto-retry if the plan is thin: missing days or >30% of exercises dropped.
+            # Auto-retry if the plan is thin (missing days / >30% dropped) OR
+            # repetitive (copy-paste days, same exercise across too many days).
             total_exercises = sum(len(d["exercises"]) for d in plan["days"])
             total_dropped = len(dropped)
             drop_ratio = total_dropped / max(1, total_exercises + total_dropped)
-            if len(plan["days"]) < days or drop_ratio > 0.30:
+            if len(plan["days"]) < days or drop_ratio > 0.30 or issues:
                 logging.warning(
-                    "coach retry: days=%d/%d dropped=%d/%d (%.0f%%)",
+                    "coach retry: days=%d/%d dropped=%d/%d (%.0f%%) issues=%d",
                     len(plan["days"]), days, total_dropped,
-                    total_exercises + total_dropped, drop_ratio * 100,
+                    total_exercises + total_dropped, drop_ratio * 100, len(issues),
                 )
                 await _emit(job_id, {"type": "phase", "message": "Refining your plan…"})
                 retry_prompt = (
@@ -678,18 +802,33 @@ async def _run_generation(
                     + str(days)
                     + " day(s) — do not omit any."
                 )
+                if issues:
+                    retry_prompt += (
+                        "\n\nYour previous attempt had these problems — fix ALL of them:\n- "
+                        + "\n- ".join(issues)
+                        + f"\nEvery day must be distinct, and no exercise may appear on more "
+                        f"than {_max_weekly_repeats(days)} day(s). Use different variations "
+                        "(e.g. Bench Press one day, Incline Dumbbell Press another)."
+                    )
                 raw2 = await ollama.chat_json(
                     _SYSTEM_PROMPT, retry_prompt, schema,
                     timeout=480.0, temperature=0.1, num_ctx=num_ctx,
                     on_tokens=_on_tokens,
                 )
                 plan2, dropped2 = _normalise_plan(raw2, goal, days, name_map, _norm_map)
-                # Keep whichever attempt produced the more complete plan.
-                if len(plan2["days"]) > len(plan["days"]) or (
-                    len(plan2["days"]) == len(plan["days"])
-                    and len(dropped2) < len(dropped)
+                issues2 = _plan_quality_issues(plan2)
+                # Keep whichever attempt is better: complete days first, then
+                # fewer diversity issues, then fewer dropped names.
+                if (len(plan2["days"]), -len(issues2), -len(dropped2)) > (
+                    len(plan["days"]), -len(issues), -len(dropped)
                 ):
                     plan, dropped = plan2, dropped2
+
+            # Deterministic guarantee: whatever the model returned, dedupe each
+            # day and swap over-repeated exercises for same-muscle alternatives.
+            plan, swaps = _repair_plan(plan, name_map)
+            if swaps:
+                logging.info("coach: repaired repetitive plan — %s", "; ".join(swaps))
 
         if not plan["days"]:
             err = "The model didn't return any usable exercises. Try again."
@@ -761,6 +900,7 @@ async def _run_spec_generation(
             )
             name_map, _norm_map = await _name_to_id_map(conn)
             plan, dropped = _normalise_plan(raw, goal, days, name_map, _norm_map)
+            plan, _swaps = _repair_plan(plan, name_map)
             if plan["days"]:
                 _SPEC_CACHE[uid] = {
                     "goal": goal, "days": days, "plan": plan,
