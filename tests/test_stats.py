@@ -4,9 +4,9 @@ from datetime import datetime, date, timedelta
 
 @pytest.mark.asyncio
 async def test_stats_renders(client):
-    resp = await client.get("/stats", headers={"Accept": "text/html"})
+    resp = await client.get("/stats", headers={"Accept": "text/html"}, follow_redirects=True)
     assert resp.status_code == 200
-    assert "Stats" in resp.text
+    assert "Analytics" in resp.text
     # Always-rendered sections (data-driven sections only appear with data —
     # those are covered by test_stats_shows_top_exercise / _plateau).
     assert "Volume" in resp.text          # "Volume — last 12 weeks"
@@ -15,7 +15,7 @@ async def test_stats_renders(client):
 
 @pytest.mark.asyncio
 async def test_stats_empty_state(client):
-    resp = await client.get("/stats", headers={"Accept": "text/html"})
+    resp = await client.get("/stats", headers={"Accept": "text/html"}, follow_redirects=True)
     assert resp.status_code == 200
     # With no logged sessions, the volume trend shows its empty-state prompt.
     assert "Volume trend appears once" in resp.text
@@ -24,7 +24,7 @@ async def test_stats_empty_state(client):
 
 @pytest.mark.asyncio
 async def test_stats_empty_chart_state(client):
-    resp = await client.get("/stats", headers={"Accept": "text/html"})
+    resp = await client.get("/stats", headers={"Accept": "text/html"}, follow_redirects=True)
     assert resp.status_code == 200
     assert "Volume trend appears once" in resp.text
     assert "Start a session" in resp.text
@@ -42,7 +42,7 @@ async def test_stats_shows_top_exercise(client, db):
     await client.post(f"/workouts/{w_id}/sets",
                       json={"exercise_id": ex_id, "reps": 5, "weight_kg": 100.0})
 
-    resp = await client.get("/stats", headers={"Accept": "text/html"})
+    resp = await client.get("/stats", headers={"Accept": "text/html"}, follow_redirects=True)
     assert resp.status_code == 200
     assert "Stats Test Lift" in resp.text
 
@@ -69,7 +69,7 @@ async def test_stats_shows_sparkline_with_two_weeks(client, db):
         )
         await db.commit()
 
-    resp = await client.get("/stats", headers={"Accept": "text/html"})
+    resp = await client.get("/stats", headers={"Accept": "text/html"}, follow_redirects=True)
     assert resp.status_code == 200
     assert "<svg" in resp.text
 
@@ -100,10 +100,10 @@ async def test_stats_shows_plateau(client, db):
         )
         await db.commit()
 
-    resp = await client.get("/stats", headers={"Accept": "text/html"})
+    resp = await client.get("/stats", headers={"Accept": "text/html"}, follow_redirects=True)
     assert resp.status_code == 200
     assert "Plateau Test Lift" in resp.text
-    assert "stalled" in resp.text.lower()  # "Stalled — no 1RM gain in 4 weeks"
+    assert "Stalled — no 1RM gain" in resp.text
 
 
 @pytest.mark.asyncio
@@ -130,6 +130,6 @@ async def test_stats_no_plateau_when_improving(client, db):
         )
         await db.commit()
 
-    resp = await client.get("/stats", headers={"Accept": "text/html"})
+    resp = await client.get("/stats", headers={"Accept": "text/html"}, follow_redirects=True)
     assert resp.status_code == 200
-    assert "stalled" not in resp.text.lower()  # no Stalled section when improving
+    assert "Stalled — no 1RM gain" not in resp.text  # no Stalled section when improving

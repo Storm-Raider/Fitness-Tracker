@@ -2,6 +2,7 @@ import pytest
 from httpx import AsyncClient, ASGITransport
 
 from app.main import app
+from app.routes.auth import COOKIE_NAME
 from tests.conftest import _test_session_token, _seed_session
 
 
@@ -148,7 +149,7 @@ async def test_delete_cardio_other_user_returns_404(client: AsyncClient, db_conn
     async with AsyncClient(
         transport=transport,
         base_url="http://test",
-        cookies={"fitstorm_session": _test_session_token(user_id=intruder_id, sid="intruder-sid")},
+        cookies={COOKIE_NAME: _test_session_token(user_id=intruder_id, sid="intruder-sid")},
     ) as intruder:
         r2 = await intruder.delete(f"/cardio/{log_id}")
     assert r2.status_code == 404

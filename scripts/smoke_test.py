@@ -31,24 +31,25 @@ from itsdangerous import URLSafeTimedSerializer
 # App imports must come after env vars are set.
 from app.main import app
 from app.db import open_db, set_db, clear_db
+from app.routes.auth import COOKIE_NAME, _SALT
 from app.routes.workouts import set_http_client
 
 
 def _session_token(user_id: int) -> str:
-    s = URLSafeTimedSerializer(os.environ["APP_SECRET"], salt="fitstorm-session")
+    s = URLSafeTimedSerializer(os.environ["APP_SECRET"], salt=_SALT)
     return s.dumps({"user_id": user_id, "sid": "smoke-sid"})
 
 
 # Each tuple: (path, text_that_must_appear, label)
 CHECKS = [
     ("/",           "Dashboard",          "dashboard"),
-    ("/workouts",   "Workouts",           "workouts"),
+    ("/workouts",   "Sessions",           "workouts"),
     ("/exercises",  "Exercises",          "exercises"),
     ("/metrics",    "Body Metrics",       "metrics"),
     ("/challenges", "Challenges",         "challenges"),
-    ("/stats",      "Stats",              "stats"),
+    ("/stats",      "Analytics",          "stats"),
     ("/cardio",     "Cardio",             "cardio"),
-    ("/prs",        "Personal Records",   "prs"),
+    ("/prs",        "Analytics",          "prs"),
     ("/settings",   "Settings",           "settings"),
     ("/journal",    "Daily Log",          "journal"),
 ]
@@ -87,7 +88,7 @@ async def run() -> bool:
     async with AsyncClient(
         transport=transport,
         base_url="http://test",
-        cookies={"fitstorm_session": token},
+        cookies={COOKIE_NAME: token},
         follow_redirects=True,
     ) as client:
         for path, must_contain, label in CHECKS:

@@ -102,7 +102,7 @@ async def test_last_sets_returns_most_recent_set(client):
 @pytest.mark.asyncio
 async def test_create_exercise_infers_muscle_from_name(client):
     """A custom exercise with a recognisable name gets a muscle group inferred."""
-    resp = await client.post("/exercises", json={"name": "Spider Curl"})
+    resp = await client.post("/exercises", json={"name": "Testing Spider Curl"})
     assert resp.status_code == 201
     assert resp.json()["muscle"] == "Biceps"
     ex_id = resp.json()["id"]

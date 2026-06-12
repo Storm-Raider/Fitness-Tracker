@@ -3,9 +3,9 @@ import pytest
 
 @pytest.mark.asyncio
 async def test_prs_page_renders_empty(client):
-    resp = await client.get("/prs", headers={"Accept": "text/html"})
+    resp = await client.get("/prs", headers={"Accept": "text/html"}, follow_redirects=True)
     assert resp.status_code == 200
-    assert "Personal Records" in resp.text
+    assert "Analytics" in resp.text
     assert "No sets logged yet" in resp.text
 
 
@@ -18,7 +18,7 @@ async def test_prs_page_shows_record(client):
     await client.post(f"/workouts/{w_id}/sets",
                       json={"exercise_id": ex_id, "reps": 5, "weight_kg": 120.0})
 
-    resp = await client.get("/prs", headers={"Accept": "text/html"})
+    resp = await client.get("/prs", headers={"Accept": "text/html"}, follow_redirects=True)
     assert resp.status_code == 200
     assert "PR Test Lift" in resp.text
     assert "120.0" in resp.text

@@ -1,5 +1,6 @@
 import pytest
 from unittest.mock import AsyncMock, patch
+from app.routes.auth import COOKIE_NAME
 
 
 # ---------------------------------------------------------------------------
@@ -14,7 +15,7 @@ async def test_login_success_redirects_and_sets_cookie(anon_client):
     )
     assert resp.status_code == 303
     assert resp.headers["location"] == "/"
-    assert "fitstorm_session" in resp.cookies
+    assert COOKIE_NAME in resp.cookies
 
 
 @pytest.mark.asyncio
@@ -560,12 +561,12 @@ async def test_logout_revokes_session(anon_client, db_conn):
     assert login.status_code == 303
     # Grab the session cookie from the login response (secure flag prevents
     # automatic re-send over http:// in tests, so pass it explicitly).
-    session_cookie = login.cookies.get("fitstorm_session") or dict(login.headers).get("set-cookie", "")
+    session_cookie = login.cookies.get(COOKIE_NAME) or dict(login.headers).get("set-cookie", "")
     async with db_conn.execute("SELECT id FROM sessions WHERE user_id=1") as c:
         rows_before = [r[0] for r in await c.fetchall()]
     assert len(rows_before) >= 1
 
-    await anon_client.post("/logout", cookies={"fitstorm_session": session_cookie})
+    await anon_client.post("/logout", cookies={COOKIE_NAME: session_cookie})
 
     async with db_conn.execute("SELECT id FROM sessions WHERE user_id=1") as c:
         rows_after = [r[0] for r in await c.fetchall()]

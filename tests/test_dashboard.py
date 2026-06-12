@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 async def test_dashboard_renders(client):
     resp = await client.get("/", headers={"Accept": "text/html"})
     assert resp.status_code == 200
-    assert "FitStorm" in resp.text
+    assert "Zenkai" in resp.text
 
 
 @pytest.mark.asyncio
@@ -33,10 +33,13 @@ async def test_dashboard_json_response(client):
 async def test_dashboard_stat_cards_present(client):
     resp = await client.get("/", headers={"Accept": "text/html"})
     assert resp.status_code == 200
-    assert "Total workouts" in resp.text
-    assert "All-time volume" in resp.text
+    assert "Sessions this week" in resp.text
+    assert "Volume this week" in resp.text
     assert "Avg session length" in resp.text
     assert "Best streak" in resp.text
+    # Removed in the #26 declutter — must NOT come back.
+    assert "Total workouts" not in resp.text
+    assert "All-time volume" not in resp.text
 
 
 @pytest.mark.asyncio
