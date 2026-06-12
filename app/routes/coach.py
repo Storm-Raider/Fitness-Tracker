@@ -171,7 +171,10 @@ def _plan_schema(
                                     "name": name_field,
                                     "sets": {"type": "integer"},
                                     "reps": {"type": "string"},
-                                    "note": {"type": "string"},
+                                    # Hard cap via grammar-constrained decoding: long
+                                    # notes dominate generation time on the Pi (output
+                                    # tokens are the wall-clock bottleneck, ~5 tok/s).
+                                    "note": {"type": "string", "maxLength": 90},
                                 },
                                 "required": ["name", "sets", "reps"],
                             },
@@ -458,8 +461,8 @@ def _build_prompt(goal: str, days: int, profile: dict, catalog: dict, focus_note
         "4. SPLIT LABEL. Give each day a clear focus matching the recommended split "
         "(e.g. 'Push', 'Pull', 'Legs', 'Upper Body', 'Full Body').\n"
         "5. VOLUME. Match the session length from the profile; use the set/rep scheme from the prescription.\n"
-        "6. PROGRESSION. Every exercise note must contain a specific overload cue "
-        "(e.g. 'add 2.5 kg when all reps completed with good form', 'add 1 rep per week').\n"
+        "6. PROGRESSION. Every exercise note is ONE short overload cue, maximum 12 words "
+        "(e.g. '@ 100 kg — add 2.5 kg when all reps clean'). Never write longer notes.\n"
         "7. RECOVERY. No heavy loading of the same primary muscle on consecutive days.\n"
         "8. RESPECT FATIGUE. Do not heavily load muscles marked 'trained ≤1 day ago' on Day 1.\n"
         "9. STALLED LIFTS. For plateaued exercises, change the rep range or substitute a "
@@ -487,6 +490,7 @@ _SYSTEM_PROMPT = (
     "the allowed list, in order of loading demand.\n"
     "- PROGRESSIVE OVERLOAD: every exercise note specifies exactly how to progress "
     "(weight increment, rep target, or deload trigger).\n"
+    "- BREVITY: each note is ONE cue of at most 12 words — never a paragraph.\n"
     "- RECOVERY: 48 h minimum between heavy loading of the same primary muscle.\n"
     "- VOLUME BALANCE: target 10–20 hard sets per primary muscle per week; "
     "undertrained muscles receive proportionally more work.\n"
