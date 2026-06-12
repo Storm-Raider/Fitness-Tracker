@@ -135,7 +135,7 @@
 
     const dates = RAW.map(r => r.date.slice(5));
     ctx.fillStyle='#4a5568'; ctx.font='9px JetBrains Mono,monospace';
-    const lbls = n<=8 ? dates.map((_,i)=>i) : [0,Math.round(n*.25),Math.round(n*.5),Math.round(n*.75),n-1];
+    const lbls = n<=4 ? dates.map((_,i)=>i) : [...new Set([0,Math.round(n*.25),Math.round(n*.5),Math.round(n*.75),n-1])];
     lbls.forEach(i => {
       ctx.textAlign = i===0?'left':i===n-1?'right':'center';
       ctx.fillText(dates[i], gx(i), H-3);
@@ -621,7 +621,7 @@ async function logMetric() {
 
     // X-axis labels
     ctx.fillStyle='#4a5568'; ctx.font='9px JetBrains Mono,monospace';
-    const lblIdxs = n<=6 ? allDates.map((_,i)=>i) : [0,Math.round(n*.25),Math.round(n*.5),Math.round(n*.75),n-1];
+    const lblIdxs = n<=4 ? allDates.map((_,i)=>i) : [...new Set([0,Math.round(n*.25),Math.round(n*.5),Math.round(n*.75),n-1])];
     lblIdxs.forEach(i => {
       ctx.textAlign = i===0?'left':i===n-1?'right':'center';
       ctx.fillText(allDates[i].slice(5), xAt(i, W), H-3);

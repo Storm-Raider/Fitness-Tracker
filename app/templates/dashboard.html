@@ -81,15 +81,9 @@
 </a>
 {% endif %}
 
-<div class="grid-3" style="margin-bottom:1rem;">
+<div class="grid-2" style="margin-bottom:1rem;">
   {{ stat_card("calendar-days", weekly_sessions, "Sessions this week", "var(--text)") }}
   {{ stat_card("dumbbell", "", "Volume this week", "var(--accent)", "rgba(79,156,249,0.1)", kg_raw=weekly_volume) }}
-  {{ stat_card("activity", prs | length, "Exercises tracked", "var(--pr)", "var(--pr-dim)") }}
-</div>
-
-<div class="grid-2" style="margin-bottom:1rem;">
-  {{ stat_card("calendar-check", total_workouts, "Total workouts", "var(--text)") }}
-  {{ stat_card("dumbbell", "", "All-time volume", "var(--success)", "rgba(52,211,153,0.1)", kg_raw=total_volume) }}
 </div>
 
 <div class="grid-2" style="margin-bottom:{% if latest_bodyweight %}1rem{% else %}1.5rem{% endif %};">
@@ -182,33 +176,17 @@ document.getElementById('goal-input')?.addEventListener('keydown', e => { if (e.
 <div style="margin-bottom:1.5rem;">
   <div class="section-title">Volume — last 7 days</div>
   <div class="card" style="padding:1rem 1.25rem 0.75rem;">
-    <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:0.75rem;flex-wrap:wrap;gap:0.5rem;">
-      <div style="display:flex;align-items:baseline;gap:0.65rem;">
-        <span style="font-family:'JetBrains Mono',monospace;font-size:1.3rem;font-weight:700;color:var(--accent);">
-          <span class="weight-display" data-kg="{{ weekly_volume }}">{{ "{:,.0f}".format(weekly_volume) }} kg</span>
-        </span>
-        {% if volume_delta_pct is not none %}
-          {% if volume_delta_pct > 0 %}
-          <span style="font-size:0.8rem;color:var(--success);font-weight:600;">▲ +{{ volume_delta_pct }}%</span>
-          {% elif volume_delta_pct < 0 %}
-          <span style="font-size:0.8rem;color:var(--danger);font-weight:600;">▼ {{ volume_delta_pct }}%</span>
-          {% else %}
-          <span style="font-size:0.8rem;color:var(--muted);">= same</span>
-          {% endif %}
-          <span style="font-size:0.75rem;color:var(--muted);">vs last week</span>
-        {% endif %}
-      </div>
-      <span style="font-size:0.78rem;color:var(--muted);">
-        {{ weekly_sessions }} session{{ 's' if weekly_sessions != 1 else '' }}
-        {% if last_week_sessions is not none and last_week_sessions > 0 %}
-          <span style="color:var(--border-mid);">·</span>
-          {% set sdiff = weekly_sessions - last_week_sessions %}
-          {% if sdiff > 0 %}<span style="color:var(--success);">+{{ sdiff }} vs last wk</span>
-          {% elif sdiff < 0 %}<span style="color:var(--danger);">{{ sdiff }} vs last wk</span>
-          {% endif %}
-        {% endif %}
-      </span>
+    {% if volume_delta_pct is not none %}
+    <div style="margin-bottom:0.75rem;">
+      {% if volume_delta_pct > 0 %}
+      <span style="font-size:0.8rem;color:var(--success);font-weight:600;">▲ +{{ volume_delta_pct }}% vs last week</span>
+      {% elif volume_delta_pct < 0 %}
+      <span style="font-size:0.8rem;color:var(--danger);font-weight:600;">▼ {{ volume_delta_pct }}% vs last week</span>
+      {% else %}
+      <span style="font-size:0.8rem;color:var(--muted);">= same as last week</span>
+      {% endif %}
     </div>
+    {% endif %}
     {{ weekly_bar_svg | safe }}
   </div>
 </div>
