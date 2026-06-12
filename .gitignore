@@ -43,3 +43,12 @@ logs/deployed-commit
 
 # gstack graphify output (local AI artifact cache)
 graphify-out/
+
+# Claude Code project-local settings (machine-specific)
+.claude/
+
+# Database backups (may contain user data)
+*.bak
+
+# App icon (binary asset, not tracked in git)
+ICON.png
