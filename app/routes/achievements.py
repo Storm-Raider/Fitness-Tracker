@@ -120,9 +120,16 @@ async def _compute_earned(conn: aiosqlite.Connection, uid: int) -> dict[str, str
     if n_w >= 200: earned["w_200"] = now
     if n_w >= 500: earned["w_500"] = now
 
-    # Max streak
+    # Max streak — mirrors dashboard UNION (workouts + cardio both count)
     async with conn.execute(
-        "SELECT DISTINCT DATE(started_at) AS day FROM workouts WHERE user_id=? ORDER BY day DESC", (uid,)
+        """
+        SELECT DISTINCT day FROM (
+            SELECT DATE(started_at,'localtime') AS day FROM workouts WHERE user_id=?
+            UNION
+            SELECT logged_date AS day FROM cardio_logs WHERE user_id=?
+        ) ORDER BY day DESC
+        """,
+        (uid, uid),
     ) as c:
         all_days = [r["day"] for r in await c.fetchall()]
     ms = max_streak(all_days)
