@@ -247,6 +247,60 @@ async def _compute_earned(conn: aiosqlite.Connection, uid: int) -> dict[str, str
     return earned
 
 
+_TIER_COLORS = {
+    "bronze": ("#cd7f32", "rgba(205,127,50,0.15)",  "rgba(205,127,50,0.35)"),
+    "silver": ("#a0aec0", "rgba(160,174,192,0.15)", "rgba(160,174,192,0.35)"),
+    "gold":   ("#f59e0b", "rgba(245,158,11,0.15)",  "rgba(245,158,11,0.35)"),
+}
+
+
+@router.get("/achievements/unseen", response_class=HTMLResponse)
+async def achievements_unseen(
+    conn: aiosqlite.Connection = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    uid = current_user["id"]
+    async with conn.execute(
+        "SELECT achievement_id FROM user_achievements WHERE user_id=? AND seen=0", (uid,)
+    ) as c:
+        unseen_ids = [r["achievement_id"] for r in await c.fetchall()]
+
+    if not unseen_ids:
+        return HTMLResponse("")
+
+    await conn.execute(
+        "UPDATE user_achievements SET seen=1 WHERE user_id=? AND seen=0", (uid,)
+    )
+    await conn.commit()
+
+    cards = []
+    for i, aid in enumerate(unseen_ids):
+        ach = _ACH_INDEX.get(aid)
+        if not ach:
+            continue
+        color, bg, border = _TIER_COLORS.get(ach["tier"], _TIER_COLORS["bronze"])
+        delay = i * 0.2
+        cards.append(
+            f'<div class="ach-toast" style="border:1px solid {border};animation-delay:{delay}s;">'
+            f'<div style="font-size:0.6rem;text-transform:uppercase;letter-spacing:0.1em;'
+            f'color:{color};margin-bottom:0.4rem;font-weight:700;">Achievement Unlocked</div>'
+            f'<div style="display:flex;align-items:center;gap:0.65rem;">'
+            f'<div style="width:36px;height:36px;border-radius:50%;background:{bg};'
+            f'border:1.5px solid {border};display:flex;align-items:center;justify-content:center;flex-shrink:0;">'
+            f'<i data-lucide="{ach["icon"]}" style="width:18px;height:18px;color:{color};"></i>'
+            f'</div>'
+            f'<div>'
+            f'<div style="font-family:\'Syne\',system-ui,sans-serif;font-size:0.85rem;font-weight:700;color:var(--text);">{ach["name"]}</div>'
+            f'<div style="font-size:0.7rem;color:var(--muted);margin-top:0.1rem;">{ach["desc"]}</div>'
+            f'</div></div></div>'
+        )
+
+    if not cards:
+        return HTMLResponse("")
+
+    return HTMLResponse('<div id="ach-toast-rack">' + "".join(cards) + "</div>")
+
+
 @router.get("/achievements", response_class=HTMLResponse)
 async def achievements_page(
     request: Request,

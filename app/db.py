@@ -213,6 +213,8 @@ _MIGRATIONS = [
     "ALTER TABLE user_settings ADD COLUMN pref_body_measurement TEXT NOT NULL DEFAULT 'cm'",
     # Post-plan feedback — too_easy | just_right | too_hard | skipped_often | NULL
     "ALTER TABLE coach_plans ADD COLUMN feedback TEXT",
+    # Achievement toast notifications — 0 = unseen, 1 = shown
+    "ALTER TABLE user_achievements ADD COLUMN seen INTEGER NOT NULL DEFAULT 0",
 ]
 
 

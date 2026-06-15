@@ -936,6 +936,27 @@
         transition-duration: 0.01ms !important;
       }
     }
+    /* ── Achievement toasts ─────────────────────────── */
+    #ach-toast-rack {
+      position: fixed; bottom: 1.5rem; right: 1.5rem;
+      z-index: 9999;
+      display: flex; flex-direction: column; gap: 0.65rem;
+      pointer-events: none;
+      max-width: min(300px, calc(100vw - 2rem));
+    }
+    .ach-toast {
+      background: var(--surface);
+      border-radius: 10px;
+      padding: 0.85rem 1rem;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.7);
+      animation: ach-toast-slide 4.5s cubic-bezier(0.16,1,0.3,1) forwards;
+    }
+    @keyframes ach-toast-slide {
+      0%   { transform: translateX(110%); opacity: 0; }
+      8%   { transform: translateX(0);    opacity: 1; }
+      82%  { transform: translateX(0);    opacity: 1; }
+      100% { transform: translateX(110%); opacity: 0; }
+    }
   </style>
   {% block head %}{% endblock %}
 </head>
@@ -1349,7 +1370,17 @@
       });
     })();
     document.addEventListener('DOMContentLoaded', () => lucide.createIcons());
-    document.addEventListener('htmx:afterSwap', () => lucide.createIcons());
+    document.addEventListener('htmx:afterSwap', () => {
+      lucide.createIcons();
+      document.querySelectorAll('.ach-toast:not([data-cleanup])').forEach(function(el) {
+        el.setAttribute('data-cleanup', '1');
+        el.addEventListener('animationend', function() {
+          el.remove();
+          var r = document.getElementById('ach-toast-rack');
+          if (r && !r.querySelector('.ach-toast')) r.remove();
+        });
+      });
+    });
     window.humanDate = function(iso) {
       if (!iso) return '';
       var d = new Date(String(iso).slice(0, 10) + 'T00:00:00');
@@ -1487,5 +1518,8 @@
       } catch (e) {}
     });
   </script>
+  {% if user is defined and user %}
+  <div hx-get="/achievements/unseen" hx-trigger="load" hx-swap="beforeend" hx-target="body" aria-hidden="true" style="display:none;"></div>
+  {% endif %}
 </body>
 </html>
