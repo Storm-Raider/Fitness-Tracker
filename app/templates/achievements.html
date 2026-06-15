@@ -117,21 +117,16 @@
   </div>
 </div>
 
-{# Bronze tier #}
-{% for tier_name, tier_label in [('bronze','Bronze'), ('silver','Silver'), ('gold','Gold')] %}
-{% set tier_achs = achievements | selectattr('tier','eq',tier_name) | list %}
-<div style="margin-bottom:1.5rem;">
+{% for cat in categories %}
+<div style="margin-bottom:1.75rem;">
   <div class="section-title" style="display:flex;align-items:center;gap:0.5rem;">
-    {% if tier_name=='gold' %}<span style="color:#f59e0b;">⬡</span>
-    {% elif tier_name=='silver' %}<span style="color:#a0aec0;">⬡</span>
-    {% else %}<span style="color:#cd7f32;">⬡</span>{% endif %}
-    {{ tier_label }}
+    {{ cat.name }}
     <span style="font-size:0.7rem;font-weight:400;color:var(--muted);">
-      {{ tier_achs | selectattr('unlocked') | list | length }}/{{ tier_achs | length }}
+      {{ cat.items | selectattr('unlocked') | list | length }}/{{ cat.items | length }}
     </span>
   </div>
   <div class="ach-grid">
-    {% for ach in tier_achs %}
+    {% for ach in cat.items %}
     <div class="ach-card tier-{{ ach.tier }} {{ 'unlocked' if ach.unlocked else 'locked' }}">
       <div class="ach-icon-wrap">
         <i data-lucide="{{ ach.icon }}" style="width:22px;height:22px;pointer-events:none;"></i>
