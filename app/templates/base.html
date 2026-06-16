@@ -1492,8 +1492,9 @@
 
     // Route htmx:confirm through showConfirm instead of native confirm()
     document.addEventListener('htmx:confirm', function(e) {
+      if (!e.detail.question) return;
       e.preventDefault();
-      window.showConfirm(e.detail.question, function() { e.detail.issueRequest(); });
+      window.showConfirm(e.detail.question, function() { e.detail.issueRequest(true); });
     });
     document.addEventListener('DOMContentLoaded', function() {
       try {
