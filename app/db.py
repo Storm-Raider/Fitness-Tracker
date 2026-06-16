@@ -215,6 +215,9 @@ _MIGRATIONS = [
     "ALTER TABLE coach_plans ADD COLUMN feedback TEXT",
     # Achievement toast notifications — 0 = unseen, 1 = shown
     "ALTER TABLE user_achievements ADD COLUMN seen INTEGER NOT NULL DEFAULT 0",
+    # Coach plan lifecycle: 'draft' = generated but not yet confirmed by user;
+    # 'saved' = confirmed, routines created. Default keeps existing rows as saved.
+    "ALTER TABLE coach_plans ADD COLUMN status TEXT NOT NULL DEFAULT 'saved'",
     # Remove orphaned coach-created routines (from deleted plans). The coach names
     # routines "<title> · Day N: <focus>"; that middle-dot pattern is unique to
     # generated plans. Only deletes routines NOT referenced by any active coach plan.

@@ -48,12 +48,41 @@ async def plan_page(
     ) as c:
         top_lifts = [dict(r) for r in await c.fetchall()]
 
-    # Saved AI coach plans
+    # Clean stale drafts (> 7 days old) before fetching plans.
+    await conn.execute(
+        "DELETE FROM coach_plans WHERE user_id=? AND status='draft' "
+        "AND created_at < datetime('now','-7 days')",
+        (uid,),
+    )
+    await conn.commit()
+
+    # Fetch the latest pending draft so the template can auto-render it.
+    draft_plan = None
+    async with conn.execute(
+        """SELECT id, title, created_at, plan_json
+           FROM coach_plans WHERE user_id=? AND status='draft'
+           ORDER BY created_at DESC LIMIT 1""",
+        (uid,),
+    ) as c:
+        draft_row = await c.fetchone()
+    if draft_row:
+        try:
+            draft_plan = {
+                "id": draft_row["id"],
+                "title": draft_row["title"],
+                "created_at": draft_row["created_at"],
+                "plan": _json.loads(draft_row["plan_json"] or "{}"),
+            }
+        except (ValueError, TypeError):
+            pass
+
+    # Saved AI coach plans (exclude drafts)
     async with conn.execute(
         """
         SELECT id, title, goal, days_per_week, model, created_at, plan_json, feedback
         FROM coach_plans
-        WHERE user_id=? ORDER BY created_at DESC LIMIT 10
+        WHERE user_id=? AND (status IS NULL OR status='saved')
+        ORDER BY created_at DESC LIMIT 10
         """,
         (uid,),
     ) as c:
@@ -105,6 +134,7 @@ async def plan_page(
             "profile": profile,
             "top_lifts": top_lifts,
             "saved_plans": saved_plans,
+            "draft_plan": draft_plan,
             "ollama_available": available,
             "ollama_models": models,
             "ollama_model": ollama.ollama_model(),

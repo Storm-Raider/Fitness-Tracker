@@ -841,13 +841,35 @@ async def _run_generation(
             return
 
         final_dropped = sorted(set(dropped))
+
+        # Auto-save as a draft so the plan survives browser close before the user confirms.
+        # Remove any previous unconfirmed draft for this user first (one draft at a time).
+        draft_id: int | None = None
+        try:
+            await conn.execute(
+                "DELETE FROM coach_plans WHERE user_id=? AND status='draft'",
+                (uid,),
+            )
+            async with conn.execute(
+                """INSERT INTO coach_plans(user_id, title, goal, days_per_week, plan_json, model, status)
+                   VALUES (?, ?, ?, ?, ?, ?, 'draft')""",
+                (uid, plan.get("title", "My Plan"), goal, days,
+                 json.dumps(plan), ollama.ollama_model()),
+            ) as _c:
+                draft_id = _c.lastrowid
+            await conn.commit()
+        except Exception:
+            logging.warning("coach: could not auto-save draft for uid=%d", uid, exc_info=True)
+
         _JOBS[job_id] = {
             "status": "done", "user_id": uid,
             "plan": plan, "dropped": final_dropped, "model": ollama.ollama_model(),
+            "draft_id": draft_id,
         }
         await _emit(job_id, {
             "type": "done", "plan": plan,
             "dropped": final_dropped, "model": ollama.ollama_model(),
+            "draft_id": draft_id,
         })
         # Pre-generate next plan in background so the user's NEXT request is instant.
         _spec_task = asyncio.create_task(
@@ -997,6 +1019,7 @@ async def generation_status(
         "plan": job["plan"],
         "dropped": job["dropped"],
         "model": job["model"],
+        "draft_id": job.get("draft_id"),
     })
 
 
@@ -1028,6 +1051,7 @@ async def stream_job_events(
                 payload = {
                     "type": "done", "plan": current["plan"],
                     "dropped": current["dropped"], "model": current["model"],
+                    "draft_id": current.get("draft_id"),
                 }
                 yield f"event: done\ndata: {json.dumps(payload)}\n\n"
                 return
@@ -1128,6 +1152,52 @@ async def save_plan(
     await conn.execute(
         "UPDATE coach_plans SET plan_json=? WHERE id=?",
         (json.dumps(plan_obj), plan_id),
+    )
+    await conn.commit()
+    return JSONResponse({"id": plan_id, "routine_ids": routine_ids}, status_code=201)
+
+
+@router.post("/coach/plans/{plan_id}/confirm", status_code=201)
+async def confirm_plan(
+    plan_id: int,
+    conn: aiosqlite.Connection = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    """Promote a draft plan to saved: create routines and flip status to 'saved'."""
+    uid = current_user["id"]
+    async with conn.execute(
+        "SELECT id, title, goal, days_per_week, plan_json FROM coach_plans "
+        "WHERE id=? AND user_id=? AND status='draft'",
+        (plan_id, uid),
+    ) as cur:
+        row = await cur.fetchone()
+    if not row:
+        raise HTTPException(status_code=404, detail="Draft plan not found")
+
+    plan_obj = json.loads(row["plan_json"] or "{}")
+    title = (plan_obj.get("title") or row["title"] or "My Plan").strip()
+    stored_days = plan_obj.get("days", [])
+    if not stored_days:
+        raise HTTPException(status_code=422, detail="Draft has no exercises")
+
+    routine_ids = []
+    for i, day in enumerate(stored_days, start=1):
+        label = f"{title} · Day {i}: {day.get('focus', 'Training')}"[:100]
+        async with conn.execute(
+            "INSERT INTO routines(name, user_id) VALUES (?, ?)", (label, uid),
+        ) as cur:
+            rid = cur.lastrowid
+        for idx, ex in enumerate(day.get("exercises", [])):
+            await conn.execute(
+                "INSERT INTO routine_exercises(routine_id, exercise_id, order_idx) VALUES (?,?,?)",
+                (rid, ex["exercise_id"], idx),
+            )
+        routine_ids.append(rid)
+
+    plan_obj["routine_ids"] = routine_ids
+    await conn.execute(
+        "UPDATE coach_plans SET status='saved', title=?, plan_json=? WHERE id=?",
+        (title, json.dumps(plan_obj), plan_id),
     )
     await conn.commit()
     return JSONResponse({"id": plan_id, "routine_ids": routine_ids}, status_code=201)

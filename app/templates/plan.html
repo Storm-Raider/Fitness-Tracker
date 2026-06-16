@@ -463,7 +463,14 @@
 
     {# ── Right: AI result ── #}
     <div>
-      <div id="ai-result-empty" style="border:1.5px dashed var(--border);border-radius:var(--radius);padding:3rem 1.5rem;text-align:center;color:var(--muted);">
+      {% if draft_plan %}
+      <div id="ai-draft-notice" style="background:var(--surface);border:1px solid rgba(245,158,11,0.4);border-radius:var(--radius);padding:0.7rem 1rem;margin-bottom:0.75rem;display:flex;align-items:center;gap:0.6rem;font-size:0.82rem;">
+        <i data-lucide="clock" style="width:15px;height:15px;color:var(--pr);flex-shrink:0;"></i>
+        <span style="flex:1;color:var(--muted);">Unsaved plan from <b style="color:var(--text);">{{ draft_plan.created_at[:10] }}</b> — review it below.</span>
+        <button onclick="dismissDraft()" class="btn btn-ghost" style="min-height:28px;padding:0.2rem 0.6rem;font-size:0.72rem;">Dismiss</button>
+      </div>
+      {% endif %}
+      <div id="ai-result-empty" style="{% if draft_plan %}display:none;{% endif %}border:1.5px dashed var(--border);border-radius:var(--radius);padding:3rem 1.5rem;text-align:center;color:var(--muted);">
         <i data-lucide="clipboard-list" style="width:34px;height:34px;opacity:0.5;"></i>
         <div style="margin-top:0.75rem;font-size:0.9rem;">Pick a goal and days, then generate.<br>Your coach reads your history and writes a plan.</div>
       </div>
@@ -686,6 +693,15 @@ document.addEventListener('DOMContentLoaded', () => {
 ══════════════════════════════════════════════════ */
 let _aiGoal = 'strength';
 let _currentPlan = null;
+let _currentDraftId = {% if draft_plan %}{{ draft_plan.id }}{% else %}null{% endif %};
+
+{% if draft_plan %}
+(function() {
+  const _draft = {{ draft_plan.plan | tojson }};
+  _currentPlan = _draft;
+  renderAiPlan(_draft, []);
+})();
+{% endif %}
 
 function selectAiGoal(btn) {
   _aiGoal = btn.getAttribute('data-goal');
@@ -703,6 +719,14 @@ async function generateAiRoutine() {
   const days = parseInt(document.getElementById('ai-days-slider').value);
   const note = document.getElementById('ai-focus-note').value;
   const errBox = document.getElementById('ai-result-error');
+
+  // Silently delete the pending draft — a new generation will create a fresh one.
+  if (_currentDraftId) {
+    fetch('/coach/plans/' + _currentDraftId, {method: 'DELETE'}).catch(() => {});
+    _currentDraftId = null;
+  }
+  const notice = document.getElementById('ai-draft-notice');
+  if (notice) notice.remove();
 
   document.getElementById('ai-result-empty').style.display = 'none';
   errBox.style.display = 'none';
@@ -728,7 +752,7 @@ async function generateAiRoutine() {
 
     // Normal async path: open SSE stream for live progress, hard-deadline 40 min.
     const jobId = sd.job_id;
-    const { plan, dropped } = await new Promise((resolve, reject) => {
+    const { plan, dropped, draft_id } = await new Promise((resolve, reject) => {
       const es = new EventSource('/coach/stream/' + jobId);
       let settled = false;
       const deadline = setTimeout(() => {
@@ -759,7 +783,7 @@ async function generateAiRoutine() {
         clearTimeout(deadline);
         es.close();
         const d = JSON.parse(e.data);
-        resolve({ plan: d.plan, dropped: d.dropped || [] });
+        resolve({ plan: d.plan, dropped: d.dropped || [], draft_id: d.draft_id || null });
       });
       es.addEventListener('failed', e => {
         if (settled) return;
@@ -775,6 +799,7 @@ async function generateAiRoutine() {
     });
 
     _currentPlan = plan;
+    _currentDraftId = draft_id || null;
     renderAiPlan(plan, dropped);
   } catch (e) {
     errBox.textContent = e.message;
@@ -837,24 +862,34 @@ async function saveAiPlan() {
   btn.disabled = true;
   btn.innerHTML = '<span class="spinner"></span> Saving…';
 
-  const payload = {
-    title: title,
-    summary: _currentPlan.summary || '',
-    goal: _currentPlan.goal,
-    days_per_week: _currentPlan.days_per_week,
-    days: _currentPlan.days.map(d => ({
-      focus: d.focus,
-      exercises: d.exercises.map(e => ({name: e.name, sets: e.sets, reps: e.reps, note: e.note || ''})),
-    })),
-  };
-
   try {
-    const resp = await fetch('/coach/save', {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify(payload),
-    });
-    const data = await resp.json();
+    let resp, data;
+    if (_currentDraftId) {
+      // Confirm the pre-saved draft — routines are created server-side from stored plan_json.
+      resp = await fetch('/coach/plans/' + _currentDraftId + '/confirm', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({}),
+      });
+    } else {
+      // Spec-cache hit path: plan was served instantly, no draft was saved.
+      const payload = {
+        title: title,
+        summary: _currentPlan.summary || '',
+        goal: _currentPlan.goal,
+        days_per_week: _currentPlan.days_per_week,
+        days: _currentPlan.days.map(d => ({
+          focus: d.focus,
+          exercises: d.exercises.map(e => ({name: e.name, sets: e.sets, reps: e.reps, note: e.note || ''})),
+        })),
+      };
+      resp = await fetch('/coach/save', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(payload),
+      });
+    }
+    data = await resp.json();
     if (!resp.ok) throw new Error(data.detail || 'Save failed.');
     msg.textContent = `✓ Saved — ${data.routine_ids.length} routine(s) added. Reloading…`;
     msg.style.color = 'var(--success)';
@@ -868,6 +903,18 @@ async function saveAiPlan() {
     btn.innerHTML = '<i data-lucide="save" style="width:14px;height:14px;pointer-events:none;"></i> Save &amp; add to Routines';
     lucide.createIcons();
   }
+}
+
+async function dismissDraft() {
+  if (_currentDraftId) {
+    fetch('/coach/plans/' + _currentDraftId, {method: 'DELETE'}).catch(() => {});
+    _currentDraftId = null;
+  }
+  _currentPlan = null;
+  const notice = document.getElementById('ai-draft-notice');
+  if (notice) notice.remove();
+  document.getElementById('ai-plan-output').innerHTML = '';
+  document.getElementById('ai-result-empty').style.display = '';
 }
 
 async function deleteAiPlan(id, btn) {
