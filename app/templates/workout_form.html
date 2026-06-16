@@ -2123,7 +2123,7 @@ function updateNewExPicker(q, exact) {
   }
   input.addEventListener('input', function() {
     const q    = this.value.trim();
-    const pool = _filteredPool.length ? _filteredPool : exercises;
+    const pool = exercises;
     if (!q) { dropdown.style.display = 'none'; applyExerciseSelection(null); updateNewExPicker('', null); return; }
     const matches = pool.filter(e => e.name.toLowerCase().includes(q.toLowerCase()));
     renderDropdown(matches, q);

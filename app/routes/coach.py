@@ -1139,13 +1139,22 @@ async def delete_plan(
     conn: aiosqlite.Connection = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
+    uid = current_user["id"]
     async with conn.execute(
-        "SELECT id FROM coach_plans WHERE id = ? AND user_id = ?",
-        (plan_id, current_user["id"]),
+        "SELECT id, plan_json FROM coach_plans WHERE id = ? AND user_id = ?",
+        (plan_id, uid),
     ) as cur:
-        if not await cur.fetchone():
+        row = await cur.fetchone()
+        if not row:
             raise HTTPException(status_code=404, detail="Plan not found")
-    await conn.execute("DELETE FROM coach_plans WHERE id = ? AND user_id = ?", (plan_id, current_user["id"]))
+    routine_ids = (json.loads(row["plan_json"] or "{}") or {}).get("routine_ids") or []
+    if routine_ids:
+        placeholders = ",".join("?" * len(routine_ids))
+        await conn.execute(
+            f"DELETE FROM routines WHERE id IN ({placeholders}) AND user_id = ?",
+            (*routine_ids, uid),
+        )
+    await conn.execute("DELETE FROM coach_plans WHERE id = ? AND user_id = ?", (plan_id, uid))
     await conn.commit()
 
 
