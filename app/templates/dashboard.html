@@ -129,7 +129,7 @@
       </div>
     </div>
     <div style="display:flex;gap:0.4rem;align-items:center;flex-shrink:0;">
-      <div id="goal-edit-form" style="display:none;display:flex;align-items:center;gap:0.4rem;">
+      <div id="goal-edit-form" style="display:none;align-items:center;gap:0.4rem;">
         <input id="goal-input" type="number" min="1" max="14" value="{{ weekly_goal }}" style="width:52px;text-align:center;padding:0.25rem 0.4rem;font-family:'JetBrains Mono',monospace;font-size:0.9rem;border-radius:var(--radius-xs);border:1px solid var(--border);background:var(--surface-2);color:var(--text);">
         <button onclick="saveGoal()" class="btn btn-ghost" style="font-size:0.75rem;min-height:36px;padding:0.35rem 0.55rem;">Save</button>
       </div>
@@ -141,7 +141,7 @@
   <button onclick="toggleGoalEdit()" style="display:flex;align-items:center;gap:0.5rem;background:transparent;border:1px dashed var(--border);color:var(--muted);border-radius:var(--radius);cursor:pointer;padding:0.65rem 1.1rem;font-family:inherit;font-size:0.8rem;width:100%;transition:all 0.15s;" onmouseover="this.style.borderColor='var(--border-mid)';this.style.color='var(--text)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">
     <i data-lucide="target" style="width:14px;height:14px;flex-shrink:0;pointer-events:none;"></i>
     Set a weekly session goal
-    <span id="goal-set-form" style="display:none;margin-left:0.5rem;display:flex;align-items:center;gap:0.4rem;">
+    <span id="goal-set-form" style="display:none;margin-left:0.5rem;align-items:center;gap:0.4rem;">
       <input id="goal-input" type="number" min="1" max="14" value="4" onclick="event.stopPropagation()" style="width:48px;text-align:center;padding:0.2rem;font-family:'JetBrains Mono',monospace;font-size:0.9rem;border-radius:var(--radius-xs);border:1px solid var(--border);background:var(--surface);color:var(--text);">
       <button onclick="event.stopPropagation();saveGoal()" class="btn btn-primary" style="font-size:0.75rem;min-height:36px;padding:0.35rem 0.6rem;">Set</button>
     </span>
