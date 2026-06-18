@@ -296,7 +296,7 @@ function onWeightInput() {
 function stepMetric(delta) {
   const el = document.getElementById('weight-input');
   const isLbs = window.getAppUnit && window.getAppUnit() === 'lbs';
-  const step = isLbs ? delta * 2.2046 : delta;
+  const step = isLbs ? 0.5 * Math.sign(delta) : delta;
   el.value = Math.max(0, Math.round((parseFloat(el.value || 0) + step) * 10) / 10);
   onWeightInput();
 }
