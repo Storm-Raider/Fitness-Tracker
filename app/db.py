@@ -215,9 +215,6 @@ _MIGRATIONS = [
     "ALTER TABLE coach_plans ADD COLUMN feedback TEXT",
     # Achievement toast notifications — 0 = unseen, 1 = shown
     "ALTER TABLE user_achievements ADD COLUMN seen INTEGER NOT NULL DEFAULT 0",
-    # Coach plan lifecycle: 'draft' = generated but not yet confirmed by user;
-    # 'saved' = confirmed, routines created. Default keeps existing rows as saved.
-    "ALTER TABLE coach_plans ADD COLUMN status TEXT NOT NULL DEFAULT 'saved'",
     # Remove orphaned coach-created routines (from deleted plans). The coach names
     # routines "<title> · Day N: <focus>"; that middle-dot pattern is unique to
     # generated plans. Only deletes routines NOT referenced by any active coach plan.
@@ -229,6 +226,13 @@ _MIGRATIONS = [
              FROM coach_plans, json_each(json_extract(plan_json, '$.routine_ids'))
              WHERE json_extract(plan_json, '$.routine_ids') IS NOT NULL
          )""",
+    # idx=46 slot was consumed by a second pass of the orphaned-routines cleanup
+    # after an index-shift incident. This no-op placeholder preserves index parity
+    # so idx=47 is the true new migration on already-migrated databases.
+    "SELECT 1",
+    # Coach plan lifecycle: 'draft' = generated but not yet confirmed by user;
+    # 'saved' = confirmed, routines created. Default keeps existing rows as saved.
+    "ALTER TABLE coach_plans ADD COLUMN status TEXT NOT NULL DEFAULT 'saved'",
 ]
 
 

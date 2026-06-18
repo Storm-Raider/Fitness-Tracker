@@ -1180,17 +1180,27 @@ async def confirm_plan(
     if not stored_days:
         raise HTTPException(status_code=422, detail="Draft has no exercises")
 
+    # Build name→id fallback for exercises that lack an explicit exercise_id
+    # (real generated plans always have it via _normalise_plan; this guards edge cases).
+    name_map, _ = await _name_to_id_map(conn)
+
     routine_ids = []
     for i, day in enumerate(stored_days, start=1):
-        label = f"{title} · Day {i}: {day.get('focus', 'Training')}"[:100]
+        label = f"{title} · Day {i}: {day.get('focus', day.get('name', 'Training'))}"[:100]
         async with conn.execute(
             "INSERT INTO routines(name, user_id) VALUES (?, ?)", (label, uid),
         ) as cur:
             rid = cur.lastrowid
         for idx, ex in enumerate(day.get("exercises", [])):
+            eid = ex.get("exercise_id")
+            if not eid:
+                match = name_map.get((ex.get("name") or "").lower())
+                eid = match["id"] if match else None
+            if not eid:
+                continue
             await conn.execute(
                 "INSERT INTO routine_exercises(routine_id, exercise_id, order_idx) VALUES (?,?,?)",
-                (rid, ex["exercise_id"], idx),
+                (rid, eid, idx),
             )
         routine_ids.append(rid)
 
