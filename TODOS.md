@@ -340,3 +340,11 @@ Request to expand the achievements list beyond the current 24. Needs product dec
 - Should existing tiers (bronze/silver/gold) be balanced first?
 
 **Implementation notes:** All achievement logic lives in `app/routes/achievements.py` — add entries to `ACHIEVEMENTS[]` and a corresponding SQL block in `_compute_earned()`. No schema change needed; `user_achievements` table stores arbitrary string IDs.
+
+## ISSUE-28: [Bug] Going to a different page Reese’s the coach request
+
+**Source:** auto-triage (2026-06-19)
+**Why major:** The job_id/SSE connection driving generation progress lives only in plan.html's JS state, which is destroyed on navigation; fixing this requires exposing in-memory job state from coach.py through the plan.py route and adding client resume logic across at least 3 files with no single obvious design, so it fails the file-count and ambiguity bars for a minor fix.
+**Link:** https://github.com/Storm-Raider/Fitness-Tracker/issues/28
+
+- **Coach generation lost on navigation (#28):** `/coach/generate` jobs run as server-side background tasks tracked in-memory (`_JOBS`/`_ACTIVE_BY_USER` in `app/routes/coach.py`) and streamed to the browser via SSE; the job id and `EventSource` only live in `plan.html` JS state. Navigating away mid-generation tears down that state — the job still finishes and auto-saves a draft, but the page shows the empty state until the draft row exists, looking like the request was reset. Needs: expose the user's active job (if any) from `plan.py`'s GET handler, and have `plan.html` detect/resume (reconnect SSE or poll) an in-flight job on load instead of only picking up completed drafts.
