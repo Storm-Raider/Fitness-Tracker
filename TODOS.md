@@ -348,3 +348,24 @@ Request to expand the achievements list beyond the current 24. Needs product dec
 **Link:** https://github.com/Storm-Raider/Fitness-Tracker/issues/28
 
 - **Coach generation lost on navigation (#28):** `/coach/generate` jobs run as server-side background tasks tracked in-memory (`_JOBS`/`_ACTIVE_BY_USER` in `app/routes/coach.py`) and streamed to the browser via SSE; the job id and `EventSource` only live in `plan.html` JS state. Navigating away mid-generation tears down that state — the job still finishes and auto-saves a draft, but the page shows the empty state until the draft row exists, looking like the request was reset. Needs: expose the user's active job (if any) from `plan.py`'s GET handler, and have `plan.html` detect/resume (reconnect SSE or poll) an in-flight job on load instead of only picking up completed drafts.
+
+## ISSUE-29: [Feature] Backfill Daily log
+
+**Source:** auto-triage (2026-06-28)
+**Why major:** Backfill is a new feature requiring a date-selector UI, changes to saveLog() and fillFromHistory() interaction model, and product/design judgment about editing vs. creating past entries — well beyond a scoped bug fix.
+**Link:** https://github.com/Storm-Raider/Fitness-Tracker/issues/29
+
+### #29 — Backfill Daily Log
+**Request:** User wants to add daily log entries for past dates, not just today.
+
+**Current state:** `saveLog()` in `app/templates/journal.html` hardcodes `log_date: TODAY`. The backend `POST /journal` already accepts any `log_date` via `LogIn.log_date` — no schema change needed.
+
+**Work needed:**
+- Add a `<input type="date">` to the journal form (default = today, max = today to block future dates)
+- Update `saveLog()` to read the selected date instead of the `TODAY` constant
+- Update `fillFromHistory()` so clicking a past entry loads it for *that* date (not today's), and pre-populates the date picker
+- Decide UX: when picking a past date that already has data, auto-load it into the form
+- Update the card title ("Today's entry" → "Entry for [date]")
+- All changes are in `app/templates/journal.html` (one file); no route/schema/auth changes required
+
+**Reported by:** Lopa via in-app feedback (2026-06-21)
