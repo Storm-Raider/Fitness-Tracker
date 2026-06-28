@@ -1,12 +1,14 @@
 
-## GBrain Search Guidance
+## GBrain Search Guidance — check this FIRST
 
-A knowledge graph of this codebase lives at `graphify-out/graph.json` (1,525 nodes, 2,707 edges, 122 communities). Use it for architecture questions, tracing call paths, and understanding cross-file relationships.
+Before grepping, exploring files, or spawning an Explore agent, query the knowledge graph first: `/graphify query "<question>"`. A knowledge graph of this codebase lives at `graphify-out/graph.json` (1,525 nodes, 2,707 edges, 122 communities) — it's faster and more complete than ad-hoc search for anything touching architecture or cross-file relationships.
 
-**When to use the graph (invoke `/graphify query "<question>"`):**
+**Always query the graph first for:**
 - "How does X work?" / "What calls Y?" / "Where is Z implemented?"
 - Any question that crosses multiple files or route boundaries
 - Tracing data flow end-to-end (route → DB → template)
+
+Only fall back to manual grep/Explore if the graph doesn't answer the question (e.g. it's stale — see rebuild command below).
 
 **Key communities** (what lives where):
 - `Challenge & Routine Routes` — `app/routes/challenges.py`, `app/routes/routines.py`
