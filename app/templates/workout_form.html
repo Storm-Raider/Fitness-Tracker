@@ -2595,7 +2595,7 @@ async function deleteWorkout() {
 {% if not is_finished %}
 // Live elapsed timer
 (function() {
-  const start = new Date("{{ workout.started_at | replace(' ', 'T') }}");
+  const start = new Date({{ started_at_ms }});
   function tick() {
     const mins = Math.floor((Date.now() - start) / 60000);
     const h = Math.floor(mins / 60), m = mins % 60;

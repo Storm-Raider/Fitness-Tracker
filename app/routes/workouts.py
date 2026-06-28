@@ -266,6 +266,8 @@ async def get_workout(
         _bw = await cur.fetchone()
     latest_bodyweight = _bw["weight_kg"] if _bw else None
 
+    started_at_ms = int(datetime.fromisoformat(row["started_at"]).timestamp() * 1000)
+
     return templates.TemplateResponse(request, "workout_form.html", {
         "workout": dict(row),
         "sets": sets,
@@ -277,6 +279,7 @@ async def get_workout(
         "template_exercises": template_exercises,
         "enrichment": enrichment,
         "latest_bodyweight": latest_bodyweight,
+        "started_at_ms": started_at_ms,
     })
 
 
