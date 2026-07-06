@@ -123,7 +123,7 @@
       Partial day submitted — streak continues
     </div>
     {% else %}
-    <button class="btn-partial" style="margin-top:0.5rem;" onclick="submitPartialDay('{{ yesterday_iso }}')">
+    <button class="btn-partial" id="submit-partial-btn-yesterday" style="margin-top:0.5rem;" onclick="submitPartialDay('{{ yesterday_iso }}')">
       Submit partial day
     </button>
     {% endif %}
@@ -355,6 +355,12 @@ async function applyCheckin(row, dayDate, ruleKey, done) {
     if (el) el.textContent = res.day_done + '/' + res.day_total;
     const notice = document.getElementById('day-complete-notice');
     if (notice) notice.style.display = res.day_complete ? 'flex' : 'none';
+    const partialBtn = document.getElementById('submit-partial-btn');
+    if (partialBtn) partialBtn.style.display = res.day_complete ? 'none' : '';
+  }
+  if (dayDate === '{{ yesterday_iso }}') {
+    const partialBtn = document.getElementById('submit-partial-btn-yesterday');
+    if (partialBtn) partialBtn.style.display = res.day_complete ? 'none' : '';
   }
   // A check-in can flip the whole attempt (e.g. completing the final day, or a
   // grace save). Reload so the banner/grid reflect the new status.

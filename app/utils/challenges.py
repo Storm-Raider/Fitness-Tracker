@@ -127,21 +127,23 @@ async def evaluate_attempt(
     ended_on = attempt["ended_on"]
 
     if template and status == "active":
-        locked_end = min(today - timedelta(days=1 + GRACE_DAYS), last_day)
         # Days before the attempt was created can never have had a check-in
         # (the challenge didn't exist yet), so don't penalise them as missed.
         creation_date = date.fromisoformat(attempt["created_at"][:10])
         failed_on = None
-        d = start
-        while d <= locked_end:
-            if d < creation_date:
+
+        if not template.get("no_fail"):
+            locked_end = min(today - timedelta(days=1 + GRACE_DAYS), last_day)
+            d = start
+            while d <= locked_end:
+                if d < creation_date:
+                    d += timedelta(days=1)
+                    continue
+                ds = d.isoformat()
+                if not day_complete(template, ds, checks, train_dates):
+                    failed_on = ds
+                    break
                 d += timedelta(days=1)
-                continue
-            ds = d.isoformat()
-            if not day_complete(template, ds, checks, train_dates):
-                failed_on = ds
-                break
-            d += timedelta(days=1)
 
         if failed_on:
             status, ended_on = "failed", failed_on
