@@ -98,8 +98,8 @@ async def test_invite_page_redirects_unauthenticated(anon_client):
 @pytest.mark.asyncio
 async def test_invite_accept_page_renders_for_valid_token(anon_client, db_conn):
     await db_conn.execute(
-        "INSERT INTO invite_tokens(token, created_by, expires_at) "
-        "VALUES ('tok-valid', 1, datetime('now','localtime','+48 hours'))"
+        "INSERT INTO invite_tokens(token, created_by, expires_at, max_uses, uses_count) "
+        "VALUES ('tok-valid', 1, datetime('now','localtime','+48 hours'), 1, 0)"
     )
     await db_conn.commit()
 
@@ -111,8 +111,8 @@ async def test_invite_accept_page_renders_for_valid_token(anon_client, db_conn):
 @pytest.mark.asyncio
 async def test_invite_accept_creates_user_and_redirects(anon_client, db_conn):
     await db_conn.execute(
-        "INSERT INTO invite_tokens(token, created_by, expires_at) "
-        "VALUES ('tok-create', 1, datetime('now','localtime','+48 hours'))"
+        "INSERT INTO invite_tokens(token, created_by, expires_at, max_uses, uses_count) "
+        "VALUES ('tok-create', 1, datetime('now','localtime','+48 hours'), 1, 0)"
     )
     await db_conn.commit()
 
@@ -137,8 +137,8 @@ async def test_invite_accept_creates_user_and_redirects(anon_client, db_conn):
 @pytest.mark.asyncio
 async def test_invite_accept_expired_token_returns_400(anon_client, db_conn):
     await db_conn.execute(
-        "INSERT INTO invite_tokens(token, created_by, expires_at) "
-        "VALUES ('tok-expired', 1, datetime('now','localtime','-1 hour'))"
+        "INSERT INTO invite_tokens(token, created_by, expires_at, max_uses, uses_count) "
+        "VALUES ('tok-expired', 1, datetime('now','localtime','-1 hour'), 1, 0)"
     )
     await db_conn.commit()
 
@@ -149,8 +149,8 @@ async def test_invite_accept_expired_token_returns_400(anon_client, db_conn):
 @pytest.mark.asyncio
 async def test_invite_accept_single_use_token(anon_client, db_conn):
     await db_conn.execute(
-        "INSERT INTO invite_tokens(token, created_by, expires_at) "
-        "VALUES ('tok-once', 1, datetime('now','localtime','+48 hours'))"
+        "INSERT INTO invite_tokens(token, created_by, expires_at, max_uses, uses_count) "
+        "VALUES ('tok-once', 1, datetime('now','localtime','+48 hours'), 1, 0)"
     )
     await db_conn.commit()
 
@@ -174,8 +174,8 @@ async def test_invite_accept_single_use_token(anon_client, db_conn):
 @pytest.mark.asyncio
 async def test_invite_accept_password_mismatch(anon_client, db_conn):
     await db_conn.execute(
-        "INSERT INTO invite_tokens(token, created_by, expires_at) "
-        "VALUES ('tok-mismatch', 1, datetime('now','localtime','+48 hours'))"
+        "INSERT INTO invite_tokens(token, created_by, expires_at, max_uses, uses_count) "
+        "VALUES ('tok-mismatch', 1, datetime('now','localtime','+48 hours'), 1, 0)"
     )
     await db_conn.commit()
 
@@ -195,8 +195,8 @@ async def test_invite_accept_password_mismatch(anon_client, db_conn):
 @pytest.mark.asyncio
 async def test_invite_accept_invalid_email(anon_client, db_conn):
     await db_conn.execute(
-        "INSERT INTO invite_tokens(token, created_by, expires_at) "
-        "VALUES ('tok-bademail', 1, datetime('now','localtime','+48 hours'))"
+        "INSERT INTO invite_tokens(token, created_by, expires_at, max_uses, uses_count) "
+        "VALUES ('tok-bademail', 1, datetime('now','localtime','+48 hours'), 1, 0)"
     )
     await db_conn.commit()
 
@@ -219,8 +219,8 @@ async def test_invite_accept_duplicate_email(anon_client, db_conn):
         "INSERT INTO users(username, password_hash, email) VALUES ('existing', 'x', 'taken@example.com')"
     )
     await db_conn.execute(
-        "INSERT INTO invite_tokens(token, created_by, expires_at) "
-        "VALUES ('tok-dupemail', 1, datetime('now','localtime','+48 hours'))"
+        "INSERT INTO invite_tokens(token, created_by, expires_at, max_uses, uses_count) "
+        "VALUES ('tok-dupemail', 1, datetime('now','localtime','+48 hours'), 1, 0)"
     )
     await db_conn.commit()
 
@@ -240,8 +240,8 @@ async def test_invite_accept_duplicate_email(anon_client, db_conn):
 @pytest.mark.asyncio
 async def test_invite_accept_username_already_taken(anon_client, db_conn):
     await db_conn.execute(
-        "INSERT INTO invite_tokens(token, created_by, expires_at) "
-        "VALUES ('tok-dup', 1, datetime('now','localtime','+48 hours'))"
+        "INSERT INTO invite_tokens(token, created_by, expires_at, max_uses, uses_count) "
+        "VALUES ('tok-dup', 1, datetime('now','localtime','+48 hours'), 1, 0)"
     )
     await db_conn.commit()
 
@@ -261,8 +261,8 @@ async def test_invite_accept_username_already_taken(anon_client, db_conn):
 @pytest.mark.asyncio
 async def test_invite_accept_invalid_username_format(anon_client, db_conn):
     await db_conn.execute(
-        "INSERT INTO invite_tokens(token, created_by, expires_at) "
-        "VALUES ('tok-badname', 1, datetime('now','localtime','+48 hours'))"
+        "INSERT INTO invite_tokens(token, created_by, expires_at, max_uses, uses_count) "
+        "VALUES ('tok-badname', 1, datetime('now','localtime','+48 hours'), 1, 0)"
     )
     await db_conn.commit()
 
@@ -282,8 +282,8 @@ async def test_invite_accept_invalid_username_format(anon_client, db_conn):
 @pytest.mark.asyncio
 async def test_invite_accept_password_too_short(anon_client, db_conn):
     await db_conn.execute(
-        "INSERT INTO invite_tokens(token, created_by, expires_at) "
-        "VALUES ('tok-short', 1, datetime('now','localtime','+48 hours'))"
+        "INSERT INTO invite_tokens(token, created_by, expires_at, max_uses, uses_count) "
+        "VALUES ('tok-short', 1, datetime('now','localtime','+48 hours'), 1, 0)"
     )
     await db_conn.commit()
 
@@ -486,8 +486,8 @@ async def test_non_admin_does_not_see_invite_link_in_nav(client):
 @pytest.mark.asyncio
 async def test_invite_page_shows_pending_invite(admin_client, db_conn):
     await db_conn.execute(
-        "INSERT INTO invite_tokens(token, created_by, expires_at) "
-        "VALUES ('tok-pending-list', 1, datetime('now','localtime','+48 hours'))"
+        "INSERT INTO invite_tokens(token, created_by, expires_at, max_uses, uses_count) "
+        "VALUES ('tok-pending-list', 1, datetime('now','localtime','+48 hours'), 5, 0)"
     )
     await db_conn.commit()
     resp = await admin_client.get("/invite", headers={"Accept": "text/html"})
@@ -503,10 +503,49 @@ async def test_invite_page_empty_state(admin_client):
 
 
 @pytest.mark.asyncio
+async def test_invite_create_accepts_custom_max_uses(admin_client, db_conn):
+    resp = await admin_client.post(
+        "/invite", data={"max_uses": 3}, headers={"Accept": "text/html"}
+    )
+    assert resp.status_code == 200
+    async with db_conn.execute(
+        "SELECT max_uses FROM invite_tokens ORDER BY created_at DESC LIMIT 1"
+    ) as cur:
+        row = await cur.fetchone()
+    assert row["max_uses"] == 3
+
+
+@pytest.mark.asyncio
+async def test_invite_create_defaults_to_five_uses_and_seven_days(admin_client, db_conn):
+    # Explicit empty form body (not an omitted `data=`) so this exercises the
+    # route's own Form(5, ...) default rather than any ambiguity in how an
+    # entirely bodyless POST gets parsed.
+    resp = await admin_client.post("/invite", data={}, headers={"Accept": "text/html"})
+    assert resp.status_code == 200
+    async with db_conn.execute(
+        "SELECT max_uses, "
+        "  CAST(ROUND((JULIANDAY(expires_at) - JULIANDAY('now','localtime')) * 24) AS INTEGER) AS hours_left "
+        "FROM invite_tokens ORDER BY created_at DESC LIMIT 1"
+    ) as cur:
+        row = await cur.fetchone()
+    assert row["max_uses"] == 5
+    # Should be just under 7*24=168 hours away, not the old 48.
+    assert 160 <= row["hours_left"] <= 168
+
+
+@pytest.mark.asyncio
+async def test_invite_create_rejects_out_of_range_max_uses(admin_client):
+    resp = await admin_client.post("/invite", data={"max_uses": 0})
+    assert resp.status_code == 422
+    resp = await admin_client.post("/invite", data={"max_uses": 51})
+    assert resp.status_code == 422
+
+
+@pytest.mark.asyncio
 async def test_invite_revoke_deletes_token(admin_client, db_conn):
     await db_conn.execute(
-        "INSERT INTO invite_tokens(token, created_by, expires_at) "
-        "VALUES ('tok-to-revoke', 1, datetime('now','localtime','+48 hours'))"
+        "INSERT INTO invite_tokens(token, created_by, expires_at, max_uses, uses_count) "
+        "VALUES ('tok-to-revoke', 1, datetime('now','localtime','+48 hours'), 5, 0)"
     )
     await db_conn.commit()
     resp = await admin_client.delete("/invite/tok-to-revoke")
@@ -520,8 +559,8 @@ async def test_invite_revoke_deletes_token(admin_client, db_conn):
 @pytest.mark.asyncio
 async def test_invite_revoke_forbidden_for_non_admin(client, db_conn):
     await db_conn.execute(
-        "INSERT INTO invite_tokens(token, created_by, expires_at) "
-        "VALUES ('tok-non-admin', 1, datetime('now','localtime','+48 hours'))"
+        "INSERT INTO invite_tokens(token, created_by, expires_at, max_uses, uses_count) "
+        "VALUES ('tok-non-admin', 1, datetime('now','localtime','+48 hours'), 5, 0)"
     )
     await db_conn.commit()
     resp = await client.delete("/invite/tok-non-admin")

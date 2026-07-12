@@ -365,8 +365,8 @@ async def invite_get(
     user=Depends(require_admin),
 ):
     async with conn.execute(
-        "SELECT token, created_at, expires_at FROM invite_tokens "
-        "WHERE used_at IS NULL AND expires_at > datetime('now','localtime') "
+        "SELECT token, created_at, expires_at, max_uses, uses_count FROM invite_tokens "
+        "WHERE uses_count < max_uses AND expires_at > datetime('now','localtime') "
         "ORDER BY created_at DESC"
     ) as cur:
         pending_invites = [dict(r) for r in await cur.fetchall()]
@@ -392,24 +392,26 @@ async def invite_post(
     request: Request,
     conn: aiosqlite.Connection = Depends(get_db),
     user=Depends(require_admin),
+    max_uses: int = Form(5, ge=1, le=50),
 ):
     token = secrets.token_urlsafe(32)
     await conn.execute(
-        "INSERT INTO invite_tokens(token, created_by, expires_at) "
-        "VALUES (?, ?, datetime('now','localtime','+48 hours'))",
-        (token, user["id"]),
+        "INSERT INTO invite_tokens(token, created_by, expires_at, max_uses) "
+        "VALUES (?, ?, datetime('now','localtime','+7 days'), ?)",
+        (token, user["id"], max_uses),
     )
     await conn.commit()
     base = str(request.base_url).rstrip("/")
     invite_url = f"{base}/invite/accept/{token}"
     async with conn.execute(
-        "SELECT token, created_at, expires_at FROM invite_tokens "
-        "WHERE used_at IS NULL AND expires_at > datetime('now','localtime') "
+        "SELECT token, created_at, expires_at, max_uses, uses_count FROM invite_tokens "
+        "WHERE uses_count < max_uses AND expires_at > datetime('now','localtime') "
         "ORDER BY created_at DESC"
     ) as cur:
         pending_invites = [dict(r) for r in await cur.fetchall()]
     return render(request, "invite", {
         "invite_url": invite_url,
+        "max_uses": max_uses,
         "user": dict(user),
         "pending_invites": pending_invites,
     })
