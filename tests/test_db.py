@@ -98,6 +98,19 @@ async def test_migration_columns_exist():
         await conn.close()
 
 
+@pytest.mark.asyncio
+async def test_invite_tokens_multi_use_columns():
+    conn = await open_db(":memory:")
+    try:
+        async with conn.execute("PRAGMA table_info(invite_tokens)") as cur:
+            columns = {r["name"] for r in await cur.fetchall()}
+        for col in ("max_uses", "uses_count"):
+            assert col in columns, f"Column '{col}' missing from invite_tokens table"
+        assert "used_by" not in columns, "Dead column 'used_by' should have been dropped"
+    finally:
+        await conn.close()
+
+
 # ---------------------------------------------------------------------------
 # Admin startup sync helpers (mirrors logic in app/main.py lifespan)
 # ---------------------------------------------------------------------------

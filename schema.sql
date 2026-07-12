@@ -71,7 +71,8 @@ CREATE TABLE IF NOT EXISTS invite_tokens (
     created_at DATETIME NOT NULL DEFAULT (datetime('now','localtime')),
     expires_at DATETIME NOT NULL,
     used_at    DATETIME NULL,
-    used_by    INTEGER  NULL REFERENCES users(id)
+    max_uses   INTEGER  NOT NULL DEFAULT 1,
+    uses_count INTEGER  NOT NULL DEFAULT 0
 );
 
 CREATE TABLE IF NOT EXISTS routines (
