@@ -167,6 +167,76 @@ async def test_invite_accept_single_use_token(anon_client, db_conn):
     assert resp.status_code == 400
 
 
+@pytest.mark.asyncio
+async def test_invite_accept_multi_use_allows_up_to_cap(anon_client, db_conn):
+    await db_conn.execute(
+        "INSERT INTO invite_tokens(token, created_by, expires_at, max_uses) "
+        "VALUES ('tok-multi', 1, datetime('now','localtime','+7 days'), 2)"
+    )
+    await db_conn.commit()
+
+    resp1 = await anon_client.post(
+        "/invite/accept/tok-multi",
+        data={
+            "username": "multiuser1",
+            "email": "multi1@example.com",
+            "password": "password1",
+            "password_confirm": "password1",
+        },
+    )
+    assert resp1.status_code in (302, 303)
+
+    resp2 = await anon_client.post(
+        "/invite/accept/tok-multi",
+        data={
+            "username": "multiuser2",
+            "email": "multi2@example.com",
+            "password": "password2",
+            "password_confirm": "password2",
+        },
+    )
+    assert resp2.status_code in (302, 303)
+
+    async with db_conn.execute(
+        "SELECT uses_count, max_uses FROM invite_tokens WHERE token = 'tok-multi'"
+    ) as cur:
+        row = await cur.fetchone()
+    assert row["uses_count"] == 2
+    assert row["max_uses"] == 2
+
+
+@pytest.mark.asyncio
+async def test_invite_accept_rejects_past_cap(anon_client, db_conn):
+    await db_conn.execute(
+        "INSERT INTO invite_tokens(token, created_by, expires_at, max_uses) "
+        "VALUES ('tok-cap', 1, datetime('now','localtime','+7 days'), 1)"
+    )
+    await db_conn.commit()
+
+    await anon_client.post(
+        "/invite/accept/tok-cap",
+        data={
+            "username": "capuser1",
+            "email": "cap1@example.com",
+            "password": "password1",
+            "password_confirm": "password1",
+        },
+    )
+    resp = await anon_client.post(
+        "/invite/accept/tok-cap",
+        data={
+            "username": "capuser2",
+            "email": "cap2@example.com",
+            "password": "password2",
+            "password_confirm": "password2",
+        },
+    )
+    assert resp.status_code == 400
+
+    async with db_conn.execute("SELECT id FROM users WHERE username = 'capuser2'") as cur:
+        assert await cur.fetchone() is None
+
+
 # ---------------------------------------------------------------------------
 # Validation errors
 # ---------------------------------------------------------------------------
