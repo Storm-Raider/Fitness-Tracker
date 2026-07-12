@@ -25,7 +25,7 @@ audit trail is needed — just a remaining-uses counter.
 |---|---|
 | `max_uses` | **new** `INTEGER NOT NULL DEFAULT 1` |
 | `uses_count` | **new** `INTEGER NOT NULL DEFAULT 0` |
-| `used_at` | **repurposed** — updated on *every* successful signup (last-used timestamp), not just the first |
+| `used_at` | **repurposed** — stays `NULL` until the first signup, then updated on *every* subsequent successful signup (last-used timestamp, not first-used) |
 | `used_by` | **dropped** — a single FK can't represent "used by N different people," and a per-signup audit trail is explicitly out of scope |
 
 Existing rows get `max_uses = 1` via the migration's default, so invite links
@@ -52,8 +52,12 @@ require restructuring the table for no gain over the counter approach.
 ## Route behavior (`app/routes/auth.py`)
 
 - **`POST /invite`** (admin, generate link): accepts a new `max_uses` form
-  field (default 5, validated 1–50). Inserts the token with
-  `expires_at = now + 7 days`, the given `max_uses`, `uses_count = 0`.
+  field (default 5). Validated server-side to an integer between 1 and 50
+  via a Pydantic `Field(ge=1, le=50)` constraint, matching the existing
+  `GoalIn`/`ExerciseIn` validation pattern in this codebase — an out-of-range
+  value gets FastAPI's standard 422 response, no new error-handling UI needed.
+  Inserts the token with `expires_at = now + 7 days`, the given `max_uses`,
+  `uses_count = 0`.
 - **Validity check for accepting an invite**: changes from
   `used_at IS NULL AND expires_at > now` to
   `uses_count < max_uses AND expires_at > now`. This is a **new, dedicated**
