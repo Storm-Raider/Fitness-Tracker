@@ -286,6 +286,8 @@ Re-action if a dedicated routine management page is built: add `user_id` to `GET
 **Why major:** The implementation spans 7 files (new route, new template, 2 redirect stubs, base.html, dashboard.html, main.py) with substantial new query logic and template authoring, far exceeding the 2-file/~30-line minor threshold.
 **Link:** https://github.com/Storm-Raider/Fitness-Tracker/issues/24
 
+**SHIPPED (confirmed 2026-07-12)** — `app/routes/analytics.py` + `analytics.html` live; `prs.py` and `stats.py` are now 301-redirect stubs to `/analytics`. Matches the success criteria below.
+
 ## feat: Unified Analytics page (Fixes #24)
 
 **Scope:** 7 files, new route + template, navigation restructure.
@@ -315,12 +317,16 @@ Re-action if a dedicated routine management page is built: add `user_id` to `GET
 **Why major:** auto-fix attempted but the test suite failed; needs manual work
 **Link:** https://github.com/Storm-Raider/Fitness-Tracker/issues/26
 
+**SHIPPED 2026-06-12** — `fa6da96` ("Closes #26, closes #25"). Dashboard KPI grid collapsed 3-col → 2-col (dropped stale "Exercises tracked"), removed Total workouts + All-time volume row, stripped duplicate volume/session numbers from the bar chart header.
+
 
 ## ISSUE-25: [Bug] Body metric chart visual
 
 **Source:** auto-triage (2026-06-09)
 **Why major:** auto-fix attempted but the test suite failed; needs manual work
 **Link:** https://github.com/Storm-Raider/Fitness-Tracker/issues/25
+
+**SHIPPED 2026-06-12** — `fa6da96` ("Closes #26, closes #25"). Metrics charts cap body-weight/measurement x-axis labels at 5 (from 8/6) using a deduplicated evenly-spaced set, fixing label overlap on narrow screens.
 
 
 ## ISSUE-27: [Feature] Acheivements
