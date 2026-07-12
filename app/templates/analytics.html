@@ -109,7 +109,7 @@
 
   const LIFT_NORMS = {
     'Bench Press':       [0.50, 0.75, 1.00, 1.25, 1.50],
-    'Squat':             [0.75, 1.00, 1.25, 1.50, 1.75],
+    'Back Squat':        [0.75, 1.00, 1.25, 1.50, 1.75],
     'Deadlift':          [1.00, 1.25, 1.50, 1.75, 2.00],
     'Overhead Press':    [0.35, 0.55, 0.75, 1.00, 1.25],
     'Barbell Row':       [0.50, 0.75, 1.00, 1.25, 1.50],
@@ -159,8 +159,7 @@
 
   let rendered = 0;
   for (const [liftName, norms] of Object.entries(LIFT_NORMS)) {
-    const rec = records.find(r => r.name.toLowerCase().includes(liftName.toLowerCase().split(' ')[0]) ||
-                                  liftName.toLowerCase().includes(r.name.toLowerCase().split(' ')[0]));
+    const rec = records.find(r => r.name.toLowerCase() === liftName.toLowerCase());
     if (!rec) continue;
     const { level, pct } = getLevel(rec.e1rm, norms);
     const color = LEVEL_COLORS[level] || '#4f9cf9';

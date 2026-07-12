@@ -1,4 +1,12 @@
 {% set completed_workouts = workouts | selectattr('ended_at') | list %}
+<style>
+  .wl-date { white-space: nowrap; }
+  @media (max-width: 767px) {
+    .wl-row { flex-wrap: wrap; row-gap: 0.35rem; }
+    .wl-date { flex: 1 1 100%; }
+    .wl-stats { flex: 1 1 100%; justify-content: flex-end; }
+  }
+</style>
 {% if completed_workouts %}
 {% if q %}
 <div style="font-size:0.78rem;color:var(--muted);margin-bottom:0.6rem;">
@@ -14,11 +22,11 @@
     <!-- Left status edge -->
     <div style="width:3px;flex-shrink:0;background:var(--border-mid);"></div>
     <a href="/workouts/{{ w.id }}" style="flex:1;min-width:0;text-decoration:none;color:inherit;display:flex;flex-direction:column;padding:0.75rem 1.1rem;gap:0.25rem;">
-      <div style="display:flex;align-items:center;gap:1rem;min-width:0;">
-        <div style="flex:1;min-width:0;">
+      <div class="wl-row" style="display:flex;align-items:center;gap:1rem;min-width:0;">
+        <div class="wl-date" style="flex:1;min-width:0;">
           <div style="font-weight:600;font-size:0.9rem;letter-spacing:-0.01em;">{{ w.started_at[:10] | human_date }}</div>
         </div>
-        <div style="display:flex;align-items:center;gap:1.1rem;flex-shrink:0;">
+        <div class="wl-stats" style="display:flex;align-items:center;gap:1.1rem;flex-shrink:0;">
           {% if w.set_count > 0 %}
           <div style="text-align:right;">
             <div class="num" style="font-size:1.05rem;font-weight:700;letter-spacing:-0.02em;">{{ w.set_count }}</div>

@@ -38,7 +38,7 @@ async def exercises_page(
     async with conn.execute(
         """
         SELECT e.id, e.name, e.category, MAX(s.weight_kg) AS pr_kg,
-               GROUP_CONCAT(CASE WHEN em.is_primary = 1 THEN em.muscle END) AS primary_muscles
+               GROUP_CONCAT(DISTINCT CASE WHEN em.is_primary = 1 THEN em.muscle END) AS primary_muscles
         FROM exercises e
         LEFT JOIN sets s ON s.exercise_id = e.id AND s.user_id = ?
         LEFT JOIN exercise_muscles em ON em.exercise_id = e.id

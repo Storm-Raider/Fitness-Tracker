@@ -87,14 +87,14 @@
       background: rgba(9,11,16,0.9);
       backdrop-filter: blur(18px) saturate(160%);
       -webkit-backdrop-filter: blur(18px) saturate(160%);
-      border-top: 1px solid rgba(30,35,52,0.65);
-      box-shadow: 0 -1px 18px rgba(0,0,0,0.5), 0 0 0 0.5px rgba(255,255,255,0.03);
+      border-bottom: 1px solid rgba(30,35,52,0.65);
+      box-shadow: 0 1px 18px rgba(0,0,0,0.5), 0 0 0 0.5px rgba(255,255,255,0.03);
       padding: 0 1.5rem;
       display: flex;
       align-items: center;
       gap: 1.5rem;
       position: fixed;
-      bottom: 0;
+      top: 0;
       left: 0;
       right: 0;
       z-index: 50;
@@ -166,7 +166,7 @@
     .nav-more-dropdown {
       display: none;
       position: absolute;
-      bottom: calc(100% + 4px);
+      top: calc(100% + 4px);
       left: 0;
       background: var(--surface);
       border: 1px solid var(--border);
@@ -207,7 +207,7 @@
       color: var(--accent);
       background: rgba(79,156,249,0.08);
     }
-    /* Slim top indicator on active (nav is at page bottom) */
+    /* Slim indicator on active, flush with the nav's top edge */
     nav .nav-links a::after {
       content: '';
       position: absolute;
@@ -316,11 +316,13 @@
       .mob-tab-bar {
         display: flex;
         position: fixed;
-        bottom: 0; left: 0; right: 0;
+        top: auto; bottom: 0; left: 0; right: 0;
         height: calc(64px + env(safe-area-inset-bottom, 0px));
-        /* Reset the desktop nav's gap/padding/wrap (inherited because this is a
-           <nav>) — they ate ~162px and squeezed the 5 tabs, pushing "More" off.
-           Zeroing them lets the tabs fill the full width evenly. */
+        /* Reset the desktop nav's gap/padding/wrap/top (inherited because this is
+           a <nav>) — they ate ~162px and squeezed the 5 tabs, pushing "More" off,
+           and (since the desktop nav became a top bar) would otherwise pin this
+           bar to the top too. Zeroing them lets the tabs fill the width evenly
+           and keeps this bar anchored to the bottom. */
         gap: 0;
         padding: 0 0 env(safe-area-inset-bottom, 0px);
         flex-wrap: nowrap;
@@ -485,7 +487,7 @@
     .container {
       max-width: 1100px;
       margin: 0 auto;
-      padding: 1.5rem 1.5rem calc(1.5rem + var(--nav-h, 56px));
+      padding: calc(1.5rem + var(--nav-h, 56px)) 1.5rem 1.5rem;
       animation: fadeUp 0.22s ease both;
     }
     /* Clear the fixed .mob-tab-bar (64px + safe-area), which is shown across the
@@ -1118,7 +1120,7 @@
       navigator.serviceWorker.register('/sw.js');
     }
     // Keep --nav-h in sync with the desktop nav's real height so the container
-    // bottom padding always clears it, even when nav items wrap to a second line.
+    // top padding always clears it, even when nav items wrap to a second line.
     // ResizeObserver fires once on observe and then only when the nav's own size
     // changes — no window-resize polling, and reading offsetHeight inside the
     // post-layout callback doesn't force an extra reflow.

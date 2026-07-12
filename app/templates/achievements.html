@@ -122,11 +122,11 @@
   <div class="section-title" style="display:flex;align-items:center;gap:0.5rem;">
     {{ cat.name }}
     <span style="font-size:0.7rem;font-weight:400;color:var(--muted);">
-      {{ cat.items | selectattr('unlocked') | list | length }}/{{ cat.items | length }}
+      {{ cat.achievements | selectattr('unlocked') | list | length }}/{{ cat.achievements | length }}
     </span>
   </div>
   <div class="ach-grid">
-    {% for ach in cat.items %}
+    {% for ach in cat.achievements %}
     <div class="ach-card tier-{{ ach.tier }} {{ 'unlocked' if ach.unlocked else 'locked' }}">
       <div class="ach-icon-wrap">
         <i data-lucide="{{ ach.icon }}" style="width:22px;height:22px;pointer-events:none;"></i>

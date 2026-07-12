@@ -343,7 +343,7 @@ async def achievements_page(
     cat_map: dict[str, list] = {}
     for a in achievements:
         cat_map.setdefault(a["category"], []).append(a)
-    categories = [{"name": k, "items": v} for k, v in cat_map.items()]
+    categories = [{"name": k, "achievements": v} for k, v in cat_map.items()]
 
     return render(
         request,
