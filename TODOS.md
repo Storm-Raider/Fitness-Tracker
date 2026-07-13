@@ -375,3 +375,20 @@ Request to expand the achievements list beyond the current 24. Needs product dec
 - All changes are in `app/templates/journal.html` (one file); no route/schema/auth changes required
 
 **Reported by:** Lopa via in-app feedback (2026-06-21)
+
+## TODO-EL-5: Single shared DB connection has no lock around explicit transactions
+
+**What:** `get_db()` (`app/db.py`) yields one module-global `aiosqlite.Connection` for the entire process — there's no per-request connection and no `asyncio.Lock` (or similar) serializing writers. Any route that opens an explicit transaction with `BEGIN IMMEDIATE` (`app/routes/workouts.py:318-345` for PR detection, `app/routes/import_.py:82` for bulk CSV import, and now `app/routes/auth.py`'s `invite_accept_post` for the multi-use invite race-guard) is vulnerable: if two requests both reach their own `BEGIN IMMEDIATE` before either `COMMIT`s/`ROLLBACK`s, the second raises `sqlite3.OperationalError: cannot start a transaction within a transaction` — an unhandled 500 — instead of blocking and then gracefully losing whatever race it was trying to lose.
+
+**Why:** Discovered while implementing multi-use invite links (2026-07-12). A synthetic `asyncio.gather`-based test firing two truly-simultaneous invite-accept requests deterministically crashed this way. The invite-accept fix (wrapping its INSERT+UPDATE in `BEGIN IMMEDIATE`/`COMMIT`/`ROLLBACK`, matching the existing `workouts.py` pattern) is correct for all realistic, non-zero-gap request timing — this TODO is about the deeper, pre-existing architectural gap the synthetic test exposed, not a regression from that feature. See `docs/superpowers/plans/2026-07-12-multi-use-invite-links.md` and the PR at https://github.com/Storm-Raider/Fitness-Tracker/pull/30 for the discovery context.
+
+**Scope:**
+1. Decide the fix shape: an `asyncio.Lock` acquired around every `BEGIN IMMEDIATE`/`COMMIT`/`ROLLBACK` block (simplest, serializes all explicit-transaction writers app-wide) vs. moving to a per-request connection pool (bigger change, but removes the single-shared-connection assumption entirely).
+2. Apply consistently to all three existing `BEGIN IMMEDIATE` call sites: `app/routes/workouts.py:318-345`, `app/routes/import_.py:82`, `app/routes/auth.py` (`invite_accept_post`).
+3. Add a regression test exercising real concurrent requests (e.g. `asyncio.gather` on two requests hitting the same `BEGIN IMMEDIATE` call site) that currently crashes and should instead resolve to one success + one graceful rejection.
+
+**Where to start:** `app/db.py`'s `get_db()`/`open_db()` — this is where the connection is created and where a lock (if that's the chosen fix) would need to live, since all three call sites depend on `Depends(get_db)` returning the same object.
+
+**Depends on:** Nothing. Can be investigated independently of any specific feature.
+
+**Effort:** M — the fix itself is likely small (a lock), but needs careful testing across all three call sites to confirm no new deadlocks or serialization bottlenecks under this app's real (low-concurrency, single-admin/small-friend-group) usage pattern.
