@@ -1,5 +1,5 @@
 <div style="margin-top: 0.25rem;">
-  <p style="font-size: 0.8rem; color: var(--muted); margin-bottom: 0.5rem;">Share this link — expires in 48 hours, single use:</p>
+  <p style="font-size: 0.8rem; color: var(--muted); margin-bottom: 0.5rem;">Share this link — expires in 7 days, up to {{ max_uses }} signups:</p>
   <div style="display: flex; gap: 0.5rem; align-items: center;">
     <input type="text" id="invite-url" value="{{ invite_url | e }}" readonly
            style="flex: 1; font-size: 0.8rem; background: var(--bg); cursor: text;">
@@ -19,6 +19,7 @@
         <th>Token</th>
         <th>Created</th>
         <th>Expires</th>
+        <th>Uses</th>
         <th></th>
       </tr>
     </thead>
@@ -30,6 +31,7 @@
         </td>
         <td style="font-size:0.8rem; color:var(--muted);">{{ inv.created_at[:16] }}</td>
         <td style="font-size:0.8rem; color:var(--muted);">{{ inv.expires_at[:16] }}</td>
+        <td class="num" style="font-size:0.8rem; color:var(--muted);">{{ inv.uses_count }} / {{ inv.max_uses }}</td>
         <td style="text-align:right;">
           <button class="btn btn-ghost"
                   style="font-size:0.8rem; color:var(--danger);"
@@ -43,7 +45,7 @@
       </tr>
       {% else %}
       <tr id="pending-invites-empty">
-        <td colspan="4" style="padding:1rem; color:var(--muted); font-size:0.875rem;">No pending invites.</td>
+        <td colspan="5" style="padding:1rem; color:var(--muted); font-size:0.875rem;">No pending invites.</td>
       </tr>
       {% endfor %}
     </tbody>
