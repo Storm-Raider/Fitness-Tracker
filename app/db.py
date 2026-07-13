@@ -433,6 +433,14 @@ def set_db(conn: aiosqlite.Connection) -> None:
 
 
 def clear_db() -> None:
+    # Recreating write_lock (not just clearing it) matters for tests: each
+    # pytest-asyncio test gets its own event loop, and an asyncio.Lock binds
+    # to whichever loop first awaits it — reusing one Lock across tests would
+    # raise "attached to a different loop". Routes reference this via
+    # `app.db.write_lock` (not `from app.db import write_lock`) specifically
+    # so this reassignment is visible to them. Also runs once at production
+    # shutdown (see main.py's lifespan) — harmless there, since nothing
+    # acquires the lock again after the connection is closed.
     global _conn, write_lock
     _conn = None
     write_lock = asyncio.Lock()
