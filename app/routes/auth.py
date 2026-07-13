@@ -358,6 +358,20 @@ async def reset_password_post(
 
 # ── Invite ────────────────────────────────────────────────────────────────────
 
+async def _fetch_valid_invite(conn: aiosqlite.Connection, token: str) -> aiosqlite.Row:
+    """Like _fetch_valid_token, but for the multi-use invite_tokens table:
+    valid while uses_count < max_uses (not used_at IS NULL) and not expired."""
+    async with conn.execute(
+        "SELECT * FROM invite_tokens WHERE token = ? AND uses_count < max_uses"
+        " AND expires_at > datetime('now','localtime')",
+        (token,),
+    ) as cur:
+        row = await cur.fetchone()
+    if not row:
+        raise HTTPException(status_code=400, detail="Invalid or expired invite link")
+    return row
+
+
 @router.get("/invite", response_class=HTMLResponse)
 async def invite_get(
     request: Request,
@@ -365,8 +379,8 @@ async def invite_get(
     user=Depends(require_admin),
 ):
     async with conn.execute(
-        "SELECT token, created_at, expires_at FROM invite_tokens "
-        "WHERE used_at IS NULL AND expires_at > datetime('now','localtime') "
+        "SELECT token, created_at, expires_at, max_uses, uses_count FROM invite_tokens "
+        "WHERE uses_count < max_uses AND expires_at > datetime('now','localtime') "
         "ORDER BY created_at DESC"
     ) as cur:
         pending_invites = [dict(r) for r in await cur.fetchall()]
@@ -392,24 +406,26 @@ async def invite_post(
     request: Request,
     conn: aiosqlite.Connection = Depends(get_db),
     user=Depends(require_admin),
+    max_uses: int = Form(5, ge=1, le=50),
 ):
     token = secrets.token_urlsafe(32)
     await conn.execute(
-        "INSERT INTO invite_tokens(token, created_by, expires_at) "
-        "VALUES (?, ?, datetime('now','localtime','+48 hours'))",
-        (token, user["id"]),
+        "INSERT INTO invite_tokens(token, created_by, expires_at, max_uses) "
+        "VALUES (?, ?, datetime('now','localtime','+7 days'), ?)",
+        (token, user["id"], max_uses),
     )
     await conn.commit()
     base = str(request.base_url).rstrip("/")
     invite_url = f"{base}/invite/accept/{token}"
     async with conn.execute(
-        "SELECT token, created_at, expires_at FROM invite_tokens "
-        "WHERE used_at IS NULL AND expires_at > datetime('now','localtime') "
+        "SELECT token, created_at, expires_at, max_uses, uses_count FROM invite_tokens "
+        "WHERE uses_count < max_uses AND expires_at > datetime('now','localtime') "
         "ORDER BY created_at DESC"
     ) as cur:
         pending_invites = [dict(r) for r in await cur.fetchall()]
     return render(request, "invite", {
         "invite_url": invite_url,
+        "max_uses": max_uses,
         "user": dict(user),
         "pending_invites": pending_invites,
     })
@@ -421,7 +437,7 @@ async def invite_accept_get(
     request: Request,
     conn: aiosqlite.Connection = Depends(get_db),
 ):
-    await _fetch_valid_token(conn, "invite_tokens", token, "Invalid or expired invite link")
+    await _fetch_valid_invite(conn, token)
     return templates.TemplateResponse(
         request, "invite_accept.html",
         {"token": token, "errors": {}, "form": {}},
@@ -438,7 +454,7 @@ async def invite_accept_post(
     password_confirm: str = Form(...),
     conn: aiosqlite.Connection = Depends(get_db),
 ):
-    await _fetch_valid_token(conn, "invite_tokens", token, "Invalid or expired invite link")
+    await _fetch_valid_invite(conn, token)
 
     email = email.strip().lower()
     errors = {}
@@ -459,20 +475,30 @@ async def invite_accept_post(
         )
 
     hashed = _hash_password(password)
+    async with conn.execute("BEGIN IMMEDIATE"):
+        pass
     try:
         async with conn.execute(
             "INSERT INTO users(username, password_hash, is_admin, email) VALUES (?, ?, 0, ?)",
             (username, hashed, email),
         ) as cur:
             new_user_id = cur.lastrowid
-        await conn.execute(
+        update_cur = await conn.execute(
             "UPDATE invite_tokens "
-            "SET used_at = datetime('now','localtime'), used_by = ? "
-            "WHERE token = ?",
-            (new_user_id, token),
+            "SET uses_count = uses_count + 1, used_at = datetime('now','localtime') "
+            "WHERE token = ? AND uses_count < max_uses AND expires_at > datetime('now','localtime')",
+            (token,),
         )
-        await conn.commit()
+        if update_cur.rowcount == 0:
+            # Someone else claimed the last remaining slot between our
+            # _fetch_valid_invite check and this update — don't leave a user
+            # row behind with no valid invite backing it. The rollback for
+            # this and any other unexpected error is handled uniformly by
+            # the catch-all `except Exception` below.
+            raise HTTPException(status_code=400, detail="Invalid or expired invite link")
+        await conn.execute("COMMIT")
     except aiosqlite.IntegrityError as exc:
+        await conn.execute("ROLLBACK")
         msg = str(exc)
         if "email" in msg:
             errors["email"] = "An account with that email already exists"
@@ -483,5 +509,8 @@ async def invite_accept_post(
             {"token": token, "errors": errors, "form": {"username": username, "email": email}},
             status_code=200,
         )
+    except Exception:
+        await conn.execute("ROLLBACK")
+        raise
 
     return RedirectResponse(url=f"/login?username={username}", status_code=302)

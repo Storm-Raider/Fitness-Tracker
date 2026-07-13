@@ -5,7 +5,7 @@
 <div class="page-hd">
   <div>
     <h1>Invite a new user</h1>
-    <div class="subtitle">One-time registration links</div>
+    <div class="subtitle">Shareable registration links</div>
   </div>
 </div>
 
@@ -14,11 +14,16 @@
     <div class="section-title" style="margin-bottom:0.75rem;">Generate link</div>
     <div class="card">
       <p style="font-size:0.875rem; color:var(--muted); margin-bottom:1.25rem;">
-        Generate a one-time invite link. It expires after 48 hours.
+        Generate an invite link good for multiple signups. It expires after 7 days.
       </p>
+      <div class="form-group">
+        <label for="invite-max-uses">Max uses</label>
+        <input type="number" id="invite-max-uses" name="max_uses" value="5" min="1" max="50" style="height:44px;" onblur="if(!this.value) this.value=5;">
+      </div>
       <button class="btn btn-primary"
               style="width:100%;"
               hx-post="/invite"
+              hx-include="#invite-max-uses"
               hx-target="#invite-result"
               hx-swap="innerHTML">
         Generate invite link
@@ -36,6 +41,7 @@
             <th>Token</th>
             <th>Created</th>
             <th>Expires</th>
+            <th>Uses</th>
             <th></th>
           </tr>
         </thead>
@@ -48,6 +54,7 @@
               </td>
               <td style="font-size:0.8rem; color:var(--muted);">{{ inv.created_at[:16] }}</td>
               <td style="font-size:0.8rem; color:var(--muted);">{{ inv.expires_at[:16] }}</td>
+              <td class="num" style="font-size:0.8rem; color:var(--muted);">{{ inv.uses_count }} / {{ inv.max_uses }}</td>
               <td style="text-align:right;">
                 <button class="btn btn-ghost"
                         style="font-size:0.8rem; color:var(--danger);"
@@ -62,7 +69,7 @@
             {% endfor %}
           {% else %}
           <tr id="pending-invites-empty">
-            <td colspan="4" style="padding:1rem; color:var(--muted); font-size:0.875rem;">No pending invites.</td>
+            <td colspan="5" style="padding:1rem; color:var(--muted); font-size:0.875rem;">No pending invites.</td>
           </tr>
           {% endif %}
         </tbody>
