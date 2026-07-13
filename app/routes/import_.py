@@ -6,6 +6,7 @@ from datetime import datetime
 import aiosqlite
 from fastapi import APIRouter, Depends, HTTPException, UploadFile
 
+import app.db
 from app.db import get_db
 from app.routes.auth import get_current_user
 from app.utils.csv_utils import get_or_create_exercise
@@ -79,63 +80,64 @@ async def import_csv(
     imported = 0
     skipped = 0
 
-    await conn.execute("BEGIN IMMEDIATE")
-    try:
-        current_workout_id: int | None = None
-        current_workout_key: str | None = None
+    async with app.db.write_lock:
+        await conn.execute("BEGIN IMMEDIATE")
+        try:
+            current_workout_id: int | None = None
+            current_workout_key: str | None = None
 
-        for row in rows:
-            exercise_name = (row.get("Exercise Name") or "").strip()
-            weight_raw = (row.get("Weight") or "").strip()
-            reps_raw = (row.get("Reps") or "").strip()
+            for row in rows:
+                exercise_name = (row.get("Exercise Name") or "").strip()
+                weight_raw = (row.get("Weight") or "").strip()
+                reps_raw = (row.get("Reps") or "").strip()
 
-            if not exercise_name or not weight_raw or not reps_raw:
-                skipped += 1
-                continue
+                if not exercise_name or not weight_raw or not reps_raw:
+                    skipped += 1
+                    continue
 
-            try:
-                weight = float(weight_raw)
-                reps = int(float(reps_raw))
-            except ValueError:
-                raise HTTPException(
-                    status_code=422,
-                    detail=f"Non-numeric weight or reps in row: {dict(row)}",
+                try:
+                    weight = float(weight_raw)
+                    reps = int(float(reps_raw))
+                except ValueError:
+                    raise HTTPException(
+                        status_code=422,
+                        detail=f"Non-numeric weight or reps in row: {dict(row)}",
+                    )
+
+                weight_unit = (row.get("Weight Unit") or "kg").strip().lower()
+                if weight_unit == "lbs":
+                    weight = _lbs_to_kg(weight)
+
+                workout_date, workout_name = _workout_key(row, fmt)
+                row_key = f"{workout_date}:{workout_name}"
+
+                if row_key != current_workout_key:
+                    started_at = workout_date or datetime.now().isoformat()
+                    async with conn.execute(
+                        "INSERT INTO workouts(started_at, ended_at, notes, user_id) "
+                        "VALUES (?, ?, ?, ?)",
+                        (started_at, started_at, f"Imported: {workout_name}", uid),
+                    ) as cur:
+                        current_workout_id = cur.lastrowid
+                    current_workout_key = row_key
+
+                exercise_id = await get_or_create_exercise(conn, exercise_name)
+                set_notes = (row.get("Notes") or "").strip() or None
+
+                await conn.execute(
+                    "INSERT INTO sets(workout_id, exercise_id, reps, weight_kg, notes, user_id) "
+                    "VALUES (?, ?, ?, ?, ?, ?)",
+                    (current_workout_id, exercise_id, reps, weight, set_notes, uid),
                 )
+                imported += 1
 
-            weight_unit = (row.get("Weight Unit") or "kg").strip().lower()
-            if weight_unit == "lbs":
-                weight = _lbs_to_kg(weight)
-
-            workout_date, workout_name = _workout_key(row, fmt)
-            row_key = f"{workout_date}:{workout_name}"
-
-            if row_key != current_workout_key:
-                started_at = workout_date or datetime.now().isoformat()
-                async with conn.execute(
-                    "INSERT INTO workouts(started_at, ended_at, notes, user_id) "
-                    "VALUES (?, ?, ?, ?)",
-                    (started_at, started_at, f"Imported: {workout_name}", uid),
-                ) as cur:
-                    current_workout_id = cur.lastrowid
-                current_workout_key = row_key
-
-            exercise_id = await get_or_create_exercise(conn, exercise_name)
-            set_notes = (row.get("Notes") or "").strip() or None
-
-            await conn.execute(
-                "INSERT INTO sets(workout_id, exercise_id, reps, weight_kg, notes, user_id) "
-                "VALUES (?, ?, ?, ?, ?, ?)",
-                (current_workout_id, exercise_id, reps, weight, set_notes, uid),
-            )
-            imported += 1
-
-        await conn.execute("COMMIT")
-    except HTTPException:
-        await conn.execute("ROLLBACK")
-        raise
-    except Exception as exc:
-        await conn.execute("ROLLBACK")
-        logger.exception("CSV import failed: %s", exc)
-        raise HTTPException(status_code=500, detail="Import failed — transaction rolled back")
+            await conn.execute("COMMIT")
+        except HTTPException:
+            await conn.execute("ROLLBACK")
+            raise
+        except Exception as exc:
+            await conn.execute("ROLLBACK")
+            logger.exception("CSV import failed: %s", exc)
+            raise HTTPException(status_code=500, detail="Import failed — transaction rolled back")
 
     return {"imported": imported, "skipped": skipped}
