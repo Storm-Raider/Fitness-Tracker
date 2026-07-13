@@ -492,8 +492,9 @@ async def invite_accept_post(
         if update_cur.rowcount == 0:
             # Someone else claimed the last remaining slot between our
             # _fetch_valid_invite check and this update — don't leave a user
-            # row behind with no valid invite backing it.
-            await conn.execute("ROLLBACK")
+            # row behind with no valid invite backing it. The rollback for
+            # this and any other unexpected error is handled uniformly by
+            # the catch-all `except Exception` below.
             raise HTTPException(status_code=400, detail="Invalid or expired invite link")
         await conn.execute("COMMIT")
     except aiosqlite.IntegrityError as exc:
@@ -508,5 +509,8 @@ async def invite_accept_post(
             {"token": token, "errors": errors, "form": {"username": username, "email": email}},
             status_code=200,
         )
+    except Exception:
+        await conn.execute("ROLLBACK")
+        raise
 
     return RedirectResponse(url=f"/login?username={username}", status_code=302)
