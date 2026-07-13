@@ -3,8 +3,8 @@ Challenge evaluation — lazy, grace-aware reset with no background job.
 
 The completion/reset state of an attempt is derived on every page load:
   - A day is complete when all its NON-optional rules are satisfied.
-  - A "workout" rule is satisfied if a workout or cardio was logged that day
-    (or it was manually ticked).
+  - A "workout" rule is satisfied if a workout or cardio of at least
+    WORKOUT_MIN_MINUTES was logged that day (or it was manually ticked).
   - Locked days are start .. today-2 (yesterday stays editable — the 1-day
     grace). The first incomplete locked day breaks the run → status 'failed'.
   - Reaching the final day with it complete → status 'completed'.
@@ -21,6 +21,7 @@ import aiosqlite
 from app.data.challenges import CHALLENGE_INDEX
 
 GRACE_DAYS = 1  # yesterday can still be completed today
+WORKOUT_MIN_MINUTES = 45  # matches the "45 min" threshold in every "kind": "workout" rule label
 
 
 def today_local() -> date:
@@ -30,14 +31,20 @@ def today_local() -> date:
 
 
 async def training_dates(conn: aiosqlite.Connection, uid: int) -> set[str]:
-    """ISO dates on which the user logged a workout or cardio session."""
+    """ISO dates on which the user logged a workout or cardio session that met
+    WORKOUT_MIN_MINUTES. An in-progress workout (no ended_at yet) doesn't
+    count — its eventual duration isn't known."""
     dates: set[str] = set()
     async with conn.execute(
-        "SELECT DISTINCT DATE(started_at,'localtime') AS d FROM workouts WHERE user_id=?", (uid,)
+        "SELECT DISTINCT DATE(started_at,'localtime') AS d FROM workouts "
+        "WHERE user_id=? AND ended_at IS NOT NULL "
+        "AND (JULIANDAY(ended_at) - JULIANDAY(started_at)) * 1440 >= ?",
+        (uid, WORKOUT_MIN_MINUTES),
     ) as c:
         dates.update(r["d"] for r in await c.fetchall() if r["d"])
     async with conn.execute(
-        "SELECT DISTINCT logged_date AS d FROM cardio_logs WHERE user_id=?", (uid,)
+        "SELECT DISTINCT logged_date AS d FROM cardio_logs WHERE user_id=? AND duration_minutes >= ?",
+        (uid, WORKOUT_MIN_MINUTES),
     ) as c:
         dates.update(r["d"] for r in await c.fetchall() if r["d"])
     return dates

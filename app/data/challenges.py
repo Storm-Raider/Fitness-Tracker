@@ -3,7 +3,8 @@ Challenge templates — fixed-length daily-adherence programs (75 Hard, etc.).
 
 Each template is data so new challenges are a config change, not code. A rule's
 `kind` decides how completion is satisfied:
-  - "workout": auto-satisfied if a workout OR cardio is logged that day
+  - "workout": auto-satisfied if a workout OR cardio of at least
+               app.utils.challenges.WORKOUT_MIN_MINUTES is logged that day
                (also manually tickable for sessions you didn't log here)
   - "photo":   manual tick; the image itself is stored ON-DEVICE (IndexedDB),
                never uploaded — the server only records done/not-done

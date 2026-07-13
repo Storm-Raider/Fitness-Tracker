@@ -1219,6 +1219,9 @@
         document.querySelectorAll('.pace-unit-label').forEach(function(el) {
           el.textContent = 'min/' + unit;
         });
+        document.querySelectorAll('.distance-unit-label').forEach(function(el) {
+          el.textContent = unit;
+        });
         window.dispatchEvent(new CustomEvent('distancechange', { detail: { unit: unit } }));
       }
       window.toggleDistance = function() {

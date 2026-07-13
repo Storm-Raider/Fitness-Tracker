@@ -67,11 +67,39 @@ async def test_checkin_toggles_and_persists(client, db):
 async def test_workout_rule_auto_ticks_from_log(client, db):
     aid = await _start(client)
     today = date.today()
-    await db.execute("INSERT INTO workouts(user_id, started_at) VALUES (1, ?)",
-                     (today.isoformat() + " 08:00:00",))
+    await db.execute(
+        "INSERT INTO workouts(user_id, started_at, ended_at) VALUES (1, ?, ?)",
+        (today.isoformat() + " 08:00:00", today.isoformat() + " 08:50:00"),
+    )
     await db.commit()
     r = await client.get(f"/challenges/{aid}", headers={"Accept": "text/html"})
-    assert "auto" in r.text  # workout rule renders its auto-satisfied hint
+    assert "workout logged" in r.text  # workout rule renders its auto-satisfied hint
+
+
+@pytest.mark.asyncio
+async def test_short_workout_does_not_auto_tick(client, db):
+    aid = await _start(client)
+    today = date.today()
+    await db.execute(
+        "INSERT INTO workouts(user_id, started_at, ended_at) VALUES (1, ?, ?)",
+        (today.isoformat() + " 08:00:00", today.isoformat() + " 08:20:00"),
+    )
+    await db.commit()
+    r = await client.get(f"/challenges/{aid}", headers={"Accept": "text/html"})
+    assert "workout logged" not in r.text  # a 20-minute session must not satisfy a 45-min rule
+
+
+@pytest.mark.asyncio
+async def test_in_progress_workout_does_not_auto_tick(client, db):
+    aid = await _start(client)
+    today = date.today()
+    await db.execute(
+        "INSERT INTO workouts(user_id, started_at) VALUES (1, ?)",
+        (today.isoformat() + " 08:00:00",),
+    )
+    await db.commit()
+    r = await client.get(f"/challenges/{aid}", headers={"Accept": "text/html"})
+    assert "workout logged" not in r.text  # unfinished workout has no known duration yet
 
 
 @pytest.mark.asyncio
