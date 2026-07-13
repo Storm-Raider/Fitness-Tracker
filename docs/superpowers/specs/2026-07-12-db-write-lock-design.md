@@ -106,6 +106,12 @@ with, this lock.
   timeout/backoff machinery would be solving a problem this app doesn't have.
 - **Existing single-statement writes:** untouched. They don't open explicit
   transactions, so they never contend with this lock.
+- **Lock lifetime across tests:** unlike `_conn` (reset per test via
+  `set_db`/`clear_db`), `write_lock` is a plain module global that is not
+  reset between tests. This is safe: every acquisition goes through
+  `async with write_lock:`, which always releases on the way out — including
+  when an exception propagates — so there is no code path that leaves it
+  held after a request (or test) finishes.
 
 ## Out of scope
 
