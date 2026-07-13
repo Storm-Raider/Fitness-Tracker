@@ -1,7 +1,7 @@
 import pytest
 import aiosqlite
 
-from app.db import open_db
+from app.db import open_db, _MIGRATIONS
 from app.routes.auth import _hash_password, _verify_password
 
 
@@ -107,6 +107,61 @@ async def test_invite_tokens_multi_use_columns():
         for col in ("max_uses", "uses_count"):
             assert col in columns, f"Column '{col}' missing from invite_tokens table"
         assert "used_by" not in columns, "Dead column 'used_by' should have been dropped"
+    finally:
+        await conn.close()
+
+
+@pytest.mark.asyncio
+async def test_invite_tokens_backfill_marks_legacy_used_as_exhausted():
+    # A fresh :memory: DB gets schema.sql's final invite_tokens shape
+    # up front (used_at/max_uses/uses_count already present), so the
+    # ADD COLUMN/backfill migrations all run once inside open_db() before
+    # we get the connection back. To exercise the backfill's SQL against a
+    # row that stands in for a pre-existing, already-consumed invite (the
+    # scenario this migration must handle), insert it post-init — this
+    # reproduces the "uses_count defaults to 0" bug on its own — then run
+    # the exact backfill statement from _MIGRATIONS directly to prove it
+    # fixes that row.
+    conn = await open_db(":memory:")
+    try:
+        await conn.execute(
+            "INSERT INTO users(username, password_hash) VALUES ('legacy-admin', 'x')"
+        )
+        await conn.commit()
+        # Simulate a pre-existing consumed invite: used_at set, as it would
+        # have been under the old one-time-use scheme, before this feature's
+        # uses_count/max_uses columns existed.
+        await conn.execute(
+            "INSERT INTO invite_tokens(token, created_by, expires_at, used_at) "
+            "VALUES ('legacy-used', 1, datetime('now','localtime','+1 hour'), datetime('now','localtime'))"
+        )
+        await conn.commit()
+
+        # Sanity check: without the backfill, this row would look usable
+        # again (uses_count 0 < max_uses 1) — this is the bug being fixed.
+        async with conn.execute(
+            "SELECT max_uses, uses_count FROM invite_tokens WHERE token = 'legacy-used'"
+        ) as cur:
+            before = await cur.fetchone()
+        assert before["uses_count"] == 0
+
+        backfill_sql = (
+            "UPDATE invite_tokens SET uses_count = max_uses WHERE used_at IS NOT NULL"
+        )
+        assert backfill_sql in _MIGRATIONS, (
+            "backfill migration statement missing from _MIGRATIONS"
+        )
+        await conn.execute(backfill_sql)
+        await conn.commit()
+
+        async with conn.execute(
+            "SELECT max_uses, uses_count FROM invite_tokens WHERE token = 'legacy-used'"
+        ) as cur:
+            row = await cur.fetchone()
+        assert row["uses_count"] == row["max_uses"], (
+            "a legacy consumed invite must read as exhausted after migration, "
+            "not become usable again"
+        )
     finally:
         await conn.close()
 

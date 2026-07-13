@@ -238,6 +238,10 @@ _MIGRATIONS = [
     # one-time-use behavior after this migration runs.
     "ALTER TABLE invite_tokens ADD COLUMN max_uses INTEGER NOT NULL DEFAULT 1",
     "ALTER TABLE invite_tokens ADD COLUMN uses_count INTEGER NOT NULL DEFAULT 0",
+    # Backfill: any invite already consumed under the old one-time-use scheme
+    # (used_at set) must not become usable again just because uses_count
+    # defaulted to 0. Mark it as already at its cap.
+    "UPDATE invite_tokens SET uses_count = max_uses WHERE used_at IS NOT NULL",
     # used_by named a single user; multi-use invites can be used by several,
     # so a single FK column no longer makes sense. No audit trail replaces it
     # (see docs/superpowers/specs/2026-07-12-multi-use-invite-links-design.md).
