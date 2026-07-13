@@ -11,6 +11,7 @@ from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from itsdangerous import URLSafeTimedSerializer
 
+import app.db
 from app.db import get_db
 from app.utils.email import send_email
 from app.utils.render import render, templates
@@ -475,42 +476,43 @@ async def invite_accept_post(
         )
 
     hashed = _hash_password(password)
-    async with conn.execute("BEGIN IMMEDIATE"):
-        pass
-    try:
-        async with conn.execute(
-            "INSERT INTO users(username, password_hash, is_admin, email) VALUES (?, ?, 0, ?)",
-            (username, hashed, email),
-        ) as cur:
-            new_user_id = cur.lastrowid
-        update_cur = await conn.execute(
-            "UPDATE invite_tokens "
-            "SET uses_count = uses_count + 1, used_at = datetime('now','localtime') "
-            "WHERE token = ? AND uses_count < max_uses AND expires_at > datetime('now','localtime')",
-            (token,),
-        )
-        if update_cur.rowcount == 0:
-            # Someone else claimed the last remaining slot between our
-            # _fetch_valid_invite check and this update — don't leave a user
-            # row behind with no valid invite backing it. The rollback for
-            # this and any other unexpected error is handled uniformly by
-            # the catch-all `except Exception` below.
-            raise HTTPException(status_code=400, detail="Invalid or expired invite link")
-        await conn.execute("COMMIT")
-    except aiosqlite.IntegrityError as exc:
-        await conn.execute("ROLLBACK")
-        msg = str(exc)
-        if "email" in msg:
-            errors["email"] = "An account with that email already exists"
-        else:
-            errors["username"] = "Username is already taken"
-        return templates.TemplateResponse(
-            request, "invite_accept.html",
-            {"token": token, "errors": errors, "form": {"username": username, "email": email}},
-            status_code=200,
-        )
-    except Exception:
-        await conn.execute("ROLLBACK")
-        raise
+    async with app.db.write_lock:
+        async with conn.execute("BEGIN IMMEDIATE"):
+            pass
+        try:
+            async with conn.execute(
+                "INSERT INTO users(username, password_hash, is_admin, email) VALUES (?, ?, 0, ?)",
+                (username, hashed, email),
+            ) as cur:
+                new_user_id = cur.lastrowid
+            update_cur = await conn.execute(
+                "UPDATE invite_tokens "
+                "SET uses_count = uses_count + 1, used_at = datetime('now','localtime') "
+                "WHERE token = ? AND uses_count < max_uses AND expires_at > datetime('now','localtime')",
+                (token,),
+            )
+            if update_cur.rowcount == 0:
+                # Someone else claimed the last remaining slot between our
+                # _fetch_valid_invite check and this update — don't leave a user
+                # row behind with no valid invite backing it. The rollback for
+                # this and any other unexpected error is handled uniformly by
+                # the catch-all `except Exception` below.
+                raise HTTPException(status_code=400, detail="Invalid or expired invite link")
+            await conn.execute("COMMIT")
+        except aiosqlite.IntegrityError as exc:
+            await conn.execute("ROLLBACK")
+            msg = str(exc)
+            if "email" in msg:
+                errors["email"] = "An account with that email already exists"
+            else:
+                errors["username"] = "Username is already taken"
+            return templates.TemplateResponse(
+                request, "invite_accept.html",
+                {"token": token, "errors": errors, "form": {"username": username, "email": email}},
+                status_code=200,
+            )
+        except Exception:
+            await conn.execute("ROLLBACK")
+            raise
 
     return RedirectResponse(url=f"/login?username={username}", status_code=302)

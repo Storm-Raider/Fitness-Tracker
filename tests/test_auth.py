@@ -1,3 +1,4 @@
+import asyncio
 import pytest
 from unittest.mock import AsyncMock, patch
 from app.routes.auth import COOKIE_NAME
@@ -235,6 +236,46 @@ async def test_invite_accept_rejects_past_cap(anon_client, db_conn):
 
     async with db_conn.execute("SELECT id FROM users WHERE username = 'capuser2'") as cur:
         assert await cur.fetchone() is None
+
+
+@pytest.mark.asyncio
+async def test_invite_accept_concurrent_race_leaves_no_orphan_user(anon_client, db_conn):
+    await db_conn.execute(
+        "INSERT INTO invite_tokens(token, created_by, expires_at, max_uses) "
+        "VALUES ('tok-race', 1, datetime('now','localtime','+7 days'), 1)"
+    )
+    await db_conn.commit()
+
+    async def _accept(username, email):
+        return await anon_client.post(
+            "/invite/accept/tok-race",
+            data={
+                "username": username,
+                "email": email,
+                "password": "password1",
+                "password_confirm": "password1",
+            },
+        )
+
+    resp_a, resp_b = await asyncio.gather(
+        _accept("racer_a", "racera@example.com"),
+        _accept("racer_b", "racerb@example.com"),
+    )
+    statuses = sorted([resp_a.status_code, resp_b.status_code])
+    # One request wins (redirect to login), the other loses the race (400).
+    assert statuses in ([302, 400], [303, 400])
+
+    async with db_conn.execute(
+        "SELECT COUNT(*) AS c FROM users WHERE username IN ('racer_a', 'racer_b')"
+    ) as cur:
+        row = await cur.fetchone()
+    assert row["c"] == 1, "exactly one of the two racing signups should have created a user"
+
+    async with db_conn.execute(
+        "SELECT uses_count FROM invite_tokens WHERE token = 'tok-race'"
+    ) as cur:
+        row = await cur.fetchone()
+    assert row["uses_count"] == 1
 
 
 # ---------------------------------------------------------------------------

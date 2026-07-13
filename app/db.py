@@ -1,3 +1,4 @@
+import asyncio
 import os as _os
 import sys as _sys
 
@@ -26,6 +27,14 @@ from app.data.exercises import EXERCISES, RETIRED_EXERCISES, infer_muscle_and_ca
 from app.data.routines import ROUTINES
 
 _conn: aiosqlite.Connection | None = None
+
+# Serializes the app's explicit multi-statement transactions (BEGIN IMMEDIATE
+# blocks in workouts.py, import_.py, auth.py) so two requests racing to open
+# one on the single shared connection wait their turn instead of crashing
+# with "cannot start a transaction within a transaction". One global lock,
+# not per-table/per-route — this app's real concurrency is low enough that
+# serializing the rare multi-statement write is the right amount of locking.
+write_lock = asyncio.Lock()
 
 SCHEMA = Path(__file__).parent.parent / "schema.sql"
 
@@ -424,5 +433,6 @@ def set_db(conn: aiosqlite.Connection) -> None:
 
 
 def clear_db() -> None:
-    global _conn
+    global _conn, write_lock
     _conn = None
+    write_lock = asyncio.Lock()

@@ -1,3 +1,4 @@
+import asyncio
 import pytest
 
 
@@ -6,6 +7,35 @@ async def test_create_workout(client):
     resp = await client.post("/workouts", json={"notes": "Morning session"})
     assert resp.status_code == 201
     assert "id" in resp.json()
+
+
+@pytest.mark.asyncio
+async def test_add_set_concurrent_requests_do_not_crash_or_corrupt(client, db_conn):
+    resp = await client.post("/workouts", json={"notes": None})
+    workout_id = resp.json()["id"]
+
+    async with db_conn.execute(
+        "SELECT id FROM exercises WHERE name = 'Bench Press'"
+    ) as cur:
+        exercise_id = (await cur.fetchone())["id"]
+
+    async def _log_set(weight):
+        return await client.post(
+            f"/workouts/{workout_id}/sets",
+            json={"exercise_id": exercise_id, "reps": 5, "weight_kg": weight},
+        )
+
+    resp_a, resp_b = await asyncio.gather(_log_set(100.0), _log_set(50.0))
+    assert resp_a.status_code == 201
+    assert resp_b.status_code == 201
+
+    async with db_conn.execute(
+        "SELECT COUNT(*) AS c, MAX(weight_kg) AS max_kg FROM sets WHERE workout_id = ?",
+        (workout_id,),
+    ) as cur:
+        row = await cur.fetchone()
+    assert row["c"] == 2, "both concurrent set-logs should be recorded, none lost or crashed"
+    assert row["max_kg"] == 100.0
 
 
 @pytest.mark.asyncio
