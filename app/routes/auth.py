@@ -475,6 +475,8 @@ async def invite_accept_post(
         )
 
     hashed = _hash_password(password)
+    async with conn.execute("BEGIN IMMEDIATE"):
+        pass
     try:
         async with conn.execute(
             "INSERT INTO users(username, password_hash, is_admin, email) VALUES (?, ?, 0, ?)",
@@ -491,10 +493,11 @@ async def invite_accept_post(
             # Someone else claimed the last remaining slot between our
             # _fetch_valid_invite check and this update — don't leave a user
             # row behind with no valid invite backing it.
-            await conn.rollback()
+            await conn.execute("ROLLBACK")
             raise HTTPException(status_code=400, detail="Invalid or expired invite link")
-        await conn.commit()
+        await conn.execute("COMMIT")
     except aiosqlite.IntegrityError as exc:
+        await conn.execute("ROLLBACK")
         msg = str(exc)
         if "email" in msg:
             errors["email"] = "An account with that email already exists"
