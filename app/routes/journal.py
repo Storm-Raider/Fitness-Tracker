@@ -1,7 +1,7 @@
 from datetime import date, timedelta
 
 import aiosqlite
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse, JSONResponse
 from pydantic import BaseModel, Field
 
@@ -106,3 +106,25 @@ async def save_log(
     )
     await conn.commit()
     return JSONResponse({"ok": True})
+
+
+@router.get("/journal/entry")
+async def get_entry_for_date(
+    # Named date_str (not date) with an alias so the query string stays
+    # ?date=YYYY-MM-DD without the parameter shadowing the `date` class
+    # imported at the top of this file and used below and in journal_page().
+    date_str: str = Query(..., alias="date"),
+    conn: aiosqlite.Connection = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    try:
+        date.fromisoformat(date_str)
+    except ValueError:
+        raise HTTPException(status_code=422, detail="Invalid date; expected YYYY-MM-DD")
+
+    uid = current_user["id"]
+    async with conn.execute(
+        "SELECT * FROM daily_logs WHERE user_id=? AND log_date=?", (uid, date_str)
+    ) as c:
+        row = await c.fetchone()
+    return JSONResponse({"entry": dict(row) if row else None})

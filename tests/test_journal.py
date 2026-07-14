@@ -75,6 +75,57 @@ async def test_invalid_energy_rejected(client):
 
 
 @pytest.mark.asyncio
+async def test_get_entry_for_existing_date(client, db_conn):
+    await client.post("/journal", json=LOG)
+
+    r = await client.get(f"/journal/entry?date={TODAY}")
+    assert r.status_code == 200
+    entry = r.json()["entry"]
+    assert entry is not None
+    assert entry["weight_kg"] == 114.0
+    assert entry["workout"] == "Level 2 Day 4"
+    assert entry["log_date"] == TODAY
+
+
+@pytest.mark.asyncio
+async def test_get_entry_for_date_with_no_log_returns_null(client):
+    r = await client.get("/journal/entry?date=2020-01-01")
+    assert r.status_code == 200
+    assert r.json()["entry"] is None
+
+
+@pytest.mark.asyncio
+async def test_get_entry_rejects_malformed_date(client):
+    r = await client.get("/journal/entry?date=not-a-date")
+    assert r.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_get_entry_requires_auth(anon_client):
+    r = await anon_client.get("/journal/entry?date=2020-01-01")
+    assert r.status_code == 302
+    assert "/login" in r.headers["location"]
+
+
+@pytest.mark.asyncio
+async def test_get_entry_scoped_to_current_user(client, db_conn):
+    # Seed a log for a different user; the `client` fixture's user (id=1)
+    # must never see it.
+    await db_conn.execute(
+        "INSERT INTO users(id, username, password_hash, is_admin) "
+        "VALUES (99, 'otheruser', 'x', 0)"
+    )
+    await db_conn.execute(
+        "INSERT INTO daily_logs(user_id, log_date, weight_kg) VALUES (99, '2020-06-01', 200.0)"
+    )
+    await db_conn.commit()
+
+    r = await client.get("/journal/entry?date=2020-06-01")
+    assert r.status_code == 200
+    assert r.json()["entry"] is None
+
+
+@pytest.mark.asyncio
 async def test_dashboard_nudge_shown_when_no_log(client):
     r = await client.get("/", headers={"Accept": "text/html"})
     assert "Fill today" in r.text
@@ -85,3 +136,11 @@ async def test_dashboard_nudge_hidden_after_log(client):
     await client.post("/journal", json=LOG)
     r = await client.get("/", headers={"Accept": "text/html"})
     assert "Fill today" not in r.text
+
+
+@pytest.mark.asyncio
+async def test_journal_page_has_date_picker(client):
+    r = await client.get("/journal", headers={"Accept": "text/html"})
+    assert r.status_code == 200
+    assert 'id="j-date"' in r.text
+    assert f'value="{TODAY}"' in r.text
