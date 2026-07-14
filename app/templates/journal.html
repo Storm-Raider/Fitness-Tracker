@@ -5,12 +5,12 @@
 .jf-row { display:flex; flex-direction:column; gap:0.3rem; margin-bottom:1rem; }
 .jf-row label { font-size:0.72rem; font-weight:700; text-transform:uppercase;
   letter-spacing:0.06em; color:var(--muted); }
-.jf-row input[type=text], .jf-row input[type=number], .jf-row textarea {
+.jf-row input[type=text], .jf-row input[type=number], .jf-row input[type=date], .jf-row textarea {
   width:100%; }
 .jf-row textarea { resize:vertical; min-height:60px; }
 /* iOS zooms in on inputs < 16px — force 16px on mobile */
 @media (max-width: 767px) {
-  .jf-row input[type=text], .jf-row input[type=number], .jf-row textarea {
+  .jf-row input[type=text], .jf-row input[type=number], .jf-row input[type=date], .jf-row textarea {
     font-size: 16px;
   }
 }
@@ -273,8 +273,13 @@ async function loadEntryForDate(dateStr, entry) {
     window.scrollTo({top:0, behavior:'smooth'});
     return;
   }
-  const r = await fetch('/journal/entry?date=' + encodeURIComponent(dateStr));
-  const data = r.ok ? await r.json() : {entry: null};
+  let data;
+  try {
+    const r = await fetch('/journal/entry?date=' + encodeURIComponent(dateStr));
+    data = r.ok ? await r.json() : {entry: null};
+  } catch (err) {
+    data = {entry: null}; // network failure — fall back to a blank form for this date
+  }
   populateForm(dateStr, data.entry);
 }
 
