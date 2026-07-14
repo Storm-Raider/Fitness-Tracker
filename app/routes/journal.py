@@ -110,6 +110,9 @@ async def save_log(
 
 @router.get("/journal/entry")
 async def get_entry_for_date(
+    # Named date_str (not date) with an alias so the query string stays
+    # ?date=YYYY-MM-DD without the parameter shadowing the `date` class
+    # imported at the top of this file and used below and in journal_page().
     date_str: str = Query(..., alias="date"),
     conn: aiosqlite.Connection = Depends(get_db),
     current_user=Depends(get_current_user),
