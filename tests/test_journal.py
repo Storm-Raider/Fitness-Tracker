@@ -136,3 +136,11 @@ async def test_dashboard_nudge_hidden_after_log(client):
     await client.post("/journal", json=LOG)
     r = await client.get("/", headers={"Accept": "text/html"})
     assert "Fill today" not in r.text
+
+
+@pytest.mark.asyncio
+async def test_journal_page_has_date_picker(client):
+    r = await client.get("/journal", headers={"Accept": "text/html"})
+    assert r.status_code == 200
+    assert 'id="j-date"' in r.text
+    assert f'value="{TODAY}"' in r.text

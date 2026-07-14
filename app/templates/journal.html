@@ -41,7 +41,13 @@
 </div>
 
 <div class="card" style="margin-bottom:1.5rem;">
-  <div class="section-title" style="margin-bottom:1rem;">Today's entry</div>
+  <div class="section-title" style="margin-bottom:1rem;" id="entry-title">Today's entry</div>
+
+  <div class="jf-row">
+    <label for="j-date">Date</label>
+    <input type="date" id="j-date" value="{{ today }}" max="{{ today }}"
+           onchange="onDateChanged(this.value)">
+  </div>
 
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:0 1rem;">
 
@@ -166,6 +172,7 @@
 
 <script>
 const TODAY = {{ today | tojson }};
+const ACTIVE_DAY = {{ active_day | tojson }};
 
 function pick(groupId, btn) {
   document.querySelectorAll('#' + groupId + ' .seg-btn').forEach(b => b.classList.remove('active'));
@@ -196,7 +203,7 @@ async function saveLog() {
   btn.disabled = true;
 
   const payload = {
-    log_date: TODAY,
+    log_date: document.getElementById('j-date').value,
     day_number: int('j-day'),
     weight_kg: num('j-weight'),
     workout: str('j-workout'),
@@ -230,22 +237,53 @@ async function saveLog() {
   }
 }
 
+// Fully clears and repopulates every field from `entry` (or blanks them all
+// if `entry` is null) — never leaves a stale value from a previously-loaded
+// date sitting in a field the new entry doesn't have.
+function populateForm(dateStr, entry) {
+  document.getElementById('j-day').value =
+    (entry && entry.day_number) ? entry.day_number
+    : (dateStr === TODAY && ACTIVE_DAY) ? ACTIVE_DAY
+    : '';
+  document.getElementById('j-weight').value = (entry && entry.weight_kg) || '';
+  document.getElementById('j-workout').value = (entry && entry.workout) || '';
+  document.getElementById('j-meal1').value = (entry && entry.meal_1) || '';
+  document.getElementById('j-meal2').value = (entry && entry.meal_2) || '';
+  document.getElementById('j-meal3').value = (entry && entry.meal_3) || '';
+  document.getElementById('j-water').value = (entry && entry.water_l) || '';
+  document.getElementById('j-sleep').value = (entry && entry.sleep_hrs) || '';
+  document.getElementById('j-steps').value = (entry && entry.steps) || '';
+  document.getElementById('j-notes').value = (entry && entry.notes) || '';
+  document.querySelectorAll('#seg-energy .seg-btn').forEach(b =>
+    b.classList.toggle('active', !!entry && b.dataset.val === entry.energy));
+  document.querySelectorAll('#seg-motivation .seg-btn').forEach(b =>
+    b.classList.toggle('active', !!entry && b.dataset.val === entry.motivation));
+
+  document.getElementById('entry-title').textContent =
+    dateStr === TODAY ? "Today's entry" : ('Entry for ' + dateStr);
+}
+
+// The single entry point for every date change: date-picker onchange (no
+// entry in hand yet, so look it up) and history-row clicks (entry already
+// in hand, no lookup needed) both funnel through here.
+async function loadEntryForDate(dateStr, entry) {
+  document.getElementById('j-date').value = dateStr;
+  if (entry !== undefined) {
+    populateForm(dateStr, entry);
+    window.scrollTo({top:0, behavior:'smooth'});
+    return;
+  }
+  const r = await fetch('/journal/entry?date=' + encodeURIComponent(dateStr));
+  const data = r.ok ? await r.json() : {entry: null};
+  populateForm(dateStr, data.entry);
+}
+
+function onDateChanged(dateStr) {
+  loadEntryForDate(dateStr);
+}
+
 function fillFromHistory(entry) {
-  if (entry.log_date === TODAY) return; // already shown
-  if (!confirm('Load entry from ' + entry.log_date + ' into today\'s form?')) return;
-  if (entry.day_number) document.getElementById('j-day').value = entry.day_number;
-  if (entry.weight_kg)  document.getElementById('j-weight').value = entry.weight_kg;
-  if (entry.workout)    document.getElementById('j-workout').value = entry.workout;
-  if (entry.meal_1)     document.getElementById('j-meal1').value = entry.meal_1;
-  if (entry.meal_2)     document.getElementById('j-meal2').value = entry.meal_2;
-  if (entry.meal_3)     document.getElementById('j-meal3').value = entry.meal_3;
-  if (entry.water_l)    document.getElementById('j-water').value = entry.water_l;
-  if (entry.sleep_hrs)  document.getElementById('j-sleep').value = entry.sleep_hrs;
-  if (entry.steps)      document.getElementById('j-steps').value = entry.steps;
-  if (entry.notes)      document.getElementById('j-notes').value = entry.notes;
-  if (entry.energy)     { document.querySelectorAll('#seg-energy .seg-btn').forEach(b => b.classList.toggle('active', b.dataset.val===entry.energy)); }
-  if (entry.motivation) { document.querySelectorAll('#seg-motivation .seg-btn').forEach(b => b.classList.toggle('active', b.dataset.val===entry.motivation)); }
-  window.scrollTo({top:0, behavior:'smooth'});
+  loadEntryForDate(entry.log_date, entry);
 }
 </script>
 {% endblock %}
