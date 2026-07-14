@@ -357,6 +357,8 @@ Request to expand the achievements list beyond the current 24. Needs product dec
 
 ## ISSUE-29: [Feature] Backfill Daily log
 
+**SHIPPED 2026-07-13** — `GET /journal/entry?date=...` lookup endpoint plus a date picker + unified `loadEntryForDate()`/`populateForm()` in `journal.html`, replacing the old confirm()-gated, partial-overwrite `fillFromHistory`. Design/plan: `docs/superpowers/specs/2026-07-13-journal-backfill-design.md`, `docs/superpowers/plans/2026-07-13-journal-backfill.md`. Follow-up filed separately: TODO-EL-6 (falsy-zero fields).
+
 **Source:** auto-triage (2026-06-28)
 **Why major:** Backfill is a new feature requiring a date-selector UI, changes to saveLog() and fillFromHistory() interaction model, and product/design judgment about editing vs. creating past entries — well beyond a scoped bug fix.
 **Link:** https://github.com/Storm-Raider/Fitness-Tracker/issues/29
@@ -394,3 +396,21 @@ Request to expand the achievements list beyond the current 24. Needs product dec
 **Depends on:** Nothing. Can be investigated independently of any specific feature.
 
 **Effort:** M — the fix itself is likely small (a lock), but needs careful testing across all three call sites to confirm no new deadlocks or serialization bottlenecks under this app's real (low-concurrency, single-admin/small-friend-group) usage pattern.
+
+---
+
+## TODO-EL-6: Daily Log fields render blank instead of 0 for legitimate zero values
+
+**What:** In `app/templates/journal.html`, fields like `steps`, `water_l`, and `sleep_hrs` are populated with a falsy check — `(entry && entry.x) || ''` in the client-side `populateForm()`, and the equivalent `today_log.x if today_log and today_log.x else ''` server-side in the initial Jinja render. A genuinely-logged `0` (e.g. a rest day with `steps: 0`) is indistinguishable from "no value entered" and renders as a blank field.
+
+**Why:** Found during final review of the Backfill Daily Log feature (2026-07-13, ISSUE-29, ties into `docs/superpowers/plans/2026-07-13-journal-backfill.md`). Pre-existing pattern (not introduced by that feature), but that feature makes editing past entries a first-class flow, giving the bug a data-integrity dimension it didn't clearly have before: load a past date with `steps: 0` → field shows blank → click Save without retyping → the blank is read as `null` → the stored `0` gets silently overwritten with `null`.
+
+**Scope:**
+1. Replace the truthy `||` fallback with a nullish check (`entry?.x ?? ''` client-side, `is not none` server-side in Jinja) across all affected fields in `journal.html`: `steps`, `water_l`, `sleep_hrs`, and for consistency check `weight_kg`/`day_number` too (same pattern, though a logged `0` is less realistic for those).
+2. Do this consistently in both `populateForm()` (client) and the initial page-load Jinja render — the two entry paths should treat "explicit 0" the same way.
+
+**Where to start:** `app/templates/journal.html` — `populateForm()` (added by the backfill feature) and the pre-existing `value="{{ today_log.x if today_log and today_log.x else '' }}"` Jinja attributes near the top of the form.
+
+**Depends on:** Nothing. Independent of any other feature.
+
+**Effort:** S — mechanical find-and-replace of the falsy check for a handful of fields, plus a couple of regression tests asserting a saved `0` round-trips as `0` not blank.
