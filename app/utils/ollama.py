@@ -93,6 +93,11 @@ async def chat_json(
     payload = {
         "model": model,
         "stream": on_tokens is not None,
+        # Disable hidden reasoning on models that support it (e.g. qwen3).
+        # Nothing in this app reads message.thinking — every caller wants a
+        # fast, structured JSON answer. Non-reasoning models ignore this
+        # field entirely, so it's safe to send unconditionally.
+        "think": False,
         "messages": [
             {"role": "system", "content": system},
             {"role": "user", "content": user},
