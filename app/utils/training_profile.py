@@ -73,13 +73,17 @@ async def build_profile(conn: aiosqlite.Connection, uid: int) -> dict:
     ) as cur:
         muscle_sets = {r["muscle"]: r["sets"] for r in await cur.fetchall()}
 
-    # Top estimated 1RMs (Epley) for loaded lifts.
+    # Top estimated 1RMs (Epley) for loaded lifts. Bodyweight-equipment
+    # exercises are excluded — this app stores weight_kg = bodyweight +
+    # added weight for those (see workouts.py), so applying the Epley
+    # formula to them produces a fictional "1RM" from bodyweight alone.
     async with conn.execute(
         """
         SELECT e.name, MAX(ROUND(s.weight_kg * (1 + s.reps / 30.0), 1)) AS e1rm
         FROM sets s
         JOIN exercises e ON e.id = s.exercise_id
         WHERE s.user_id = ? AND s.weight_kg > 0
+          AND COALESCE(e.equipment, '') != 'Bodyweight'
         GROUP BY s.exercise_id
         ORDER BY e1rm DESC
         LIMIT 8
@@ -157,7 +161,8 @@ async def build_profile(conn: aiosqlite.Connection, uid: int) -> dict:
     }
 
     # Stalled exercises — no meaningful 1RM progress in the last 28 days
-    # vs. the 28–84-day window before that.
+    # vs. the 28–84-day window before that. Bodyweight-equipment exercises
+    # are excluded for the same reason as the top-lifts query above.
     async with conn.execute(
         """
         SELECT e.name,
@@ -171,6 +176,7 @@ async def build_profile(conn: aiosqlite.Connection, uid: int) -> dict:
         JOIN exercises e ON e.id = s.exercise_id
         JOIN workouts w ON w.id = s.workout_id AND w.ended_at IS NOT NULL
         WHERE s.user_id = ?
+          AND COALESCE(e.equipment, '') != 'Bodyweight'
         GROUP BY s.exercise_id
         HAVING recent_1rm IS NOT NULL
            AND prior_1rm IS NOT NULL
