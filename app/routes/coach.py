@@ -500,13 +500,17 @@ _SYSTEM_PROMPT = (
     "rather than repeating one exercise on most days.\n\n"
     "You ONLY use exercise names from the provided ALLOWED list, spelled exactly. "
     "You return your answer strictly as JSON matching the schema — zero prose outside the JSON.\n\n"
-    "Example of one well-formed day (follow this exact shape):\n"
+    "Example of one well-formed day (follow this JSON SHAPE only — the "
+    "numbers below are placeholders, not real prescriptions. Never reuse "
+    "these exact weights, reps, or wording in your actual answer; every "
+    "load and rep target must come from the athlete's own profile data "
+    "above):\n"
     '{"focus": "Push", "exercises": ['
-    '{"name": "Bench Press", "sets": 4, "reps": "5", "note": "@ 90 kg — add 2.5 kg when all reps clean"}, '
-    '{"name": "Overhead Press", "sets": 3, "reps": "8", "note": "@ 55 kg — add 1 rep/week to 10, then +2.5 kg"}, '
-    '{"name": "Incline Dumbbell Press", "sets": 3, "reps": "10-12", "note": "@ 28 kg — increase by 2 kg when hitting 12"}, '
-    '{"name": "Lateral Raise", "sets": 3, "reps": "15", "note": "@ 12 kg — slow eccentric, increase when form is solid"}, '
-    '{"name": "Tricep Pushdown", "sets": 3, "reps": "12", "note": "@ 30 kg — add 2.5 kg every 2 weeks"}'
+    '{"name": "Bench Press", "sets": 4, "reps": "5", "note": "@ 100 kg — add 2.5 kg when all reps clean"}, '
+    '{"name": "Overhead Press", "sets": 3, "reps": "8", "note": "@ 50 kg — add 1 rep/week to 10, then +2.5 kg"}, '
+    '{"name": "Incline Dumbbell Press", "sets": 3, "reps": "10-12", "note": "@ 20 kg — increase by 2 kg when hitting 12"}, '
+    '{"name": "Lateral Raise", "sets": 3, "reps": "15", "note": "@ 8 kg — slow eccentric, increase when form is solid"}, '
+    '{"name": "Tricep Pushdown", "sets": 3, "reps": "12", "note": "@ 25 kg — add 2.5 kg every 2 weeks"}'
     "]}"
 )
 

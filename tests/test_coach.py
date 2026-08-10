@@ -446,3 +446,11 @@ async def test_generation_repairs_copy_paste_days(client, db, monkeypatch):
     d2 = {e["exercise_id"] for e in pd["plan"]["days"][1]["exercises"]}
     # cap for 2 days/week is 1 — repair must make the days fully disjoint.
     assert d1.isdisjoint(d2), f"days still overlap after repair: {d1 & d2}"
+
+
+def test_system_prompt_forbids_copying_example_numbers():
+    assert "placeholders, not real prescriptions" in coach._SYSTEM_PROMPT
+    assert "Never reuse these exact weights" in coach._SYSTEM_PROMPT
+    # The old example's specific weight/rep combination must not survive —
+    # a real generation against live data reused these numbers verbatim.
+    assert '"@ 28 kg — increase by 2 kg when hitting 12"' not in coach._SYSTEM_PROMPT
