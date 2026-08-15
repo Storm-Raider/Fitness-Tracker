@@ -2,25 +2,6 @@
 {% block title %}Dashboard — Zenkai{% endblock %}
 {% block content %}
 
-{% macro stat_card(icon, value, label, color="var(--accent)", bg="rgba(79,156,249,0.1)", unit="", kg_raw=none) %}
-<div class="card kpi" style="padding:1.25rem;position:relative;overflow:hidden;">
-  <div class="kpi-foot" style="background:{{ color }};"></div>
-  <div class="kpi-head">
-    <div class="kpi-label">{{ label }}</div>
-    <div class="kpi-icon" style="background:{{ bg }};color:{{ color }};">
-      <i data-lucide="{{ icon }}" style="width:15px;height:15px;"></i>
-    </div>
-  </div>
-  <div class="kpi-val" style="color:{{ color }};">
-    {% if kg_raw is not none %}
-      <span class="weight-display" data-kg="{{ kg_raw }}">{{ "{:,.0f}".format(kg_raw) }} kg</span>
-    {% else %}
-      {{ value }}{% if unit %}<span style="font-size:1rem;font-weight:500;color:var(--muted);margin-left:0.2rem;">{{ unit }}</span>{% endif %}
-    {% endif %}
-  </div>
-</div>
-{% endmacro %}
-
 <div class="page-hd">
   <div>
     <h1>Dashboard</h1>
@@ -81,22 +62,74 @@
 </a>
 {% endif %}
 
-<div class="grid-2" style="margin-bottom:1rem;">
-  {{ stat_card("calendar-days", weekly_sessions, "Sessions this week", "var(--text)") }}
-  {{ stat_card("dumbbell", "", "Volume this week", "var(--accent)", "rgba(79,156,249,0.1)", kg_raw=weekly_volume) }}
+{# ── This week — hero volume readout ─────────────────────────────── #}
+<div class="card" style="margin-bottom:1rem;padding:1.25rem 1.25rem 0.5rem;">
+  <div class="hero-week-top">
+    <div>
+      <div class="kpi-label" style="margin-bottom:0.45rem;">Volume this week</div>
+      <div style="display:flex;align-items:baseline;gap:0.65rem;flex-wrap:wrap;">
+        <span class="num weight-display" data-kg="{{ weekly_volume }}"
+              style="font-size:clamp(2.1rem,6.5vw,3.1rem);font-weight:700;letter-spacing:-0.03em;line-height:1;color:var(--text);">{{ "{:,.0f}".format(weekly_volume) }} kg</span>
+        {% if volume_delta_pct is not none %}
+          {% if volume_delta_pct > 0 %}
+          <span class="num" style="font-size:0.82rem;font-weight:700;color:var(--success);">▲ +{{ volume_delta_pct }}%</span>
+          {% elif volume_delta_pct < 0 %}
+          <span class="num" style="font-size:0.82rem;font-weight:700;color:var(--danger);">▼ {{ volume_delta_pct }}%</span>
+          {% else %}
+          <span class="num" style="font-size:0.82rem;color:var(--muted);">= flat</span>
+          {% endif %}
+          <span style="font-size:0.72rem;color:var(--muted);">vs last week</span>
+        {% endif %}
+      </div>
+    </div>
+    <div class="hero-week-readout">
+      <div style="text-align:right;">
+        <div class="kpi-label" style="margin-bottom:0.35rem;">Sessions this week</div>
+        <div class="num" style="font-size:1.3rem;font-weight:700;color:var(--text);line-height:1;">{{ weekly_sessions }}</div>
+      </div>
+      <div style="text-align:right;">
+        <div class="kpi-label" style="margin-bottom:0.35rem;">Avg session length</div>
+        <div class="num" style="font-size:1.3rem;font-weight:700;color:var(--text);line-height:1;">{{ avg_duration_min if avg_duration_min is not none else "—" }}{% if avg_duration_min is not none %}<span style="font-size:0.68rem;font-weight:500;color:var(--muted);"> min</span>{% endif %}</div>
+      </div>
+      <div style="text-align:right;">
+        <div class="kpi-label" style="margin-bottom:0.35rem;">Best streak</div>
+        <div class="num" style="font-size:1.3rem;font-weight:700;color:var(--pr);line-height:1;">{{ best_streak }}<span style="font-size:0.68rem;font-weight:500;color:var(--muted);"> days</span></div>
+      </div>
+    </div>
+  </div>
+  <div style="border-top:1px solid var(--border);margin:0 -1.25rem;padding:0.85rem 1.25rem 0.25rem;">
+    {{ weekly_bar_svg | safe }}
+  </div>
 </div>
-
-<div class="grid-2" style="margin-bottom:{% if latest_bodyweight %}1rem{% else %}1.5rem{% endif %};">
-  {{ stat_card("clock", (avg_duration_min ~ "") if avg_duration_min is not none else "—", "Avg session length", "var(--text)", unit=(" min" if avg_duration_min is not none else "")) }}
-  {{ stat_card("trophy", best_streak, "Best streak", "var(--pr)", "var(--pr-dim)", unit=" days") }}
-</div>
+<style>
+  .hero-week-top {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1.25rem;
+    flex-wrap: wrap;
+    margin-bottom: 0.9rem;
+  }
+  .hero-week-readout {
+    display: flex;
+    gap: 1.5rem;
+    flex-shrink: 0;
+    padding-top: 0.15rem;
+  }
+  @media (max-width: 640px) {
+    .hero-week-readout { width: 100%; justify-content: space-between; gap: 0.5rem; }
+  }
+</style>
 
 {% if latest_bodyweight is not none %}
-<div class="grid-1" style="margin-bottom:1.5rem;">
-  <a href="/metrics" style="text-decoration:none;display:block;">
-    {{ stat_card("scale", "", "Current bodyweight", "var(--success)", "rgba(52,211,153,0.1)", kg_raw=latest_bodyweight) }}
-  </a>
-</div>
+<a href="/metrics" class="card" style="display:flex;align-items:center;gap:0.9rem;padding:0.8rem 1.1rem;margin-bottom:1rem;border-left:3px solid var(--success);text-decoration:none;color:inherit;">
+  <i data-lucide="scale" style="width:18px;height:18px;color:var(--success);flex-shrink:0;"></i>
+  <div style="flex:1;min-width:0;">
+    <div style="font-size:0.875rem;font-weight:600;">Current bodyweight</div>
+    <div class="num weight-display" data-kg="{{ latest_bodyweight }}" style="font-size:0.78rem;color:var(--muted);margin-top:0.1rem;">{{ "{:,.1f}".format(latest_bodyweight) }} kg</div>
+  </div>
+  <i data-lucide="chevron-right" style="width:15px;height:15px;color:var(--muted);flex-shrink:0;"></i>
+</a>
 {% endif %}
 
 <div style="margin-bottom:1rem;" id="goal-widget">
@@ -172,24 +205,6 @@ async function deleteGoal() {
 }
 document.getElementById('goal-input')?.addEventListener('keydown', e => { if (e.key==='Enter') saveGoal(); });
 </script>
-
-<div style="margin-bottom:1.5rem;">
-  <div class="section-title">Volume — last 7 days</div>
-  <div class="card" style="padding:1rem 1.25rem 0.75rem;">
-    {% if volume_delta_pct is not none %}
-    <div style="margin-bottom:0.75rem;">
-      {% if volume_delta_pct > 0 %}
-      <span style="font-size:0.8rem;color:var(--success);font-weight:600;">▲ +{{ volume_delta_pct }}% vs last week</span>
-      {% elif volume_delta_pct < 0 %}
-      <span style="font-size:0.8rem;color:var(--danger);font-weight:600;">▼ {{ volume_delta_pct }}% vs last week</span>
-      {% else %}
-      <span style="font-size:0.8rem;color:var(--muted);">= same as last week</span>
-      {% endif %}
-    </div>
-    {% endif %}
-    {{ weekly_bar_svg | safe }}
-  </div>
-</div>
 
 {% if muscle_bar_svg %}
 <div style="margin-bottom:1.5rem;">
