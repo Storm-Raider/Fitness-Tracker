@@ -33,74 +33,48 @@
     box-shadow: var(--glow);
   }
 
-  /* ── Muscle tiles ────────────────────────────────── */
-  .muscle-grid {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 0.6rem;
+  /* ── Muscle filter ───────────────────────────────── */
+  .muscle-filter-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
     margin-bottom: 1.5rem;
   }
-  .muscle-all {
-    grid-column: 1 / -1;
-  }
-  .muscle-tile {
-    display: flex;
-    flex-direction: column;
+  .muscle-pill {
+    display: inline-flex;
     align-items: center;
-    justify-content: center;
-    gap: 0.3rem;
-    padding: 0.75rem 0.4rem 0.65rem;
-    border-radius: var(--radius-sm);
+    gap: 0.4rem;
+    min-height: 40px;
+    padding: 0.5rem 0.9rem;
+    border-radius: 999px;
     background: var(--surface);
     border: 1.5px solid var(--border);
     color: var(--muted-hi);
     cursor: pointer;
     font-family: 'Barlow', inherit;
+    font-size: 0.8rem;
+    font-weight: 600;
+    letter-spacing: 0.01em;
     transition: background 0.14s, border-color 0.14s, color 0.14s;
     -webkit-tap-highlight-color: transparent;
-    text-align: center;
     text-decoration: none;
+    white-space: nowrap;
   }
-  .muscle-tile:hover {
+  .muscle-pill:hover {
     background: var(--surface-hover);
     border-color: var(--border-mid);
     color: var(--text);
   }
-  .muscle-tile.active {
+  .muscle-pill.active {
     background: var(--accent-dim);
     border-color: var(--accent);
     color: var(--accent);
   }
-  .muscle-tile-icon {
-    width: 20px; height: 20px;
-    pointer-events: none;
-    flex-shrink: 0;
-  }
-  .muscle-tile-name {
+  .muscle-pill-count {
     font-size: 0.72rem;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-    line-height: 1.1;
-  }
-  .muscle-tile-count {
-    font-size: 0.62rem;
     font-family: 'JetBrains Mono', monospace;
-    color: var(--muted);
-    line-height: 1;
+    opacity: 0.7;
   }
-  .muscle-tile.active .muscle-tile-count { color: var(--accent); opacity: 0.75; }
-  .muscle-all {
-    flex-direction: row;
-    padding: 0.6rem 1rem;
-    justify-content: center;
-    gap: 0.5rem;
-    font-size: 0.82rem;
-    font-weight: 700;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-  }
-  .muscle-all .muscle-tile-count { font-size: 0.75rem; }
 
   /* ── Exercise groups ─────────────────────────────── */
   .ex-group { margin-bottom: 1.75rem; }
@@ -157,8 +131,8 @@
   }
 
   @media (max-width: 767px) {
-    .muscle-grid { gap: 0.5rem; }
-    .muscle-tile { padding: 0.8rem 0.3rem 0.7rem; }
+    .muscle-filter-row { gap: 0.4rem; }
+    .muscle-pill { padding: 0.45rem 0.75rem; font-size: 0.78rem; }
     .ex-item { padding: 0.85rem 1rem; font-size: 0.95rem; }
     .ex-group { margin-bottom: 2rem; }
     .ex-list { gap: 4px; }
@@ -198,17 +172,13 @@
   <input class="ex-search" type="search" id="ex-search" placeholder="Search exercises…" autocomplete="off">
 </div>
 
-<div class="muscle-grid" id="muscle-grid">
-  <button class="muscle-tile muscle-all active" data-muscle="" onclick="setMuscle(this)">
-    <i data-lucide="layout-grid" style="width:16px;height:16px;pointer-events:none;"></i>
-    <span>All muscles</span>
-    <span class="muscle-tile-count num">{{ exercises | length }}</span>
+<div class="muscle-filter-row" id="muscle-grid">
+  <button class="muscle-pill active" data-muscle="" onclick="setMuscle(this)">
+    All muscles <span class="muscle-pill-count num">{{ exercises | length }}</span>
   </button>
   {% for muscle, exs in by_muscle.items() %}
-  <button class="muscle-tile" data-muscle="{{ muscle }}" onclick="setMuscle(this)">
-    <i data-lucide="dumbbell" class="muscle-tile-icon"></i>
-    <span class="muscle-tile-name">{{ muscle }}</span>
-    <span class="muscle-tile-count num">{{ exs | length }}</span>
+  <button class="muscle-pill" data-muscle="{{ muscle }}" onclick="setMuscle(this)">
+    {{ muscle }} <span class="muscle-pill-count num">{{ exs | length }}</span>
   </button>
   {% endfor %}
 </div>
@@ -246,7 +216,7 @@ const noResults = document.getElementById('no-results');
 let activeMuscle = '';
 
 function setMuscle(tile) {
-  document.querySelectorAll('.muscle-tile').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.muscle-pill').forEach(t => t.classList.remove('active'));
   tile.classList.add('active');
   activeMuscle = tile.dataset.muscle;
   applyFilters();
