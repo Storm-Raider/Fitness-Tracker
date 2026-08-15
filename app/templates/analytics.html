@@ -38,6 +38,14 @@
 }
 .spark-cell { width: 52px; padding: 0 0.5rem 0 0 !important; }
 .spark-cell canvas { display: block; }
+.strength-row {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.7rem 0;
+  border-bottom: 1px solid var(--border);
+}
+.strength-row:last-child { border-bottom: none; }
 </style>
 
 {# ── 1. Muscle heatmap ───────────────────────────────────────────── #}
@@ -100,7 +108,7 @@
       <span style="color:var(--border-mid);">·</span>
       <span>Standard strength classification benchmarks</span>
     </div>
-    <div id="percentile-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:0.75rem;"></div>
+    <div id="percentile-grid" style="display:flex;flex-direction:column;"></div>
   </div>
 </div>
 <script>
@@ -166,22 +174,23 @@
     const ratio = (rec.e1rm / BW_KG).toFixed(2);
     const display = window.fmtWeight ? window.fmtWeight(rec.e1rm, unit) : rec.e1rm.toFixed(1) + ' kg';
 
-    const card = document.createElement('div');
-    card.style.cssText = 'background:var(--surface-2);border:1px solid var(--border);border-radius:var(--radius-xs);padding:0.85rem 1rem;';
-    card.innerHTML = `
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.5rem;">
-        <div style="font-size:0.78rem;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:60%;">${liftName}</div>
-        <div style="font-size:0.7rem;font-weight:700;color:${color};white-space:nowrap;">${level}</div>
+    const row = document.createElement('div');
+    row.className = 'strength-row';
+    row.innerHTML = `
+      <div style="width:8.5rem;flex-shrink:0;overflow:hidden;">
+        <div style="font-size:0.8rem;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${liftName}</div>
+        <div style="font-size:0.64rem;font-weight:700;color:${color};margin-top:0.15rem;text-transform:uppercase;letter-spacing:0.03em;">${level}</div>
       </div>
-      <div style="font-family:'JetBrains Mono',monospace;font-size:1.15rem;font-weight:700;color:${color};line-height:1;margin-bottom:0.45rem;" data-e1rm="${rec.e1rm}">${display}</div>
-      <div style="font-size:0.68rem;color:var(--muted);margin-bottom:0.5rem;">${ratio}× bodyweight · est 1RM</div>
-      <div style="height:5px;background:var(--surface);border-radius:3px;overflow:hidden;">
-        <div style="height:100%;width:${pct}%;background:linear-gradient(90deg,${color}88,${color});border-radius:3px;transition:width 0.6s cubic-bezier(0.16,1,0.3,1);"></div>
+      <div style="flex:1;min-width:60px;">
+        <div style="height:7px;background:var(--surface-2);border-radius:4px;overflow:hidden;">
+          <div style="height:100%;width:${pct}%;background:linear-gradient(90deg,${color}88,${color});border-radius:4px;transition:width 0.6s cubic-bezier(0.16,1,0.3,1);"></div>
+        </div>
       </div>
-      <div style="display:flex;justify-content:space-between;margin-top:0.3rem;font-size:0.6rem;color:var(--muted);">
-        <span>Untrained</span><span>Elite</span>
+      <div style="text-align:right;flex-shrink:0;width:5.5rem;">
+        <div class="num" data-e1rm="${rec.e1rm}" style="font-size:0.92rem;font-weight:700;color:${color};line-height:1;">${display}</div>
+        <div style="font-size:0.62rem;color:var(--muted);margin-top:0.2rem;">${ratio}× BW</div>
       </div>`;
-    grid.appendChild(card);
+    grid.appendChild(row);
     rendered++;
   }
 

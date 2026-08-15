@@ -1,8 +1,14 @@
 {% extends "base.html" %}
 {% block title %}Sessions — Zenkai{% endblock %}
 {% block content %}
+{% set completed_count = workouts | selectattr('ended_at') | list | length %}
 <div class="page-hd">
-  <h1>Sessions</h1>
+  <div>
+    <h1>Sessions</h1>
+    {% if not q %}
+    <div class="subtitle"><span class="num">{{ completed_count }}</span> session{{ 's' if completed_count != 1 }} logged</div>
+    {% endif %}
+  </div>
   <div>
     {% if active_workout %}
     <a href="/workouts/{{ active_workout.id }}" class="btn btn-primary">Resume Session →</a>
