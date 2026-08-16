@@ -236,6 +236,79 @@ async def test_medium_photo_optional_does_not_block_completion(client, db):
         assert (await c.fetchone())["status"] == "completed"
 
 
+async def _seed_daily_checkins(db, aid: int, start: date, today: date, rule_keys: list[str], skip_day_n: int):
+    """Insert full check-ins for every day from `start` through `today`, except
+    day number `skip_day_n` (1-indexed), which is left with zero check-ins."""
+    d = start
+    while d <= today:
+        day_n = (d - start).days + 1
+        if day_n != skip_day_n:
+            rules = {rk: True for rk in rule_keys}
+            await db.execute(
+                "INSERT INTO challenge_checkins(attempt_id, user_id, day_date, rules_json, updated_at) "
+                "VALUES (?, 1, ?, ?, datetime('now','localtime'))",
+                (aid, d.isoformat(), json.dumps(rules)),
+            )
+        d += timedelta(days=1)
+    await db.commit()
+
+
+@pytest.mark.asyncio
+async def test_fully_missed_day_before_last_day_fails_on_final_day(client, db):
+    # Regression: day 74 of a 75-day attempt gets zero check-ins. Days 1-73
+    # and day 75 (today, the last day) are fully complete. Evaluating on day
+    # 75 must fail the attempt on day 74 — it must NOT read as "completed".
+    # (Day 74 used to fall between the fail-check loop's lock window, which
+    # stopped at today-2, and the completion check, which only verified the
+    # very last day — letting a wholly-skipped day slip through unverified.)
+    start = date.today() - timedelta(days=74)
+    today = date.today()
+    async with db.execute(
+        "INSERT INTO challenge_attempts(user_id,template_key,title,total_days,status,started_on,created_at) "
+        "VALUES (1,'75_hard','75 Hard',75,'active',?,?)",
+        (start.isoformat(), start.isoformat() + " 08:00:00"),
+    ) as c:
+        aid = c.lastrowid
+    await db.commit()
+
+    rule_keys = ["workout1", "workout2", "diet", "water", "read", "photo"]
+    await _seed_daily_checkins(db, aid, start, today, rule_keys, skip_day_n=74)
+
+    r = await client.get(f"/challenges/{aid}", headers={"Accept": "text/html"})
+    assert r.status_code == 200
+    async with db.execute("SELECT status, ended_on FROM challenge_attempts WHERE id=?", (aid,)) as c:
+        row = await c.fetchone()
+    assert row["status"] == "failed"
+    day_74 = start + timedelta(days=73)  # day_n=74 is the 74th day, i.e. start+73
+    assert row["ended_on"] == day_74.isoformat()
+
+
+@pytest.mark.asyncio
+async def test_medium_fully_missed_day_before_last_day_does_not_complete(client, db):
+    # Same boundary gap, but for 75 Medium (allow_partial + no_fail). A day
+    # with neither full completion nor an explicit partial-submit must still
+    # block the run from being marked "completed" on the final day — even
+    # though a no_fail template can never flip to "failed".
+    start = date.today() - timedelta(days=74)
+    today = date.today()
+    async with db.execute(
+        "INSERT INTO challenge_attempts(user_id,template_key,title,total_days,status,started_on,created_at) "
+        "VALUES (1,'75_medium','75 Medium',75,'active',?,?)",
+        (start.isoformat(), start.isoformat() + " 08:00:00"),
+    ) as c:
+        aid = c.lastrowid
+    await db.commit()
+
+    rule_keys = ["workout1", "diet", "water", "read"]  # photo is optional, intentionally skipped every day
+    await _seed_daily_checkins(db, aid, start, today, rule_keys, skip_day_n=74)
+
+    r = await client.get(f"/challenges/{aid}", headers={"Accept": "text/html"})
+    assert r.status_code == 200
+    async with db.execute("SELECT status FROM challenge_attempts WHERE id=?", (aid,)) as c:
+        status = (await c.fetchone())["status"]
+    assert status != "completed"
+
+
 # ── Custom rules (editable challenges) ──────────────────────────────────────
 
 CUSTOM_RULES = [

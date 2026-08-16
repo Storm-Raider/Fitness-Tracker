@@ -140,7 +140,18 @@ async def evaluate_attempt(
         failed_on = None
 
         if not template.get("no_fail"):
-            locked_end = min(today - timedelta(days=1 + GRACE_DAYS), last_day)
+            if today >= last_day:
+                # The run is ending: there's no further "tomorrow" left within
+                # the challenge to extend the usual 1-day grace to, so every
+                # day through last_day-1 must be verified right now instead of
+                # staying unlocked. Without this, the day immediately before
+                # the last day falls out of the grace window (it's still
+                # "yesterday" relative to today) but is also never covered by
+                # the completion check below — a fully-skipped day could then
+                # slip through unverified and read as completed.
+                locked_end = last_day - timedelta(days=1)
+            else:
+                locked_end = today - timedelta(days=1 + GRACE_DAYS)
             d = start
             while d <= locked_end:
                 if d < creation_date:
@@ -152,9 +163,24 @@ async def evaluate_attempt(
                     break
                 d += timedelta(days=1)
 
+        # Belt-and-suspenders for "no_fail" templates (e.g. 75 Medium), whose
+        # locked-day loop above is skipped entirely: the day right before the
+        # last day must still be complete for the run to be considered
+        # finished, even though a no_fail template can never flip to "failed".
+        prev_day = last_day - timedelta(days=1)
+        prev_day_ok = (
+            prev_day < start
+            or prev_day < creation_date
+            or day_complete(template, prev_day.isoformat(), checks, train_dates)
+        )
+
         if failed_on:
             status, ended_on = "failed", failed_on
-        elif today >= last_day and day_complete(template, last_day.isoformat(), checks, train_dates):
+        elif (
+            today >= last_day
+            and prev_day_ok
+            and day_complete(template, last_day.isoformat(), checks, train_dates)
+        ):
             status, ended_on = "completed", last_day.isoformat()
 
         if status != attempt["status"]:
