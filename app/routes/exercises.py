@@ -51,16 +51,27 @@ async def exercises_page(
 
     by_muscle: dict[str, list] = {m: [] for m in _MUSCLE_ORDER}
     exercises = []
+    other = []
     for row in rows:
         ex = dict(row)
         muscles = [m.strip() for m in (ex.pop("primary_muscles") or "").split(",") if m.strip()]
         ex["muscles"] = muscles
         exercises.append(ex)
+        matched = False
         for m in muscles:
             if m in by_muscle:
                 by_muscle[m].append(ex)
+                matched = True
+        if not matched:
+            other.append(ex)
 
     by_muscle = {m: exs for m, exs in by_muscle.items() if exs}
+    # Exercises with no recognized muscle tag would otherwise vanish from the
+    # browse page entirely (though still counted in the header total and
+    # reachable via /exercises/{id}). Give them a catch-all group, kept last
+    # so it doesn't compete visually with real muscle groups.
+    if other:
+        by_muscle["Other"] = other
 
     async with conn.execute(
         """
