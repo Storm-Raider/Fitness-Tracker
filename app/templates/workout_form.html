@@ -1035,7 +1035,7 @@ document.getElementById('tpl-name-input')?.addEventListener('keydown', e => { if
       <div style="display:flex;flex-wrap:wrap;gap:0.35rem;">
         {% for ex in template_exercises %}
         <button type="button"
-                onclick="selectExercise({{ ex.id }}, {{ ex.name | tojson }})"
+                onclick='selectExercise({{ ex.id }}, {{ ex.name | tojson }})'
                 style="background:var(--accent-dim);border:1px solid rgba(79,156,249,0.3);color:var(--accent);border-radius:var(--radius-xs);padding:0.2rem 0.6rem;font-size:0.75rem;font-family:inherit;font-weight:600;cursor:pointer;transition:all 0.13s;"
                 onmouseover="this.style.background='rgba(79,156,249,0.2)'"
                 onmouseout="this.style.background='var(--accent-dim)'">{{ ex.name }}</button>
