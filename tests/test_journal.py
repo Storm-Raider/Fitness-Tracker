@@ -75,6 +75,17 @@ async def test_invalid_energy_rejected(client):
 
 
 @pytest.mark.asyncio
+async def test_save_log_rejects_malformed_date(client, db_conn):
+    bad = {**LOG, "log_date": "not-a-date"}
+    r = await client.post("/journal", json=bad)
+    assert r.status_code == 422
+    async with db_conn.execute(
+        "SELECT COUNT(*) AS n FROM daily_logs WHERE log_date='not-a-date'"
+    ) as c:
+        assert (await c.fetchone())["n"] == 0  # never persisted
+
+
+@pytest.mark.asyncio
 async def test_get_entry_for_existing_date(client, db_conn):
     await client.post("/journal", json=LOG)
 
