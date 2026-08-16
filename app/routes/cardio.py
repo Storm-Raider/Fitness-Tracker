@@ -1,3 +1,4 @@
+from datetime import date
 from urllib.parse import quote
 
 import aiosqlite
@@ -11,6 +12,10 @@ from app.utils.db_utils import require_owns
 from app.utils.render import render
 
 router = APIRouter()
+
+# Same upper bound as SessionCardioIn.distance_km in app/routes/workouts.py —
+# keep the two in sync.
+MAX_CARDIO_DISTANCE_KM = 10_000
 
 
 @router.get("/cardio")
@@ -48,7 +53,7 @@ async def cardio_page(
 async def add_standalone_cardio(
     request: Request,
     exercise_id: int = Form(...),
-    duration_minutes: float = Form(...),
+    duration_minutes: float = Form(..., gt=0, le=1440),
     distance_km: str = Form(""),
     notes: str = Form(""),
     logged_date: str = Form(""),
@@ -63,14 +68,31 @@ async def add_standalone_cardio(
         if not await cur.fetchone():
             raise HTTPException(status_code=400, detail="Invalid cardio exercise")
 
-    dist = (float(distance_km) or None) if distance_km.strip() else None
+    dist = None
+    if distance_km.strip():
+        try:
+            dist = float(distance_km)
+        except ValueError:
+            raise HTTPException(status_code=422, detail="Invalid distance_km; expected a number")
+        if not (0 <= dist <= MAX_CARDIO_DISTANCE_KM):
+            raise HTTPException(
+                status_code=422,
+                detail=f"distance_km must be between 0 and {MAX_CARDIO_DISTANCE_KM}",
+            )
+
     note = notes.strip() or None
-    date = logged_date.strip() or None
+
+    log_date = logged_date.strip() or None
+    if log_date is not None:
+        try:
+            date.fromisoformat(log_date)
+        except ValueError:
+            raise HTTPException(status_code=422, detail="Invalid logged_date; expected YYYY-MM-DD")
 
     await conn.execute(
         """INSERT INTO cardio_logs(user_id, exercise_id, logged_date, duration_minutes, distance_km, notes)
            VALUES (?, ?, COALESCE(?, date('now','localtime')), ?, ?, ?)""",
-        (uid, exercise_id, date, duration_minutes, dist, note),
+        (uid, exercise_id, log_date, duration_minutes, dist, note),
     )
     await conn.commit()
     return RedirectResponse("/cardio", status_code=303)

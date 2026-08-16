@@ -3,7 +3,7 @@ from datetime import date, timedelta
 import aiosqlite
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse, JSONResponse
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from app.db import get_db
 from app.routes.auth import get_current_user
@@ -26,6 +26,17 @@ class LogIn(BaseModel):
     sleep_hrs: float | None = Field(default=None, ge=0, le=24)
     steps: int | None = Field(default=None, ge=0)
     notes: str | None = Field(default=None, max_length=1000)
+
+    @field_validator("log_date")
+    @classmethod
+    def validate_log_date(cls, v: str) -> str:
+        # Matches the date.fromisoformat() + reject pattern already used by
+        # GET /journal/entry below — keep the two in sync.
+        try:
+            date.fromisoformat(v)
+        except ValueError:
+            raise ValueError("Invalid log_date; expected YYYY-MM-DD")
+        return v
 
 
 @router.get("/journal", response_class=HTMLResponse)

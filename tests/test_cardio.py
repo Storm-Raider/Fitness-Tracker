@@ -132,6 +132,64 @@ async def test_cardio_history_groups_note_with_row(client: AsyncClient, db_conn)
 
 
 @pytest.mark.asyncio
+async def test_log_cardio_rejects_non_numeric_distance(client: AsyncClient, db_conn):
+    ex_id = await _cardio_exercise_id(db_conn)
+    r = await client.post("/cardio", data={
+        "exercise_id": ex_id,
+        "duration_minutes": 15.0,
+        "distance_km": "abc",
+    })
+    assert r.status_code == 422  # not a 500
+
+
+@pytest.mark.asyncio
+async def test_log_cardio_rejects_malformed_date(client: AsyncClient, db_conn):
+    ex_id = await _cardio_exercise_id(db_conn)
+    r = await client.post("/cardio", data={
+        "exercise_id": ex_id,
+        "duration_minutes": 15.0,
+        "distance_km": 5.0,
+        "logged_date": "not-a-date",
+    })
+    assert r.status_code == 422
+    async with db_conn.execute(
+        "SELECT COUNT(*) AS n FROM cardio_logs WHERE logged_date='not-a-date'"
+    ) as cur:
+        assert (await cur.fetchone())["n"] == 0  # never persisted
+
+
+@pytest.mark.asyncio
+async def test_log_cardio_rejects_zero_duration(client: AsyncClient, db_conn):
+    ex_id = await _cardio_exercise_id(db_conn)
+    r = await client.post("/cardio", data={
+        "exercise_id": ex_id,
+        "duration_minutes": 0,
+    })
+    assert r.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_log_cardio_rejects_negative_duration(client: AsyncClient, db_conn):
+    ex_id = await _cardio_exercise_id(db_conn)
+    r = await client.post("/cardio", data={
+        "exercise_id": ex_id,
+        "duration_minutes": -5,
+    })
+    assert r.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_log_cardio_rejects_absurd_distance(client: AsyncClient, db_conn):
+    ex_id = await _cardio_exercise_id(db_conn)
+    r = await client.post("/cardio", data={
+        "exercise_id": ex_id,
+        "duration_minutes": 15.0,
+        "distance_km": 999999,
+    })
+    assert r.status_code == 422
+
+
+@pytest.mark.asyncio
 async def test_delete_cardio_other_user_returns_404(client: AsyncClient, db_conn):
     ex_id = await _cardio_exercise_id(db_conn)
     log_id = await _log_cardio(client, db_conn, ex_id)
