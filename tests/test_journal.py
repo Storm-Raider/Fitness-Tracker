@@ -155,3 +155,42 @@ async def test_journal_page_has_date_picker(client):
     assert r.status_code == 200
     assert 'id="j-date"' in r.text
     assert f'value="{TODAY}"' in r.text
+
+
+@pytest.mark.asyncio
+async def test_history_row_onclick_survives_apostrophe(client):
+    """Regression test: a history row's onclick handler must survive HTML
+    attribute parsing even when a free-text field (e.g. `workout`) contains
+    an apostrophe. `entry | tojson` produces a double-quoted JS object
+    literal with internal quotes unicode-escaped, so it must be embedded in
+    a *single*-quoted HTML attribute — a double-quoted attribute gets
+    truncated by the browser's HTML parser at the first quote inside the
+    tojson output.
+    """
+    import html.parser
+
+    log = {**LOG, "workout": "Farmer's Walk day"}
+    resp = await client.post("/journal", json=log)
+    assert resp.status_code == 200
+
+    page = await client.get("/journal", headers={"Accept": "text/html"})
+    assert page.status_code == 200
+
+    onclicks = []
+
+    class _Collector(html.parser.HTMLParser):
+        def handle_starttag(self, tag, attrs):
+            for name, value in attrs:
+                if name == "onclick" and value:
+                    onclicks.append(value)
+
+    _Collector().feed(page.text)
+
+    matches = [v for v in onclicks if v.startswith("fillFromHistory(")]
+    assert matches, "no fillFromHistory(...) row onclick found"
+    assert any("Walk" in v for v in matches), (
+        "onclick attribute was truncated before the workout text — "
+        f"got: {matches}"
+    )
+    for v in matches:
+        assert "\\u0027" in v  # the apostrophe survived, escaped by tojson
