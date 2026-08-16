@@ -149,7 +149,7 @@
 <div class="section-title">History</div>
 <div class="card" style="padding:0;overflow:hidden;">
   {% for entry in history %}
-  <div class="hist-row" onclick="fillFromHistory({{ entry | tojson }})">
+  <div class="hist-row" onclick='fillFromHistory({{ entry | tojson }})'>
     <span class="hist-dot {% if entry.weight_kg or entry.workout or entry.meal_1 %}filled{% endif %}"></span>
     <div style="flex:1;min-width:0;">
       <div style="font-size:0.875rem;font-weight:600;">{{ entry.log_date }}

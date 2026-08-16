@@ -237,7 +237,8 @@
         </div>
       </div>
       <div style="display:flex;gap:0.4rem;flex-shrink:0;">
-        <button onclick="loadPlan({{ p.goal | tojson }}, {{ p.weeks }}, {{ p.plan_json | safe }})"
+        <button data-goal="{{ p.goal }}" data-weeks="{{ p.weeks }}" data-plan="{{ p.plan_json }}"
+                onclick="loadPlan(this.dataset.goal, parseInt(this.dataset.weeks, 10), JSON.parse(this.dataset.plan))"
                 style="background:transparent;border:1px solid var(--border);color:var(--muted);
                        cursor:pointer;border-radius:var(--radius-xs);padding:0.3rem 0.6rem;
                        font-size:0.72rem;transition:all 0.12s;white-space:nowrap;"
@@ -480,19 +481,25 @@ async function savePlan() {
       const _planJson = JSON.stringify({lifts});
       card.innerHTML = `
         <div style="flex:1;min-width:0;">
-          <div style="font-weight:600;font-size:0.875rem;color:var(--text);">${name}</div>
+          <div class="spc-name" style="font-weight:600;font-size:0.875rem;color:var(--text);"></div>
           <div style="font-size:0.7rem;color:var(--muted);margin-top:0.1rem;">${_goal.charAt(0).toUpperCase()+_goal.slice(1)} · ${weeks} weeks · saved today</div>
         </div>
         <div style="display:flex;gap:0.4rem;flex-shrink:0;">
-          <button onclick="loadPlan(${JSON.stringify(_goal)},${weeks},${_planJson})"
+          <button class="spc-load"
                   style="background:transparent;border:1px solid var(--border);color:var(--muted);cursor:pointer;border-radius:var(--radius-xs);padding:0.3rem 0.6rem;font-size:0.72rem;transition:all 0.12s;"
                   onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--accent)'"
                   onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">Load</button>
-          <button onclick="deleteSavedPlan(${data.id},this)"
+          <button class="spc-delete"
                   style="background:transparent;border:1px solid var(--border);color:var(--muted);cursor:pointer;border-radius:var(--radius-xs);padding:0.3rem 0.6rem;font-size:0.72rem;transition:all 0.12s;"
                   onmouseover="this.style.borderColor='var(--danger)';this.style.color='var(--danger)'"
                   onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">Delete</button>
         </div>`;
+      // Set dynamic values via DOM APIs, not string interpolation — avoids the same
+      // quote-collision class of bug as the tojson/onclick issue above, and (for
+      // the plan name) avoids raw HTML injection via innerHTML.
+      card.querySelector('.spc-name').textContent = name;
+      card.querySelector('.spc-load').addEventListener('click', () => loadPlan(_goal, weeks, JSON.parse(_planJson)));
+      card.querySelector('.spc-delete').addEventListener('click', function() { deleteSavedPlan(data.id, this); });
       list.prepend(card);
     } else {
       // Create the section if it didn't exist
