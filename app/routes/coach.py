@@ -150,27 +150,39 @@ def _plan_schema(
         name_field["enum"] = allowed_names
     return {
         "type": "object",
+        # additionalProperties:false on every object node stops the model from
+        # spending output tokens on fields we never asked for and would just
+        # discard in _normalise_plan() anyway — free savings on a ~5 tok/s Pi.
+        "additionalProperties": False,
         "properties": {
-            "title": {"type": "string"},
-            "summary": {"type": "string"},
+            # maxLength caps below all follow the same reasoning as the existing
+            # `note` cap: real values are short (a title like "3-Day Push/Pull/
+            # Legs", a focus like "Upper Body", reps like "8-12"), and capping in
+            # the schema — not just post-hoc in Python — means grammar-constrained
+            # decoding can stop emitting those tokens early instead of generating
+            # then discarding the overrun, which is where the time actually goes.
+            "title": {"type": "string", "maxLength": 60},
+            "summary": {"type": "string", "maxLength": 200},
             "days": {
                 "type": "array",
                 "minItems": days,
                 "maxItems": days,
                 "items": {
                     "type": "object",
+                    "additionalProperties": False,
                     "properties": {
-                        "focus": {"type": "string"},
+                        "focus": {"type": "string", "maxLength": 20},
                         "exercises": {
                             "type": "array",
                             "minItems": min_ex,
                             "maxItems": max_ex,
                             "items": {
                                 "type": "object",
+                                "additionalProperties": False,
                                 "properties": {
                                     "name": name_field,
-                                    "sets": {"type": "integer"},
-                                    "reps": {"type": "string"},
+                                    "sets": {"type": "integer", "minimum": 1, "maximum": 20},
+                                    "reps": {"type": "string", "maxLength": 12},
                                     # Hard cap via grammar-constrained decoding: long
                                     # notes dominate generation time on the Pi (output
                                     # tokens are the wall-clock bottleneck, ~5 tok/s).
@@ -500,17 +512,19 @@ _SYSTEM_PROMPT = (
     "rather than repeating one exercise on most days.\n\n"
     "You ONLY use exercise names from the provided ALLOWED list, spelled exactly. "
     "You return your answer strictly as JSON matching the schema — zero prose outside the JSON.\n\n"
-    "Example of one well-formed day (follow this JSON SHAPE only — the "
-    "numbers below are placeholders, not real prescriptions. Never reuse "
-    "these exact weights, reps, or wording in your actual answer; every "
-    "load and rep target must come from the athlete's own profile data "
-    "above):\n"
+    "Example of one well-formed day (follow this JSON SHAPE only. 'Exercise A' "
+    "through 'Exercise E' are NOT real exercises — they do not exist in the "
+    "ALLOWED list and must never appear in your answer. The weights, reps, and "
+    "note wording are placeholders too. Copying this example's names, numbers, "
+    "or phrasing — even for a different exercise — is a failed answer; every "
+    "exercise, load, and rep target must be chosen fresh from the ALLOWED list "
+    "and the athlete's own profile data above):\n"
     '{"focus": "Push", "exercises": ['
-    '{"name": "Bench Press", "sets": 4, "reps": "5", "note": "@ 100 kg — add 2.5 kg when all reps clean"}, '
-    '{"name": "Overhead Press", "sets": 3, "reps": "8", "note": "@ 50 kg — add 1 rep/week to 10, then +2.5 kg"}, '
-    '{"name": "Incline Dumbbell Press", "sets": 3, "reps": "10-12", "note": "@ 20 kg — increase by 2 kg when hitting 12"}, '
-    '{"name": "Lateral Raise", "sets": 3, "reps": "15", "note": "@ 8 kg — slow eccentric, increase when form is solid"}, '
-    '{"name": "Tricep Pushdown", "sets": 3, "reps": "12", "note": "@ 25 kg — add 2.5 kg every 2 weeks"}'
+    '{"name": "Exercise A", "sets": 4, "reps": "5", "note": "@ 100 kg — add 2.5 kg when all reps clean"}, '
+    '{"name": "Exercise B", "sets": 3, "reps": "8", "note": "@ 50 kg — add 1 rep/week to 10, then +2.5 kg"}, '
+    '{"name": "Exercise C", "sets": 3, "reps": "10-12", "note": "@ 20 kg — increase by 2 kg when hitting 12"}, '
+    '{"name": "Exercise D", "sets": 3, "reps": "15", "note": "@ 8 kg — slow eccentric, increase when form is solid"}, '
+    '{"name": "Exercise E", "sets": 3, "reps": "12", "note": "@ 25 kg — add 2.5 kg every 2 weeks"}'
     "]}"
 )
 
@@ -616,6 +630,29 @@ def _max_weekly_repeats(days_per_week: int) -> int:
     return 3
 
 
+# Exact cue-text fragments from _SYSTEM_PROMPT's worked example. Renaming the
+# example's exercises to unresolvable placeholders (Exercise A-E) stops the
+# model from copying them at the name level — the enum-constrained schema
+# can't emit a name outside the real catalog — but on a small model under weak
+# personalization signal (e.g. no logged history for that muscle group) it can
+# still fall back to reproducing the example's weights/rep-scheme/note wording
+# verbatim for whatever real exercise it does pick. Live-verified: a real
+# generation reused 4 of these 5 phrases byte-for-byte, sets/reps included,
+# for an athlete with no push-day history. A SINGLE match is not itself
+# suspicious — "add 2.5 kg when all reps clean" is generic, plausible advice a
+# model could legitimately reach for on its own — but several matches in one
+# plan is a strong copying signal, so this is threshold-gated, not a hard
+# per-phrase ban.
+_EXAMPLE_NOTE_PHRASES = [
+    "add 2.5 kg when all reps clean",
+    "add 1 rep/week to 10, then +2.5 kg",
+    "increase by 2 kg when hitting 12",
+    "slow eccentric, increase when form is solid",
+    "add 2.5 kg every 2 weeks",
+]
+_EXAMPLE_COPY_THRESHOLD = 3  # phrase matches at/above this count flags the plan
+
+
 def _plan_quality_issues(plan: dict) -> list[str]:
     """Detect diversity failures the schema can't express: near-identical days
     and exercises repeated across too many days. Returns human-readable issue
@@ -623,6 +660,17 @@ def _plan_quality_issues(plan: dict) -> list[str]:
     issues: list[str] = []
     days = plan["days"]
     sigs = [{ex["exercise_id"] for ex in d["exercises"]} for d in days]
+
+    all_notes = " ".join(
+        ex.get("note", "") for d in days for ex in d["exercises"]
+    )
+    phrase_hits = [p for p in _EXAMPLE_NOTE_PHRASES if p in all_notes]
+    if len(phrase_hits) >= _EXAMPLE_COPY_THRESHOLD:
+        issues.append(
+            f"{len(phrase_hits)} exercise notes reuse the system prompt's worked "
+            "example wording verbatim instead of the athlete's own data — every "
+            "note must be computed fresh, not copied from the example"
+        )
 
     for i in range(len(days)):
         for j in range(i + 1, len(days)):
@@ -720,6 +768,22 @@ def _repair_plan(plan: dict, name_map: dict) -> tuple[dict, list[str]]:
     return plan, swaps
 
 
+def _size_num_ctx(prompt: str, schema: dict) -> int:
+    """Size the KV cache to what this request will actually use, rather than the
+    model's full default (32k on qwen2.5 variants) — a smaller context is faster
+    to allocate and process per token.
+
+    input estimate + 1024 output budget, rounded up to the next power of 2,
+    clamped to [2048, 8192]. The estimate must include the JSON schema, not just
+    the system/user prompt text: `format` is sent as its own field in the chat
+    payload, but Ollama still has to hold it in context to constrain decoding —
+    and with a full exercise-name enum in `allowed_names`, the schema itself can
+    run to several hundred tokens, enough to under-size num_ctx if ignored.
+    """
+    _tok_est = (len(_SYSTEM_PROMPT) + len(prompt) + len(json.dumps(schema))) // 4 + 1024
+    return max(2048, min(8192, 1 << (_tok_est - 1).bit_length()))
+
+
 async def _emit(job_id: str, event: dict) -> None:
     """Push a progress event into the SSE queue for this job (no-op if no subscriber)."""
     q = _JOB_EVENTS.get(job_id)
@@ -775,18 +839,30 @@ async def _run_generation(
             min_ex, max_ex = max(3, ex_target - 1), min(10, ex_target + 1)
             allowed_names = _catalog_names(catalog)
             schema = _plan_schema(days, min_ex, max_ex, allowed_names)
-            # Size the KV cache to the actual prompt rather than the model's full default
-            # (32k on qwen2.5 variants). input estimate + 1024 output budget, rounded up
-            # to the next power of 2, clamped to [2048, 8192].
-            _tok_est = (len(_SYSTEM_PROMPT) + len(prompt)) // 4 + 1024
-            num_ctx = max(2048, min(8192, 1 << (_tok_est - 1).bit_length()))
+            num_ctx = _size_num_ctx(prompt, schema)
 
             await _emit(job_id, {"type": "phase", "message": "Generating your plan…"})
-            raw = await ollama.chat_json(
-                _SYSTEM_PROMPT, prompt, schema,
-                timeout=480.0, temperature=0.2, num_ctx=num_ctx,
-                on_tokens=_on_tokens,
-            )
+            try:
+                raw, model_used = await ollama.chat_json_with_fallback(
+                    _SYSTEM_PROMPT, prompt, schema,
+                    timeout=480.0, temperature=0.2, num_ctx=num_ctx,
+                    on_tokens=_on_tokens,
+                )
+            except ollama.OllamaError:
+                # One retry for a content-level failure (empty/malformed JSON)
+                # from a host that DID respond — chat_json_with_fallback()
+                # already handles host-UNavailability (unreachable/timeout/model
+                # missing) internally by trying the fallback host, so reaching
+                # this except means both the primary and (if distinct) fallback
+                # were tried and still came back with unusable content. Worth
+                # one more attempt before failing the whole job; models stay
+                # warm (keep_alive=-1) so the retry doesn't re-pay load cost.
+                logging.warning("coach: chat_json failed, retrying once (job %s)", job_id)
+                raw, model_used = await ollama.chat_json_with_fallback(
+                    _SYSTEM_PROMPT, prompt, schema,
+                    timeout=480.0, temperature=0.2, num_ctx=num_ctx,
+                    on_tokens=_on_tokens,
+                )
             name_map, _norm_map = await _name_to_id_map(conn)
             plan, dropped = _normalise_plan(raw, goal, days, name_map, _norm_map)
             issues = _plan_quality_issues(plan)
@@ -818,7 +894,7 @@ async def _run_generation(
                         f"than {_max_weekly_repeats(days)} day(s). Use different variations "
                         "(e.g. Bench Press one day, Incline Dumbbell Press another)."
                     )
-                raw2 = await ollama.chat_json(
+                raw2, model_used2 = await ollama.chat_json_with_fallback(
                     _SYSTEM_PROMPT, retry_prompt, schema,
                     timeout=480.0, temperature=0.1, num_ctx=num_ctx,
                     on_tokens=_on_tokens,
@@ -831,6 +907,7 @@ async def _run_generation(
                     len(plan["days"]), -len(issues), -len(dropped)
                 ):
                     plan, dropped = plan2, dropped2
+                    model_used = model_used2
 
             # Deterministic guarantee: whatever the model returned, dedupe each
             # day and swap over-repeated exercises for same-muscle alternatives.
@@ -858,7 +935,7 @@ async def _run_generation(
                 """INSERT INTO coach_plans(user_id, title, goal, days_per_week, plan_json, model, status)
                    VALUES (?, ?, ?, ?, ?, ?, 'draft')""",
                 (uid, plan.get("title", "My Plan"), goal, days,
-                 json.dumps(plan), ollama.ollama_model()),
+                 json.dumps(plan), model_used),
             ) as _c:
                 draft_id = _c.lastrowid
             await conn.commit()
@@ -867,12 +944,12 @@ async def _run_generation(
 
         _JOBS[job_id] = {
             "status": "done", "user_id": uid,
-            "plan": plan, "dropped": final_dropped, "model": ollama.ollama_model(),
+            "plan": plan, "dropped": final_dropped, "model": model_used,
             "draft_id": draft_id,
         }
         await _emit(job_id, {
             "type": "done", "plan": plan,
-            "dropped": final_dropped, "model": ollama.ollama_model(),
+            "dropped": final_dropped, "model": model_used,
             "draft_id": draft_id,
         })
         # Pre-generate next plan in background so the user's NEXT request is instant.
@@ -922,11 +999,16 @@ async def _run_spec_generation(
             min_ex, max_ex = max(3, ex_target - 1), min(10, ex_target + 1)
             allowed_names = _catalog_names(catalog)
             schema = _plan_schema(days, min_ex, max_ex, allowed_names)
-            _tok_est = (len(_SYSTEM_PROMPT) + len(prompt)) // 4 + 1024
-            num_ctx = max(2048, min(8192, 1 << (_tok_est - 1).bit_length()))
-            raw = await ollama.chat_json(
+            num_ctx = _size_num_ctx(prompt, schema)
+            # Same temperature as the primary generation path (_run_generation).
+            # This plan may be served directly to the user with zero further
+            # review if their next request matches it (see the spec-cache hit in
+            # generate()), so it must carry the same quality bar — no reason for
+            # a silent background generation to be tuned differently from one
+            # the user explicitly waited for.
+            raw, model_used = await ollama.chat_json_with_fallback(
                 _SYSTEM_PROMPT, prompt, schema,
-                timeout=480.0, temperature=0.3, num_ctx=num_ctx,
+                timeout=480.0, temperature=0.2, num_ctx=num_ctx,
             )
             name_map, _norm_map = await _name_to_id_map(conn)
             plan, dropped = _normalise_plan(raw, goal, days, name_map, _norm_map)
@@ -934,7 +1016,7 @@ async def _run_spec_generation(
             if plan["days"]:
                 _SPEC_CACHE[uid] = {
                     "goal": goal, "days": days, "plan": plan,
-                    "dropped": sorted(set(dropped)), "model": ollama.ollama_model(),
+                    "dropped": sorted(set(dropped)), "model": model_used,
                     "ts": _time.monotonic(),
                 }
                 logging.info("coach: speculative plan cached for uid=%d", uid)

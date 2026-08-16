@@ -449,8 +449,159 @@ async def test_generation_repairs_copy_paste_days(client, db, monkeypatch):
 
 
 def test_system_prompt_forbids_copying_example_numbers():
-    assert "placeholders, not real prescriptions" in coach._SYSTEM_PROMPT
-    assert "Never reuse these exact weights" in coach._SYSTEM_PROMPT
+    assert "placeholders" in coach._SYSTEM_PROMPT
+    assert "Copying this example's names, numbers, or phrasing" in coach._SYSTEM_PROMPT
     # The old example's specific weight/rep combination must not survive —
     # a real generation against live data reused these numbers verbatim.
     assert '"@ 28 kg — increase by 2 kg when hitting 12"' not in coach._SYSTEM_PROMPT
+
+
+def test_system_prompt_example_uses_unresolvable_exercise_names():
+    """The example's exercises must not be real catalog entries — a real
+    generation reused the OLD example's real names (Bench Press, Overhead
+    Press, ...) verbatim, sets/reps/notes included, for an athlete with weak
+    personalization signal for that muscle group. Since exercise `name` is
+    enum-constrained to the real per-request catalog, an unresolvable
+    placeholder like "Exercise A" can never be copied into real output."""
+    for real_name in ("Bench Press", "Overhead Press", "Incline Dumbbell Press",
+                       "Lateral Raise", "Tricep Pushdown"):
+        assert f'"name": "{real_name}"' not in coach._SYSTEM_PROMPT
+    for placeholder in ("Exercise A", "Exercise B", "Exercise C", "Exercise D", "Exercise E"):
+        assert placeholder in coach._SYSTEM_PROMPT
+
+
+# ── Detecting verbatim example-copying (backstop for the fix above) ───
+
+def _plan_with_notes(notes: list[str]) -> dict:
+    return {
+        "days_per_week": 1,
+        "days": [{"focus": "Push", "exercises": [
+            {"exercise_id": i, "name": f"Ex{i}", "note": n} for i, n in enumerate(notes)
+        ]}],
+    }
+
+
+def test_quality_issues_flags_multiple_verbatim_example_phrases():
+    plan = _plan_with_notes(coach._EXAMPLE_NOTE_PHRASES[:3])  # 3 of 5 — at threshold
+    issues = coach._plan_quality_issues(plan)
+    assert any("worked example wording verbatim" in i for i in issues)
+
+
+def test_quality_issues_ignores_a_single_generic_phrase():
+    # One plausible, generic cue on its own isn't evidence of copying — only
+    # several at once is.
+    plan = _plan_with_notes([coach._EXAMPLE_NOTE_PHRASES[0], "some other note", "another note"])
+    issues = coach._plan_quality_issues(plan)
+    assert not any("worked example wording verbatim" in i for i in issues)
+
+
+# ── Schema tightening (token-budget on a ~5 tok/s Pi) ──────────────────
+
+def test_schema_caps_free_text_fields_to_save_output_tokens():
+    schema = coach._plan_schema(3, allowed_names=["Bench Press"])
+    assert schema["additionalProperties"] is False
+    assert schema["properties"]["title"]["maxLength"] == 60
+    assert schema["properties"]["summary"]["maxLength"] == 200
+    day_schema = schema["properties"]["days"]["items"]
+    assert day_schema["additionalProperties"] is False
+    assert day_schema["properties"]["focus"]["maxLength"] == 20
+    ex_schema = day_schema["properties"]["exercises"]["items"]
+    assert ex_schema["additionalProperties"] is False
+    assert ex_schema["properties"]["reps"]["maxLength"] == 12
+    assert ex_schema["properties"]["note"]["maxLength"] == 90  # unchanged
+    assert ex_schema["properties"]["sets"]["minimum"] == 1
+    assert ex_schema["properties"]["sets"]["maximum"] == 20
+
+
+# ── num_ctx sizing accounts for the schema, not just the prompt text ──
+
+def test_size_num_ctx_grows_with_a_larger_schema():
+    prompt = "x" * 100
+    small_schema = coach._plan_schema(1, allowed_names=["Bench Press"])
+    # A big catalog produces a big `enum` list in the schema — that has to be
+    # held in context too, even though it's sent as its own `format` field,
+    # not appended to the prompt string.
+    big_schema = coach._plan_schema(1, allowed_names=[f"Exercise {i}" for i in range(400)])
+    assert coach._size_num_ctx(prompt, big_schema) >= coach._size_num_ctx(prompt, small_schema)
+
+
+def test_size_num_ctx_clamped_to_range():
+    tiny_schema = coach._plan_schema(1, allowed_names=["Bench Press"])
+    assert coach._size_num_ctx("", tiny_schema) >= 2048
+    huge_prompt = "x" * 100_000
+    assert coach._size_num_ctx(huge_prompt, tiny_schema) <= 8192
+
+
+# ── Retry on transport/parse failure (distinct from the quality retry) ─
+
+@pytest.mark.asyncio
+async def test_generate_retries_once_on_transport_error_then_succeeds(client, db, monkeypatch):
+    names = await _real_exercise_names(db, 1)
+    fake_plan = {
+        "title": "Recovered Plan", "summary": "",
+        "days": [{"focus": "Full Body", "exercises": [
+            {"name": names[0], "sets": 3, "reps": "10"},
+        ]}],
+    }
+    calls = {"n": 0}
+
+    async def _flaky(system, user, schema, **kwargs):
+        calls["n"] += 1
+        if calls["n"] == 1:
+            raise coach.ollama.OllamaError("Ollama returned malformed JSON.")
+        return fake_plan
+
+    monkeypatch.setattr(coach.ollama, "chat_json", _flaky)
+
+    data = await _generate(client, "general", 1)
+    assert data["status"] == "done"
+    assert data["plan"]["title"] == "Recovered Plan"
+    # At least 2: the failed first attempt + the retry that recovered. Not
+    # asserting an exact count — a successful generation also kicks off a
+    # background speculative-cache generation (see _run_spec_generation) that
+    # calls chat_json too, and whether it's fired by the time we check here
+    # is a scheduling race, not something this test cares about.
+    assert calls["n"] >= 2
+
+
+@pytest.mark.asyncio
+async def test_generate_gives_up_after_retry_still_fails(client, monkeypatch):
+    async def _always_fails(system, user, schema, **kwargs):
+        raise coach.ollama.OllamaError("Couldn't reach Ollama")
+
+    monkeypatch.setattr(coach.ollama, "chat_json", _always_fails)
+
+    data = await _generate(client, "strength", 3)
+    assert data["status"] == "error"
+    assert "Ollama" in data["error"]
+
+
+# ── Spec-cache generation matches the primary path's quality bar ──────
+
+@pytest.mark.asyncio
+async def test_spec_generation_uses_same_temperature_as_primary_path(client, db, monkeypatch):
+    names = await _real_exercise_names(db, 1)
+    fake_plan = {
+        "title": "Spec Plan", "summary": "",
+        "days": [{"focus": "Full Body", "exercises": [
+            {"name": names[0], "sets": 3, "reps": "10"},
+        ]}],
+    }
+    temps_seen = []
+
+    async def _recording_chat(system, user, schema, **kwargs):
+        temps_seen.append(kwargs.get("temperature"))
+        return fake_plan
+
+    monkeypatch.setattr(coach.ollama, "chat_json", _recording_chat)
+
+    await _generate(client, "general", 1)
+    # Primary generation call already fired; now let the background spec-gen
+    # task (kicked off after a successful generation) run to completion.
+    for _ in range(50):
+        if len(temps_seen) >= 2:
+            break
+        await asyncio.sleep(0.02)
+
+    assert len(temps_seen) >= 2, "speculative generation never ran"
+    assert temps_seen[0] == temps_seen[1] == 0.2
