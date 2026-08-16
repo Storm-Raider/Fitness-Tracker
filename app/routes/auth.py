@@ -25,17 +25,22 @@ _USERNAME_RE = re.compile(r"^[a-zA-Z0-9_]{3,30}$")
 _EMAIL_RE = re.compile(r"^[^@\s]{1,64}@[^@\s]+\.[^@\s]{2,}$")
 
 # ── Rate limiter (login + forgot-password) ────────────────────────────────────
-_attempts: dict[str, list[float]] = defaultdict(list)
+# Keyed by (client_ip, action) so the two endpoints don't share a bucket: a
+# burst against /login (or many clients behind one NAT'd IP) must not also
+# lock the same IP out of /forgot-password, and vice versa. Count and window
+# are unchanged — this only isolates the two actions from each other.
+_attempts: dict[tuple[str, str], list[float]] = defaultdict(list)
 _attempts_lock = Lock()
 _MAX_ATTEMPTS = 10
 _WINDOW_SECS = 900.0  # 15 minutes
 
 
-def _is_rate_limited(ip: str) -> bool:
+def _is_rate_limited(ip: str, action: str) -> bool:
+    key = (ip, action)
     now = time.monotonic()
     with _attempts_lock:
-        bucket = [t for t in _attempts[ip] if now - t < _WINDOW_SECS]
-        _attempts[ip] = bucket
+        bucket = [t for t in _attempts[key] if now - t < _WINDOW_SECS]
+        _attempts[key] = bucket
         if len(bucket) >= _MAX_ATTEMPTS:
             return True
         bucket.append(now)
@@ -174,7 +179,7 @@ async def login_post(
     conn: aiosqlite.Connection = Depends(get_db),
 ):
     client_ip = request.client.host if request.client else "unknown"
-    if _is_rate_limited(client_ip):
+    if _is_rate_limited(client_ip, "login"):
         return templates.TemplateResponse(
             request, "login.html",
             {"error": "Too many login attempts. Please wait 15 minutes.", "next": next, "prefill_username": username},
@@ -257,7 +262,7 @@ async def forgot_password_post(
     conn: aiosqlite.Connection = Depends(get_db),
 ):
     client_ip = request.client.host if request.client else "unknown"
-    if _is_rate_limited(client_ip):
+    if _is_rate_limited(client_ip, "forgot-password"):
         return templates.TemplateResponse(
             request, "forgot_password.html",
             {"sent": False, "error": "Too many requests. Please wait 15 minutes."},

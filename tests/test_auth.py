@@ -737,3 +737,88 @@ async def test_revoked_session_cannot_access_protected_route(anon_client, db_con
     resp = await anon_client.get("/", follow_redirects=False)
     assert resp.status_code == 302
     assert "/login" in resp.headers["location"]
+
+
+# ---------------------------------------------------------------------------
+# Rate limiting — login and forgot-password must use independent buckets
+# ---------------------------------------------------------------------------
+#
+# httpx's ASGITransport reports every test request as coming from the same
+# fixed client IP (127.0.0.1), and the rate limiter's attempt store is a
+# module-level dict that isn't reset between tests. Each test below clears
+# it before and after running so it neither inherits attempts from other
+# tests nor leaks its own saturated bucket into whatever runs next.
+
+from app.routes.auth import _attempts, _MAX_ATTEMPTS
+
+
+@pytest.fixture
+def _clean_rate_limit_state():
+    _attempts.clear()
+    yield
+    _attempts.clear()
+
+
+@pytest.mark.asyncio
+async def test_login_own_rate_limit_still_enforced(anon_client, _clean_rate_limit_state):
+    """Sanity check: 10 bad attempts are allowed through, the 11th is throttled."""
+    for _ in range(_MAX_ATTEMPTS):
+        resp = await anon_client.post(
+            "/login",
+            data={"username": "testuser", "password": "wrong", "next": "/"},
+        )
+        assert resp.status_code == 401
+
+    resp = await anon_client.post(
+        "/login",
+        data={"username": "testuser", "password": "wrong", "next": "/"},
+    )
+    assert resp.status_code == 429
+
+
+@pytest.mark.asyncio
+async def test_forgot_password_own_rate_limit_still_enforced(anon_client, _clean_rate_limit_state):
+    with patch("app.routes.auth.send_email", new_callable=AsyncMock):
+        for _ in range(_MAX_ATTEMPTS):
+            resp = await anon_client.post("/forgot-password", data={"email": "nobody@example.com"})
+            assert resp.status_code == 200
+
+        resp = await anon_client.post("/forgot-password", data={"email": "nobody@example.com"})
+    assert resp.status_code == 429
+
+
+@pytest.mark.asyncio
+async def test_login_rate_limit_does_not_block_forgot_password(anon_client, _clean_rate_limit_state):
+    # Saturate the /login bucket for this IP.
+    for _ in range(_MAX_ATTEMPTS):
+        await anon_client.post(
+            "/login",
+            data={"username": "testuser", "password": "wrong", "next": "/"},
+        )
+    resp = await anon_client.post(
+        "/login",
+        data={"username": "testuser", "password": "wrong", "next": "/"},
+    )
+    assert resp.status_code == 429  # login bucket is exhausted
+
+    # /forgot-password from the same IP must be entirely unaffected.
+    with patch("app.routes.auth.send_email", new_callable=AsyncMock):
+        resp = await anon_client.post("/forgot-password", data={"email": "nobody@example.com"})
+    assert resp.status_code == 200
+
+
+@pytest.mark.asyncio
+async def test_forgot_password_rate_limit_does_not_block_login(anon_client, _clean_rate_limit_state):
+    # Saturate the /forgot-password bucket for this IP.
+    with patch("app.routes.auth.send_email", new_callable=AsyncMock):
+        for _ in range(_MAX_ATTEMPTS):
+            await anon_client.post("/forgot-password", data={"email": "nobody@example.com"})
+        resp = await anon_client.post("/forgot-password", data={"email": "nobody@example.com"})
+    assert resp.status_code == 429  # forgot-password bucket is exhausted
+
+    # /login from the same IP must be entirely unaffected.
+    resp = await anon_client.post(
+        "/login",
+        data={"username": "testuser", "password": "test-password", "next": "/"},
+    )
+    assert resp.status_code == 303  # login still succeeds
