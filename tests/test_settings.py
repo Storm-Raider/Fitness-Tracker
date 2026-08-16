@@ -87,6 +87,51 @@ async def test_settings_change_password_mismatch(client):
 
 
 # ---------------------------------------------------------------------------
+# Weekly goal
+# ---------------------------------------------------------------------------
+
+@pytest.mark.asyncio
+async def test_delete_goal_does_not_reset_unit_preferences(client, db_conn):
+    # Set unit/distance/body-measurement prefs to non-default values.
+    resp = await client.patch("/api/settings/unit", json={"unit": "lbs"})
+    assert resp.status_code == 200
+    resp = await client.patch("/api/settings/distance", json={"distance": "mi"})
+    assert resp.status_code == 200
+    resp = await client.patch("/api/settings/body-measurement", json={"unit": "in"})
+    assert resp.status_code == 200
+
+    # Set a weekly goal.
+    resp = await client.post("/settings/goal", json={"sessions": 4})
+    assert resp.status_code == 200
+
+    async with db_conn.execute(
+        "SELECT weekly_goal_sessions, pref_unit, pref_distance, pref_body_measurement "
+        "FROM user_settings WHERE user_id = 1"
+    ) as cur:
+        row = await cur.fetchone()
+    assert row["weekly_goal_sessions"] == 4
+    assert row["pref_unit"] == "lbs"
+    assert row["pref_distance"] == "mi"
+    assert row["pref_body_measurement"] == "in"
+
+    # Delete the goal.
+    resp = await client.delete("/settings/goal")
+    assert resp.status_code == 204
+
+    # The goal is cleared, but the unit preferences must be unchanged.
+    async with db_conn.execute(
+        "SELECT weekly_goal_sessions, pref_unit, pref_distance, pref_body_measurement "
+        "FROM user_settings WHERE user_id = 1"
+    ) as cur:
+        row = await cur.fetchone()
+    assert row is not None, "delete-goal must not remove the user_settings row"
+    assert row["weekly_goal_sessions"] is None
+    assert row["pref_unit"] == "lbs"
+    assert row["pref_distance"] == "mi"
+    assert row["pref_body_measurement"] == "in"
+
+
+# ---------------------------------------------------------------------------
 # Delete workout
 # ---------------------------------------------------------------------------
 

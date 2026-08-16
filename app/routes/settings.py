@@ -42,7 +42,8 @@ async def delete_weekly_goal(
     current_user=Depends(get_current_user),
 ):
     await conn.execute(
-        "DELETE FROM user_settings WHERE user_id = ?", (current_user["id"],)
+        "UPDATE user_settings SET weekly_goal_sessions = NULL WHERE user_id = ?",
+        (current_user["id"],),
     )
     await conn.commit()
 
