@@ -843,20 +843,22 @@ async def _run_generation(
 
             await _emit(job_id, {"type": "phase", "message": "Generating your plan…"})
             try:
-                raw = await ollama.chat_json(
+                raw, model_used = await ollama.chat_json_with_fallback(
                     _SYSTEM_PROMPT, prompt, schema,
                     timeout=480.0, temperature=0.2, num_ctx=num_ctx,
                     on_tokens=_on_tokens,
                 )
             except ollama.OllamaError:
-                # One retry for transport/malformed-JSON failures specifically —
-                # distinct from the quality-triggered retry below, which only
-                # fires on a well-formed-but-bad response. A dropped connection
-                # or truncated stream under memory pressure on the Pi is worth
-                # one immediate retry before failing the whole job; the model is
-                # already warm (keep_alive=-1) so the retry doesn't re-pay load cost.
+                # One retry for a content-level failure (empty/malformed JSON)
+                # from a host that DID respond — chat_json_with_fallback()
+                # already handles host-UNavailability (unreachable/timeout/model
+                # missing) internally by trying the fallback host, so reaching
+                # this except means both the primary and (if distinct) fallback
+                # were tried and still came back with unusable content. Worth
+                # one more attempt before failing the whole job; models stay
+                # warm (keep_alive=-1) so the retry doesn't re-pay load cost.
                 logging.warning("coach: chat_json failed, retrying once (job %s)", job_id)
-                raw = await ollama.chat_json(
+                raw, model_used = await ollama.chat_json_with_fallback(
                     _SYSTEM_PROMPT, prompt, schema,
                     timeout=480.0, temperature=0.2, num_ctx=num_ctx,
                     on_tokens=_on_tokens,
@@ -892,7 +894,7 @@ async def _run_generation(
                         f"than {_max_weekly_repeats(days)} day(s). Use different variations "
                         "(e.g. Bench Press one day, Incline Dumbbell Press another)."
                     )
-                raw2 = await ollama.chat_json(
+                raw2, model_used2 = await ollama.chat_json_with_fallback(
                     _SYSTEM_PROMPT, retry_prompt, schema,
                     timeout=480.0, temperature=0.1, num_ctx=num_ctx,
                     on_tokens=_on_tokens,
@@ -905,6 +907,7 @@ async def _run_generation(
                     len(plan["days"]), -len(issues), -len(dropped)
                 ):
                     plan, dropped = plan2, dropped2
+                    model_used = model_used2
 
             # Deterministic guarantee: whatever the model returned, dedupe each
             # day and swap over-repeated exercises for same-muscle alternatives.
@@ -932,7 +935,7 @@ async def _run_generation(
                 """INSERT INTO coach_plans(user_id, title, goal, days_per_week, plan_json, model, status)
                    VALUES (?, ?, ?, ?, ?, ?, 'draft')""",
                 (uid, plan.get("title", "My Plan"), goal, days,
-                 json.dumps(plan), ollama.ollama_model()),
+                 json.dumps(plan), model_used),
             ) as _c:
                 draft_id = _c.lastrowid
             await conn.commit()
@@ -941,12 +944,12 @@ async def _run_generation(
 
         _JOBS[job_id] = {
             "status": "done", "user_id": uid,
-            "plan": plan, "dropped": final_dropped, "model": ollama.ollama_model(),
+            "plan": plan, "dropped": final_dropped, "model": model_used,
             "draft_id": draft_id,
         }
         await _emit(job_id, {
             "type": "done", "plan": plan,
-            "dropped": final_dropped, "model": ollama.ollama_model(),
+            "dropped": final_dropped, "model": model_used,
             "draft_id": draft_id,
         })
         # Pre-generate next plan in background so the user's NEXT request is instant.
@@ -1003,7 +1006,7 @@ async def _run_spec_generation(
             # generate()), so it must carry the same quality bar — no reason for
             # a silent background generation to be tuned differently from one
             # the user explicitly waited for.
-            raw = await ollama.chat_json(
+            raw, model_used = await ollama.chat_json_with_fallback(
                 _SYSTEM_PROMPT, prompt, schema,
                 timeout=480.0, temperature=0.2, num_ctx=num_ctx,
             )
@@ -1013,7 +1016,7 @@ async def _run_spec_generation(
             if plan["days"]:
                 _SPEC_CACHE[uid] = {
                     "goal": goal, "days": days, "plan": plan,
-                    "dropped": sorted(set(dropped)), "model": ollama.ollama_model(),
+                    "dropped": sorted(set(dropped)), "model": model_used,
                     "ts": _time.monotonic(),
                 }
                 logging.info("coach: speculative plan cached for uid=%d", uid)
