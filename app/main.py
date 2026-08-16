@@ -6,7 +6,7 @@ from pathlib import Path
 
 import httpx
 from fastapi import FastAPI, Request
-from fastapi.responses import FileResponse, HTMLResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from urllib.parse import quote
@@ -181,9 +181,21 @@ app.add_middleware(_SecurityHeadersMiddleware)
 app.add_middleware(_AuthMiddleware)
 
 
+def _wants_html(request: Request) -> bool:
+    """Mirror app.utils.render's content-negotiation: HX-Request and non-HTML
+    Accept headers mean the caller is a JSON/API/HTMX client, not a browser
+    doing a top-level navigation to a bad URL."""
+    if request.headers.get("HX-Request"):
+        return False
+    return "text/html" in request.headers.get("Accept", "")
+
+
 @app.exception_handler(404)
 async def _not_found(_req: Request, _exc):
-    return _templates.TemplateResponse("errors/404.html", {"request": _req}, status_code=404)
+    if _wants_html(_req):
+        return _templates.TemplateResponse("errors/404.html", {"request": _req}, status_code=404)
+    detail = getattr(_exc, "detail", None) or "Not Found"
+    return JSONResponse({"detail": detail}, status_code=404)
 
 
 @app.exception_handler(500)
