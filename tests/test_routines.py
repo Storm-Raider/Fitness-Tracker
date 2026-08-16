@@ -85,3 +85,19 @@ async def test_delete_routine(client):
 async def test_delete_missing_routine_returns_404(client):
     resp = await client.delete("/routines/99999")
     assert resp.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_create_routine_invalid_exercise_id_rejected_without_orphan(client):
+    before = await client.get("/routines")
+    before_names = {r["name"] for r in before.json()}
+
+    resp = await client.post(
+        "/routines", json={"name": "Bogus Routine", "exercise_ids": [999999]}
+    )
+    assert 400 <= resp.status_code < 500
+
+    after = await client.get("/routines")
+    after_names = {r["name"] for r in after.json()}
+    assert after_names == before_names
+    assert "Bogus Routine" not in after_names
