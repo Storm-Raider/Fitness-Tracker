@@ -7,7 +7,7 @@ so no data leaves the host — unlike the nightly Claude enrichment job.
 
 Configuration (env vars):
   OLLAMA_URL    base URL of the Ollama server   (default http://localhost:11434)
-  OLLAMA_MODEL  model tag to use for generation  (default qwen2.5:3b)
+  OLLAMA_MODEL  model tag to use for generation  (default qwen2.5:1.5b)
 
 In Docker, the host's Ollama is reachable at http://host.docker.internal:11434
 (see docker-compose.yml).
@@ -87,7 +87,22 @@ async def chat_json(
     message — callers surface this to the UI rather than a 500.
     """
     model = model or ollama_model()
-    opts: dict = {"temperature": temperature}
+    opts: dict = {
+        "temperature": temperature,
+        # The coach's actual repetition problem is long-range and semantic (the
+        # same exercise reappearing several *days* — thousands of tokens — later
+        # in a single generation), not local n-gram repetition. Ollama's default
+        # repeat_last_n (64 tokens) only looks back far enough to catch local
+        # stutter, not cross-day duplication. repeat_last_n=-1 extends the
+        # penalty window to the full context so it can actually see and
+        # discourage repeats that far back; repeat_penalty is nudged only
+        # slightly above Ollama's own default (1.1) since this is layered on
+        # top of, not a replacement for, the prompt instructions and the
+        # deterministic _repair_plan() pass — the goal is fewer retries/swaps
+        # needed downstream, not to eliminate the safety net.
+        "repeat_penalty": 1.15,
+        "repeat_last_n": -1,
+    }
     if num_ctx:
         opts["num_ctx"] = num_ctx
     payload = {

@@ -51,6 +51,24 @@ async def test_chat_json_disables_thinking_non_streaming(monkeypatch):
     assert _FakeAsyncClient.last_payload["think"] is False
 
 
+@pytest.mark.asyncio
+async def test_chat_json_sets_full_window_repeat_penalty_non_streaming(monkeypatch):
+    """The coach's actual repetition problem is long-range (an exercise
+    reappearing days — thousands of tokens — later), not local n-gram
+    repetition, so the penalty window must cover the full context
+    (repeat_last_n=-1), not Ollama's default 64-token lookback."""
+    monkeypatch.setattr(ollama.httpx, "AsyncClient", _FakeAsyncClient)
+
+    await ollama.chat_json(
+        "system prompt", "user prompt",
+        {"type": "object", "properties": {"ok": {"type": "string"}}, "required": ["ok"]},
+    )
+
+    opts = _FakeAsyncClient.last_payload["options"]
+    assert opts["repeat_last_n"] == -1
+    assert opts["repeat_penalty"] > 1.0
+
+
 class _FakeStreamResponse:
     """Mimics the httpx streaming Response yielded inside `async with
     client.stream(...)`, emitting one complete Ollama-shaped JSON line."""
@@ -112,3 +130,21 @@ async def test_chat_json_disables_thinking_streaming(monkeypatch):
 
     assert result == {"ok": "ok"}
     assert _FakeAsyncClientStreaming.last_payload["think"] is False
+
+
+@pytest.mark.asyncio
+async def test_chat_json_sets_full_window_repeat_penalty_streaming(monkeypatch):
+    monkeypatch.setattr(ollama.httpx, "AsyncClient", _FakeAsyncClientStreaming)
+
+    async def _on_tokens(count):
+        pass
+
+    await ollama.chat_json(
+        "system prompt", "user prompt",
+        {"type": "object", "properties": {"ok": {"type": "string"}}, "required": ["ok"]},
+        on_tokens=_on_tokens,
+    )
+
+    opts = _FakeAsyncClientStreaming.last_payload["options"]
+    assert opts["repeat_last_n"] == -1
+    assert opts["repeat_penalty"] > 1.0
