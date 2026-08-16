@@ -83,8 +83,28 @@ async def import_csv(
     async with app.db.write_lock:
         await conn.execute("BEGIN IMMEDIATE")
         try:
+            # Snapshot how many sets already exist for this user, grouped by
+            # (workout date, exercise, weight, reps). This is a *multiset* count
+            # (not a plain existence check) so re-importing the same file skips
+            # every row it already contains, while a workout that legitimately
+            # has repeated identical straight sets (e.g. 3x100kg x5) still
+            # imports correctly the first time — nothing is skipped until the
+            # count of matching rows already in the DB is exhausted.
+            existing_counts: dict[tuple[str, int, float, int], int] = {}
+            async with conn.execute(
+                "SELECT w.started_at, s.exercise_id, s.weight_kg, s.reps, COUNT(*) "
+                "FROM sets s JOIN workouts w ON s.workout_id = w.id "
+                "WHERE w.user_id = ? "
+                "GROUP BY w.started_at, s.exercise_id, s.weight_kg, s.reps",
+                (uid,),
+            ) as cur:
+                async for started_at, exercise_id, weight_kg, set_reps, cnt in cur:
+                    existing_counts[(started_at, exercise_id, weight_kg, set_reps)] = cnt
+
             current_workout_id: int | None = None
             current_workout_key: str | None = None
+            current_workout_date: str | None = None
+            current_workout_name: str | None = None
 
             for row in rows:
                 exercise_name = (row.get("Exercise Name") or "").strip()
@@ -112,16 +132,31 @@ async def import_csv(
                 row_key = f"{workout_date}:{workout_name}"
 
                 if row_key != current_workout_key:
-                    started_at = workout_date or datetime.now().isoformat()
+                    # New workout group — creation is deferred until we know at
+                    # least one non-duplicate set belongs to it, so a fully
+                    # duplicate re-import doesn't leave behind an empty workout.
+                    current_workout_key = row_key
+                    current_workout_id = None
+                    current_workout_date = workout_date
+                    current_workout_name = workout_name
+
+                exercise_id = await get_or_create_exercise(conn, exercise_name)
+
+                dedup_key = (workout_date, exercise_id, weight, reps)
+                if existing_counts.get(dedup_key, 0) > 0:
+                    existing_counts[dedup_key] -= 1
+                    skipped += 1
+                    continue
+
+                if current_workout_id is None:
+                    started_at = current_workout_date or datetime.now().isoformat()
                     async with conn.execute(
                         "INSERT INTO workouts(started_at, ended_at, notes, user_id) "
                         "VALUES (?, ?, ?, ?)",
-                        (started_at, started_at, f"Imported: {workout_name}", uid),
+                        (started_at, started_at, f"Imported: {current_workout_name}", uid),
                     ) as cur:
                         current_workout_id = cur.lastrowid
-                    current_workout_key = row_key
 
-                exercise_id = await get_or_create_exercise(conn, exercise_name)
                 set_notes = (row.get("Notes") or "").strip() or None
 
                 await conn.execute(
