@@ -128,6 +128,23 @@ async def test_create_exercise_invalid_muscle_falls_back_to_inference(client):
 
 
 @pytest.mark.asyncio
+async def test_muscleless_exercise_appears_in_browse_page(client):
+    """Regression test: an exercise with no inferred/assigned muscle must still
+    show up somewhere on the /exercises browse page (in an 'Other' fallback
+    group), not just be counted in the header total."""
+    resp = await client.post("/exercises", json={"name": "My Custom Move"})
+    assert resp.status_code == 201
+    ex_id = resp.json()["id"]
+    assert not resp.json()["muscle"]  # confirms it's genuinely muscle-less
+
+    page = await client.get("/exercises")
+    assert page.status_code == 200
+    assert f"/exercises/{ex_id}" in page.text
+    assert "My Custom Move" in page.text
+    assert "Other" in page.text
+
+
+@pytest.mark.asyncio
 async def test_api_exercises_flags_bodyweight(client):
     """/api/exercises marks bodyweight exercises so the form can switch to the
     'added weight' input."""
