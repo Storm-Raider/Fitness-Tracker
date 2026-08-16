@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import HTMLResponse, JSONResponse
 from pydantic import BaseModel, Field
 
+import app.db
 from app.db import get_db
 from app.routes.auth import get_current_user
 from app.utils.db_utils import require_owns
@@ -136,19 +137,42 @@ async def create_routine(
     if not body.exercise_ids:
         raise HTTPException(status_code=422, detail="Routine must have at least one exercise")
 
+    # Validate every exercise_id exists BEFORE inserting anything — an invalid
+    # id must not create an orphaned zero-exercise routine row.
+    placeholders = ",".join("?" * len(body.exercise_ids))
     async with conn.execute(
-        "INSERT INTO routines(name, user_id) VALUES (?, ?)",
-        (body.name.strip(), current_user["id"]),
+        f"SELECT id FROM exercises WHERE id IN ({placeholders})",
+        body.exercise_ids,
     ) as cur:
-        routine_id = cur.lastrowid
+        found_ids = {row["id"] for row in await cur.fetchall()}
+    missing = [ex_id for ex_id in body.exercise_ids if ex_id not in found_ids]
+    if missing:
+        raise HTTPException(status_code=404, detail=f"Exercise not found: {missing[0]}")
 
-    for idx, ex_id in enumerate(body.exercise_ids):
-        await conn.execute(
-            "INSERT INTO routine_exercises(routine_id, exercise_id, order_idx) VALUES (?,?,?)",
-            (routine_id, ex_id, idx),
-        )
+    # Routine insert + routine_exercises inserts wrapped in one transaction so a
+    # failure partway through (e.g. an exercise deleted between the validation
+    # above and here) rolls back atomically instead of leaving an orphan routine.
+    async with app.db.write_lock:
+        async with conn.execute("BEGIN IMMEDIATE"):
+            pass
+        try:
+            async with conn.execute(
+                "INSERT INTO routines(name, user_id) VALUES (?, ?)",
+                (body.name.strip(), current_user["id"]),
+            ) as cur:
+                routine_id = cur.lastrowid
 
-    await conn.commit()
+            for idx, ex_id in enumerate(body.exercise_ids):
+                await conn.execute(
+                    "INSERT INTO routine_exercises(routine_id, exercise_id, order_idx) VALUES (?,?,?)",
+                    (routine_id, ex_id, idx),
+                )
+
+            await conn.execute("COMMIT")
+        except Exception:
+            await conn.execute("ROLLBACK")
+            raise
+
     return JSONResponse({"id": routine_id}, status_code=201)
 
 
