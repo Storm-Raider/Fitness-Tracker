@@ -430,3 +430,210 @@ async def test_update_rules_checkin_uses_new_keys(client):
     # old default key rejected
     assert (await client.post(f"/challenges/{aid}/checkin",
                                json={"day_date": today, "rule_key": "diet", "done": True})).status_code == 422
+
+
+# ── Custom Challenge Templates (Approach A) ─────────────────────────────────
+# tests/test_challenges.py additions from the "Custom Challenge Templates"
+# design doc's eng-review test plan (stormraider-main-eng-review-test-plan-
+# 20260816-181953.md). See that file for the full edge-case/critical-path
+# rationale; comments here are kept short and point back to it.
+
+CUSTOM_RULE = [{"key": "practice", "kind": "manual", "label": "Practice 20+ min"}]
+
+
+async def _start_custom(client, *, title="Daily Guitar Practice", total_days=30, rules=None, **extra):
+    body = {"template_key": "custom", "title": title, "total_days": total_days,
+            "rules": rules if rules is not None else CUSTOM_RULE, **extra}
+    return await client.post("/challenges", json=body)
+
+
+@pytest.mark.asyncio
+async def test_custom_page_renders_build_your_own_card(client):
+    r = await client.get("/challenges", headers={"Accept": "text/html"})
+    assert r.status_code == 200
+    assert "Build your own" in r.text
+    assert "Track anything, on your own terms." in r.text
+
+
+@pytest.mark.asyncio
+async def test_custom_template_data_shape():
+    """T1: the 'custom' entry carries an explicit is_freeform flag, not an
+    implicit signal (Architecture Issue 2 — explicit over clever)."""
+    from app.data.challenges import CHALLENGE_INDEX
+    custom = CHALLENGE_INDEX["custom"]
+    assert custom["is_freeform"] is True
+    assert custom["editable"] is True
+    assert custom["rules"] == []
+    assert custom["no_fail"] is True
+    assert custom["allow_partial"] is True
+
+
+@pytest.mark.asyncio
+async def test_start_custom_success_stores_title_and_days(client, db):
+    r = await _start_custom(client, title="Daily Guitar Practice", total_days=45)
+    assert r.status_code == 201, r.text
+    aid = r.json()["id"]
+    async with db.execute(
+        "SELECT title, total_days, template_key FROM challenge_attempts WHERE id=?", (aid,)
+    ) as c:
+        row = await c.fetchone()
+    assert row["title"] == "Daily Guitar Practice"
+    assert row["total_days"] == 45
+    assert row["template_key"] == "custom"
+
+
+@pytest.mark.asyncio
+async def test_start_custom_requires_rules_omitted_entirely(client):
+    """Closes the vacuous-all([])-over-empty-rules bug: omitting `rules`
+    entirely (not sending rules: []) must not silently create an attempt
+    with zero rules that would read as complete every day."""
+    r = await client.post("/challenges", json={"template_key": "custom", "title": "X", "total_days": 30})
+    assert r.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_start_custom_rejects_empty_rules_list(client):
+    r = await _start_custom(client, rules=[])
+    assert r.status_code == 422
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("total_days", [0, 366, -1])
+async def test_start_custom_rejects_total_days_out_of_bounds(client, total_days):
+    r = await _start_custom(client, total_days=total_days)
+    assert r.status_code == 422
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("title", ["", "   ", "x" * 81])
+async def test_start_custom_rejects_title_out_of_bounds(client, title):
+    r = await _start_custom(client, title=title)
+    assert r.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_start_custom_rejects_workout_kind(client):
+    """Outside voice Issue 5: kind is now an allowlist, not setdefault-only.
+    A raw request (the UI never offers this) must not be able to auto-tick
+    a custom challenge's rule from unrelated training data."""
+    r = await _start_custom(client, rules=[{"key": "x", "kind": "workout", "label": "x"}])
+    assert r.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_update_rules_rejects_workout_kind_for_custom(client):
+    r = await _start_custom(client)
+    aid = r.json()["id"]
+    bad = [{"key": "practice", "kind": "workout", "label": "Practice"}]
+    r = await client.post(f"/challenges/{aid}/rules", json={"rules": bad})
+    assert r.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_custom_restart_preserves_title_and_total_days(client, db):
+    """[CRITICAL — regression] The bug this design doc exists to fix:
+    restart_challenge() previously sourced title/total_days unconditionally
+    from CHALLENGE_INDEX[template_key], which for 'custom' is one shared
+    generic entry — every custom restart silently reset to the placeholder
+    name/duration instead of the original attempt's real values."""
+    r = await _start_custom(client, title="Daily Guitar Practice", total_days=45)
+    aid = r.json()["id"]
+    assert (await client.post(f"/challenges/{aid}/abandon")).status_code == 200
+
+    r2 = await client.post(f"/challenges/{aid}/restart")
+    assert r2.status_code == 201
+    new_id = r2.json()["id"]
+    assert new_id != aid
+
+    async with db.execute(
+        "SELECT title, total_days FROM challenge_attempts WHERE id=?", (new_id,)
+    ) as c:
+        row = await c.fetchone()
+    assert row["title"] == "Daily Guitar Practice"
+    assert row["total_days"] == 45
+
+
+@pytest.mark.asyncio
+async def test_custom_rules_also_carried_on_restart(client, db):
+    r = await _start_custom(client, rules=[
+        {"key": "a", "kind": "manual", "label": "Rule A"},
+        {"key": "b", "kind": "photo", "label": "Rule B"},
+    ])
+    aid = r.json()["id"]
+    await client.post(f"/challenges/{aid}/abandon")
+    r2 = await client.post(f"/challenges/{aid}/restart")
+    new_id = r2.json()["id"]
+    async with db.execute("SELECT rules_json FROM challenge_attempts WHERE id=?", (new_id,)) as c:
+        stored = json.loads((await c.fetchone())["rules_json"])
+    assert [(x["key"], x["kind"]) for x in stored] == [("a", "manual"), ("b", "photo")]
+
+
+@pytest.mark.asyncio
+async def test_custom_completes_with_total_days_1(client, db):
+    """Edge case + end-to-end premise in one: total_days=1 puts last_day ==
+    start, the tightest boundary for evaluate_attempt()'s grace-window
+    arithmetic (outside voice Issue 8). Ticking the one rule and reaching
+    'completed' also proves the reused generic evaluation engine really
+    does work unmodified for a template with no default rules of its own —
+    this design's core architectural premise, not just an assertion."""
+    today = date.today().isoformat()
+    async with db.execute(
+        "INSERT INTO challenge_attempts(user_id,template_key,title,total_days,status,started_on,rules_json) "
+        "VALUES (1,'custom','1-Day Test',1,'active',?,?)",
+        (today, json.dumps(CUSTOM_RULE)),
+    ) as c:
+        aid = c.lastrowid
+    await db.commit()
+
+    r = await client.post(f"/challenges/{aid}/checkin",
+                           json={"day_date": today, "rule_key": "practice", "done": True})
+    assert r.status_code == 200
+    assert r.json()["status"] == "completed"
+    async with db.execute("SELECT status FROM challenge_attempts WHERE id=?", (aid,)) as c:
+        assert (await c.fetchone())["status"] == "completed"
+
+
+@pytest.mark.asyncio
+async def test_custom_photo_only_rule_completes(client, db):
+    """A custom challenge whose only rule is photo-kind (non-optional,
+    unlike 75 Medium's optional photo) must still evaluate day-completion
+    correctly."""
+    today = date.today().isoformat()
+    photo_rule = [{"key": "photo", "kind": "photo", "label": "Progress photo"}]
+    async with db.execute(
+        "INSERT INTO challenge_attempts(user_id,template_key,title,total_days,status,started_on,rules_json) "
+        "VALUES (1,'custom','Photo Only',1,'active',?,?)",
+        (today, json.dumps(photo_rule)),
+    ) as c:
+        aid = c.lastrowid
+    await db.commit()
+    r = await client.post(f"/challenges/{aid}/checkin",
+                           json={"day_date": today, "rule_key": "photo", "done": True})
+    assert r.status_code == 200
+    assert r.json()["status"] == "completed"
+
+
+@pytest.mark.asyncio
+async def test_custom_attempt_renders_on_detail_page(client, db):
+    """Zero template-specific code paths: a custom attempt must render on
+    the same challenge_detail.html as any preset (day ring, rule taps,
+    calendar grid), reusing evaluate_attempt/day_complete/rule_done
+    entirely unmodified."""
+    r = await _start_custom(client, title="Daily Guitar Practice", total_days=365)
+    aid = r.json()["id"]
+    page = await client.get(f"/challenges/{aid}", headers={"Accept": "text/html"})
+    assert page.status_code == 200
+    assert "Daily Guitar Practice" in page.text
+    assert "Day" in page.text and "of 365" in page.text
+    assert "Practice 20+ min" in page.text
+
+
+@pytest.mark.asyncio
+async def test_custom_rules_not_required_for_non_freeform_start(client):
+    """StartIn's new title/total_days fields are optional, not required —
+    the two existing start flows (75 Hard, 75 Medium) never send them and
+    must not 422 now that the fields exist on the model."""
+    r = await client.post("/challenges", json={"template_key": "75_hard"})
+    assert r.status_code == 201
+    r = await client.post("/challenges", json={"template_key": "75_medium", "rules": CUSTOM_RULE})
+    assert r.status_code == 201

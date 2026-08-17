@@ -12,6 +12,13 @@ Each template is data so new challenges are a config change, not code. A rule's
 
 `optional: True` rules show in the UI but do NOT count toward day-completeness
 or the reset (used for 75 Medium's optional photo).
+
+`is_freeform: True` marks the one template ("custom") that has no fixed
+identity of its own — no default name/total_days/rules. Every check that needs
+to distinguish it from 75 Hard/75 Medium reads this flag explicitly (see
+app/routes/challenges.py) rather than inferring it structurally (e.g. from an
+empty rules list), so a future editable template with its own empty default
+rule set for unrelated reasons can't silently collide with it.
 """
 
 CHALLENGES = [
@@ -44,6 +51,17 @@ CHALLENGES = [
             {"key": "read",     "label": "Read 10 pages", "kind": "manual"},
             {"key": "photo",    "label": "Progress photo", "kind": "photo", "optional": True},
         ],
+    },
+    {
+        "key": "custom",
+        "name": "Build your own",
+        "total_days": 30,
+        "editable": True,
+        "is_freeform": True,
+        "allow_partial": True,
+        "no_fail": True,
+        "tagline": "Track anything, on your own terms.",
+        "rules": [],
     },
 ]
 

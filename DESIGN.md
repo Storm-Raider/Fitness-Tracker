@@ -221,6 +221,31 @@ Minimum height: `38px` (`.btn` base). Primary action buttons use inline `min-hei
 
 Inputs, selects, textareas: `--bg` background, `--border` border, `border-radius: 8px`, `0.875rem` font size. Focus: `border-color: var(--accent)`, `box-shadow: var(--glow)`.
 
+### Segmented toggle
+
+```
+[Tick] [Photo]
+```
+
+Two-state (or more) inline pill toggle for choosing between mutually
+exclusive options in a dense row context — e.g. the challenge rule editor's
+Tick/Photo kind selector (`app/templates/partials/rule_editor.html`). Scaled
+down from `.muscle-pill` (exercises.html's 40px filter pill) to fit tight
+row density rather than reused at filter-pill size.
+
+```css
+.kind-toggle { display: inline-flex; border: 1px solid var(--border);
+  border-radius: var(--radius-xs); overflow: hidden; }
+.kind-toggle button { border: none; font-size: 0.68rem; padding: 0.3rem 0.5rem;
+  cursor: pointer; font-family: inherit; transition: background 0.15s, color 0.15s; }
+.kind-toggle button[aria-pressed="true"] { background: var(--accent-dim); color: var(--accent); }
+.kind-toggle button[aria-pressed="false"] { background: transparent; color: var(--muted); }
+```
+
+Real `<button>` elements with `aria-pressed` reflecting state — not a styled
+`<div onclick>` — for keyboard and screen-reader parity with every other
+interactive control on this list.
+
 ### Stepper group
 
 ```

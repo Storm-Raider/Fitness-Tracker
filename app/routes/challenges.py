@@ -23,10 +23,19 @@ from app.utils.render import templates
 router = APIRouter()
 
 
+MAX_CUSTOM_DAYS = 365
+MAX_TITLE_LEN = 80
+_ALLOWED_FREEFORM_KINDS = {"manual", "photo"}  # "workout" is meaningful only on
+# built-in presets that ship it as a default rule — a freeform (custom)
+# challenge has no workout-data relationship to auto-tick from.
+
+
 class StartIn(BaseModel):
     template_key: str
     start_date: str | None = None    # ISO date; defaults to today when omitted
     rules: list[dict] | None = None  # custom rules for editable challenges
+    title: str | None = None         # required only for is_freeform templates
+    total_days: int | None = None    # required only for is_freeform templates
 
 
 class CheckinIn(BaseModel):
@@ -94,6 +103,7 @@ async def start_challenge(
     if not template:
         raise HTTPException(status_code=404, detail="Unknown challenge")
     uid = current_user["id"]
+    is_freeform = bool(template.get("is_freeform"))
 
     # Validate optional back-dated start.
     if body.start_date is not None:
@@ -105,9 +115,30 @@ async def start_challenge(
             raise HTTPException(status_code=422, detail="start_date cannot be in the future")
     started_on = body.start_date or date.today().isoformat()
 
-    # Validate and store custom rules for editable challenges.
+    # Freeform (custom) templates carry their own title/total_days per attempt —
+    # every other template's identity is fixed, so these fields stay unused there.
+    title = template["name"]
+    total_days = template["total_days"]
+    if is_freeform:
+        title = (body.title or "").strip()
+        if not title or len(title) > MAX_TITLE_LEN:
+            raise HTTPException(
+                status_code=422,
+                detail=f"Title is required and must be 1-{MAX_TITLE_LEN} characters",
+            )
+        if body.total_days is None or not (1 <= body.total_days <= MAX_CUSTOM_DAYS):
+            raise HTTPException(
+                status_code=422,
+                detail=f"total_days is required and must be 1-{MAX_CUSTOM_DAYS}",
+            )
+        total_days = body.total_days
+
+    # Validate and store custom rules for editable challenges. Freeform templates
+    # have no fallback rule list of their own, so rules are hard-required here —
+    # without this, an omitted `rules` field would fall back to the template's
+    # empty default list and every day would read as vacuously complete.
     rules_json = None
-    if body.rules is not None:
+    if is_freeform or body.rules is not None:
         if not template.get("editable"):
             raise HTTPException(status_code=422, detail="This challenge does not support custom rules")
         if not body.rules:
@@ -121,12 +152,17 @@ async def start_challenge(
                 raise HTTPException(status_code=422, detail=f"Duplicate rule key: {r['key']}")
             seen_keys.add(r["key"])
             r.setdefault("kind", "manual")
+            if is_freeform and r["kind"] not in _ALLOWED_FREEFORM_KINDS:
+                raise HTTPException(
+                    status_code=422,
+                    detail=f"Rule kind must be one of {sorted(_ALLOWED_FREEFORM_KINDS)}",
+                )
         rules_json = json.dumps(body.rules)
 
     async with conn.execute(
         """INSERT INTO challenge_attempts(user_id, template_key, title, total_days, started_on, rules_json)
            VALUES (?, ?, ?, ?, ?, ?)""",
-        (uid, template["key"], template["name"], template["total_days"], started_on, rules_json),
+        (uid, template["key"], title, total_days, started_on, rules_json),
     ) as c:
         attempt_id = c.lastrowid
     await conn.commit()
@@ -199,6 +235,7 @@ async def challenge_detail(
         "backfill_days": backfill_days,
         "cells": ch.day_cells(view, today),
         "is_editable": bool(template and template.get("editable")),
+        "is_freeform": bool(template and template.get("is_freeform")),
         "current_rules": template["rules"] if template else [],
         "is_partial_allowed": allow_partial,
         "today_partial_submitted": today_partial_submitted,
@@ -358,6 +395,7 @@ async def update_rules(
         raise HTTPException(status_code=422, detail="This challenge does not support custom rules")
     if not body.rules:
         raise HTTPException(status_code=422, detail="At least one rule is required")
+    is_freeform = bool(template.get("is_freeform"))
     seen_keys: set[str] = set()
     for r in body.rules:
         if not isinstance(r.get("key"), str) or not isinstance(r.get("label"), str) or not r["label"].strip():
@@ -366,6 +404,11 @@ async def update_rules(
             raise HTTPException(status_code=422, detail=f"Duplicate rule key: {r['key']}")
         seen_keys.add(r["key"])
         r.setdefault("kind", "manual")
+        if is_freeform and r["kind"] not in _ALLOWED_FREEFORM_KINDS:
+            raise HTTPException(
+                status_code=422,
+                detail=f"Rule kind must be one of {sorted(_ALLOWED_FREEFORM_KINDS)}",
+            )
     await conn.execute(
         "UPDATE challenge_attempts SET rules_json=? WHERE id=? AND user_id=?",
         (json.dumps(body.rules), attempt_id, uid),
@@ -387,10 +430,20 @@ async def restart_challenge(
     template = CHALLENGE_INDEX.get(row["template_key"])
     if not template:
         raise HTTPException(status_code=404, detail="Unknown challenge template")
+    # Freeform (custom) templates have no fixed title/total_days of their own —
+    # every attempt shares one generic template entry, so restarting must carry
+    # over the ORIGINAL attempt's title/total_days, not the template's unused
+    # placeholder values. Fixed here because this was previously sourced
+    # unconditionally from the template, which is only correct for 75 Hard/75
+    # Medium where every attempt of a template really does share one identity.
+    if template.get("is_freeform"):
+        title, total_days = row["title"], row["total_days"]
+    else:
+        title, total_days = template["name"], template["total_days"]
     async with conn.execute(
         """INSERT INTO challenge_attempts(user_id, template_key, title, total_days, started_on, rules_json)
            VALUES (?, ?, ?, ?, date('now','localtime'), ?)""",
-        (uid, template["key"], template["name"], template["total_days"], row.get("rules_json")),
+        (uid, template["key"], title, total_days, row.get("rules_json")),
     ) as c:
         new_id = c.lastrowid
     await conn.commit()

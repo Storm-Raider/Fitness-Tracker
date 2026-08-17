@@ -1,0 +1,144 @@
+{#
+  Shared challenge rule-row editor — used by both challenges.html (creation
+  time, one editor per editable preset card) and challenge_detail.html
+  (post-creation editing via POST /challenges/{id}/rules). Consolidated from
+  two independently-coded implementations (challenges.html's addRule/
+  collectRules and challenge_detail.html's addEditRow/saveRules) during
+  /plan-eng-review — see the "Custom Challenge Templates" design doc, Issue 3.
+
+  Module boundary (locked in design review, outside voice Issue 6): this
+  module owns row markup, the Tick/Photo kind toggle, and rule-collection
+  logic only. It never makes a network call — each call site keeps owning its
+  own submit lifecycle (challenges.html bundles the collected rules into a
+  caller's POST /challenges body; challenge_detail.html's editor owns its own
+  submit button and POST /challenges/{id}/rules call).
+
+  Invariant (outside voice Issue 7): rows with kind == "workout" never render
+  the kind toggle or a remove control, in any container this module renders
+  into — preserves the pre-existing special-casing for 75 Hard/75 Medium's
+  auto-ticking workout rule across both editors.
+#}
+<script>
+const RuleEditor = (function () {
+  function setToggleButtonState(btn, active) {
+    btn.setAttribute('aria-pressed', active ? 'true' : 'false');
+    btn.style.background = active ? 'var(--accent-dim)' : 'transparent';
+    btn.style.color = active ? 'var(--accent)' : 'var(--muted)';
+  }
+
+  function buildKindToggle(row, activeKind) {
+    const toggle = document.createElement('div');
+    toggle.className = 'kind-toggle';
+    toggle.style.cssText = 'display:inline-flex;border:1px solid var(--border);' +
+      'border-radius:var(--radius-xs);overflow:hidden;flex-shrink:0;';
+    [['manual', 'Tick'], ['photo', 'Photo']].forEach(([kindValue, labelText]) => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.textContent = labelText;
+      btn.dataset.kindOption = kindValue;
+      btn.style.cssText = 'border:none;font-size:0.68rem;padding:0.3rem 0.5rem;' +
+        'cursor:pointer;font-family:inherit;transition:background 0.15s,color 0.15s;';
+      setToggleButtonState(btn, kindValue === activeKind);
+      btn.addEventListener('click', () => {
+        row.dataset.kind = kindValue;
+        toggle.querySelectorAll('button').forEach(b =>
+          setToggleButtonState(b, b.dataset.kindOption === kindValue));
+      });
+      toggle.appendChild(btn);
+    });
+    return toggle;
+  }
+
+  function buildRow(rule, opts) {
+    opts = opts || {};
+    const kind = rule.kind || 'manual';
+    const isWorkout = kind === 'workout';
+    const row = document.createElement('div');
+    row.className = 'rule-row';
+    row.dataset.key = rule.key;
+    row.dataset.kind = kind;
+    // flex-wrap so the row wraps rather than overflows at narrow (mobile) widths.
+    row.style.cssText = 'display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;';
+
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.placeholder = 'Rule description';
+    input.value = rule.label || '';
+    input.style.cssText = 'flex:1;min-width:140px;font-size:0.8rem;padding:0.3rem 0.5rem;' +
+      'background:var(--surface-2);border:1px solid ' + (opts.autofocus ? 'var(--accent)' : 'var(--border)') +
+      ';border-radius:var(--radius-xs);color:var(--text);font-family:inherit;';
+    row.appendChild(input);
+
+    // Workout-lock invariant: never render the kind toggle on this row.
+    if (!isWorkout) {
+      row.appendChild(buildKindToggle(row, kind));
+    }
+
+    if (opts.showOptional) {
+      const label = document.createElement('label');
+      label.style.cssText = 'display:flex;align-items:center;gap:0.25rem;font-size:0.72rem;' +
+        'color:var(--muted);cursor:pointer;white-space:nowrap;margin:0;';
+      const cb = document.createElement('input');
+      cb.type = 'checkbox';
+      cb.checked = !!rule.optional;
+      cb.style.cssText = 'accent-color:var(--accent);width:13px;height:13px;';
+      label.appendChild(cb);
+      label.appendChild(document.createTextNode(' opt'));
+      row.appendChild(label);
+    }
+
+    // Workout-lock invariant: never render a remove control on this row either.
+    if (!isWorkout) {
+      const rm = document.createElement('button');
+      rm.type = 'button';
+      rm.textContent = '✕';
+      rm.setAttribute('aria-label', 'Remove rule');
+      rm.style.cssText = 'background:transparent;border:none;color:var(--muted);cursor:pointer;' +
+        'padding:0.2rem 0.3rem;font-size:0.85rem;line-height:1;border-radius:4px;flex-shrink:0;';
+      rm.addEventListener('mouseover', () => { rm.style.color = 'var(--danger)'; });
+      rm.addEventListener('mouseout', () => { rm.style.color = 'var(--muted)'; });
+      rm.addEventListener('click', () => row.remove());
+      row.appendChild(rm);
+    } else {
+      const spacer = document.createElement('span');
+      spacer.style.cssText = 'width:1.4rem;flex-shrink:0;';
+      row.appendChild(spacer);
+    }
+
+    return row;
+  }
+
+  /** Render `rules` (array of {key, label, kind, optional}) into `container`. */
+  function render(container, rules, opts) {
+    container.innerHTML = '';
+    (rules || []).forEach(r => container.appendChild(buildRow(r, opts)));
+  }
+
+  /** Append one new blank row and focus its label input. */
+  function addRow(container, opts) {
+    opts = Object.assign({ autofocus: true }, opts || {});
+    const idx = container.querySelectorAll('.rule-row').length;
+    const row = buildRow({ key: 'custom_' + idx, label: '', kind: 'manual' }, opts);
+    container.appendChild(row);
+    row.querySelector('input[type=text]').focus();
+    return row;
+  }
+
+  /** Read all rows in `container` back into [{key, label, kind, optional?}]. */
+  function collect(container) {
+    const rows = container.querySelectorAll('.rule-row');
+    return Array.from(rows).map(row => {
+      const out = {
+        key: row.dataset.key,
+        kind: row.dataset.kind,
+        label: row.querySelector('input[type=text]').value.trim(),
+      };
+      const cb = row.querySelector('input[type=checkbox]');
+      if (cb) out.optional = cb.checked;
+      return out;
+    }).filter(r => r.label);
+  }
+
+  return { render, addRow, collect };
+})();
+</script>

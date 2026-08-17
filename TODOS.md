@@ -414,3 +414,17 @@ Request to expand the achievements list beyond the current 24. Needs product dec
 **Depends on:** Nothing. Independent of any other feature.
 
 **Effort:** S — mechanical find-and-replace of the falsy check for a handful of fields, plus a couple of regression tests asserting a saved `0` round-trips as `0` not blank.
+
+---
+
+## TODO-CC-1: Full custom-challenge builder (numeric rule kind + per-attempt strict/forgiving toggle)
+
+**What:** Extend the custom-challenge `rules_json` shape into an envelope (`{rules, no_fail, allow_partial}` instead of a bare array), add `kind="number"` (target + unit, partial-credit-capable — the "Minimum/Stretch" pattern), and let each custom attempt choose 75-Hard-style strict all-or-nothing reset vs. 75-Medium-style forgiving grace, instead of Approach A's hard-coded forgiving-only policy.
+
+**Why:** The 2026-08-16 Custom Challenge Templates design doc (Approach A, "Minimal Wedge") deliberately ships only the tick-based, forgiving-policy subset of this — the original 2026-05-30 Challenges design doc's "Approach C: Rules engine + custom builder" sketch is the full version, and it's been deferred twice now because no concrete use case has demanded the numeric kind or the strict-mode toggle. If a second real use case shows up that's naturally quantity-based (not tick-based), or someone wants a custom challenge with a real reset-to-Day-1 penalty, this is the follow-on.
+
+**Context (surfaced during `/plan-eng-review` of the Custom Challenge Templates design, Issue 4):** by the time this is picked up, Approach A will already have shipped custom `challenge_attempts` rows with `rules_json` as a bare JSON array. Moving to the envelope format means either a permanent format-detection branch in `attempt_rules()` (distinguish old array-shaped rows from new dict-shaped ones, forever) or a one-time data migration over every existing custom attempt row. This is real, non-zero cost — budget for it, don't treat the schema as free to change.
+
+**Depends on:** Approach A shipped and in real use; a second concrete use case that's naturally quantity-based, not tick-based (per that design doc's Open Questions — the first custom-challenge use case, a habit/practice streak, is fully tick-based and doesn't need this).
+
+**Effort:** M/L — bigger diff than Approach A, touches `attempt_rules()`/`rule_done()`/`day_complete()`/`evaluate_attempt()` plus the format migration above.

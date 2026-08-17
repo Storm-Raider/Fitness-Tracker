@@ -19,7 +19,18 @@
 .preset ul { list-style: none; display: flex; flex-wrap: wrap; gap: 0.35rem; margin: 0.3rem 0 0.6rem; }
 .preset li { font-size: 0.72rem; color: var(--muted-hi); background: var(--surface-2); border: 1px solid var(--border);
   border-radius: 20px; padding: 0.2rem 0.6rem; }
+.preset .identity-row { display: flex; gap: 0.5rem; margin: 0.5rem 0 0.75rem; }
+.preset .identity-row input[type=text],
+.preset .identity-row input[type=number] {
+  font-size: 0.8rem; padding: 0.3rem 0.5rem; background: var(--surface-2); border: 1px solid var(--border);
+  border-radius: var(--radius-xs); color: var(--text); font-family: inherit;
+}
+.preset .identity-row .field-label {
+  font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); display: block; margin-bottom: 0.2rem;
+}
 </style>
+
+{% include "partials/rule_editor.html" %}
 
 <div class="page-hd">
   <div>
@@ -55,32 +66,47 @@
 <div class="grid-2" style="gap:1rem;margin-bottom:1.75rem;">
   {% for p in presets %}
   <div class="ch-card preset" id="preset-{{ p.key }}">
+    {% if p.editable and p.is_freeform %}
+    {# Freeform (Custom) template: no fixed name/tagline/duration — the card
+       IS the input surface for those, unlike 75 Hard/75 Medium. #}
+    <h3>Build your own</h3>
+    <div class="tag">Track anything, on your own terms.</div>
+    <div class="identity-row">
+      <div style="flex:2;">
+        <label class="field-label" for="title-{{ p.key }}">Title</label>
+        <input type="text" id="title-{{ p.key }}" placeholder="e.g. Daily Guitar Practice"
+               required minlength="1" maxlength="80" style="width:100%;box-sizing:border-box;">
+      </div>
+      <div style="flex:1;">
+        <label class="field-label" for="days-{{ p.key }}">Days</label>
+        <input type="number" id="days-{{ p.key }}" value="{{ p.total_days }}" min="1" max="365"
+               required style="width:100%;box-sizing:border-box;">
+      </div>
+    </div>
+    <div class="field-label">Rules</div>
+    <div id="rules-{{ p.key }}" data-freeform="true" data-show-optional="false"
+         style="display:flex;flex-direction:column;gap:0.4rem;margin:0.4rem 0 0.75rem;"></div>
+    <button type="button" onclick="addRule('{{ p.key }}')"
+            style="align-self:flex-start;background:transparent;border:1px dashed var(--border);
+                   color:var(--muted);border-radius:var(--radius-xs);cursor:pointer;padding:0.25rem 0.7rem;
+                   font-size:0.78rem;font-family:inherit;margin-bottom:0.75rem;transition:all 0.15s;"
+            onmouseover="this.style.borderColor='var(--border-mid)';this.style.color='var(--text)'"
+            onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">+ Add rule</button>
+    <div style="display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;">
+      <input type="date" id="sd-{{ p.key }}" value="{{ today_iso }}" max="{{ today_iso }}"
+             style="font-size:0.8rem;padding:0.3rem 0.5rem;background:var(--surface-2);border:1px solid var(--border);border-radius:var(--radius-xs);color:var(--text);font-family:inherit;">
+      <button class="btn btn-primary" id="start-btn-{{ p.key }}"
+              onclick="startEditableChallenge('{{ p.key }}', null, this)">
+        Start {{ p.total_days }} days
+      </button>
+    </div>
+
+    {% elif p.editable %}
     <h3>{{ p.name }}</h3>
     <div class="tag">{{ p.tagline }}</div>
-
-    {% if p.editable %}
-    {# Inline rule editor for editable challenges #}
-    <div id="rules-{{ p.key }}" style="display:flex;flex-direction:column;gap:0.4rem;margin:0.5rem 0 0.75rem;">
-      {% for r in p.rules %}
-      <div class="rule-row" data-key="{{ r.key }}" data-kind="{{ r.kind }}" data-optional="{{ 'true' if r.optional else 'false' }}"
-           style="display:flex;align-items:center;gap:0.5rem;">
-        <input type="text" value="{{ r.label }}" placeholder="Rule description"
-               style="flex:1;font-size:0.8rem;padding:0.3rem 0.5rem;background:var(--surface-2);
-                      border:1px solid var(--border);border-radius:var(--radius-xs);color:var(--text);font-family:inherit;">
-        <label style="display:flex;align-items:center;gap:0.25rem;font-size:0.72rem;color:var(--muted);cursor:pointer;white-space:nowrap;margin:0;">
-          <input type="checkbox" {% if r.optional %}checked{% endif %} style="accent-color:var(--accent);width:13px;height:13px;"> opt
-        </label>
-        {% if not r.kind == 'workout' %}
-        <button type="button" onclick="removeRule(this)"
-                style="background:transparent;border:none;color:var(--muted);cursor:pointer;padding:0.2rem 0.3rem;
-                       font-size:0.85rem;line-height:1;border-radius:4px;flex-shrink:0;"
-                onmouseover="this.style.color='var(--danger)'" onmouseout="this.style.color='var(--muted)'">✕</button>
-        {% else %}
-        <span style="width:1.4rem;flex-shrink:0;"></span>{# spacer to align non-removable workout row #}
-        {% endif %}
-      </div>
-      {% endfor %}
-    </div>
+    {# Inline rule editor for editable-but-not-freeform challenges (75 Medium) #}
+    <div id="rules-{{ p.key }}" data-freeform="false" data-show-optional="true"
+         style="display:flex;flex-direction:column;gap:0.4rem;margin:0.5rem 0 0.75rem;"></div>
     <button type="button" onclick="addRule('{{ p.key }}')"
             style="align-self:flex-start;background:transparent;border:1px dashed var(--border);
                    color:var(--muted);border-radius:var(--radius-xs);cursor:pointer;padding:0.25rem 0.7rem;
@@ -97,6 +123,8 @@
     </div>
 
     {% else %}
+    <h3>{{ p.name }}</h3>
+    <div class="tag">{{ p.tagline }}</div>
     {# Static rule list for non-editable challenges #}
     <ul>
       {% for r in p.rules %}<li>{{ r.label }}{% if r.optional %} (optional){% endif %}</li>{% endfor %}
@@ -133,6 +161,30 @@
 {% endif %}
 
 <script>
+// Server-rendered default rules for editable-but-not-freeform presets (75
+// Medium today). Embedded as a JS literal, not an HTML attribute, per the
+// app's established `| tojson` pattern (see journal.html, plan.html) —
+// avoids the quote-collision class of bug that hit onclick attributes
+// elsewhere in this app.
+const PRESET_RULES = {
+  {% for p in presets %}{% if p.editable and not p.is_freeform %}"{{ p.key }}": {{ p.rules | tojson }},
+  {% endif %}{% endfor %}
+};
+
+document.addEventListener('DOMContentLoaded', function () {
+  document.querySelectorAll('[id^="rules-"]').forEach(function (container) {
+    const key = container.id.slice('rules-'.length);
+    const isFreeform = container.dataset.freeform === 'true';
+    const showOptional = container.dataset.showOptional === 'true';
+    // Freeform templates have no default rules — pre-seed one blank row so
+    // the card is never rendered with a "blank gap" before the user's first
+    // "+ Add rule" click (also matches the hard-required-rules validation,
+    // which already needs >= 1 rule).
+    const rules = isFreeform ? [{ key: 'custom_0', label: '', kind: 'manual' }] : (PRESET_RULES[key] || []);
+    RuleEditor.render(container, rules, { showOptional: showOptional });
+  });
+});
+
 async function startChallenge(key, btn) {
   btn.disabled = true;
   const body = {template_key: key};
@@ -147,21 +199,28 @@ async function startChallenge(key, btn) {
 }
 
 function collectRules(key) {
-  const container = document.getElementById('rules-' + key);
-  const rows = container.querySelectorAll('.rule-row');
-  return Array.from(rows).map((row, i) => ({
-    key: row.dataset.key,
-    kind: row.dataset.kind,
-    label: row.querySelector('input[type=text]').value.trim(),
-    optional: row.querySelector('input[type=checkbox]').checked,
-  })).filter(r => r.label);
+  return RuleEditor.collect(document.getElementById('rules-' + key));
 }
 
-async function startEditableChallenge(key, days, btn) {
+async function startEditableChallenge(key, _days, btn) {
+  const container = document.getElementById('rules-' + key);
+  const isFreeform = container?.dataset.freeform === 'true';
+  let title, totalDays;
+  if (isFreeform) {
+    const titleInput = document.getElementById('title-' + key);
+    const daysInput = document.getElementById('days-' + key);
+    // Native browser validation (required/minlength/maxlength/min/max on the
+    // inputs) — reportValidity() surfaces the browser's own inline bubble
+    // and returns false without submitting if either field is invalid.
+    if (!titleInput.reportValidity() || !daysInput.reportValidity()) return;
+    title = titleInput.value.trim();
+    totalDays = parseInt(daysInput.value, 10);
+  }
   const rules = collectRules(key);
   if (!rules.length) { alert('Add at least one rule.'); return; }
   btn.disabled = true;
   const body = {template_key: key, rules};
+  if (isFreeform) { body.title = title; body.total_days = totalDays; }
   const sd = document.getElementById('sd-' + key)?.value;
   if (sd) body.start_date = sd;
   const r = await fetch('/challenges', {
@@ -174,30 +233,17 @@ async function startEditableChallenge(key, days, btn) {
 
 function addRule(key) {
   const container = document.getElementById('rules-' + key);
-  const idx = container.querySelectorAll('.rule-row').length;
-  const row = document.createElement('div');
-  row.className = 'rule-row';
-  row.dataset.key = 'custom_' + idx;
-  row.dataset.kind = 'manual';
-  row.dataset.optional = 'false';
-  row.style.cssText = 'display:flex;align-items:center;gap:0.5rem;';
-  row.innerHTML = `
-    <input type="text" placeholder="Rule description" autofocus
-           style="flex:1;font-size:0.8rem;padding:0.3rem 0.5rem;background:var(--surface-2);
-                  border:1px solid var(--accent);border-radius:var(--radius-xs);color:var(--text);font-family:inherit;">
-    <label style="display:flex;align-items:center;gap:0.25rem;font-size:0.72rem;color:var(--muted);cursor:pointer;white-space:nowrap;margin:0;">
-      <input type="checkbox" style="accent-color:var(--accent);width:13px;height:13px;"> opt
-    </label>
-    <button type="button" onclick="removeRule(this)"
-            style="background:transparent;border:none;color:var(--muted);cursor:pointer;padding:0.2rem 0.3rem;
-                   font-size:0.85rem;line-height:1;border-radius:4px;flex-shrink:0;"
-            onmouseover="this.style.color='var(--danger)'" onmouseout="this.style.color='var(--muted)'">✕</button>`;
-  container.appendChild(row);
-  row.querySelector('input[type=text]').focus();
+  RuleEditor.addRow(container, { showOptional: container.dataset.showOptional === 'true' });
 }
 
-function removeRule(btn) {
-  btn.closest('.rule-row').remove();
-}
+// Live-update the Custom card's "Start N days" button label as the duration
+// input changes — no server round-trip, matches the key-interaction spec in
+// the eng-review test plan.
+document.addEventListener('input', function (e) {
+  if (!e.target.matches('input[type=number][id^="days-"]')) return;
+  const key = e.target.id.slice('days-'.length);
+  const btn = document.getElementById('start-btn-' + key);
+  if (btn) btn.textContent = 'Start ' + (e.target.value || '0') + ' days';
+});
 </script>
 {% endblock %}
