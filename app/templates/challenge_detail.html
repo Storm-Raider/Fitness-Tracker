@@ -35,6 +35,8 @@
 .photo-thumb { width: 64px; height: 64px; object-fit: cover; border-radius: var(--radius-xs); border: 1px solid var(--border); }
 </style>
 
+{% include "partials/rule_editor.html" %}
+
 <div class="page-hd">
   <div>
     <h1 style="display:flex;align-items:center;gap:0.6rem;">
@@ -198,29 +200,14 @@
     {% endfor %}
   </div>
 
-  {# Edit form (hidden until Edit is clicked) #}
+  {# Edit form (hidden until Edit is clicked) — rows are JS-rendered by
+     RuleEditor from CURRENT_RULES below, not Jinja-looped, so this editor
+     shares the exact same row markup/kind-toggle/workout-lock behavior as
+     the creation-time editor in challenges.html. #}
   <div id="rules-edit-form" style="display:none;">
-    <div id="rules-edit-list" style="display:flex;flex-direction:column;gap:0.4rem;margin-bottom:0.6rem;">
-      {% for r in current_rules %}
-      <div class="rule-edit-row" data-key="{{ r.key }}" data-kind="{{ r.kind }}"
-           style="display:flex;align-items:center;gap:0.5rem;">
-        <input type="text" value="{{ r.label }}"
-               style="flex:1;font-size:0.8rem;padding:0.3rem 0.5rem;background:var(--surface-2);
-                      border:1px solid var(--border);border-radius:var(--radius-xs);color:var(--text);font-family:inherit;">
-        <label style="display:flex;align-items:center;gap:0.25rem;font-size:0.72rem;color:var(--muted);cursor:pointer;white-space:nowrap;margin:0;">
-          <input type="checkbox" {% if r.optional %}checked{% endif %} style="accent-color:var(--accent);width:13px;height:13px;"> opt
-        </label>
-        {% if r.kind != 'workout' %}
-        <button type="button" onclick="removeEditRow(this)"
-                style="background:transparent;border:none;color:var(--muted);cursor:pointer;padding:0.2rem 0.3rem;
-                       font-size:0.85rem;line-height:1;border-radius:4px;flex-shrink:0;"
-                onmouseover="this.style.color='var(--danger)'" onmouseout="this.style.color='var(--muted)'">✕</button>
-        {% else %}
-        <span style="width:1.4rem;flex-shrink:0;"></span>
-        {% endif %}
-      </div>
-      {% endfor %}
-    </div>
+    <div id="rules-edit-list" data-freeform="{{ 'true' if is_freeform else 'false' }}"
+         data-show-optional="{{ 'false' if is_freeform else 'true' }}"
+         style="display:flex;flex-direction:column;gap:0.4rem;margin-bottom:0.6rem;"></div>
     <div style="display:flex;gap:0.5rem;flex-wrap:wrap;align-items:center;">
       <button type="button" onclick="addEditRow()"
               style="background:transparent;border:1px dashed var(--border);color:var(--muted);
@@ -407,37 +394,23 @@ function cancelRulesEdit() {
   document.getElementById('rules-readonly').style.display = '';
   document.getElementById('rules-edit-btn').textContent = 'Edit';
 }
+// Current effective rules for this attempt (custom overrides already merged
+// server-side) — embedded as a JS literal, not an HTML attribute, matching
+// the app's established `| tojson` pattern.
+const CURRENT_RULES = {{ current_rules | tojson }};
+
+document.addEventListener('DOMContentLoaded', function () {
+  const list = document.getElementById('rules-edit-list');
+  if (!list) return;  // not editable — nothing to render
+  RuleEditor.render(list, CURRENT_RULES, { showOptional: list.dataset.showOptional === 'true' });
+});
+
 function addEditRow() {
   const list = document.getElementById('rules-edit-list');
-  const idx = list.querySelectorAll('.rule-edit-row').length;
-  const row = document.createElement('div');
-  row.className = 'rule-edit-row';
-  row.dataset.key = 'custom_' + idx;
-  row.dataset.kind = 'manual';
-  row.style.cssText = 'display:flex;align-items:center;gap:0.5rem;';
-  row.innerHTML = `
-    <input type="text" placeholder="Rule description" autofocus
-           style="flex:1;font-size:0.8rem;padding:0.3rem 0.5rem;background:var(--surface-2);
-                  border:1px solid var(--accent);border-radius:var(--radius-xs);color:var(--text);font-family:inherit;">
-    <label style="display:flex;align-items:center;gap:0.25rem;font-size:0.72rem;color:var(--muted);cursor:pointer;white-space:nowrap;margin:0;">
-      <input type="checkbox" style="accent-color:var(--accent);width:13px;height:13px;"> opt
-    </label>
-    <button type="button" onclick="removeEditRow(this)"
-            style="background:transparent;border:none;color:var(--muted);cursor:pointer;padding:0.2rem 0.3rem;
-                   font-size:0.85rem;line-height:1;border-radius:4px;flex-shrink:0;"
-            onmouseover="this.style.color='var(--danger)'" onmouseout="this.style.color='var(--muted)'">✕</button>`;
-  list.appendChild(row);
-  row.querySelector('input[type=text]').focus();
+  RuleEditor.addRow(list, { showOptional: list.dataset.showOptional === 'true' });
 }
-function removeEditRow(btn) { btn.closest('.rule-edit-row').remove(); }
 async function saveRules(btn) {
-  const rows = document.querySelectorAll('#rules-edit-list .rule-edit-row');
-  const rules = Array.from(rows).map(row => ({
-    key: row.dataset.key,
-    kind: row.dataset.kind,
-    label: row.querySelector('input[type=text]').value.trim(),
-    optional: row.querySelector('input[type=checkbox]').checked,
-  })).filter(r => r.label);
+  const rules = RuleEditor.collect(document.getElementById('rules-edit-list'));
   if (!rules.length) { alert('Add at least one rule.'); return; }
   btn.disabled = true;
   const r = await fetch('/challenges/' + ATTEMPT_ID + '/rules', {
