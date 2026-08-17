@@ -281,6 +281,67 @@ async def test_prompt_includes_split_and_prescription(db):
     assert "PROGRESSION" in prompt
 
 
+# ── Prompt actually carries the athlete's comments/RPE/journal signal ─────
+
+def _base_profile(**overrides):
+    profile = {
+        "total_workouts": 10, "last_day": "2026-08-15", "sessions_per_week": 3,
+        "top_exercises": [], "top_lifts": [], "avg_weekly_sets": {}, "undertrained": [],
+        "preferred_equipment": [], "muscle_recovery": {}, "stalled": [],
+        "bodyweight_kg": None, "avg_session_minutes": None, "exercise_goals": [],
+        "last_plan_feedback": None, "recent_set_notes": [], "high_effort_lifts": [],
+        "low_effort_lifts": [], "wellness": {}, "injury_flags": [],
+    }
+    profile.update(overrides)
+    return profile
+
+
+@pytest.mark.asyncio
+async def test_prompt_surfaces_injury_flags_as_non_negotiable(db):
+    catalog = await coach._exercise_catalog(db, uid=1)
+    profile = _base_profile(injury_flags=[
+        {"text": "tweaked my knee on the descent", "exercise": "Back Squat", "days_ago": 1},
+    ])
+    prompt = coach._build_prompt("strength", 3, profile, catalog, "")
+    assert "ATHLETE FLAGGED PAIN/DISCOMFORT" in prompt
+    assert "tweaked my knee on the descent" in prompt
+    assert "NON-NEGOTIABLE" in prompt
+    assert "RESPECT FLAGGED PAIN" in prompt
+
+
+@pytest.mark.asyncio
+async def test_prompt_surfaces_rpe_trend_and_wellness(db):
+    catalog = await coach._exercise_catalog(db, uid=1)
+    profile = _base_profile(
+        high_effort_lifts=[{"name": "Back Squat", "avg_rpe": 9.0, "n": 2}],
+        low_effort_lifts=[{"name": "Barbell Curl", "avg_rpe": 4.5, "n": 2}],
+        wellness={"avg_sleep_hrs": 5.0, "low_energy_days": 3, "low_motivation_days": 2, "recent_notes": []},
+    )
+    prompt = coach._build_prompt("hypertrophy", 3, profile, catalog, "")
+    assert "HIGH EFFORT" in prompt and "Back Squat" in prompt
+    assert "LOW EFFORT" in prompt and "Barbell Curl" in prompt
+    assert "RECENT WELLNESS" in prompt
+    assert "avg sleep 5.0h/night" in prompt
+    assert "AUTOREGULATE" in prompt
+
+
+@pytest.mark.asyncio
+async def test_prompt_surfaces_recent_workout_and_journal_comments(db):
+    catalog = await coach._exercise_catalog(db, uid=1)
+    profile = _base_profile(
+        recent_set_notes=[{"name": "Bench Press", "notes": "felt strong today", "days_ago": 2}],
+        wellness={"recent_notes": [{"date": "2026-08-15", "note": "slept badly, low energy"}]},
+    )
+    prompt = coach._build_prompt("general", 3, profile, catalog, "")
+    assert "Bench Press: \"felt strong today\"" in prompt
+    assert "slept badly, low energy" in prompt
+
+
+def test_system_prompt_instructs_use_of_athlete_comments():
+    assert "ATHLETE'S OWN WORDS" in coach._SYSTEM_PROMPT
+    assert "Never program through flagged pain" in coach._SYSTEM_PROMPT
+
+
 # ── Queue system ─────────────────────────────────────────────────────────────
 
 @pytest.mark.asyncio

@@ -16,9 +16,22 @@ import aiosqlite
 _PROFILE_CACHE: dict[int, tuple[dict, float]] = {}
 _PROFILE_TTL = 1800.0
 
+# Informal ways athletes flag pain/injury in a free-text note or journal entry.
+# Deliberately excludes bare "sore" — normal DOMS from training is routinely
+# described that way and would false-positive on nearly every logged set.
+_PAIN_KEYWORDS = (
+    "pain", "hurt", "injur", "twinge", "strain", "sprain", "tweak",
+    "numb", "pinch", "popped", "pulled",
+)
+
 
 def invalidate_profile(uid: int) -> None:
     _PROFILE_CACHE.pop(uid, None)
+
+
+def _has_pain_flag(text: str) -> bool:
+    t = text.lower()
+    return any(k in t for k in _PAIN_KEYWORDS)
 
 
 async def build_profile(conn: aiosqlite.Connection, uid: int) -> dict:
@@ -241,6 +254,82 @@ async def build_profile(conn: aiosqlite.Connection, uid: int) -> dict:
         fb_row = await cur.fetchone()
     last_plan_feedback = fb_row["feedback"] if fb_row else None
 
+    # Recent per-set comments — the athlete's own in-the-moment notes (form
+    # cues, how a lift felt, pain). Previously never read by the coach at all.
+    async with conn.execute(
+        """
+        SELECT e.name, s.notes,
+               CAST(julianday('now','localtime') -
+                    julianday(DATE(w.started_at,'localtime')) AS INTEGER) AS days_ago
+        FROM sets s
+        JOIN exercises e ON e.id = s.exercise_id
+        JOIN workouts w ON w.id = s.workout_id
+        WHERE s.user_id = ? AND s.notes IS NOT NULL AND TRIM(s.notes) != ''
+          AND DATE(w.started_at) >= DATE('now', '-30 days')
+        ORDER BY w.started_at DESC
+        LIMIT 10
+        """,
+        (uid,),
+    ) as cur:
+        recent_set_notes = [dict(r) for r in await cur.fetchall()]
+
+    # RPE trend (last 14 days) per exercise with at least 2 rated sets —
+    # autoregulation signal the coach previously ignored entirely.
+    async with conn.execute(
+        """
+        SELECT e.name, ROUND(AVG(s.rpe), 1) AS avg_rpe, COUNT(*) AS n
+        FROM sets s
+        JOIN exercises e ON e.id = s.exercise_id
+        JOIN workouts w ON w.id = s.workout_id
+        WHERE s.user_id = ? AND s.rpe IS NOT NULL
+          AND DATE(w.started_at) >= DATE('now', '-14 days')
+        GROUP BY s.exercise_id
+        HAVING COUNT(*) >= 2
+        ORDER BY avg_rpe DESC
+        """,
+        (uid,),
+    ) as cur:
+        rpe_rows = [dict(r) for r in await cur.fetchall()]
+    high_effort_lifts = [r for r in rpe_rows if r["avg_rpe"] >= 8.5][:5]
+    low_effort_lifts = [r for r in rpe_rows if r["avg_rpe"] <= 5.5][:5]
+
+    # Journal (daily_logs) wellness signal — energy, motivation, sleep, and
+    # free-text notes the athlete wrote about how they're actually doing.
+    async with conn.execute(
+        """
+        SELECT log_date, energy, motivation, sleep_hrs, notes
+        FROM daily_logs
+        WHERE user_id = ? AND log_date >= DATE('now', '-14 days')
+        ORDER BY log_date DESC
+        """,
+        (uid,),
+    ) as cur:
+        journal_rows = [dict(r) for r in await cur.fetchall()]
+
+    sleep_vals = [r["sleep_hrs"] for r in journal_rows if r["sleep_hrs"]]
+    recent_journal_notes = [
+        {"date": r["log_date"], "note": r["notes"]}
+        for r in journal_rows if r["notes"] and r["notes"].strip()
+    ][:5]
+    wellness = {
+        "avg_sleep_hrs": round(sum(sleep_vals) / len(sleep_vals), 1) if sleep_vals else None,
+        "low_energy_days": sum(1 for r in journal_rows if r["energy"] == "low"),
+        "low_motivation_days": sum(1 for r in journal_rows if r["motivation"] == "low"),
+        "recent_notes": recent_journal_notes,
+    }
+
+    # Pain/injury flags — scanned from the two comment sources above (set
+    # notes + journal notes). Surfaced separately and prominently in the
+    # prompt since this is a safety constraint, not just personalization.
+    injury_flags: list[dict] = []
+    for n in recent_set_notes:
+        if _has_pain_flag(n["notes"]):
+            injury_flags.append({"text": n["notes"].strip(), "exercise": n["name"], "days_ago": n["days_ago"]})
+    for n in recent_journal_notes:
+        if _has_pain_flag(n["note"]):
+            injury_flags.append({"text": n["note"].strip(), "exercise": None, "days_ago": None})
+    injury_flags = injury_flags[:5]
+
     profile = {
         "total_workouts": freq["n"],
         "first_day": freq["first_day"],
@@ -258,6 +347,11 @@ async def build_profile(conn: aiosqlite.Connection, uid: int) -> dict:
         "muscle_recovery": muscle_recovery,
         "stalled": stalled,
         "last_plan_feedback": last_plan_feedback,
+        "recent_set_notes": recent_set_notes,
+        "high_effort_lifts": high_effort_lifts,
+        "low_effort_lifts": low_effort_lifts,
+        "wellness": wellness,
+        "injury_flags": injury_flags,
     }
     _PROFILE_CACHE[uid] = (profile, time.monotonic())
     return profile

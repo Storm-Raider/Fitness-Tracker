@@ -344,6 +344,19 @@ def _build_prompt(goal: str, days: int, profile: dict, catalog: dict, focus_note
     fb = profile.get("last_plan_feedback")
     if fb and fb in _fb_map:
         lines.append(f"FEEDBACK ON LAST PLAN: {_fb_map[fb]}")
+
+    # Pain/injury flags — placed early and treated as non-negotiable, not
+    # buried in the general profile, since a small model attends best to
+    # instructions near the top and this is a safety constraint.
+    if profile.get("injury_flags"):
+        flagged = "; ".join(
+            f"\"{f['text']}\"" + (f" (during {f['exercise']})" if f.get("exercise") else " (journal)")
+            for f in profile["injury_flags"]
+        )
+        lines.append(
+            "ATHLETE FLAGGED PAIN/DISCOMFORT — NON-NEGOTIABLE, avoid or substitute any "
+            f"movement that loads the affected area: {flagged}."
+        )
     lines.append("")
 
     # ── Athlete profile ───────────────────────────────────────────────
@@ -435,6 +448,46 @@ def _build_prompt(goal: str, days: int, profile: dict, catalog: dict, focus_note
             f"- Average session length: {asm} min → target ~{ex_count} exercises per session."
         )
 
+    # RPE trend (last 14 days) — autoregulation signal from the athlete's own
+    # effort ratings, not just weight/rep numbers.
+    if profile.get("high_effort_lifts"):
+        parts = [f"{l['name']} (avg RPE {l['avg_rpe']})" for l in profile["high_effort_lifts"]]
+        lines.append(
+            "- HIGH EFFORT — near failure the last 2 weeks, hold load or consider a deload: "
+            + ", ".join(parts) + "."
+        )
+    if profile.get("low_effort_lifts"):
+        parts = [f"{l['name']} (avg RPE {l['avg_rpe']})" for l in profile["low_effort_lifts"]]
+        lines.append(
+            "- LOW EFFORT — reps have felt easy the last 2 weeks, room to add load: "
+            + ", ".join(parts) + "."
+        )
+
+    # Journal wellness — sleep/energy/motivation the athlete logged, and any
+    # recent free-text comments. Previously invisible to the coach entirely.
+    wellness = profile.get("wellness") or {}
+    if wellness.get("avg_sleep_hrs") is not None or wellness.get("low_energy_days") or wellness.get("low_motivation_days"):
+        bits = []
+        if wellness.get("avg_sleep_hrs") is not None:
+            bits.append(f"avg sleep {wellness['avg_sleep_hrs']}h/night")
+        if wellness.get("low_energy_days"):
+            bits.append(f"{wellness['low_energy_days']} low-energy day(s) logged")
+        if wellness.get("low_motivation_days"):
+            bits.append(f"{wellness['low_motivation_days']} low-motivation day(s) logged")
+        lines.append(
+            "- RECENT WELLNESS (journal, last 14 days): " + ", ".join(bits)
+            + ". If energy/sleep is trending low, favour moderate volume over a big jump in load."
+        )
+    if wellness.get("recent_notes"):
+        notes = "; ".join(f"\"{n['note']}\" ({n['date']})" for n in wellness["recent_notes"][:3])
+        lines.append(f"- Athlete's recent journal comments: {notes}.")
+
+    if profile.get("recent_set_notes"):
+        notes = "; ".join(
+            f"{n['name']}: \"{n['notes']}\" ({n['days_ago']}d ago)" for n in profile["recent_set_notes"][:5]
+        )
+        lines.append(f"- Athlete's recent workout comments: {notes}.")
+
     # User-set strength targets — plan should progress toward these
     goals_list = profile.get("exercise_goals") or []
     if goals_list:
@@ -482,7 +535,13 @@ def _build_prompt(goal: str, days: int, profile: dict, catalog: dict, focus_note
         "10. EXACT NAMES. Use only exercise names from the ALLOWED list, spelled exactly.\n"
         f"11. VARIETY. No two days may be near-copies of each other, and no exercise may "
         f"appear on more than {_max_weekly_repeats(days)} day(s) in the week. Rotate "
-        "variations instead (e.g. Bench Press one day, Incline Dumbbell Press another)."
+        "variations instead (e.g. Bench Press one day, Incline Dumbbell Press another).\n"
+        "12. RESPECT FLAGGED PAIN. If the athlete has flagged pain/discomfort above, do not "
+        "program any movement that loads that area — substitute a comparable movement from "
+        "the ALLOWED list that avoids it.\n"
+        "13. AUTOREGULATE. A lift marked HIGH EFFORT keeps its load or backs off slightly; "
+        "a lift marked LOW EFFORT gets a load increase. If recent wellness shows low energy, "
+        "low motivation, or short sleep, favour moderate volume this week over an aggressive jump."
     )
     return "\n".join(lines)
 
@@ -507,6 +566,9 @@ _SYSTEM_PROMPT = (
     "- VOLUME BALANCE: target 10–20 hard sets per primary muscle per week; "
     "undertrained muscles receive proportionally more work.\n"
     "- PROVEN SPLITS: Full Body, Upper/Lower, Push/Pull/Legs only.\n"
+    "- ATHLETE'S OWN WORDS: the athlete's flagged pain, RPE trend, and journal wellness "
+    "notes are real signal, not noise. Never program through flagged pain. Autoregulate "
+    "load from RPE and back off volume when recent wellness is trending low.\n"
     "- VARIETY: every day in the week must be distinct — never return two days "
     "with the same exercise list, and rotate movement variations across the week "
     "rather than repeating one exercise on most days.\n\n"
