@@ -19,6 +19,7 @@ import asyncio
 import json
 import logging
 import os
+import re
 import time as _time
 import uuid
 
@@ -510,7 +511,10 @@ def _build_prompt(goal: str, days: int, profile: dict, catalog: dict, focus_note
     lines.append("")
 
     # ── Exercise catalog ──────────────────────────────────────────────
-    lines.append("ALLOWED EXERCISES — use EXACT names from this list, grouped by Category/Muscle:")
+    lines.append(
+        "ALLOWED EXERCISES — use EXACT names from this list, grouped by Category/Muscle. "
+        "Write the name only, without the [equipment] tag:"
+    )
     for cat, muscle_map in catalog.items():
         for muscle, exercise_labels in muscle_map.items():
             lines.append(f"  {cat}/{muscle}: {', '.join(exercise_labels)}")
@@ -629,6 +633,11 @@ async def _name_to_id_map(conn: aiosqlite.Connection) -> tuple[dict[str, dict], 
     return _NAME_MAP_CACHE
 
 
+# The prompt lists exercises as "Name [Equipment]". Models sometimes copy the whole
+# label, so strip a trailing [tag] before resolving a name.
+_EQUIPMENT_TAG = re.compile(r"\s*\[[^\]]*\]\s*$")
+
+
 def _normalise_plan(raw: dict, goal: str, days: int, name_map: dict, norm_map: dict | None = None) -> tuple[dict, list[str]]:
     """
     Coerce the model's output into our shape, resolve exercise names to real
@@ -641,7 +650,7 @@ def _normalise_plan(raw: dict, goal: str, days: int, name_map: dict, norm_map: d
     for day in (raw.get("days") or [])[:days]:
         exercises = []
         for ex in (day.get("exercises") or []):
-            name = str(ex.get("name", "")).strip()
+            name = _EQUIPMENT_TAG.sub("", str(ex.get("name", "")).strip()).strip()
             match = name_map.get(name.lower())
             if not match and name:
                 # Recover common model errors without risking false-positive fuzzy matches:

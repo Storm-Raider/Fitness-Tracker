@@ -660,3 +660,30 @@ async def test_spec_generation_uses_same_temperature_as_primary_path(client, db,
 
     assert len(temps_seen) >= 2, "speculative generation never ran"
     assert temps_seen[0] == temps_seen[1] == 0.2
+
+
+# ── Equipment-tagged names (the prompt lists "Bench Press [Barbell]") ───
+
+@pytest.mark.asyncio
+async def test_normalise_plan_accepts_names_copied_with_equipment_tag(db):
+    """The prompt's ALLOWED list labels exercises "Name [Equipment]". With the
+    schema enum gone (Gemini rejects catalog-sized enums), the model copies the
+    label verbatim — a live generation had 18/18 names dropped this way. The
+    trailing [tag] must not stop a name from resolving."""
+    name_map, norm_map = await coach._name_to_id_map(db)
+    raw = {"title": "T", "summary": "", "days": [{"focus": "Push", "exercises": [
+        {"name": "Bench Press [Barbell]", "sets": 4, "reps": "8"},
+        {"name": "back squat [Barbell]  ", "sets": 4, "reps": "5"},   # case + whitespace
+        {"name": "Totally Fake Lift [Cable]", "sets": 3, "reps": "10"},
+    ]}]}
+    plan, dropped = coach._normalise_plan(raw, "strength", 1, name_map, norm_map)
+    assert [e["name"] for e in plan["days"][0]["exercises"]] == ["Bench Press", "Back Squat"]
+    assert dropped == ["Totally Fake Lift"]   # reported without the tag
+
+
+@pytest.mark.asyncio
+async def test_prompt_tells_model_to_write_the_name_without_the_equipment_tag(db):
+    profile = await coach.build_profile(db, uid=1)
+    catalog = await coach._exercise_catalog(db, uid=1)
+    prompt = coach._build_prompt("strength", 3, profile, catalog, "")
+    assert "without the [equipment] tag" in prompt
