@@ -521,9 +521,9 @@ def test_system_prompt_example_uses_unresolvable_exercise_names():
     """The example's exercises must not be real catalog entries — a real
     generation reused the OLD example's real names (Bench Press, Overhead
     Press, ...) verbatim, sets/reps/notes included, for an athlete with weak
-    personalization signal for that muscle group. Since exercise `name` is
-    enum-constrained to the real per-request catalog, an unresolvable
-    placeholder like "Exercise A" can never be copied into real output."""
+    personalization signal for that muscle group. An unresolvable placeholder
+    like "Exercise A" that does get copied is dropped by _normalise_plan() (it
+    isn't in the exercise library) and triggers the dropped-names retry."""
     for real_name in ("Bench Press", "Overhead Press", "Incline Dumbbell Press",
                        "Lateral Raise", "Tricep Pushdown"):
         assert f'"name": "{real_name}"' not in coach._SYSTEM_PROMPT
@@ -558,8 +558,21 @@ def test_quality_issues_ignores_a_single_generic_phrase():
 
 # ── Schema tightening (token-budget on a ~5 tok/s Pi) ──────────────────
 
+def test_schema_name_is_a_plain_string_not_an_enum():
+    """Gemini rejects the schema (HTTP 400 "invalid argument") once an enum has
+    more than a few dozen values — verified live: 10 names OK, 40+ fail, even
+    with every other constraint stripped. The real catalog has ~170 names, so
+    names are constrained by the prompt's ALLOWED list and validated afterwards
+    by _normalise_plan() instead. Reintroducing a catalog-sized enum here would
+    make every generation fail."""
+    schema = coach._plan_schema(3)
+    ex = schema["properties"]["days"]["items"]["properties"]["exercises"]["items"]
+    assert ex["properties"]["name"] == {"type": "string"}
+    assert "enum" not in json.dumps(schema)
+
+
 def test_schema_caps_free_text_fields_to_save_output_tokens():
-    schema = coach._plan_schema(3, allowed_names=["Bench Press"])
+    schema = coach._plan_schema(3)
     assert schema["additionalProperties"] is False
     assert schema["properties"]["title"]["maxLength"] == 60
     assert schema["properties"]["summary"]["maxLength"] == 200

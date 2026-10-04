@@ -142,13 +142,14 @@ _PRIORITY_EXERCISES = [
 # (minItems == maxItems == days) and a minimum exercises-per-day pushes the
 # small model toward a complete plan rather than stopping after one or two
 # movements, while keeping output deterministic to parse.
-def _plan_schema(
-    days: int, min_ex: int = 6, max_ex: int = 8,
-    allowed_names: list[str] | None = None,
-) -> dict:
+def _plan_schema(days: int, min_ex: int = 6, max_ex: int = 8) -> dict:
+    # `name` is a plain string, NOT an enum of the exercise catalog: Gemini
+    # rejects schemas whose enum has more than a few dozen values (HTTP 400
+    # "invalid argument" — verified live, 10 names OK / 40+ fail). Names are
+    # constrained by the prompt's ALLOWED list and validated against the
+    # library afterwards (_normalise_plan drops unknowns; the generation retries
+    # when too many are dropped).
     name_field: dict = {"type": "string"}
-    if allowed_names:
-        name_field["enum"] = allowed_names
     return {
         "type": "object",
         # additionalProperties:false on every object node stops the model from
@@ -695,8 +696,8 @@ def _max_weekly_repeats(days_per_week: int) -> int:
 
 # Exact cue-text fragments from _SYSTEM_PROMPT's worked example. Renaming the
 # example's exercises to unresolvable placeholders (Exercise A-E) stops the
-# model from copying them at the name level — the enum-constrained schema
-# can't emit a name outside the real catalog — but on a small model under weak
+# model from copying them at the name level — an unresolvable name is dropped
+# by _normalise_plan() — but on a small model under weak
 # personalization signal (e.g. no logged history for that muscle group) it can
 # still fall back to reproducing the example's weights/rep-scheme/note wording
 # verbatim for whatever real exercise it does pick. Live-verified: a real
@@ -883,8 +884,7 @@ async def _run_generation(
             asm = profile.get("avg_session_minutes")
             ex_target = max(4, min(10, round(asm / 7))) if asm else 7
             min_ex, max_ex = max(3, ex_target - 1), min(10, ex_target + 1)
-            allowed_names = _catalog_names(catalog)
-            schema = _plan_schema(days, min_ex, max_ex, allowed_names)
+            schema = _plan_schema(days, min_ex, max_ex)
 
             await _emit(job_id, {"type": "phase", "message": "Generating your plan…"})
             try:
@@ -1040,8 +1040,7 @@ async def _run_spec_generation(
             asm = profile.get("avg_session_minutes")
             ex_target = max(4, min(10, round(asm / 7))) if asm else 7
             min_ex, max_ex = max(3, ex_target - 1), min(10, ex_target + 1)
-            allowed_names = _catalog_names(catalog)
-            schema = _plan_schema(days, min_ex, max_ex, allowed_names)
+            schema = _plan_schema(days, min_ex, max_ex)
             # Same temperature as the primary generation path (_run_generation).
             # This plan may be served directly to the user with zero further
             # review if their next request matches it (see the spec-cache hit in

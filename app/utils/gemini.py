@@ -9,7 +9,7 @@ its products; the paid tier does not.
 
 Configuration (env vars):
   GEMINI_API_KEY   AI Studio API key (required) — https://aistudio.google.com/apikey
-  GEMINI_MODEL     model id (default gemini-2.5-flash)
+  GEMINI_MODEL     model id (default gemini-3.8-flash)
 
 Transient failures (429 / 5xx / connection errors / timeouts) are retried with
 a short backoff. Everything else surfaces as a GeminiError whose message is safe
@@ -24,7 +24,7 @@ import os
 
 import httpx
 
-DEFAULT_MODEL = "gemini-2.5-flash"
+DEFAULT_MODEL = "gemini-3.8-flash"
 BASE_URL = "https://generativelanguage.googleapis.com/v1beta"
 MAX_ATTEMPTS = 3
 _BACKOFF_SECONDS = (2.0, 5.0)
@@ -63,7 +63,13 @@ def _http_error(status: int, body: str) -> GeminiError:
     if status in (401, 403) or (status == 400 and "api key" in body.lower()):
         return GeminiError("Gemini rejected the API key. Check GEMINI_API_KEY.")
     if status == 404:
-        return GeminiError(f"Gemini model '{model()}' wasn't found. Check GEMINI_MODEL.")
+        # Google 404s both for unknown ids and for models retired to new users
+        # (e.g. gemini-2.5-flash) — its own message says which, so pass it on.
+        try:
+            reason = json.loads(body)["error"]["message"]
+        except (ValueError, KeyError, TypeError):
+            reason = "wasn't found"
+        return GeminiError(f"Gemini model '{model()}' isn't usable: {reason[:200]} Check GEMINI_MODEL.")
     if status == 429:
         return GeminiError(
             "Gemini rate limit or quota reached. Try again in a minute.", retryable=True
@@ -94,9 +100,10 @@ def _build_payload(system: str, user: str, schema: dict, temperature: float) -> 
         "maxOutputTokens": _MAX_OUTPUT_TOKENS,
     }
     # Hidden reasoning only costs latency here — every caller wants a fast,
-    # structured answer. 2.5 Flash can switch it off; 2.5 Pro can't (the field
-    # would 400), so only send it where it's accepted.
-    if "2.5-flash" in model():
+    # structured answer. Flash models accept a zero budget (verified live on
+    # 3.8 Flash, where the default spends ~150 thought tokens on a trivial
+    # prompt); Pro models can't turn thinking off and the field would 400.
+    if "flash" in model():
         config["thinkingConfig"] = {"thinkingBudget": 0}
     return {
         "systemInstruction": {"parts": [{"text": system}]},

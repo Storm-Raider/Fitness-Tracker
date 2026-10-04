@@ -124,15 +124,19 @@ async def test_chat_json_request_shape(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_thinking_disabled_only_for_flash_models(monkeypatch):
-    calls = _install_client(monkeypatch, [_FakeResponse(200, _ok_body())] * 2)
+    calls = _install_client(monkeypatch, [_FakeResponse(200, _ok_body())] * 3)
 
-    await gemini.chat_json("s", "u", SCHEMA)  # default model: 2.5 flash
+    await gemini.chat_json("s", "u", SCHEMA)  # default model is a Flash model
     assert calls[0]["json"]["generationConfig"]["thinkingConfig"] == {"thinkingBudget": 0}
 
-    # 2.5 Pro can't turn thinking off — sending the field would 400.
+    monkeypatch.setenv("GEMINI_MODEL", "gemini-2.5-flash")
+    await gemini.chat_json("s", "u", SCHEMA)
+    assert calls[1]["json"]["generationConfig"]["thinkingConfig"] == {"thinkingBudget": 0}
+
+    # Pro models can't turn thinking off — sending the field would 400.
     monkeypatch.setenv("GEMINI_MODEL", "gemini-2.5-pro")
     await gemini.chat_json("s", "u", SCHEMA)
-    assert "thinkingConfig" not in calls[1]["json"]["generationConfig"]
+    assert "thinkingConfig" not in calls[2]["json"]["generationConfig"]
 
 
 @pytest.mark.asyncio
@@ -168,10 +172,18 @@ async def test_bad_key_is_reported_not_retried(monkeypatch, status, text):
 
 
 @pytest.mark.asyncio
-async def test_unknown_model_404(monkeypatch):
-    monkeypatch.setenv("GEMINI_MODEL", "gemini-nope")
-    _install_client(monkeypatch, [_FakeResponse(404, text="not found")])
-    with pytest.raises(gemini.GeminiError, match="gemini-nope"):
+async def test_unknown_model_404_surfaces_googles_reason(monkeypatch):
+    # Google also 404s for retired-but-still-listed models ("no longer available
+    # to new users") — the real reason must reach the UI, not a generic
+    # "model not found" that sends people hunting for a typo.
+    monkeypatch.setenv("GEMINI_MODEL", "gemini-old")
+    body = '{"error": {"message": "This model models/gemini-old is no longer available to new users."}}'
+    _install_client(monkeypatch, [_FakeResponse(404, text=body)])
+    with pytest.raises(gemini.GeminiError, match="gemini-old.*no longer available to new users"):
+        await gemini.chat_json("s", "u", SCHEMA)
+
+    _install_client(monkeypatch, [_FakeResponse(404, text="<html>not json</html>")])
+    with pytest.raises(gemini.GeminiError, match="gemini-old"):
         await gemini.chat_json("s", "u", SCHEMA)
 
 
