@@ -113,7 +113,7 @@ All settings go in `.env` (copied from `.env.example`):
 | `DATABASE_PATH` | No | `/data/fitness.db` | SQLite file path inside container |
 | `WEBHOOK_URL` | No | *(empty)* | HTTP endpoint to notify on events |
 | `GEMINI_API_KEY` | For AI Coach | — | Google AI Studio API key ([get one](https://aistudio.google.com/apikey)). Without it the Coach is disabled |
-| `GEMINI_MODEL` | No | `gemini-3.8-flash` | Gemini model the AI Coach generates with |
+| `GEMINI_MODEL` | No | `gemini-3.5-flash-lite` | Gemini model the AI Coach generates with |
 
 ---
 
@@ -127,7 +127,7 @@ Google's [Gemini API](https://aistudio.google.com) (Google AI Studio).
 
    ```bash
    GEMINI_API_KEY=your-key-here
-   # GEMINI_MODEL=gemini-3.8-flash   # optional; this is the default
+   # GEMINI_MODEL=gemini-3.5-flash-lite   # optional; this is the default
    ```
 
 3. Open **Plan → AI Routine**, pick a goal and how many days per week you train,
@@ -137,11 +137,12 @@ Google's [Gemini API](https://aistudio.google.com) (Google AI Studio).
 Generation typically takes a few seconds to under a minute. Rate-limit and
 temporary Gemini errors are retried automatically.
 
-**Free-tier quota:** Gemini's free tier limits requests per model per day (20/day
-for `gemini-3.8-flash` when this was set up). One routine uses 1–3 requests, and
-a successful one also triggers a background pre-generation of the next plan, so
-the free tier covers only a handful of routines per day. Set `GEMINI_MODEL` to a
-different model (quotas are per model) or enable billing for more headroom.
+**Free-tier quota:** Gemini's free tier caps requests per model per day (it was
+20/day for `gemini-3.8-flash` when this was set up; see your limits at
+<https://ai.dev/rate-limit>). One routine uses 1–3 requests, and a successful one
+also triggers a background pre-generation of the next plan, so a small free
+quota covers only a handful of routines per day. Quotas are per model — set
+`GEMINI_MODEL` to a different one, or enable billing, for more headroom.
 
 **Privacy:** the prompt — your training history, set notes, RPE trend, journal
 wellness entries and injury flags — is sent to Google. On the free AI Studio tier

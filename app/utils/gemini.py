@@ -9,7 +9,7 @@ its products; the paid tier does not.
 
 Configuration (env vars):
   GEMINI_API_KEY   AI Studio API key (required) — https://aistudio.google.com/apikey
-  GEMINI_MODEL     model id (default gemini-3.8-flash)
+  GEMINI_MODEL     model id (default gemini-3.5-flash-lite)
 
 Transient failures (429 / 5xx / connection errors / timeouts) are retried with
 a short backoff. Everything else surfaces as a GeminiError whose message is safe
@@ -24,7 +24,7 @@ import os
 
 import httpx
 
-DEFAULT_MODEL = "gemini-3.8-flash"
+DEFAULT_MODEL = "gemini-3.5-flash-lite"
 BASE_URL = "https://generativelanguage.googleapis.com/v1beta"
 MAX_ATTEMPTS = 3
 _BACKOFF_SECONDS = (2.0, 5.0)
@@ -51,9 +51,12 @@ def is_configured() -> bool:
 
 
 # Models that answered 400 to a request carrying thinkingConfig and then
-# succeeded without it (e.g. gemini-3.5-flash-lite). Remembered per process so
-# later calls skip the wasted request — a real cost on small free-tier quotas.
-_NO_THINKING_CFG: set[str] = set()
+# succeeded without it. The known ones (verified live) are pre-seeded so even the
+# first request skips the wasted call; unknown models are discovered at runtime
+# by chat_json()'s fallback and remembered per process — a real saving on small
+# free-tier daily quotas.
+_KNOWN_NO_THINKING = frozenset({"gemini-3.5-flash-lite"})
+_NO_THINKING_CFG: set[str] = set(_KNOWN_NO_THINKING)
 
 
 class GeminiError(RuntimeError):

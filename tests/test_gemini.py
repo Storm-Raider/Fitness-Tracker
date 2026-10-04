@@ -127,7 +127,8 @@ async def test_chat_json_request_shape(monkeypatch):
 async def test_thinking_disabled_only_for_flash_models(monkeypatch):
     calls = _install_client(monkeypatch, [_FakeResponse(200, _ok_body())] * 3)
 
-    await gemini.chat_json("s", "u", SCHEMA)  # default model is a Flash model
+    monkeypatch.setenv("GEMINI_MODEL", "gemini-3.8-flash")
+    await gemini.chat_json("s", "u", SCHEMA)
     assert calls[0]["json"]["generationConfig"]["thinkingConfig"] == {"thinkingBudget": 0}
 
     monkeypatch.setenv("GEMINI_MODEL", "gemini-2.5-flash")
@@ -146,6 +147,20 @@ async def test_generate_json_returns_model_used(monkeypatch):
     result, model_used = await gemini.generate_json("s", "u", SCHEMA)
     assert result == {"ok": "ok"}
     assert model_used == gemini.DEFAULT_MODEL
+
+
+@pytest.mark.asyncio
+async def test_default_model_skips_thinking_config_without_a_wasted_request(monkeypatch):
+    """The default (gemini-3.5-flash-lite) is known to 400 on thinkingConfig, so
+    it's pre-seeded — the first request after a restart must not burn a call on
+    a guaranteed rejection (small free-tier daily quota)."""
+    assert gemini.DEFAULT_MODEL == "gemini-3.5-flash-lite"
+    monkeypatch.setattr(gemini, "_NO_THINKING_CFG", set(gemini._KNOWN_NO_THINKING))
+    calls = _install_client(monkeypatch, [_FakeResponse(200, _ok_body())])
+
+    assert await gemini.chat_json("s", "u", SCHEMA) == {"ok": "ok"}
+    assert len(calls) == 1
+    assert "thinkingConfig" not in calls[0]["json"]["generationConfig"]
 
 
 @pytest.mark.asyncio
