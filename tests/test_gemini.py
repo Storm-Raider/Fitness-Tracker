@@ -76,6 +76,7 @@ def _install_client(monkeypatch, responses, *, stream_lines=None, stream_status=
 def _env(monkeypatch):
     monkeypatch.setenv("GEMINI_API_KEY", "test-key")
     monkeypatch.delenv("GEMINI_MODEL", raising=False)
+    monkeypatch.setattr(gemini, "_NO_THINKING_CFG", set())  # per-model memory; keep tests independent
 
     async def _no_sleep(_):
         return None
@@ -145,6 +146,74 @@ async def test_generate_json_returns_model_used(monkeypatch):
     result, model_used = await gemini.generate_json("s", "u", SCHEMA)
     assert result == {"ok": "ok"}
     assert model_used == gemini.DEFAULT_MODEL
+
+
+@pytest.mark.asyncio
+async def test_thinking_config_rejected_is_dropped_remembered_and_retried(monkeypatch):
+    """Not every Flash model accepts thinkingBudget — gemini-3.5-flash-lite 400s
+    on it (verified live) while 3.8-flash accepts it. On a 400 the client retries
+    once without it, and remembers so later calls to that model skip the wasted
+    request (matters on a small free-tier daily quota)."""
+    monkeypatch.setenv("GEMINI_MODEL", "gemini-3.5-flash-lite")
+    calls = _install_client(
+        monkeypatch,
+        [_FakeResponse(400, text='{"error": {"message": "Request contains an invalid argument."}}'),
+         _FakeResponse(200, _ok_body()),
+         _FakeResponse(200, _ok_body())],
+    )
+
+    assert await gemini.chat_json("s", "u", SCHEMA) == {"ok": "ok"}
+    assert "thinkingConfig" in calls[0]["json"]["generationConfig"]
+    assert "thinkingConfig" not in calls[1]["json"]["generationConfig"]
+
+    assert await gemini.chat_json("s", "u", SCHEMA) == {"ok": "ok"}
+    assert len(calls) == 3  # second call went straight through, no wasted 400
+    assert "thinkingConfig" not in calls[2]["json"]["generationConfig"]
+
+
+@pytest.mark.asyncio
+async def test_400_that_is_not_about_thinking_still_fails_and_is_not_remembered(monkeypatch):
+    # Genuinely bad request: retry without thinkingConfig also 400s -> surface the
+    # error, and don't poison the model's memory (nothing proved thinkingConfig was the cause).
+    calls = _install_client(monkeypatch, [_FakeResponse(400, text="bad schema")] * 3)
+    with pytest.raises(gemini.GeminiError, match="HTTP 400"):
+        await gemini.chat_json("s", "u", SCHEMA)
+    assert len(calls) == 2
+    assert gemini._NO_THINKING_CFG == set()
+
+
+@pytest.mark.asyncio
+async def test_thinking_retry_does_not_use_up_transient_retries(monkeypatch):
+    calls = _install_client(monkeypatch, [
+        _FakeResponse(400, text="bad"),
+        _FakeResponse(503, text="busy"),
+        _FakeResponse(503, text="busy"),
+        _FakeResponse(200, _ok_body()),
+    ])
+    assert await gemini.chat_json("s", "u", SCHEMA) == {"ok": "ok"}
+    assert len(calls) == 4
+
+
+@pytest.mark.asyncio
+async def test_thinking_config_rejected_in_streaming_path_too(monkeypatch):
+    seen_bodies = []
+
+    class _Client:
+        def __init__(self, *a, **k): pass
+        async def __aenter__(self): return self
+        async def __aexit__(self, *a): return False
+        def stream(self, method, url, json=None, headers=None):
+            seen_bodies.append(json)
+            if "thinkingConfig" in json["generationConfig"]:
+                return _FakeStreamResponse(400, [], body="invalid argument")
+            return _FakeStreamResponse(200, [_sse('{"ok": "ok"}')])
+
+    monkeypatch.setattr(gemini.httpx, "AsyncClient", _Client)
+
+    async def on_tokens(n): pass
+
+    assert await gemini.chat_json("s", "u", SCHEMA, on_tokens=on_tokens) == {"ok": "ok"}
+    assert len(seen_bodies) == 2 and "thinkingConfig" not in seen_bodies[1]["generationConfig"]
 
 
 # ── Errors ───────────────────────────────────────────────────────────

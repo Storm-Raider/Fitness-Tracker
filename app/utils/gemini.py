@@ -50,13 +50,22 @@ def is_configured() -> bool:
     return bool(api_key())
 
 
+# Models that answered 400 to a request carrying thinkingConfig and then
+# succeeded without it (e.g. gemini-3.5-flash-lite). Remembered per process so
+# later calls skip the wasted request — a real cost on small free-tier quotas.
+_NO_THINKING_CFG: set[str] = set()
+
+
 class GeminiError(RuntimeError):
     """Raised when the Gemini API is unreachable, rejects the request, or
-    returns unusable output. `retryable` marks transient failures."""
+    returns unusable output. `retryable` marks transient failures; `status` is
+    set only for an otherwise-unclassified HTTP error (e.g. a 400 whose cause
+    Google doesn't spell out)."""
 
-    def __init__(self, message: str, *, retryable: bool = False):
+    def __init__(self, message: str, *, retryable: bool = False, status: int | None = None):
         super().__init__(message)
         self.retryable = retryable
+        self.status = status
 
 
 def _http_error(status: int, body: str) -> GeminiError:
@@ -76,7 +85,7 @@ def _http_error(status: int, body: str) -> GeminiError:
         )
     if status in (500, 502, 503, 504):
         return GeminiError("Gemini is temporarily unavailable.", retryable=True)
-    return GeminiError(f"Gemini returned HTTP {status}: {body[:200]}")
+    return GeminiError(f"Gemini returned HTTP {status}: {body[:200]}", status=status)
 
 
 def _extract_text(data: dict) -> str:
@@ -100,10 +109,11 @@ def _build_payload(system: str, user: str, schema: dict, temperature: float) -> 
         "maxOutputTokens": _MAX_OUTPUT_TOKENS,
     }
     # Hidden reasoning only costs latency here — every caller wants a fast,
-    # structured answer. Flash models accept a zero budget (verified live on
-    # 3.8 Flash, where the default spends ~150 thought tokens on a trivial
-    # prompt); Pro models can't turn thinking off and the field would 400.
-    if "flash" in model():
+    # structured answer. 2.5/3.1/3.8 Flash accept a zero budget (on 3.8 Flash
+    # the default spends ~150 thought tokens on a trivial prompt); Pro models
+    # can't turn thinking off, and some Flash models (3.5 Flash-Lite) reject the
+    # field outright — chat_json() handles that by retrying without it.
+    if "flash" in model() and model() not in _NO_THINKING_CFG:
         config["thinkingConfig"] = {"thinkingBudget": 0}
     return {
         "systemInstruction": {"parts": [{"text": system}]},
@@ -182,12 +192,16 @@ async def chat_json(
     payload = _build_payload(system, user, schema, temperature)
 
     content = ""
-    for attempt in range(MAX_ATTEMPTS):
+    failures = 0  # transient failures so far (the thinkingConfig fallback isn't counted)
+    dropped_thinking = False
+    while True:
         try:
             if on_tokens is not None:
                 content = await _stream_once(payload, headers, timeout, on_tokens)
             else:
                 content = await _generate_once(payload, headers, timeout)
+            if dropped_thinking:
+                _NO_THINKING_CFG.add(model())  # succeeded only once the field was gone
             break
         except httpx.TimeoutException:
             err = GeminiError("Gemini timed out generating the routine.", retryable=True)
@@ -195,11 +209,19 @@ async def chat_json(
             err = GeminiError("Couldn't reach Gemini. Check the network connection.", retryable=True)
         except GeminiError as exc:
             err = exc
-        if not err.retryable or attempt == MAX_ATTEMPTS - 1:
+            if exc.status == 400 and "thinkingConfig" in payload["generationConfig"]:
+                # Some models reject thinkingConfig with a bare 400. Retry once
+                # without it (not counted against the transient-error attempts).
+                config = {k: v for k, v in payload["generationConfig"].items() if k != "thinkingConfig"}
+                payload = {**payload, "generationConfig": config}
+                dropped_thinking = True
+                continue
+        failures += 1
+        if not err.retryable or failures >= MAX_ATTEMPTS:
             raise err
-        delay = _BACKOFF_SECONDS[min(attempt, len(_BACKOFF_SECONDS) - 1)]
-        logging.warning("gemini: %s — retrying in %.0fs (attempt %d/%d)",
-                        err, delay, attempt + 1, MAX_ATTEMPTS)
+        delay = _BACKOFF_SECONDS[min(failures - 1, len(_BACKOFF_SECONDS) - 1)]
+        logging.warning("gemini: %s — retrying in %.0fs (attempt %d/%d failed)",
+                        err, delay, failures, MAX_ATTEMPTS)
         await asyncio.sleep(delay)
 
     content = content.strip()
