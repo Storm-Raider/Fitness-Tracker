@@ -60,9 +60,6 @@ _ACTIVE_STATES = ("queued", "processing")
 
 _JOB_EVENTS: dict[str, asyncio.Queue] = {}  # per-job SSE queues for live progress
 
-_SPEC_CACHE: dict[int, dict] = {}  # uid → {goal, days, plan, dropped, model, ts}
-_SPEC_CACHE_TTL = 1800.0           # seconds; matches profile cache TTL
-
 
 def _active_count() -> int:
     return sum(1 for j in _JOBS.values() if j.get("status") in _ACTIVE_STATES)
@@ -1004,12 +1001,6 @@ async def _run_generation(
             "dropped": final_dropped, "model": model_used,
             "draft_id": draft_id,
         })
-        # Pre-generate next plan in background so the user's NEXT request is instant.
-        _spec_task = asyncio.create_task(
-            _run_spec_generation(conn, uid, goal, days, focus_note)
-        )
-        _TASKS.add(_spec_task)
-        _spec_task.add_done_callback(_TASKS.discard)
 
     except gemini.GeminiError as exc:
         err = str(exc)
@@ -1027,53 +1018,6 @@ async def _run_generation(
             _ACTIVE_BY_USER.pop(uid, None)
 
 
-async def _run_spec_generation(
-    conn: aiosqlite.Connection, uid: int,
-    goal: str, days: int, focus_note: str,
-) -> None:
-    """Pre-generate the next plan silently and cache it for instant serve.
-
-    Only runs when no other generation is active. Acquires _GEN_LOCK so it
-    doesn't conflict with real user jobs — if a real job is submitted while
-    spec gen is running it will queue and proceed after spec gen releases."""
-    if _active_count() > 0:
-        return
-    try:
-        async with _GEN_LOCK:
-            # Re-check inside lock in case a real job queued while we waited.
-            if _active_count() > 0:
-                return
-            profile = await build_profile(conn, uid)
-            catalog = await _exercise_catalog(conn, uid, profile.get("preferred_equipment"))
-            prompt = _build_prompt(goal, days, profile, catalog, focus_note)
-            asm = profile.get("avg_session_minutes")
-            ex_target = max(4, min(10, round(asm / 7))) if asm else 7
-            min_ex, max_ex = max(3, ex_target - 1), min(10, ex_target + 1)
-            schema = _plan_schema(days, min_ex, max_ex)
-            # Same temperature as the primary generation path (_run_generation).
-            # This plan may be served directly to the user with zero further
-            # review if their next request matches it (see the spec-cache hit in
-            # generate()), so it must carry the same quality bar — no reason for
-            # a silent background generation to be tuned differently from one
-            # the user explicitly waited for.
-            raw, model_used = await gemini.generate_json(
-                _SYSTEM_PROMPT, prompt, schema,
-                temperature=0.2,
-            )
-            name_map, _norm_map = await _name_to_id_map(conn)
-            plan, dropped = _normalise_plan(raw, goal, days, name_map, _norm_map)
-            plan, _swaps = _repair_plan(plan, name_map)
-            if plan["days"]:
-                _SPEC_CACHE[uid] = {
-                    "goal": goal, "days": days, "plan": plan,
-                    "dropped": sorted(set(dropped)), "model": model_used,
-                    "ts": _time.monotonic(),
-                }
-                logging.info("coach: speculative plan cached for uid=%d", uid)
-    except Exception:
-        logging.debug("coach: speculative generation skipped or failed", exc_info=True)
-
-
 @router.post("/coach/generate", status_code=202)
 async def generate(
     body: GenerateIn,
@@ -1085,26 +1029,8 @@ async def generate(
     /coach/stream/{job_id}. Keeps every request short so the long
     inference never hits the reverse-proxy timeout.
 
-    Returns HTTP 200 with {plan, dropped, model} when a speculative pre-generated
-    plan is available and matches the request — zero perceived latency.
-    Returns HTTP 202 with {job_id} for the normal async path."""
+    Returns HTTP 202 with {job_id}."""
     uid = current_user["id"]
-
-    # Spec cache hit: serve the pre-generated plan instantly (HTTP 200, no job).
-    spec = _SPEC_CACHE.pop(uid, None)
-    if spec and (_time.monotonic() - spec["ts"]) < _SPEC_CACHE_TTL:
-        if spec["goal"] == body.goal and spec["days"] == body.days_per_week:
-            # Kick off a background refresh so the NEXT request is also instant.
-            _spec_task = asyncio.create_task(
-                _run_spec_generation(conn, uid, body.goal, body.days_per_week, body.focus_note)
-            )
-            _TASKS.add(_spec_task)
-            _spec_task.add_done_callback(_TASKS.discard)
-            return JSONResponse({
-                "plan": spec["plan"],
-                "dropped": spec["dropped"],
-                "model": spec["model"],
-            }, status_code=200)
 
     # Single-flight: if this user already has a generation queued or running, hand
     # back the same job id. Repeated clicks (or a stale tab) then attach to the one

@@ -139,10 +139,9 @@ temporary Gemini errors are retried automatically.
 
 **Free-tier quota:** Gemini's free tier caps requests per model per day (it was
 20/day for `gemini-3.8-flash` when this was set up; see your limits at
-<https://ai.dev/rate-limit>). One routine uses 1–3 requests, and a successful one
-also triggers a background pre-generation of the next plan, so a small free
-quota covers only a handful of routines per day. Quotas are per model — set
-`GEMINI_MODEL` to a different one, or enable billing, for more headroom.
+<https://ai.dev/rate-limit>). One routine normally uses 1 request (up to 3
+if a retry is needed); nothing is generated in the background. Quotas are per model — set `GEMINI_MODEL` to a different one, or
+enable billing, for more headroom.
 
 **Privacy:** the prompt — your training history, set notes, RPE trend, journal
 wellness entries and injury flags — is sent to Google. On the free AI Studio tier

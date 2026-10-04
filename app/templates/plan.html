@@ -743,13 +743,6 @@ async function generateAiRoutine() {
     const sd = await start.json();
     if (!start.ok) throw new Error(sd.detail || sd.error || 'Could not start generation.');
 
-    // Speculative cache hit: server returned the plan instantly (HTTP 200).
-    if (sd.plan) {
-      _currentPlan = sd.plan;
-      renderAiPlan(sd.plan, sd.dropped || []);
-      return;
-    }
-
     // Normal async path: open SSE stream for live progress, hard-deadline 40 min.
     const jobId = sd.job_id;
     const { plan, dropped, draft_id } = await new Promise((resolve, reject) => {
@@ -872,7 +865,7 @@ async function saveAiPlan() {
         body: JSON.stringify({}),
       });
     } else {
-      // Spec-cache hit path: plan was served instantly, no draft was saved.
+      // No draft id (the server's draft auto-save failed): save the plan directly.
       const payload = {
         title: title,
         summary: _currentPlan.summary || '',

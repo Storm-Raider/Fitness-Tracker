@@ -41,12 +41,12 @@ def _fake_chat(plan: dict):
 @pytest.fixture(autouse=True)
 def _reset_coach_state():
     """Coach module state is process-global — clear it around every test so a
-    speculative plan cached by one test can't satisfy the next test's request."""
+    job left over from one test can't leak into the next."""
     coach._JOBS.clear(); coach._QUEUE.clear()
-    coach._ACTIVE_BY_USER.clear(); coach._SPEC_CACHE.clear()
+    coach._ACTIVE_BY_USER.clear()
     yield
     coach._JOBS.clear(); coach._QUEUE.clear()
-    coach._ACTIVE_BY_USER.clear(); coach._SPEC_CACHE.clear()
+    coach._ACTIVE_BY_USER.clear()
 
 
 @pytest.mark.asyncio
@@ -611,12 +611,8 @@ async def test_generate_retries_once_on_transport_error_then_succeeds(client, db
     data = await _generate(client, "general", 1)
     assert data["status"] == "done"
     assert data["plan"]["title"] == "Recovered Plan"
-    # At least 2: the failed first attempt + the retry that recovered. Not
-    # asserting an exact count — a successful generation also kicks off a
-    # background speculative-cache generation (see _run_spec_generation) that
-    # calls chat_json too, and whether it's fired by the time we check here
-    # is a scheduling race, not something this test cares about.
-    assert calls["n"] >= 2
+    # The failed first attempt + the retry that recovered.
+    assert calls["n"] == 2
 
 
 @pytest.mark.asyncio
@@ -631,35 +627,34 @@ async def test_generate_gives_up_after_retry_still_fails(client, monkeypatch):
     assert "Gemini" in data["error"]
 
 
-# ── Spec-cache generation matches the primary path's quality bar ──────
+# ── No background pre-generation (each one spends API quota) ──────────
 
 @pytest.mark.asyncio
-async def test_spec_generation_uses_same_temperature_as_primary_path(client, db, monkeypatch):
+async def test_generation_makes_exactly_one_api_call_and_nothing_in_the_background(client, db, monkeypatch):
+    """A successful generation used to kick off a second, background generation
+    to pre-cache the user's next plan. On a small free-tier Gemini quota that
+    silently doubled usage, so it's gone: one request in, one API call out."""
     names = await _real_exercise_names(db, 1)
     fake_plan = {
-        "title": "Spec Plan", "summary": "",
+        "title": "One Shot", "summary": "",
         "days": [{"focus": "Full Body", "exercises": [
             {"name": names[0], "sets": 3, "reps": "10"},
         ]}],
     }
-    temps_seen = []
+    calls = {"n": 0}
 
-    async def _recording_chat(system, user, schema, **kwargs):
-        temps_seen.append(kwargs.get("temperature"))
+    async def _counting_chat(system, user, schema, **kwargs):
+        calls["n"] += 1
         return fake_plan
 
-    monkeypatch.setattr(coach.gemini, "chat_json", _recording_chat)
+    monkeypatch.setattr(coach.gemini, "chat_json", _counting_chat)
 
-    await _generate(client, "general", 1)
-    # Primary generation call already fired; now let the background spec-gen
-    # task (kicked off after a successful generation) run to completion.
-    for _ in range(50):
-        if len(temps_seen) >= 2:
-            break
-        await asyncio.sleep(0.02)
-
-    assert len(temps_seen) >= 2, "speculative generation never ran"
-    assert temps_seen[0] == temps_seen[1] == 0.2
+    data = await _generate(client, "general", 1)
+    assert data["status"] == "done"
+    # Give any (unwanted) background task ample time to fire.
+    await asyncio.sleep(0.3)
+    assert calls["n"] == 1
+    assert not hasattr(coach, "_SPEC_CACHE") and not hasattr(coach, "_run_spec_generation")
 
 
 # ── Equipment-tagged names (the prompt lists "Bench Press [Barbell]") ───
