@@ -2,7 +2,7 @@
 Training-profile builder extracted from app/routes/coach.py.
 
 build_profile() is used by the AI coach route to summarise the user's recent
-training history into a compact dict for the Ollama prompt.  Lives here so it
+training history into a compact dict for the LLM prompt.  Lives here so it
 can be imported by other routes (e.g. /plan) without pulling in the full coach
 router.
 """

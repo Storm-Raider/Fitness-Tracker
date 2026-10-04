@@ -1,11 +1,5 @@
 import pytest
 
-from app.utils import ollama
-
-
-async def _fake_avail(timeout=3.0):
-    return False, []
-
 
 @pytest.mark.asyncio
 async def test_planner_page_redirects_to_plan(client):
@@ -18,7 +12,7 @@ async def test_planner_page_redirects_to_plan(client):
 @pytest.mark.asyncio
 async def test_plan_page_renders(client, monkeypatch):
     """GET /plan returns 200 with 'Training Plan' in the HTML."""
-    monkeypatch.setattr(ollama, "is_available", _fake_avail)
+    monkeypatch.delenv("GEMINI_API_KEY", raising=False)
 
     resp = await client.get("/plan", headers={"Accept": "text/html"})
     assert resp.status_code == 200
@@ -209,10 +203,7 @@ async def test_workout_routine_param_ignored_for_finished_workout(client, db):
 @pytest.mark.asyncio
 async def test_plan_page_includes_routine_ids_for_ai_plans(client, db, monkeypatch):
     """GET /plan returns HTML with routine_ids data for saved AI plans that have routines."""
-    from app.utils import ollama
-    async def fake_avail(timeout=3.0):
-        return False, []
-    monkeypatch.setattr(ollama, "is_available", fake_avail)
+    monkeypatch.delenv("GEMINI_API_KEY", raising=False)
 
     # Create routines first so we can embed their IDs in plan_json
     async with db.execute(
@@ -238,3 +229,21 @@ async def test_plan_page_includes_routine_ids_for_ai_plans(client, db, monkeypat
     # The plan day chips should appear (routine IDs rendered in the template)
     assert "Day 1" in resp.text
     assert "startPlanDay" in resp.text
+
+
+@pytest.mark.asyncio
+async def test_plan_page_shows_gemini_setup_notice_without_key(client, monkeypatch):
+    monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+    resp = await client.get("/plan", headers={"Accept": "text/html"})
+    assert resp.status_code == 200
+    assert "GEMINI_API_KEY" in resp.text
+    assert "Ollama" not in resp.text
+
+
+@pytest.mark.asyncio
+async def test_plan_page_hides_setup_notice_with_key(client, monkeypatch):
+    monkeypatch.setenv("GEMINI_API_KEY", "test-key")
+    resp = await client.get("/plan", headers={"Accept": "text/html"})
+    assert resp.status_code == 200
+    assert "Gemini isn't configured" not in resp.text
+    assert "test-key" not in resp.text  # the key must never reach the page

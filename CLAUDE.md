@@ -17,12 +17,12 @@ Only fall back to manual grep/Explore if the graph doesn't answer the question (
 - `Authentication Route` — `app/routes/auth.py` (HMAC session tokens, invite gate)
 - `DB Init & Auth Core` — `app/db.py`, migration list, `init_db()`
 - `DB Layer & Utility Routes` — `get_db()` dependency used by all 16 routes; only `require_owns()` is a shared DB utility
-- `AI Coach Route` — `app/routes/coach.py`, `app/utils/ollama.py` (local Ollama, fully on-device)
+- `AI Coach Route` — `app/routes/coach.py`, `app/utils/gemini.py` (Google AI Studio / Gemini API; needs `GEMINI_API_KEY`, prompt leaves the device)
 - `Base Template & Design System` — `app/templates/base.html`, global unit toggles (`unitchange`, `distancechange`, `bodyunitchange` events)
 - `Trash / Undo Utility` — `app/utils/trash.py`, `deleted_items` table, 7-day auto-purge
 - `App Core & Middleware` — `app/main.py`, `AuthMiddleware`, `lifespan()`
 
-**Architecture note:** Every route imports `get_db` and `Depends` directly — there is no service layer. Business logic lives in `app/utils/` only when it's complex enough to test independently (challenges, trash, PRs, heatmap, charts, Ollama).
+**Architecture note:** Every route imports `get_db` and `Depends` directly — there is no service layer. Business logic lives in `app/utils/` only when it's complex enough to test independently (challenges, trash, PRs, heatmap, charts, Gemini).
 
 **To rebuild after significant code changes:**
 ```
