@@ -48,8 +48,13 @@ class WriteConflict(Exception):
     """Raised inside write_tx() when a compare-and-set guard finds the row changed.
 
     write_tx COMMITs (nothing was written, the guard runs first) and re-raises;
-    app.main turns it into a 409 response.
+    app.main turns it into a 409 response carrying `kind` so a client can tell, say,
+    a stale tab from a replaced plan.
     """
+
+    def __init__(self, message: str = "", kind: str = "conflict"):
+        super().__init__(message)
+        self.kind = kind
 
 
 @contextlib.asynccontextmanager
