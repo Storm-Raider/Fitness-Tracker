@@ -16,6 +16,9 @@
   <style>
     :root {
       color-scheme: dark;
+      /* Height the fixed chat composer occupies (0 when absent); toasts, the
+         achievement rack and the page's bottom padding clear it. */
+      --composer-h: 0px;
       --bg:           #090b10;
       --surface:      #0f1219;
       --surface-2:    #161b24;
@@ -309,7 +312,7 @@
 
       /* Pad content above mob-tab-bar */
       .container {
-        padding-bottom: calc(1rem + 64px + env(safe-area-inset-bottom, 0px));
+        padding-bottom: calc(1rem + 64px + var(--composer-h, 0px) + env(safe-area-inset-bottom, 0px));
       }
 
       /* Tab bar */
@@ -496,7 +499,7 @@
        (0 here, since the desktop nav is display:none) and content hides under
        the bar. */
     @media (max-width: 767px) {
-      .container { padding: 1rem 0.75rem calc(1rem + 64px + env(safe-area-inset-bottom, 0px)); }
+      .container { padding: 1rem 0.75rem calc(1rem + 64px + var(--composer-h, 0px) + env(safe-area-inset-bottom, 0px)); }
     }
     @keyframes fadeUp {
       from { opacity: 0; transform: translateY(8px); }
@@ -883,13 +886,100 @@
       background: transparent;
     }
 
+    /* ── Pill (shared) ───────────────────────────────── */
+    /* Interactive filter/choice pill. .muscle-pill (exercises) and the coach
+       chat chips build on it. Non-interactive stat chips (.profile-pill on the
+       plan page) are a different component and do not use this. */
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      min-height: 40px;
+      padding: 0.5rem 0.9rem;
+      border-radius: 999px;
+      background: var(--surface);
+      border: 1.5px solid var(--border);
+      color: var(--muted-hi);
+      cursor: pointer;
+      font-family: 'Barlow', inherit;
+      font-size: 0.8rem;
+      font-weight: 600;
+      letter-spacing: 0.01em;
+      transition: background 0.14s, border-color 0.14s, color 0.14s;
+      -webkit-tap-highlight-color: transparent;
+      text-decoration: none;
+      white-space: nowrap;
+    }
+    .pill:hover { background: var(--surface-hover); border-color: var(--border-mid); color: var(--text); }
+    .pill.active { background: var(--accent-dim); border-color: var(--accent); color: var(--accent); }
+    @media (max-width: 767px) {
+      .pill { padding: 0.45rem 0.75rem; font-size: 0.78rem; }
+    }
+
+    /* ── Segmented toggle (.seg-toggle) ──────────────── */
+    /* Two or more mutually exclusive options in one row, 44px tall. Real
+       <button aria-pressed> elements. See DESIGN.md "Segmented toggle". */
+    .seg-toggle {
+      display: inline-flex;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      background: var(--surface);
+      overflow: hidden;
+    }
+    .seg-toggle button {
+      min-height: 44px;
+      padding: 0 1rem;
+      border: none;
+      background: transparent;
+      color: var(--muted);
+      font-family: 'Barlow', inherit;
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.14s, color 0.14s;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .seg-toggle button + button { border-left: 1px solid var(--border); }
+    .seg-toggle button:hover:not(:disabled):not([aria-pressed="true"]) { background: var(--surface-hover); color: var(--text); }
+    .seg-toggle button[aria-pressed="true"] { background: var(--accent-dim); color: var(--accent); }
+    .seg-toggle button:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+    .seg-toggle button:disabled { opacity: 0.5; cursor: default; }
+
+    /* ── Sheet (sheet.js) ────────────────────────────── */
+    /* sheet.js adds .is-sheet to an existing element and positions it from the
+       visual viewport; the dim layer sits just below it. */
+    .sheet-dim {
+      position: fixed; inset: 0;
+      z-index: 349;
+      background: rgba(0, 0, 0, 0.55);
+      opacity: 0;
+      transition: opacity 0.2s ease;
+    }
+    .sheet-dim.show { opacity: 1; }
+    .is-sheet {
+      position: fixed; left: 0; right: 0;
+      z-index: 350;
+      background: var(--surface);
+      border: 1px solid var(--border-mid);
+      border-bottom: none;
+      border-radius: 8px 8px 0 0;
+      box-shadow: var(--shadow-lg);
+      overscroll-behavior: contain;
+      transform: translateY(100%);
+      transition: transform 0.22s ease;
+    }
+    .is-sheet.show { transform: translateY(0); }
+    @media (prefers-reduced-motion: reduce) {
+      .sheet-dim, .is-sheet { transition: none; }
+    }
+
     /* ── Undo toast ──────────────────────────────────── */
     .undo-toast {
       position: fixed;
       left: 50%;
-      bottom: calc(72px + env(safe-area-inset-bottom, 0px));
+      bottom: calc(72px + var(--composer-h, 0px) + env(safe-area-inset-bottom, 0px));
       transform: translate(-50%, 12px);
-      z-index: 300;
+      z-index: 450; /* above the chat sheet (350) and confirm sheet (400); see DESIGN.md z-index stack */
       display: flex;
       align-items: center;
       gap: 0.9rem;
@@ -940,7 +1030,7 @@
     }
     /* ── Achievement toasts ─────────────────────────── */
     #ach-toast-rack {
-      position: fixed; bottom: 1.5rem; right: 1.5rem;
+      position: fixed; bottom: calc(1.5rem + var(--composer-h, 0px)); right: 1.5rem;
       z-index: 9999;
       display: flex; flex-direction: column; gap: 0.65rem;
       pointer-events: none;
@@ -1398,19 +1488,21 @@
       return d.toLocaleDateString('en-US', opts);
     };
 
-    // ── Undo toast for recoverable deletes ──────────────────────────
-    // Shows a transient "X deleted · Undo" toast. Undo POSTs /undo/{token}
-    // and reloads so the restored item reappears everywhere.
-    window.showUndoToast = function(token, label) {
-      if (!token) return;
-      var prev = document.getElementById('undo-toast');
+    // ── Action toast: "message · Undo" ──────────────────────────────
+    // onUndo() may be async; resolving false or throwing counts as failure.
+    // opts: id (default 'action-toast'; a different id lets two kinds of toast
+    // coexist), workingLabel, successLabel (null leaves the message as is, for
+    // callers that navigate away), ttl in ms. Returns {dismiss}.
+    window.showActionToast = function(message, onUndo, opts) {
+      opts = opts || {};
+      var prev = document.getElementById(opts.id || 'action-toast');
       if (prev) prev.remove();
       var t = document.createElement('div');
-      t.id = 'undo-toast';
+      t.id = opts.id || 'action-toast';
       t.className = 'undo-toast';
       var msg = document.createElement('span');
       msg.className = 'undo-toast-msg';
-      msg.textContent = (label || 'Item') + ' deleted';
+      msg.textContent = message;
       var btn = document.createElement('button');
       btn.className = 'undo-toast-btn';
       btn.textContent = 'Undo';
@@ -1418,19 +1510,38 @@
       document.body.appendChild(t);
       requestAnimationFrame(function() { t.classList.add('show'); });
       var hide = function() { t.classList.remove('show'); setTimeout(function() { t.remove(); }, 250); };
-      var timer = setTimeout(hide, 9000);
+      var timer = setTimeout(hide, opts.ttl || 9000);
       btn.addEventListener('click', async function() {
         clearTimeout(timer);
         btn.disabled = true;
-        msg.textContent = 'Restoring…';
-        try {
-          var r = await fetch('/undo/' + encodeURIComponent(token), {method: 'POST'});
-          if (r.ok) { location.reload(); return; }
-        } catch (e) {}
+        msg.textContent = opts.workingLabel || 'Undoing…';
+        var ok = false;
+        try { ok = (await onUndo()) !== false; } catch (e) { ok = false; }
+        if (ok) {
+          if (opts.successLabel !== null) {
+            msg.textContent = opts.successLabel || 'Undone';
+            btn.style.display = 'none';
+            timer = setTimeout(hide, 1800);
+          }
+          return;
+        }
         msg.textContent = 'Undo failed';
         btn.disabled = false;
         timer = setTimeout(hide, 4000);
       });
+      return { dismiss: hide };
+    };
+
+    // ── Undo toast for recoverable deletes ──────────────────────────
+    // Shows a transient "X deleted · Undo" toast. Undo POSTs /undo/{token}
+    // and reloads so the restored item reappears everywhere.
+    window.showUndoToast = function(token, label) {
+      if (!token) return;
+      window.showActionToast((label || 'Item') + ' deleted', async function() {
+        var r = await fetch('/undo/' + encodeURIComponent(token), {method: 'POST'});
+        if (!r.ok) return false;
+        location.reload();
+      }, {id: 'undo-toast', workingLabel: 'Restoring…', successLabel: null});
     };
 
     // Some deletes navigate away (e.g. deleting a workout from its form

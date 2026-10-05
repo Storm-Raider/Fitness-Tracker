@@ -224,27 +224,114 @@ Inputs, selects, textareas: `--bg` background, `--border` border, `border-radius
 ### Segmented toggle
 
 ```
-[Tick] [Photo]
+[Generate] [Coach]
 ```
 
-Two-state (or more) inline pill toggle for choosing between mutually
-exclusive options in a dense row context — e.g. the challenge rule editor's
-Tick/Photo kind selector (`app/templates/partials/rule_editor.html`). Scaled
-down from `.muscle-pill` (exercises.html's 40px filter pill) to fit tight
-row density rather than reused at filter-pill size.
+Two or more mutually exclusive options in one row. Real `<button
+aria-pressed>` elements, not a styled `<div onclick>`, for keyboard and
+screen-reader parity with every other control.
 
-```css
-.kind-toggle { display: inline-flex; border: 1px solid var(--border);
-  border-radius: var(--radius-xs); overflow: hidden; }
-.kind-toggle button { border: none; font-size: 0.68rem; padding: 0.3rem 0.5rem;
-  cursor: pointer; font-family: inherit; transition: background 0.15s, color 0.15s; }
-.kind-toggle button[aria-pressed="true"] { background: var(--accent-dim); color: var(--accent); }
-.kind-toggle button[aria-pressed="false"] { background: transparent; color: var(--muted); }
+**`.seg-toggle`** (base.html) is the shared component: 44px tall, the
+`--accent-dim`/`--accent` pill look for the pressed option, muted otherwise.
+Use it anywhere a choice sits in a normal row (e.g. Generate | Coach on the
+Plan page).
+
+```html
+<div class="seg-toggle" role="group" aria-label="Left column view">
+  <button type="button" aria-pressed="true">Generate</button>
+  <button type="button" aria-pressed="false">Coach</button>
+</div>
 ```
 
-Real `<button>` elements with `aria-pressed` reflecting state — not a styled
-`<div onclick>` — for keyboard and screen-reader parity with every other
-interactive control on this list.
+**`.kind-toggle`** is the older compact variant used by the challenge rule
+editor (`app/templates/partials/rule_editor.html`). It has no stylesheet
+rule: the editor builds it in JS with inline styles at ~28px, which is below
+the touch-target rule. It is kept only for that dense row; new code uses
+`.seg-toggle`.
+
+### Pill
+
+`.pill` (base.html) is the interactive choice/filter pill: 40px tall, round,
+`--muted-hi` text, `--accent` when `.active`. `.muscle-pill` on the
+Exercises page extends it (the count span stays local). Prompt chips in the
+Coach chat use it with a 44px minimum height on touch.
+
+`.profile-pill` (Plan page "Your training profile") is a different thing:
+a non-interactive stat chip. It does not use `.pill` and must not look
+clickable.
+
+### Sheet
+
+`sheet.js` turns an element that already lives in the page into a modal
+bottom sheet without moving it in the DOM (a focused `<textarea>` keeps its
+focus and text). `Sheet.open(root, {label, initialFocus, returnFocus,
+onClose})` returns `{close()}`.
+
+- 62% of the visual viewport; while the keyboard is open it fills the visual
+  viewport (`visualViewport` offsetTop and height), so the input stays above it.
+- `role="dialog"`, `aria-modal="true"`; everything outside the sheet's own
+  ancestor chain is `inert`; focus moves to `initialFocus` synchronously
+  (iOS raises the keyboard only for a `focus()` inside the tap), is trapped
+  with Tab, and returns on close.
+- Dismiss with Escape, a tap on the dimmed page, or a 44px Close button the
+  caller provides. No drag gesture in v1.
+- The page is scroll-locked with `position: fixed` (not `overflow: hidden`,
+  which does not lock iOS) and the scroll position is restored.
+- Reduced motion: no slide. Top corners 8px.
+- Overlays that open on top stay usable: `.undo-toast`, the achievement rack
+  and `[data-sheet-keep]` are never made inert, and the sheet ignores Escape
+  and Tab while `#confirm-sheet` is open.
+
+### Action toast
+
+`showActionToast(message, onUndo, opts)` shows "message · Undo" for ~9s. The
+Undo button awaits `onUndo()`: resolving anything but `false` shows "Undone",
+and `false` or a throw shows "Undo failed" (button re-enabled). `opts.id`
+lets two kinds of toast coexist; the same id replaces the previous one.
+`showUndoToast(token, label)` (deleted-item recovery) is a wrapper that keeps
+its original behaviour: `POST /undo/{token}`, then reload.
+
+### Stacking (z-index)
+
+| z-index | Layer |
+|---|---|
+| 50 | top nav |
+| 90 | chat composer (reserved) |
+| 100 | mobile tab bar |
+| 140 / 150 | More menu backdrop / More sheet |
+| 349 / 350 | sheet dim / sheet |
+| 399 / 400 | confirm overlay / confirm sheet |
+| 450 | undo and action toasts |
+| 9999 | achievement toasts |
+
+`--composer-h` (default `0px`, set to the composer's height while it is
+present) lifts the toasts, the achievement rack and the page's bottom
+padding clear of the fixed composer.
+
+### Coach chat (contract for the chat PRs)
+
+Specified in `docs/designs/coach-chat.md`; components arrive with the chat.
+The rules that keep it on-system:
+
+- **Transcript:** `YOU` (`--muted`) or `COACH` (`--text`, never blue) in the
+  uppercase mono label style above each message; a day-divider row per day;
+  no entrance animation; `role="log"` with `aria-live="polite"`. All model
+  text is rendered as text (`createElement` + `textContent`).
+- **Change summary:** a `--surface-2` box under the coach line listing the
+  server-computed diff in mono, removed items struck through in `--muted`.
+- **EDITED label and changed rows:** muted label on `--surface-2` and the
+  neutral `--surface-hover` row tint. Never blue (not chrome) and never gold
+  (not a PR).
+- **Confirm chip** ("Remember: ...? Yes / No"): `.pill` look, 44px on touch;
+  the saved state uses `--success`.
+- **Working indicator:** cyan `--live` dot and "working... Ns"
+  (`aria-live="off"`); the dot pulse stops under reduced motion.
+- **Mobile:** one 56px composer row above the tab bar
+  (`bottom: calc(64px + env(safe-area-inset-bottom))`) that opens the sheet.
+  **Desktop:** the 320px left column swaps between Generate and Coach with a
+  `.seg-toggle`.
+- **Touch targets:** send, undo and delete 44px minimum; inputs 16px+ so iOS
+  does not zoom.
 
 ### Stepper group
 
