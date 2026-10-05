@@ -306,6 +306,39 @@ _MIGRATIONS = [
     # so a single FK column no longer makes sense. No audit trail replaces it
     # (see docs/superpowers/specs/2026-07-12-multi-use-invite-links-design.md).
     "ALTER TABLE invite_tokens DROP COLUMN used_by",
+    # ── Coach chat (docs/designs/coach-chat.md). Append-only: one statement per entry. ──
+    """CREATE TABLE IF NOT EXISTS coach_messages (
+        id           INTEGER PRIMARY KEY AUTOINCREMENT,
+        plan_id      INTEGER NOT NULL REFERENCES coach_plans(id) ON DELETE CASCADE,
+        user_id      INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        role         TEXT    NOT NULL CHECK(role IN ('user','model')),
+        content      TEXT    NOT NULL,
+        changed_days TEXT,
+        changes      TEXT,
+        undone       INTEGER NOT NULL DEFAULT 0,
+        created_at   TEXT    NOT NULL DEFAULT (datetime('now','localtime'))
+    )""",
+    "CREATE INDEX IF NOT EXISTS idx_coach_messages_plan ON coach_messages(plan_id, id)",
+    """CREATE TABLE IF NOT EXISTS coach_notes (
+        id             INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id        INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        text           TEXT    NOT NULL,
+        source_plan_id INTEGER REFERENCES coach_plans(id) ON DELETE SET NULL,
+        created_at     TEXT    NOT NULL DEFAULT (datetime('now','localtime')),
+        UNIQUE(user_id, text COLLATE NOCASE)
+    )""",
+    # updated_at: last activity, used ONLY by the 7-day draft purge.
+    "ALTER TABLE coach_plans ADD COLUMN updated_at TEXT",
+    # rev: the compare-and-set token for stale-tab detection (a nullable timestamp
+    # would never match: NULL = ? is never true).
+    "ALTER TABLE coach_plans ADD COLUMN rev INTEGER NOT NULL DEFAULT 0",
+    "ALTER TABLE coach_plans ADD COLUMN undo_json TEXT",
+    # One row per America/Los_Angeles day: how many Gemini requests the coach made.
+    """CREATE TABLE IF NOT EXISTS coach_usage (
+        day   TEXT    PRIMARY KEY,
+        count INTEGER NOT NULL DEFAULT 0
+    )""",
+    "ALTER TABLE user_settings ADD COLUMN coach_chat_ack_at TEXT",
 ]
 
 
