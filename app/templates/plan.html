@@ -147,6 +147,35 @@
   margin-top: 0.15rem;
   font-weight: 400;
 }
+/* Latest edit (set by PlanView): neutral tint + muted label, never blue or gold. */
+.ex-row.changed { background: var(--surface-hover); }
+.edited-tag {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 0.15rem 0.45rem;
+}
+/* Per-row overflow button (only rendered when a caller passes onRowAction). */
+.ex-more {
+  flex-shrink: 0;
+  align-self: center;
+  width: 44px;
+  height: 44px;
+  margin: -0.5rem -0.6rem -0.5rem 0;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  color: var(--muted);
+  font-size: 1.1rem;
+  cursor: pointer;
+}
+.ex-more:hover { background: var(--surface-hover); color: var(--text); }
 
 /* ── Meso lift rows ── */
 .lift-row {
@@ -476,6 +505,18 @@
       </div>
       <div id="ai-result-error" class="flash flash-error" style="display:none;"></div>
       <div id="ai-plan-output"></div>
+      {# Static on purpose: PlanView redraws only the header and days, so the typed
+         title, the save spinner and the message below survive every re-render. #}
+      <div id="ai-save-row" style="display:none;">
+        <div style="display:flex;gap:0.65rem;flex-wrap:wrap;margin-top:0.5rem;">
+          <input type="text" id="ai-save-title" maxlength="120" aria-label="Plan title" style="flex:1;min-width:160px;">
+          <button class="btn btn-primary" id="ai-save-btn" onclick="saveAiPlan()" style="min-height:56px;">
+            <i data-lucide="save" style="width:14px;height:14px;pointer-events:none;"></i> Save &amp; add to Routines
+          </button>
+          <button class="btn btn-ghost" id="ai-regen-btn" onclick="generateAiRoutine()">Regenerate</button>
+        </div>
+        <div id="ai-save-msg" style="font-size:0.78rem;margin-top:0.5rem;display:none;"></div>
+      </div>
     </div>
 
   </div>{# end plan-grid (AI) #}
@@ -660,6 +701,7 @@
   {% endif %}
 </div>
 
+<script src="{{ static_url('plan_view.js') }}"></script>
 <script>
 /* ══════════════════════════════════════════════════
    MODE TOGGLE
@@ -692,13 +734,36 @@ document.addEventListener('DOMContentLoaded', () => {
    AI ROUTINE JS
 ══════════════════════════════════════════════════ */
 let _aiGoal = 'strength';
-let _currentPlan = null;
-let _currentDraftId = {% if draft_plan %}{{ draft_plan.id }}{% else %}null{% endif %};
+// Which plan is on screen lives in PlanState (plan_view.js), not in globals here.
+const _initialDraftId = {% if draft_plan %}{{ draft_plan.id }}{% else %}null{% endif %};
+
+document.addEventListener('plan:changed', e => {
+  // The "Unsaved plan from ..." notice describes the draft the page loaded with;
+  // drop it as soon as a different plan (or a saved one) is shown.
+  const s = e.detail.state;
+  const notice = document.getElementById('ai-draft-notice');
+  if (notice && (s.readonly || s.draftId !== _initialDraftId)) notice.remove();
+});
+document.addEventListener('plan:cleared', () => {
+  const notice = document.getElementById('ai-draft-notice');
+  if (notice) notice.remove();
+  PlanView.clear(document.getElementById('ai-plan-output'));
+  document.getElementById('ai-save-row').style.display = 'none';
+  document.getElementById('ai-save-msg').style.display = 'none';
+  document.getElementById('ai-result-empty').style.display = '';
+});
+document.addEventListener('plan:busy', e => {
+  // One write at a time: no Save or Regenerate while a generate/save is in flight.
+  ['ai-save-btn', 'ai-regen-btn'].forEach(id => {
+    const b = document.getElementById(id);
+    if (b) b.disabled = e.detail.busy;
+  });
+});
 
 {% if draft_plan %}
 (function() {
   const _draft = {{ draft_plan.plan | tojson }};
-  _currentPlan = _draft;
+  PlanState.set({plan: _draft, draftId: _initialDraftId, readonly: false});
   renderAiPlan(_draft, []);
 })();
 {% endif %}
@@ -709,11 +774,6 @@ function selectAiGoal(btn) {
   btn.classList.add('selected');
 }
 
-function esc(s) {
-  return String(s == null ? '' : s).replace(/[&<>"']/g, c =>
-    ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-}
-
 async function generateAiRoutine() {
   const btn = document.getElementById('ai-generate-btn');
   const days = parseInt(document.getElementById('ai-days-slider').value);
@@ -721,16 +781,15 @@ async function generateAiRoutine() {
   const errBox = document.getElementById('ai-result-error');
 
   // Silently delete the pending draft — a new generation will create a fresh one.
-  if (_currentDraftId) {
-    fetch('/coach/plans/' + _currentDraftId, {method: 'DELETE'}).catch(() => {});
-    _currentDraftId = null;
+  const pendingDraftId = PlanState.get().draftId;
+  if (pendingDraftId) {
+    fetch('/coach/plans/' + pendingDraftId, {method: 'DELETE'}).catch(() => {});
   }
-  const notice = document.getElementById('ai-draft-notice');
-  if (notice) notice.remove();
+  PlanState.clear();
+  PlanState.setBusy(true);
 
   document.getElementById('ai-result-empty').style.display = 'none';
   errBox.style.display = 'none';
-  document.getElementById('ai-plan-output').innerHTML = '';
   btn.disabled = true;
   btn.innerHTML = '<span class="spinner"></span> Coaching…';
 
@@ -791,16 +850,16 @@ async function generateAiRoutine() {
       es.onerror = () => { if (settled) es.close(); };
     });
 
-    _currentPlan = plan;
-    _currentDraftId = draft_id || null;
+    PlanState.set({plan: plan, draftId: draft_id || null, readonly: false});
     renderAiPlan(plan, dropped);
   } catch (e) {
     errBox.textContent = e.message;
     errBox.style.display = 'block';
-    if (!document.getElementById('ai-plan-output').innerHTML) {
+    if (!PlanState.get().plan) {
       document.getElementById('ai-result-empty').style.display = 'block';
     }
   } finally {
+    PlanState.setBusy(false);
     btn.disabled = {% if llm_available %}false{% else %}true{% endif %};
     btn.innerHTML = '<i data-lucide="sparkles" style="width:15px;height:15px;pointer-events:none;"></i> Generate my routine';
     lucide.createIcons();
@@ -808,58 +867,33 @@ async function generateAiRoutine() {
 }
 
 function renderAiPlan(plan, dropped) {
-  const days = (plan.days || []).map((day, i) => {
-    const rows = day.exercises.map(ex => `
-      <div class="ex-row">
-        <span class="ex-name">${esc(ex.name)}
-          ${ex.note ? `<span class="ex-note">${esc(ex.note)}</span>` : ''}
-        </span>
-        <span class="ex-scheme">${esc(ex.sets)} × ${esc(ex.reps)}</span>
-      </div>`).join('');
-    return `
-      <div class="day-card">
-        <h3><span class="day-num">Day ${i + 1}</span> ${esc(day.focus)}</h3>
-        ${rows}
-      </div>`;
-  }).join('');
-
-  const droppedNote = dropped.length
-    ? `<div style="font-size:0.72rem;color:var(--muted);margin-bottom:0.75rem;">
-         Skipped unrecognised suggestions: ${esc(dropped.join(', '))}</div>`
-    : '';
-
-  document.getElementById('ai-plan-output').innerHTML = `
-    <div class="card card-accent" style="margin-bottom:1rem;">
-      <div style="font-family:'Syne',sans-serif;font-size:1.15rem;font-weight:700;letter-spacing:-0.02em;">${esc(plan.title)}</div>
-      ${plan.summary ? `<div style="color:var(--muted);font-size:0.85rem;margin-top:0.35rem;line-height:1.5;">${esc(plan.summary)}</div>` : ''}
-    </div>
-    ${droppedNote}
-    ${days}
-    <div style="display:flex;gap:0.65rem;flex-wrap:wrap;margin-top:0.5rem;">
-      <input type="text" id="ai-save-title" value="${esc(plan.title)}" maxlength="120" style="flex:1;min-width:160px;">
-      <button class="btn btn-primary" id="ai-save-btn" onclick="saveAiPlan()" style="min-height:56px;">
-        <i data-lucide="save" style="width:14px;height:14px;pointer-events:none;"></i> Save &amp; add to Routines
-      </button>
-      <button class="btn btn-ghost" onclick="generateAiRoutine()">Regenerate</button>
-    </div>
-    <div id="ai-save-msg" style="font-size:0.78rem;margin-top:0.5rem;display:none;"></div>`;
+  PlanView.render(document.getElementById('ai-plan-output'), plan, {dropped: dropped || []});
+  // The save row is static; set the title field only when a fresh plan appears
+  // (row hidden), so later re-renders never overwrite what the user typed.
+  const row = document.getElementById('ai-save-row');
+  if (row.style.display === 'none') {
+    document.getElementById('ai-save-title').value = plan.title || '';
+    row.style.display = '';
+  }
   lucide.createIcons();
 }
 
 async function saveAiPlan() {
-  if (!_currentPlan) return;
+  const {plan: currentPlan, draftId: currentDraftId, busy} = PlanState.get();
+  if (!currentPlan || busy) return;
   const btn = document.getElementById('ai-save-btn');
   const msg = document.getElementById('ai-save-msg');
-  const title = (document.getElementById('ai-save-title').value || _currentPlan.title).trim();
+  const title = (document.getElementById('ai-save-title').value || currentPlan.title).trim();
 
-  btn.disabled = true;
+  msg.style.display = 'none';
+  PlanState.setBusy(true);
   btn.innerHTML = '<span class="spinner"></span> Saving…';
 
   try {
     let resp, data;
-    if (_currentDraftId) {
+    if (currentDraftId) {
       // Confirm the pre-saved draft — routines are created server-side from stored plan_json.
-      resp = await fetch('/coach/plans/' + _currentDraftId + '/confirm', {
+      resp = await fetch('/coach/plans/' + currentDraftId + '/confirm', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({}),
@@ -868,10 +902,10 @@ async function saveAiPlan() {
       // No draft id (the server's draft auto-save failed): save the plan directly.
       const payload = {
         title: title,
-        summary: _currentPlan.summary || '',
-        goal: _currentPlan.goal,
-        days_per_week: _currentPlan.days_per_week,
-        days: _currentPlan.days.map(d => ({
+        summary: currentPlan.summary || '',
+        goal: currentPlan.goal,
+        days_per_week: currentPlan.days_per_week,
+        days: currentPlan.days.map(d => ({
           focus: d.focus,
           exercises: d.exercises.map(e => ({name: e.name, sets: e.sets, reps: e.reps, note: e.note || ''})),
         })),
@@ -892,22 +926,18 @@ async function saveAiPlan() {
     msg.textContent = e.message;
     msg.style.color = 'var(--danger)';
     msg.style.display = 'block';
-    btn.disabled = false;
+    PlanState.setBusy(false);
     btn.innerHTML = '<i data-lucide="save" style="width:14px;height:14px;pointer-events:none;"></i> Save &amp; add to Routines';
     lucide.createIcons();
   }
 }
 
 async function dismissDraft() {
-  if (_currentDraftId) {
-    fetch('/coach/plans/' + _currentDraftId, {method: 'DELETE'}).catch(() => {});
-    _currentDraftId = null;
+  const {draftId} = PlanState.get();
+  if (draftId) {
+    fetch('/coach/plans/' + draftId, {method: 'DELETE'}).catch(() => {});
   }
-  _currentPlan = null;
-  const notice = document.getElementById('ai-draft-notice');
-  if (notice) notice.remove();
-  document.getElementById('ai-plan-output').innerHTML = '';
-  document.getElementById('ai-result-empty').style.display = '';
+  PlanState.clear();  // the plan:cleared handler empties the output and the notice
 }
 
 async function deleteAiPlan(id, btn) {

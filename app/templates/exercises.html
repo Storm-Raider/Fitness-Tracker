@@ -40,36 +40,7 @@
     gap: 0.5rem;
     margin-bottom: 1.5rem;
   }
-  .muscle-pill {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.4rem;
-    min-height: 40px;
-    padding: 0.5rem 0.9rem;
-    border-radius: 999px;
-    background: var(--surface);
-    border: 1.5px solid var(--border);
-    color: var(--muted-hi);
-    cursor: pointer;
-    font-family: 'Barlow', inherit;
-    font-size: 0.8rem;
-    font-weight: 600;
-    letter-spacing: 0.01em;
-    transition: background 0.14s, border-color 0.14s, color 0.14s;
-    -webkit-tap-highlight-color: transparent;
-    text-decoration: none;
-    white-space: nowrap;
-  }
-  .muscle-pill:hover {
-    background: var(--surface-hover);
-    border-color: var(--border-mid);
-    color: var(--text);
-  }
-  .muscle-pill.active {
-    background: var(--accent-dim);
-    border-color: var(--accent);
-    color: var(--accent);
-  }
+  /* .muscle-pill extends the shared .pill (base.html); only the count is local. */
   .muscle-pill-count {
     font-size: 0.72rem;
     font-family: 'JetBrains Mono', monospace;
@@ -132,7 +103,6 @@
 
   @media (max-width: 767px) {
     .muscle-filter-row { gap: 0.4rem; }
-    .muscle-pill { padding: 0.45rem 0.75rem; font-size: 0.78rem; }
     .ex-item { padding: 0.85rem 1rem; font-size: 0.95rem; }
     .ex-group { margin-bottom: 2rem; }
     .ex-list { gap: 4px; }
@@ -173,11 +143,11 @@
 </div>
 
 <div class="muscle-filter-row" id="muscle-grid">
-  <button class="muscle-pill active" data-muscle="" onclick="setMuscle(this)">
+  <button class="pill muscle-pill active" data-muscle="" onclick="setMuscle(this)">
     All muscles <span class="muscle-pill-count num">{{ exercises | length }}</span>
   </button>
   {% for muscle, exs in by_muscle.items() %}
-  <button class="muscle-pill" data-muscle="{{ muscle }}" onclick="setMuscle(this)">
+  <button class="pill muscle-pill" data-muscle="{{ muscle }}" onclick="setMuscle(this)">
     {{ muscle }} <span class="muscle-pill-count num">{{ exs | length }}</span>
   </button>
   {% endfor %}

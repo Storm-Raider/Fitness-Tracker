@@ -4,7 +4,10 @@ from fastapi.responses import JSONResponse
 from fastapi.templating import Jinja2Templates
 from pathlib import Path
 
+from app.utils.static_url import static_url
+
 templates = Jinja2Templates(directory=Path(__file__).parent.parent / "templates")
+templates.env.globals["static_url"] = static_url
 
 
 def _human_date(iso_str) -> str:
