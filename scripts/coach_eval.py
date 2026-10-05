@@ -281,6 +281,7 @@ async def _run(args) -> int:
     sys.path.insert(0, str(ROOT))
     from app.db import open_db
     from app.routes import coach
+    from app.utils import coach_plan
     from app.utils.coach_plan import plan_quality_issues
     from app.utils.training_profile import build_profile
 
@@ -319,7 +320,7 @@ async def _run(args) -> int:
         for sc in chosen:
             profile = copy.deepcopy(base_profile)
             profile.update(copy.deepcopy(sc.profile))
-            catalog = await coach._exercise_catalog(conn, 1, profile.get("preferred_equipment"))
+            catalog = await coach_plan.exercise_catalog(conn, 1, profile.get("preferred_equipment"))
             prompt_chars = len(coach._SYSTEM_PROMPT) + len(coach._build_prompt(sc.goal, sc.days, profile, catalog, sc.note))
             if args.dry_run:
                 report[sc.id] = {"prompt_chars": prompt_chars, "checks": len(sc.checks), "safety": sc.safety}

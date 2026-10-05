@@ -10,6 +10,7 @@ from pathlib import Path
 import pytest
 
 from app.routes import coach
+from app.utils import coach_plan
 
 SCRIPT = Path(__file__).parent.parent / "scripts" / "coach_eval.py"
 _spec = importlib.util.spec_from_file_location("coach_eval", SCRIPT)
@@ -65,7 +66,7 @@ async def test_every_scenario_builds_a_prompt(db):
     for s in ev.SCENARIOS:
         profile = copy.deepcopy(base)
         profile.update(copy.deepcopy(s.profile))
-        catalog = await coach._exercise_catalog(db, 1, profile.get("preferred_equipment"))
+        catalog = await coach_plan.exercise_catalog(db, 1, profile.get("preferred_equipment"))
         prompt = coach._build_prompt(s.goal, s.days, profile, catalog, s.note)
         assert f"Return exactly {s.days} day(s)" in prompt, s.id
 

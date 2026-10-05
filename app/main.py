@@ -16,6 +16,7 @@ from starlette.responses import RedirectResponse
 from app.db import open_db, set_db, clear_db, WriteConflict
 from app.routes.coach_chat import ChatError, router as coach_chat_router
 import app.db as _db
+from app.utils import coach_plan
 from app.routes import achievements, analytics, cardio, challenges, coach, dashboard, exercises, export, feedback, import_, journal, metrics, plan, planner, prs, routines, settings, stats, templates, trash, webhooks, workouts
 from app.routes.auth import router as auth_router, COOKIE_NAME, _serializer, _hash_password, _verify_password
 from app.routes.workouts import set_http_client
@@ -162,7 +163,7 @@ async def lifespan(app: FastAPI):
     client = httpx.AsyncClient()
     set_http_client(client)
     # Pre-populate exercise caches (synchronous with startup — DB is open, costs ~5 ms).
-    await coach.warm_caches(conn)
+    await coach_plan.warm_caches(conn)
     try:
         yield
     finally:

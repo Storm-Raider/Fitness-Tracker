@@ -152,6 +152,31 @@ def _undo_info(undo_json) -> dict:
     return {"has_undo": bool(top), "undo_label": (top or {}).get("label") if isinstance(top, dict) else None}
 
 
+async def ask_coach(conn: aiosqlite.Connection, uid: int, plan: dict, message: str, history: list[dict],
+                    *, on_request, notes: list[str] | None = None, profile: dict | None = None) -> dict:
+    """Build the turn (fresh profile, catalog, notes, history) and make the model request
+    within the turn budget; returns the model's raw JSON reply. Raises GeminiError (or
+    whatever `on_request` raises). Holds no lock. Shared by the endpoint and scripts/coach_eval.py
+    so the eval exercises exactly what production sends; `notes` and `profile` may be supplied
+    by the eval (synthetic athletes), otherwise they are read from the database."""
+    if profile is None:
+        profile = await build_profile(conn, uid, fresh=True)
+    if notes is None:
+        notes = [n["text"] for n in await _notes(conn, uid)]
+    catalog = await exercise_catalog(conn, uid, profile.get("preferred_equipment"))
+    contents = coach_chat.build_contents(
+        context_text=coach_chat.context_text(
+            profile, plan["goal"], GOAL_LABELS.get(plan["goal"], plan["goal"]), catalog, notes),
+        history=history, plan=plan, message=message, profile=profile)
+    return await gemini.chat_turn_json(
+        coach_chat.CHAT_SYSTEM_PROMPT, contents, coach_chat.reply_schema(len(plan["days"])),
+        temperature=0.3, timeout=ATTEMPT_TIMEOUT_SECONDS,
+        deadline=time.monotonic() + TURN_BUDGET_SECONDS,
+        on_request=on_request, model=gemini.chat_model(),
+        max_attempts=2, max_requests=2, retry_timeouts=False, retry_malformed=True,
+        min_retry_seconds=MIN_RETRY_SECONDS)
+
+
 # ── Reading ──────────────────────────────────────────────────────────
 
 @router.get("/coach/plans/{plan_id}/chat")
@@ -222,23 +247,10 @@ async def chat_turn(plan_id: int, body: ChatIn, conn: aiosqlite.Connection = Dep
         try:
             with coach_budget.single_flight(uid):
                 async with coach_budget.chat_slot():
-                    # ── 2. Context, built fresh; no lock is held from here to the model's answer ──
-                    profile = await build_profile(conn, uid, fresh=True)
-                    notes = [n["text"] for n in await _notes(conn, uid)]
-                    catalog = await exercise_catalog(conn, uid, profile.get("preferred_equipment"))
+                    # ── 2-3. Context built fresh, then ONE model request (at most two in all);
+                    #         no lock is held from here to the model's answer ──
                     history = await _messages(conn, plan_id, uid, coach_chat.HISTORY_MESSAGES)
-                    contents = coach_chat.build_contents(
-                        context_text=coach_chat.context_text(
-                            profile, plan["goal"], GOAL_LABELS.get(plan["goal"], plan["goal"]), catalog, notes),
-                        history=history, plan=plan, message=message, profile=profile)
-                    # ── 3. One model request (at most two in all) within the turn budget ──
-                    raw = await gemini.chat_turn_json(
-                        coach_chat.CHAT_SYSTEM_PROMPT, contents, coach_chat.reply_schema(len(plan["days"])),
-                        temperature=0.3, timeout=ATTEMPT_TIMEOUT_SECONDS,
-                        deadline=time.monotonic() + TURN_BUDGET_SECONDS,
-                        on_request=counted_request, model=gemini.chat_model(),
-                        max_attempts=2, max_requests=2, retry_timeouts=False, retry_malformed=True,
-                        min_retry_seconds=MIN_RETRY_SECONDS)
+                    raw = await ask_coach(conn, uid, plan, message, history, on_request=counted_request)
         except coach_budget.AlreadyWorking:
             raise ChatError(409, "working", COPY["working"])
         except coach_budget.ChatBusy:
