@@ -30,7 +30,7 @@ from pydantic import BaseModel, Field
 
 from app.db import WriteConflict, get_db, write_tx
 from app.routes.auth import get_current_user
-from app.utils import gemini
+from app.utils import coach_budget, gemini
 from app.utils.coach_plan import athlete_context, pain_constraint
 from app.utils.coach_plan import (  # noqa: F401  TEMPORARY re-export shims, removed in PR2
     catalog_names as _catalog_names,
@@ -349,19 +349,23 @@ async def _generate_plan(
             _SYSTEM_PROMPT, prompt, schema,
             temperature=0.2,
             on_tokens=on_tokens,
+            on_request=coach_budget.on_request,
         )
-    except gemini.GeminiError:
+    except gemini.GeminiError as exc:
         # One retry for a content-level failure (empty/malformed JSON).
         # gemini.chat_json() already retries transient failures (429/5xx/
         # timeouts) itself, so reaching this except means the API either
-        # kept failing or answered with unusable content. Worth one more
-        # attempt before failing the whole job; a permanent failure (bad
-        # key, unknown model) just fails fast again.
-        logging.warning("coach: chat_json failed, retrying once")
+        # kept failing or answered with unusable content. A permanent failure
+        # (bad key, unknown model, exhausted daily quota, blocked prompt) would
+        # only fail again, and every request now counts against the daily cap.
+        if exc.kind in ("auth", "not_configured", "quota", "blocked", "bad_request"):
+            raise
+        logging.warning("coach: chat_json failed (%s), retrying once", exc.kind)
         raw, model_used = await gemini.generate_json(
             _SYSTEM_PROMPT, prompt, schema,
             temperature=0.2,
             on_tokens=on_tokens,
+            on_request=coach_budget.on_request,
         )
     name_map, _norm_map = await _name_to_id_map(conn)
     plan, dropped = _normalise_plan(raw, goal, days, name_map, _norm_map)
@@ -395,20 +399,29 @@ async def _generate_plan(
                 f"than {_max_weekly_repeats(days)} day(s). Use different variations "
                 "(e.g. Bench Press one day, Incline Dumbbell Press another)."
             )
-        raw2, model_used2 = await gemini.generate_json(
-            _SYSTEM_PROMPT, retry_prompt, schema,
-            temperature=0.1,
-            on_tokens=on_tokens,
-        )
-        plan2, dropped2 = _normalise_plan(raw2, goal, days, name_map, _norm_map)
-        issues2 = _plan_quality_issues(plan2)
-        # Keep whichever attempt is better: complete days first, then
-        # fewer diversity issues, then fewer dropped names.
-        if (len(plan2["days"]), -len(issues2), -len(dropped2)) > (
-            len(plan["days"]), -len(issues), -len(dropped)
-        ):
-            plan, dropped = plan2, dropped2
-            model_used = model_used2
+        try:
+            raw2, model_used2 = await gemini.generate_json(
+                _SYSTEM_PROMPT, retry_prompt, schema,
+                temperature=0.1,
+                on_tokens=on_tokens,
+                on_request=coach_budget.on_request,
+            )
+        except coach_budget.DailyCapReached:
+            # The refinement is optional; the cap must not throw away a usable plan.
+            # With nothing usable to keep, say so honestly instead of a vague "no exercises".
+            if not plan["days"]:
+                raise
+            logging.info("coach: daily cap reached before the refinement retry; keeping the first plan")
+        else:
+            plan2, dropped2 = _normalise_plan(raw2, goal, days, name_map, _norm_map)
+            issues2 = _plan_quality_issues(plan2)
+            # Keep whichever attempt is better: complete days first, then
+            # fewer diversity issues, then fewer dropped names.
+            if (len(plan2["days"]), -len(issues2), -len(dropped2)) > (
+                len(plan["days"]), -len(issues), -len(dropped)
+            ):
+                plan, dropped = plan2, dropped2
+                model_used = model_used2
 
     # Deterministic guarantee: whatever the model returned, dedupe each
     # day and swap over-repeated exercises for same-muscle alternatives.
@@ -441,6 +454,7 @@ async def _run_generation(
             if _JOBS.get(job_id, {}).get("status") == "queued":
                 _JOBS[job_id] = {"status": "processing", "user_id": uid}
 
+            await coach_budget.ensure_loaded(conn)
             await _emit(job_id, {"type": "phase", "message": "Building your training profile…"})
             profile = await build_profile(conn, uid)
             catalog = await _exercise_catalog(conn, uid, profile.get("preferred_equipment"))
@@ -487,6 +501,10 @@ async def _run_generation(
             "draft_id": draft_id,
         })
 
+    except coach_budget.DailyCapReached:
+        err = "Coach is resting until tomorrow (daily limit reached)."
+        _JOBS[job_id] = {"status": "error", "user_id": uid, "error": err}
+        await _emit(job_id, {"type": "failed", "error": err})
     except gemini.GeminiError as exc:
         err = str(exc)
         _JOBS[job_id] = {"status": "error", "user_id": uid, "error": err}
@@ -501,6 +519,7 @@ async def _run_generation(
             _QUEUE.remove(job_id)
         if _ACTIVE_BY_USER.get(uid) == job_id:
             _ACTIVE_BY_USER.pop(uid, None)
+        await coach_budget.flush(conn)   # persist this job's request count, success or not
 
 
 @router.post("/coach/generate", status_code=202)
@@ -523,6 +542,13 @@ async def generate(
     existing = _ACTIVE_BY_USER.get(uid)
     if existing and _JOBS.get(existing, {}).get("status") in _ACTIVE_STATES:
         return JSONResponse({"job_id": existing}, status_code=202)
+
+    await coach_budget.ensure_loaded(conn)
+    if coach_budget.at_cap():
+        raise HTTPException(
+            status_code=429,
+            detail="Coach is resting until tomorrow (daily limit reached).",
+        )
 
     # Queue depth cap: reject (don't pile up) when too many are already waiting.
     if _active_count() >= _MAX_QUEUE:

@@ -7,6 +7,10 @@ httpx==0.27.2
 itsdangerous==2.1.2
 bcrypt==5.0.0
 
+# IANA time zone data for zoneinfo (the coach's daily quota resets at midnight Pacific);
+# slim container images may not ship it.
+tzdata==2024.2
+
 # Nightly workout enrichment (scripts/enrich_workouts.py)
 anthropic==0.103.1
 

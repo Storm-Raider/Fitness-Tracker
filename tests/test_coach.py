@@ -4,6 +4,7 @@ import json
 import pytest
 
 from app.routes import coach
+from app.utils import coach_budget
 
 
 async def _generate(client, goal, days, **extra):
@@ -602,7 +603,7 @@ async def test_generate_retries_once_on_transport_error_then_succeeds(client, db
     async def _flaky(system, user, schema, **kwargs):
         calls["n"] += 1
         if calls["n"] == 1:
-            raise coach.gemini.GeminiError("Gemini returned malformed JSON.")
+            raise coach.gemini.GeminiError("Gemini returned malformed JSON.", kind="malformed")
         return fake_plan
 
     monkeypatch.setattr(coach.gemini, "chat_json", _flaky)
@@ -617,7 +618,7 @@ async def test_generate_retries_once_on_transport_error_then_succeeds(client, db
 @pytest.mark.asyncio
 async def test_generate_gives_up_after_retry_still_fails(client, monkeypatch):
     async def _always_fails(system, user, schema, **kwargs):
-        raise coach.gemini.GeminiError("Couldn't reach Gemini")
+        raise coach.gemini.GeminiError("Couldn't reach Gemini", kind="unreachable")
 
     monkeypatch.setattr(coach.gemini, "chat_json", _always_fails)
 
@@ -710,4 +711,95 @@ async def test_task_line_restates_pain_and_request_but_nothing_else_is_added(db)
     # a fatigued muscle is intentionally NOT repeated here (it did not help in the live eval)
     fat = coach._build_prompt("strength", 3, _base_profile(muscle_recovery={"Chest": "fatigued"}), catalog, "")
     assert "on Day 1: trained within the last day" not in fat.splitlines()[-1]
+
+
+# ── Daily cap: generation spends from the same counter as chat ───────────────
+
+def _fake_chat_calling_on_request(plan: dict, calls: list):
+    """Like the real client: await on_request before each 'HTTP request'. (The older fakes
+    swallow **kwargs and would hide the cap entirely.)"""
+    async def _inner(system, user, schema, *, on_request=None, **kwargs):
+        if on_request:
+            await on_request()
+        calls.append(1)
+        return plan
+    return _inner
+
+
+@pytest.mark.asyncio
+async def test_generation_counts_every_request_and_persists_the_total(client, db, monkeypatch):
+    names = await _real_exercise_names(db, 4)
+    plan = {"title": "T", "summary": "", "days": [
+        {"focus": "A", "exercises": [{"name": n, "sets": 3, "reps": "8"} for n in names[:3]]}]}
+    calls: list = []
+    monkeypatch.setattr(coach.gemini, "chat_json", _fake_chat_calling_on_request(plan, calls))
+    data = await _generate(client, "general", 1)
+    assert data["status"] == "done"
+    assert coach_budget.count_today() == len(calls) >= 1
+    async with db.execute("SELECT count FROM coach_usage WHERE day = ?", (coach_budget.la_day(),)) as c:
+        assert (await c.fetchone())["count"] == len(calls)       # flushed in the job's finally
+
+
+@pytest.mark.asyncio
+async def test_generation_is_refused_at_the_cap_before_any_model_call(client, monkeypatch):
+    monkeypatch.setenv("COACH_AI_MAX_PER_DAY", "2")
+    coach_budget.reserve()
+    coach_budget.reserve()
+    calls: list = []
+    monkeypatch.setattr(coach.gemini, "chat_json", _fake_chat_calling_on_request({}, calls))
+    r = await client.post("/coach/generate", json={"goal": "general", "days_per_week": 3})
+    assert r.status_code == 429 and "resting until tomorrow" in r.json()["detail"]
+    assert calls == [] and not coach._JOBS
+
+
+@pytest.mark.asyncio
+async def test_a_job_that_hits_the_cap_midway_fails_cleanly(client, monkeypatch):
+    monkeypatch.setenv("COACH_AI_MAX_PER_DAY", "1")
+    calls: list = []
+    monkeypatch.setattr(coach.gemini, "chat_json", _fake_chat_calling_on_request({"title": "x", "summary": "", "days": []}, calls))
+    data = await _generate(client, "general", 1)          # the one allowed request returns no days
+    assert data["status"] == "error" and "resting until tomorrow" in data["error"]
+    assert len(calls) == 1                                 # the retry was stopped by the cap, not sent
+
+
+@pytest.mark.asyncio
+async def test_cap_hit_during_the_refinement_retry_keeps_the_first_plan(client, db, monkeypatch):
+    """The refinement retry is optional: running out of quota must not throw away a usable plan."""
+    monkeypatch.setenv("COACH_AI_MAX_PER_DAY", "1")
+    names = await _real_exercise_names(db, 3)
+    thin = {"title": "T", "summary": "", "days": [
+        {"focus": "A", "exercises": [{"name": names[0], "sets": 3, "reps": "8"}, {"name": "Not A Real Lift", "sets": 3, "reps": "8"}]}]}
+    calls: list = []
+    monkeypatch.setattr(coach.gemini, "chat_json", _fake_chat_calling_on_request(thin, calls))
+    data = await _generate(client, "general", 1)          # 1 of 2 names dropped = 50% > 30%: wants a retry
+    assert data["status"] == "done" and len(calls) == 1
+    assert [e["name"] for e in data["plan"]["days"][0]["exercises"]] == [names[0]]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("kind", ["quota", "auth", "blocked", "bad_request", "not_configured"])
+async def test_permanent_gemini_errors_are_not_retried(client, monkeypatch, kind):
+    calls = {"n": 0}
+
+    async def boom(system, user, schema, **kwargs):
+        calls["n"] += 1
+        raise coach.gemini.GeminiError("nope", kind=kind)
+
+    monkeypatch.setattr(coach.gemini, "chat_json", boom)
+    data = await _generate(client, "general", 1)
+    assert data["status"] == "error" and calls["n"] == 1
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("kind", ["empty", "malformed", "timeout", "unreachable", "rate_limited"])
+async def test_transient_gemini_errors_get_one_retry(client, monkeypatch, kind):
+    calls = {"n": 0}
+
+    async def boom(system, user, schema, **kwargs):
+        calls["n"] += 1
+        raise coach.gemini.GeminiError("flaky", kind=kind)
+
+    monkeypatch.setattr(coach.gemini, "chat_json", boom)
+    data = await _generate(client, "general", 1)
+    assert data["status"] == "error" and calls["n"] == 2
 
