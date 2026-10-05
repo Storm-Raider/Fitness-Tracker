@@ -92,10 +92,7 @@ Features that remain: E1 Swap (D21: athlete picks from up to 6 ranked alternativ
   plan => 409 "chat and swap edit drafts; use Regenerate"; each swap pushes an undo_json entry, writes no
   message), E2 stored `coach_messages.changes` summary (D19), E3 prompt chips, E4 feedback chip, E5 "?"
   sends a normal chat message (D23).
-UI (D25 + completions): right sticky panel >=768px; below that a sticky bottom composer that expands to a
-  sheet (~60% viewport). Transcript style (YOU / COACH labels, `.hud` frame), "EDITED" muted label on
-  `--surface-2`, cyan `--live` for the working indicator, no entrance animation on messages,
-  `role="log"` + `aria-live="polite"`, reduced motion respected, sends/undo/chips disabled in flight.
+UI: SUPERSEDED by the "UI specification (design review)" section at the end of this document.
 Tests / quality (D14, CM4, CM6): committed `scripts/coach_eval.py` (~15 asserted live scenarios, manual,
   never CI); GATE: >=80% valid-and-correct on the real model before PR2; AUTOMATED migration test: run
   init_db on a fresh DB and an old-schema DB per eng review CM-B (frozen benign error set, NOT 'no error rows': a fresh DB already has 6 benign rows).
@@ -232,3 +229,66 @@ Items 1 and 2 were verified by reproduction against the real code before being a
         (if they fail, the chat is cancelled and its tables never ship). Every PR with migrations or transaction changes follows a checklist:
         pause the auto-deploy timer (check `systemctl list-timers`), run scripts/backup.py, merge, verify /health plus one generation and one chat
         turn, resume the timer. `updated_at` and the purge use `datetime('now','localtime')` consistently.
+
+## UI specification (/plan-design-review, 2026-10-04). Supersedes every earlier UI statement above
+Design rating 5/10 -> 9/10. Calibrated against DESIGN.md (Redline Console). Approved mockups (HTML renders of the real tokens; the
+AI image tool was not configured): `~/.gstack/projects/Storm-Raider-Fitness-Tracker/designs/coach-chat-mockups-20261004/`
+`desktop-v2.png`, `mobile-collapsed-v2.png`, `mobile-sheet-v2.png`, `mobile-privacy.png` (sources: desktop-v2.html, mock.css, v2.css).
+- DS-1  MOBILE BOTTOM STACK. Collapsed state is ONE 56px row (input + Send) at `bottom: calc(64px + env(safe-area-inset-bottom))` (~72px),
+        above the existing fixed `.mob-tab-bar`. Opening it (tap or Send) shows the sheet, which overlays the tab bar. Undo and Notes live in
+        the sheet, not the collapsed composer. After an edit with the sheet closed, show the existing `.undo-toast` ("Edited Day 2. Undo", ~8 s).
+        The plan gets bottom padding for composer + tab bar.
+- DS-2  STATES. The table "Interaction state coverage" below is the UI contract, with its exact copy.
+- DS-3  SEND ECHO. The YOU line appears instantly with the cyan "working... Ns" row; on failure the YOU line is removed, the text returns to
+        the input and one `.flash-error` line states why. On success the server's saved copy replaces the optimistic line.
+- DS-4  TRANSCRIPT. `YOU` (--muted) or `COACH` (--text, NEVER blue) in the uppercase mono label style ABOVE the text; no per-line timestamps; a
+        day-divider row (label style, hairlines each side) per day ("TODAY", "MON 28 SEP"). Same structure on desktop and mobile.
+        The model badge is NOT repeated in the panel (the Plan header already shows it).
+- DS-5  DESIGN SYSTEM. PR4a adds a "Coach chat" section to DESIGN.md (transcript, change-summary box, confirm chip, working indicator, sheet,
+        privacy card, banners); the pill style becomes a shared `.pill` in base.html (exercises.html's `.muscle-pill` extends it);
+        `.undo-toast` bottom becomes `calc(72px + var(--composer-h, 0px) + env(safe-area-inset-bottom))` with `--composer-h: 72px` while
+        the composer is present; sheet top radius 8px.
+- DS-6  DESKTOP PLACEMENT (revises CEO decision 25). At >=768px the existing 320px left column of `.plan-grid` swaps between `Generate` and
+        `Coach` using the existing `.kind-toggle` (defaults to Coach when a plan is on screen); the plan keeps the wide right column. Below
+        768px: DS-1. No third column.
+- DS-7  SHEET CONTRACT. Height 62% of the visual viewport; while the keyboard is open it resizes to the visual viewport (visualViewport
+        listener) so the input stays above it. Dismiss: 44px Close, Escape, tap the dimmed plan; NO drag gesture in v1. role="dialog"
+        aria-modal="true"; background `inert`; focus moves to the input (or "I understand" on first use), is trapped, returns to the composer
+        on close; transcript `overscroll-behavior: contain`; body scroll-locked; inputs >=16px (no iOS zoom). Reduced motion: no slide, no dot
+        pulse. Textarea behaviour: desktop Enter sends and Shift+Enter inserts a newline; on touch devices Enter inserts a newline and the Send
+        button sends.
+- DS-8  ROW ACTIONS. One 44x44 overflow button per exercise row opening a small popover with two 48px items: "Swap exercise" (draft plans
+        only) and "Why this exercise?" (draft and saved). Row layout: name (flex 1, wraps) | numbers (`.num`, right-aligned, fixed min width) |
+        overflow button.
+- DS-9  SWAP LIST. Choosing Swap unfolds six 48px alternatives inline under the row (name, plus equipment and muscle in muted mono); skeleton
+        rows while loading; "No alternatives found for this exercise." when empty. Tapping one applies it at once, collapses the list, marks the
+        day EDITED and shows the toast "Swapped X for Y. Undo".
+- DS-10 NOTES LIST. A one-line `COACH NOTES · N ▾` row (label style, 44px) pinned above the transcript; tapping unfolds the list in place, each note
+        with a 44px delete; collapsed by default except right after a note is confirmed; empty and full-cap copy per the state table.
+Completions (single sane behaviour): the EDITED label and the neutral changed-row tint (--surface-hover) show for the days of the latest applied
+edit and clear on the next edit or reload; prompt chips (E3) show only while the thread is empty; the working indicator is `aria-live="off"` and
+the transcript is `role="log" aria-live="polite"`; pain reports get a calm, direct reply that never diagnoses and points to a professional for
+persistent pain (chat prompt rule); the existing `maximum-scale=1, user-scalable=no` viewport meta is pre-existing and out of scope here.
+
+### Interaction state coverage (UI contract)
+| Feature | Loading | Empty | Error | Success | Partial |
+|---|---|---|---|---|---|
+| Thread | 3 muted skeleton lines | "Ask for a change or a reason. I use your training log." + 3 chips | `.flash-error` "Couldn't load the conversation. [Retry]" | transcript, newest at bottom, auto-scroll | "Showing the latest 100 messages." |
+| Send | YOU line at once; cyan dot "working... Ns" (>15 s: "still working"); input and chips disabled | n/a | YOU line removed, text back in the box, red line by kind: busy "Coach is busy, try again in a moment." / quota "Coach is resting until tomorrow. Undo and swaps still work." / blocked "I can't help with that. Try rephrasing." / timeout "The coach took too long. Your message is back in the box." / auth "Coach is misconfigured. Tell the admin." / network "No connection. Your message is back in the box." | COACH line + change summary + EDITED label; changed rows tinted; plan scrolls to the changed day | "I couldn't find 'X' in your library, so Day 2 is unchanged." |
+| Undo | disabled while pending | hidden when nothing to undo | "Can't restore this edit." | summary struck through; toast "Undone" | n/a |
+| Stale tab | n/a | n/a | banner above the composer "This plan changed in another tab. [Reload]" (typed text preserved) | n/a | n/a |
+| Saved plan | n/a | banner "This plan is saved. I can answer questions; edits go to drafts. [Regenerate from this chat]" | n/a | n/a | n/a |
+| Privacy | n/a | first-use card (mobile-privacy.png) | n/a | card gone, composer enabled | n/a |
+| Notes | 3 skeleton rows | "Nothing remembered yet. When you tell me about an injury or a preference, I'll offer to remember it." | "Couldn't load notes. [Retry]" | list, each row with a 44px delete | "Notes are full (20). Delete one to save more." |
+| Swap list | 6 skeleton rows | "No alternatives found for this exercise." | "Couldn't load alternatives. [Retry]" | list closes, toast "Swapped X for Y. Undo" | n/a |
+| Confirm chip (note/feedback) | button reads "Saving..." | n/a | inline "Couldn't save. [Retry]" | chip becomes "Saved" for 3 s | feedback overwrite: "Replace 'too hard' with 'too easy'?" |
+| Cap / kill switch | n/a | n/a | cap: composer disabled + "Coach is resting until tomorrow. Undo and swaps still work."; kill switch: panel not rendered | n/a | n/a |
+
+### Approved Mockups
+| Screen/Section | Mockup Path | Direction | Notes |
+|---|---|---|---|
+| Plan page, desktop (Coach tab) | ~/.gstack/projects/Storm-Raider-Fitness-Tracker/designs/coach-chat-mockups-20261004/desktop-v2.png | left 320px column = Generate/Coach toggle; stacked transcript; overflow menu + inline swap list; collapsed notes row | HTML render of real tokens (AI image tool not configured); sources desktop-v2.html, mock.css, v2.css |
+| Mobile, collapsed | .../mobile-collapsed-v2.png | one-row composer above the fixed tab bar; undo toast above the composer | toast offset uses --composer-h (DS-5) |
+| Mobile, sheet open | .../mobile-sheet-v2.png | 62% dialog over the tab bar; notes row, transcript, composer | contract DS-7 |
+| Mobile, first use | .../mobile-privacy.png | blocking privacy card in the sheet | copy to be finalized after reading Google's Gemini API terms |
+
