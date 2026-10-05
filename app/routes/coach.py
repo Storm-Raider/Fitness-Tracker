@@ -1,13 +1,13 @@
 """
 AI fitness coach — turns a user's training history into a tailored workout
-routine using a local Ollama LLM.
+routine using the Google Gemini API.
 
 The coach is a focused agent: it builds a compact "training profile" from the
 athlete's logged sets (top movements, muscle-group coverage, frequency,
 estimated 1RMs), hands that plus the chosen goal + days/week to the model, and
 gets back a structured multi-day routine. Generation is review-then-save:
 
-  POST /coach/generate   build profile → ask Ollama → return a draft plan (no write)
+  POST /coach/generate   build profile → ask Gemini → return a draft plan (no write)
   POST /coach/save       persist a reviewed plan to coach_plans + create one
                          user-owned routine per day so it shows up in /routines
   DELETE /coach/plans/{id}
@@ -19,6 +19,7 @@ import asyncio
 import json
 import logging
 import os
+import re
 import time as _time
 import uuid
 
@@ -29,25 +30,26 @@ from pydantic import BaseModel, Field
 
 from app.db import get_db
 from app.routes.auth import get_current_user
-from app.utils import ollama
+from app.utils import gemini
 from app.utils.training_profile import build_profile
 
 router = APIRouter()
 
-# Generation runs as a background job rather than a single long request: on a
-# Raspberry Pi a routine takes 3-4 minutes, which exceeds the response timeout
-# of the Tailscale Funnel proxy in front of the app. The client kicks off a job
-# and polls a fast status endpoint instead, so no single request is long-lived.
+# Generation runs as a background job rather than a single long request: a
+# routine can take tens of seconds (longer with rate-limit retries), which risks
+# the response timeout of the Tailscale Funnel proxy in front of the app. The
+# client kicks off a job and polls a fast status endpoint instead, so no single
+# request is long-lived.
 _JOBS: dict[str, dict] = {}
-_JOBS_MAX = 50              # cap retained jobs (single-user Pi; in-memory is fine)
+_JOBS_MAX = 50              # cap retained jobs (small self-hosted app; in-memory is fine)
 _TASKS: set = set()        # keep task refs so they aren't GC'd mid-flight
 _ACTIVE_BY_USER: dict[int, str] = {}  # uid -> in-flight job id (single-flight)
-_GEN_LOCK = asyncio.Lock()  # the Pi runs ONE generation at a time; serialize them
+_GEN_LOCK = asyncio.Lock()  # one generation at a time; keeps us well inside the Gemini API rate limits
 
 # Explicit queue so a burst of friends hitting "Generate" at once is bounded and
 # ordered instead of piling up unbounded waiters. _GEN_LOCK already guarantees a
-# single concurrent inference (so the Pi's CPU/RAM can't be doubled up); the
-# queue adds a hard depth cap + FIFO position reporting on top.
+# single concurrent API call (so a burst can't trip Gemini's per-minute rate
+# limits); the queue adds a hard depth cap + FIFO position reporting on top.
 _QUEUE: list[str] = []     # job_ids waiting their turn, FIFO (for position display)
 # Max users queued+running at once. Beyond this, new requests are rejected with a
 # friendly 429 rather than waiting 30+ min behind a long line.
@@ -57,9 +59,6 @@ _MAX_QUEUE = int(os.environ.get("COACH_MAX_QUEUE", "5"))
 _ACTIVE_STATES = ("queued", "processing")
 
 _JOB_EVENTS: dict[str, asyncio.Queue] = {}  # per-job SSE queues for live progress
-
-_SPEC_CACHE: dict[int, dict] = {}  # uid → {goal, days, plan, dropped, model, ts}
-_SPEC_CACHE_TTL = 1800.0           # seconds; matches profile cache TTL
 
 
 def _active_count() -> int:
@@ -137,22 +136,23 @@ _PRIORITY_EXERCISES = [
     "Farmer's Carry", "Kettlebell Swing",
 ]
 
-# Ollama structured-output schema, built per request. Pinning the day count
+# Gemini structured-output schema, built per request. Pinning the day count
 # (minItems == maxItems == days) and a minimum exercises-per-day pushes the
 # small model toward a complete plan rather than stopping after one or two
 # movements, while keeping output deterministic to parse.
-def _plan_schema(
-    days: int, min_ex: int = 6, max_ex: int = 8,
-    allowed_names: list[str] | None = None,
-) -> dict:
+def _plan_schema(days: int, min_ex: int = 6, max_ex: int = 8) -> dict:
+    # `name` is a plain string, NOT an enum of the exercise catalog: Gemini
+    # rejects schemas whose enum has more than a few dozen values (HTTP 400
+    # "invalid argument" — verified live, 10 names OK / 40+ fail). Names are
+    # constrained by the prompt's ALLOWED list and validated against the
+    # library afterwards (_normalise_plan drops unknowns; the generation retries
+    # when too many are dropped).
     name_field: dict = {"type": "string"}
-    if allowed_names:
-        name_field["enum"] = allowed_names
     return {
         "type": "object",
         # additionalProperties:false on every object node stops the model from
         # spending output tokens on fields we never asked for and would just
-        # discard in _normalise_plan() anyway — free savings on a ~5 tok/s Pi.
+        # discard in _normalise_plan() anyway — free savings on output tokens.
         "additionalProperties": False,
         "properties": {
             # maxLength caps below all follow the same reasoning as the existing
@@ -184,8 +184,8 @@ def _plan_schema(
                                     "sets": {"type": "integer", "minimum": 1, "maximum": 20},
                                     "reps": {"type": "string", "maxLength": 12},
                                     # Hard cap via grammar-constrained decoding: long
-                                    # notes dominate generation time on the Pi (output
-                                    # tokens are the wall-clock bottleneck, ~5 tok/s).
+                                    # notes dominate generation time (output tokens are
+                                    # the wall-clock bottleneck).
                                     "note": {"type": "string", "maxLength": 90},
                                 },
                                 "required": ["name", "sets", "reps"],
@@ -508,7 +508,10 @@ def _build_prompt(goal: str, days: int, profile: dict, catalog: dict, focus_note
     lines.append("")
 
     # ── Exercise catalog ──────────────────────────────────────────────
-    lines.append("ALLOWED EXERCISES — use EXACT names from this list, grouped by Category/Muscle:")
+    lines.append(
+        "ALLOWED EXERCISES — use EXACT names from this list, grouped by Category/Muscle. "
+        "Write the name only, without the [equipment] tag:"
+    )
     for cat, muscle_map in catalog.items():
         for muscle, exercise_labels in muscle_map.items():
             lines.append(f"  {cat}/{muscle}: {', '.join(exercise_labels)}")
@@ -627,6 +630,11 @@ async def _name_to_id_map(conn: aiosqlite.Connection) -> tuple[dict[str, dict], 
     return _NAME_MAP_CACHE
 
 
+# The prompt lists exercises as "Name [Equipment]". Models sometimes copy the whole
+# label, so strip a trailing [tag] before resolving a name.
+_EQUIPMENT_TAG = re.compile(r"\s*\[[^\]]*\]\s*$")
+
+
 def _normalise_plan(raw: dict, goal: str, days: int, name_map: dict, norm_map: dict | None = None) -> tuple[dict, list[str]]:
     """
     Coerce the model's output into our shape, resolve exercise names to real
@@ -639,7 +647,7 @@ def _normalise_plan(raw: dict, goal: str, days: int, name_map: dict, norm_map: d
     for day in (raw.get("days") or [])[:days]:
         exercises = []
         for ex in (day.get("exercises") or []):
-            name = str(ex.get("name", "")).strip()
+            name = _EQUIPMENT_TAG.sub("", str(ex.get("name", "")).strip()).strip()
             match = name_map.get(name.lower())
             if not match and name:
                 # Recover common model errors without risking false-positive fuzzy matches:
@@ -694,8 +702,8 @@ def _max_weekly_repeats(days_per_week: int) -> int:
 
 # Exact cue-text fragments from _SYSTEM_PROMPT's worked example. Renaming the
 # example's exercises to unresolvable placeholders (Exercise A-E) stops the
-# model from copying them at the name level — the enum-constrained schema
-# can't emit a name outside the real catalog — but on a small model under weak
+# model from copying them at the name level — an unresolvable name is dropped
+# by _normalise_plan() — but on a small model under weak
 # personalization signal (e.g. no logged history for that muscle group) it can
 # still fall back to reproducing the example's weights/rep-scheme/note wording
 # verbatim for whatever real exercise it does pick. Live-verified: a real
@@ -830,22 +838,6 @@ def _repair_plan(plan: dict, name_map: dict) -> tuple[dict, list[str]]:
     return plan, swaps
 
 
-def _size_num_ctx(prompt: str, schema: dict) -> int:
-    """Size the KV cache to what this request will actually use, rather than the
-    model's full default (32k on qwen2.5 variants) — a smaller context is faster
-    to allocate and process per token.
-
-    input estimate + 1024 output budget, rounded up to the next power of 2,
-    clamped to [2048, 8192]. The estimate must include the JSON schema, not just
-    the system/user prompt text: `format` is sent as its own field in the chat
-    payload, but Ollama still has to hold it in context to constrain decoding —
-    and with a full exercise-name enum in `allowed_names`, the schema itself can
-    run to several hundred tokens, enough to under-size num_ctx if ignored.
-    """
-    _tok_est = (len(_SYSTEM_PROMPT) + len(prompt) + len(json.dumps(schema))) // 4 + 1024
-    return max(2048, min(8192, 1 << (_tok_est - 1).bit_length()))
-
-
 async def _emit(job_id: str, event: dict) -> None:
     """Push a progress event into the SSE queue for this job (no-op if no subscriber)."""
     q = _JOB_EVENTS.get(job_id)
@@ -875,11 +867,10 @@ async def _run_generation(
     job_id: str, conn: aiosqlite.Connection, uid: int,
     goal: str, days: int, focus_note: str,
 ) -> None:
-    """Background worker: build the profile, ask Ollama, validate, store result.
+    """Background worker: build the profile, ask Gemini, validate, store result.
 
-    Serialized by _GEN_LOCK so concurrent jobs can't thrash the Pi's CPU (which
-    makes every generation crawl past the timeout). Emits phase/token/done events
-    to any connected SSE subscriber via _JOB_EVENTS."""
+    Serialized by _GEN_LOCK so a burst of jobs can't trip Gemini's rate limits.
+    Emits phase/token/done events to any connected SSE subscriber via _JOB_EVENTS."""
 
     async def _on_tokens(count: int) -> None:
         await _emit(job_id, {"type": "tokens", "count": count})
@@ -899,30 +890,26 @@ async def _run_generation(
             asm = profile.get("avg_session_minutes")
             ex_target = max(4, min(10, round(asm / 7))) if asm else 7
             min_ex, max_ex = max(3, ex_target - 1), min(10, ex_target + 1)
-            allowed_names = _catalog_names(catalog)
-            schema = _plan_schema(days, min_ex, max_ex, allowed_names)
-            num_ctx = _size_num_ctx(prompt, schema)
+            schema = _plan_schema(days, min_ex, max_ex)
 
             await _emit(job_id, {"type": "phase", "message": "Generating your plan…"})
             try:
-                raw, model_used = await ollama.chat_json_with_fallback(
+                raw, model_used = await gemini.generate_json(
                     _SYSTEM_PROMPT, prompt, schema,
-                    timeout=480.0, temperature=0.2, num_ctx=num_ctx,
+                    temperature=0.2,
                     on_tokens=_on_tokens,
                 )
-            except ollama.OllamaError:
-                # One retry for a content-level failure (empty/malformed JSON)
-                # from a host that DID respond — chat_json_with_fallback()
-                # already handles host-UNavailability (unreachable/timeout/model
-                # missing) internally by trying the fallback host, so reaching
-                # this except means both the primary and (if distinct) fallback
-                # were tried and still came back with unusable content. Worth
-                # one more attempt before failing the whole job; models stay
-                # warm (keep_alive=-1) so the retry doesn't re-pay load cost.
+            except gemini.GeminiError:
+                # One retry for a content-level failure (empty/malformed JSON).
+                # gemini.chat_json() already retries transient failures (429/5xx/
+                # timeouts) itself, so reaching this except means the API either
+                # kept failing or answered with unusable content. Worth one more
+                # attempt before failing the whole job; a permanent failure (bad
+                # key, unknown model) just fails fast again.
                 logging.warning("coach: chat_json failed, retrying once (job %s)", job_id)
-                raw, model_used = await ollama.chat_json_with_fallback(
+                raw, model_used = await gemini.generate_json(
                     _SYSTEM_PROMPT, prompt, schema,
-                    timeout=480.0, temperature=0.2, num_ctx=num_ctx,
+                    temperature=0.2,
                     on_tokens=_on_tokens,
                 )
             name_map, _norm_map = await _name_to_id_map(conn)
@@ -956,9 +943,9 @@ async def _run_generation(
                         f"than {_max_weekly_repeats(days)} day(s). Use different variations "
                         "(e.g. Bench Press one day, Incline Dumbbell Press another)."
                     )
-                raw2, model_used2 = await ollama.chat_json_with_fallback(
+                raw2, model_used2 = await gemini.generate_json(
                     _SYSTEM_PROMPT, retry_prompt, schema,
-                    timeout=480.0, temperature=0.1, num_ctx=num_ctx,
+                    temperature=0.1,
                     on_tokens=_on_tokens,
                 )
                 plan2, dropped2 = _normalise_plan(raw2, goal, days, name_map, _norm_map)
@@ -1014,14 +1001,8 @@ async def _run_generation(
             "dropped": final_dropped, "model": model_used,
             "draft_id": draft_id,
         })
-        # Pre-generate next plan in background so the user's NEXT request is instant.
-        _spec_task = asyncio.create_task(
-            _run_spec_generation(conn, uid, goal, days, focus_note)
-        )
-        _TASKS.add(_spec_task)
-        _spec_task.add_done_callback(_TASKS.discard)
 
-    except ollama.OllamaError as exc:
+    except gemini.GeminiError as exc:
         err = str(exc)
         _JOBS[job_id] = {"status": "error", "user_id": uid, "error": err}
         await _emit(job_id, {"type": "failed", "error": err})
@@ -1037,55 +1018,6 @@ async def _run_generation(
             _ACTIVE_BY_USER.pop(uid, None)
 
 
-async def _run_spec_generation(
-    conn: aiosqlite.Connection, uid: int,
-    goal: str, days: int, focus_note: str,
-) -> None:
-    """Pre-generate the next plan silently and cache it for instant serve.
-
-    Only runs when no other generation is active. Acquires _GEN_LOCK so it
-    doesn't conflict with real user jobs — if a real job is submitted while
-    spec gen is running it will queue and proceed after spec gen releases."""
-    if _active_count() > 0:
-        return
-    try:
-        async with _GEN_LOCK:
-            # Re-check inside lock in case a real job queued while we waited.
-            if _active_count() > 0:
-                return
-            profile = await build_profile(conn, uid)
-            catalog = await _exercise_catalog(conn, uid, profile.get("preferred_equipment"))
-            prompt = _build_prompt(goal, days, profile, catalog, focus_note)
-            asm = profile.get("avg_session_minutes")
-            ex_target = max(4, min(10, round(asm / 7))) if asm else 7
-            min_ex, max_ex = max(3, ex_target - 1), min(10, ex_target + 1)
-            allowed_names = _catalog_names(catalog)
-            schema = _plan_schema(days, min_ex, max_ex, allowed_names)
-            num_ctx = _size_num_ctx(prompt, schema)
-            # Same temperature as the primary generation path (_run_generation).
-            # This plan may be served directly to the user with zero further
-            # review if their next request matches it (see the spec-cache hit in
-            # generate()), so it must carry the same quality bar — no reason for
-            # a silent background generation to be tuned differently from one
-            # the user explicitly waited for.
-            raw, model_used = await ollama.chat_json_with_fallback(
-                _SYSTEM_PROMPT, prompt, schema,
-                timeout=480.0, temperature=0.2, num_ctx=num_ctx,
-            )
-            name_map, _norm_map = await _name_to_id_map(conn)
-            plan, dropped = _normalise_plan(raw, goal, days, name_map, _norm_map)
-            plan, _swaps = _repair_plan(plan, name_map)
-            if plan["days"]:
-                _SPEC_CACHE[uid] = {
-                    "goal": goal, "days": days, "plan": plan,
-                    "dropped": sorted(set(dropped)), "model": model_used,
-                    "ts": _time.monotonic(),
-                }
-                logging.info("coach: speculative plan cached for uid=%d", uid)
-    except Exception:
-        logging.debug("coach: speculative generation skipped or failed", exc_info=True)
-
-
 @router.post("/coach/generate", status_code=202)
 async def generate(
     body: GenerateIn,
@@ -1094,33 +1026,15 @@ async def generate(
 ):
     """Kick off generation as a background job and return its id immediately.
     The client polls GET /coach/generate/{job_id} or opens EventSource at
-    /coach/stream/{job_id}. Keeps every request short so the long (minutes-on-Pi)
+    /coach/stream/{job_id}. Keeps every request short so the long
     inference never hits the reverse-proxy timeout.
 
-    Returns HTTP 200 with {plan, dropped, model} when a speculative pre-generated
-    plan is available and matches the request — zero perceived latency.
-    Returns HTTP 202 with {job_id} for the normal async path."""
+    Returns HTTP 202 with {job_id}."""
     uid = current_user["id"]
-
-    # Spec cache hit: serve the pre-generated plan instantly (HTTP 200, no job).
-    spec = _SPEC_CACHE.pop(uid, None)
-    if spec and (_time.monotonic() - spec["ts"]) < _SPEC_CACHE_TTL:
-        if spec["goal"] == body.goal and spec["days"] == body.days_per_week:
-            # Kick off a background refresh so the NEXT request is also instant.
-            _spec_task = asyncio.create_task(
-                _run_spec_generation(conn, uid, body.goal, body.days_per_week, body.focus_note)
-            )
-            _TASKS.add(_spec_task)
-            _spec_task.add_done_callback(_TASKS.discard)
-            return JSONResponse({
-                "plan": spec["plan"],
-                "dropped": spec["dropped"],
-                "model": spec["model"],
-            }, status_code=200)
 
     # Single-flight: if this user already has a generation queued or running, hand
     # back the same job id. Repeated clicks (or a stale tab) then attach to the one
-    # job instead of spawning several that would thrash the Pi.
+    # job instead of spawning several that would burn API quota.
     existing = _ACTIVE_BY_USER.get(uid)
     if existing and _JOBS.get(existing, {}).get("status") in _ACTIVE_STATES:
         return JSONResponse({"job_id": existing}, status_code=202)
@@ -1275,7 +1189,7 @@ async def save_plan(
         VALUES (?, ?, ?, ?, ?, ?)
         """,
         (uid, plan_obj["title"], body.goal, body.days_per_week,
-         json.dumps(plan_obj), ollama.ollama_model()),
+         json.dumps(plan_obj), gemini.model()),
     ) as cur:
         plan_id = cur.lastrowid
 

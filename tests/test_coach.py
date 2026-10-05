@@ -41,12 +41,12 @@ def _fake_chat(plan: dict):
 @pytest.fixture(autouse=True)
 def _reset_coach_state():
     """Coach module state is process-global — clear it around every test so a
-    speculative plan cached by one test can't satisfy the next test's request."""
+    job left over from one test can't leak into the next."""
     coach._JOBS.clear(); coach._QUEUE.clear()
-    coach._ACTIVE_BY_USER.clear(); coach._SPEC_CACHE.clear()
+    coach._ACTIVE_BY_USER.clear()
     yield
     coach._JOBS.clear(); coach._QUEUE.clear()
-    coach._ACTIVE_BY_USER.clear(); coach._SPEC_CACHE.clear()
+    coach._ACTIVE_BY_USER.clear()
 
 
 @pytest.mark.asyncio
@@ -81,7 +81,7 @@ async def test_generate_returns_plan_and_drops_unknowns(client, db, monkeypatch)
             ]},
         ],
     }
-    monkeypatch.setattr(coach.ollama, "chat_json", _fake_chat(fake_plan))
+    monkeypatch.setattr(coach.gemini, "chat_json", _fake_chat(fake_plan))
 
     data = await _generate(client, "strength", 2)
     assert data["status"] == "done"
@@ -104,7 +104,7 @@ async def test_generate_caps_days_to_request(client, db, monkeypatch):
             for i in range(5)
         ],
     }
-    monkeypatch.setattr(coach.ollama, "chat_json", _fake_chat(fake_plan))
+    monkeypatch.setattr(coach.gemini, "chat_json", _fake_chat(fake_plan))
 
     data = await _generate(client, "general", 3)
     assert data["status"] == "done"
@@ -112,19 +112,19 @@ async def test_generate_caps_days_to_request(client, db, monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_generate_handles_ollama_error(client, monkeypatch):
+async def test_generate_handles_gemini_error(client, monkeypatch):
     async def boom(system, user, schema, **kwargs):
-        raise coach.ollama.OllamaError("Couldn't reach Ollama")
-    monkeypatch.setattr(coach.ollama, "chat_json", boom)
+        raise coach.gemini.GeminiError("Couldn't reach Gemini")
+    monkeypatch.setattr(coach.gemini, "chat_json", boom)
 
     data = await _generate(client, "strength", 3)
     assert data["status"] == "error"
-    assert "Ollama" in data["error"]
+    assert "Gemini" in data["error"]
 
 
 @pytest.mark.asyncio
 async def test_generate_empty_plan_errors(client, monkeypatch):
-    monkeypatch.setattr(coach.ollama, "chat_json", _fake_chat({"title": "x", "summary": "", "days": []}))
+    monkeypatch.setattr(coach.gemini, "chat_json", _fake_chat({"title": "x", "summary": "", "days": []}))
     data = await _generate(client, "strength", 3)
     assert data["status"] == "error"
     assert "usable exercises" in data["error"]
@@ -147,7 +147,7 @@ async def test_generation_status_unknown_job_404(client):
 @pytest.mark.asyncio
 async def test_generate_single_flight_reuses_inflight_job(client, db, monkeypatch):
     # A second request while one is still running must reuse the same job_id,
-    # so repeated clicks / a stale tab can't spawn multiple Ollama generations.
+    # so repeated clicks / a stale tab can't spawn multiple generations.
     names = await _real_exercise_names(db, 1)
     gate = asyncio.Event()
 
@@ -155,7 +155,7 @@ async def test_generate_single_flight_reuses_inflight_job(client, db, monkeypatc
         await gate.wait()
         return {"title": "P", "summary": "", "days": [
             {"focus": "A", "exercises": [{"name": names[0], "sets": 3, "reps": "10"}]}]}
-    monkeypatch.setattr(coach.ollama, "chat_json", slow)
+    monkeypatch.setattr(coach.gemini, "chat_json", slow)
 
     r1 = await client.post("/coach/generate", json={"goal": "general", "days_per_week": 1})
     r2 = await client.post("/coach/generate", json={"goal": "general", "days_per_week": 1})
@@ -174,7 +174,7 @@ async def test_generate_single_flight_reuses_inflight_job(client, db, monkeypatc
 @pytest.mark.asyncio
 async def test_generation_job_isolated_between_users(client, user_b_client, db, monkeypatch):
     names = await _real_exercise_names(db, 1)
-    monkeypatch.setattr(coach.ollama, "chat_json", _fake_chat(
+    monkeypatch.setattr(coach.gemini, "chat_json", _fake_chat(
         {"title": "P", "summary": "", "days": [
             {"focus": "A", "exercises": [{"name": names[0], "sets": 3, "reps": "10"}]}]}
     ))
@@ -498,7 +498,7 @@ async def test_generation_repairs_copy_paste_days(client, db, monkeypatch):
         "exercises": [{"name": n, "sets": 3, "reps": "8-12", "note": ""} for n in names],
     }
     fake = {"title": "Copy Paste", "summary": "", "days": [same_day, dict(same_day)]}
-    monkeypatch.setattr(coach.ollama, "chat_json", _fake_chat(fake))
+    monkeypatch.setattr(coach.gemini, "chat_json", _fake_chat(fake))
     coach._JOBS.clear(); coach._QUEUE.clear(); coach._ACTIVE_BY_USER.clear()
 
     pd = await _generate(client, "general", 2)
@@ -521,9 +521,9 @@ def test_system_prompt_example_uses_unresolvable_exercise_names():
     """The example's exercises must not be real catalog entries — a real
     generation reused the OLD example's real names (Bench Press, Overhead
     Press, ...) verbatim, sets/reps/notes included, for an athlete with weak
-    personalization signal for that muscle group. Since exercise `name` is
-    enum-constrained to the real per-request catalog, an unresolvable
-    placeholder like "Exercise A" can never be copied into real output."""
+    personalization signal for that muscle group. An unresolvable placeholder
+    like "Exercise A" that does get copied is dropped by _normalise_plan() (it
+    isn't in the exercise library) and triggers the dropped-names retry."""
     for real_name in ("Bench Press", "Overhead Press", "Incline Dumbbell Press",
                        "Lateral Raise", "Tricep Pushdown"):
         assert f'"name": "{real_name}"' not in coach._SYSTEM_PROMPT
@@ -558,8 +558,21 @@ def test_quality_issues_ignores_a_single_generic_phrase():
 
 # ── Schema tightening (token-budget on a ~5 tok/s Pi) ──────────────────
 
+def test_schema_name_is_a_plain_string_not_an_enum():
+    """Gemini rejects the schema (HTTP 400 "invalid argument") once an enum has
+    more than a few dozen values — verified live: 10 names OK, 40+ fail, even
+    with every other constraint stripped. The real catalog has ~170 names, so
+    names are constrained by the prompt's ALLOWED list and validated afterwards
+    by _normalise_plan() instead. Reintroducing a catalog-sized enum here would
+    make every generation fail."""
+    schema = coach._plan_schema(3)
+    ex = schema["properties"]["days"]["items"]["properties"]["exercises"]["items"]
+    assert ex["properties"]["name"] == {"type": "string"}
+    assert "enum" not in json.dumps(schema)
+
+
 def test_schema_caps_free_text_fields_to_save_output_tokens():
-    schema = coach._plan_schema(3, allowed_names=["Bench Press"])
+    schema = coach._plan_schema(3)
     assert schema["additionalProperties"] is False
     assert schema["properties"]["title"]["maxLength"] == 60
     assert schema["properties"]["summary"]["maxLength"] == 200
@@ -572,25 +585,6 @@ def test_schema_caps_free_text_fields_to_save_output_tokens():
     assert ex_schema["properties"]["note"]["maxLength"] == 90  # unchanged
     assert ex_schema["properties"]["sets"]["minimum"] == 1
     assert ex_schema["properties"]["sets"]["maximum"] == 20
-
-
-# ── num_ctx sizing accounts for the schema, not just the prompt text ──
-
-def test_size_num_ctx_grows_with_a_larger_schema():
-    prompt = "x" * 100
-    small_schema = coach._plan_schema(1, allowed_names=["Bench Press"])
-    # A big catalog produces a big `enum` list in the schema — that has to be
-    # held in context too, even though it's sent as its own `format` field,
-    # not appended to the prompt string.
-    big_schema = coach._plan_schema(1, allowed_names=[f"Exercise {i}" for i in range(400)])
-    assert coach._size_num_ctx(prompt, big_schema) >= coach._size_num_ctx(prompt, small_schema)
-
-
-def test_size_num_ctx_clamped_to_range():
-    tiny_schema = coach._plan_schema(1, allowed_names=["Bench Press"])
-    assert coach._size_num_ctx("", tiny_schema) >= 2048
-    huge_prompt = "x" * 100_000
-    assert coach._size_num_ctx(huge_prompt, tiny_schema) <= 8192
 
 
 # ── Retry on transport/parse failure (distinct from the quality retry) ─
@@ -609,60 +603,82 @@ async def test_generate_retries_once_on_transport_error_then_succeeds(client, db
     async def _flaky(system, user, schema, **kwargs):
         calls["n"] += 1
         if calls["n"] == 1:
-            raise coach.ollama.OllamaError("Ollama returned malformed JSON.")
+            raise coach.gemini.GeminiError("Gemini returned malformed JSON.")
         return fake_plan
 
-    monkeypatch.setattr(coach.ollama, "chat_json", _flaky)
+    monkeypatch.setattr(coach.gemini, "chat_json", _flaky)
 
     data = await _generate(client, "general", 1)
     assert data["status"] == "done"
     assert data["plan"]["title"] == "Recovered Plan"
-    # At least 2: the failed first attempt + the retry that recovered. Not
-    # asserting an exact count — a successful generation also kicks off a
-    # background speculative-cache generation (see _run_spec_generation) that
-    # calls chat_json too, and whether it's fired by the time we check here
-    # is a scheduling race, not something this test cares about.
-    assert calls["n"] >= 2
+    # The failed first attempt + the retry that recovered.
+    assert calls["n"] == 2
 
 
 @pytest.mark.asyncio
 async def test_generate_gives_up_after_retry_still_fails(client, monkeypatch):
     async def _always_fails(system, user, schema, **kwargs):
-        raise coach.ollama.OllamaError("Couldn't reach Ollama")
+        raise coach.gemini.GeminiError("Couldn't reach Gemini")
 
-    monkeypatch.setattr(coach.ollama, "chat_json", _always_fails)
+    monkeypatch.setattr(coach.gemini, "chat_json", _always_fails)
 
     data = await _generate(client, "strength", 3)
     assert data["status"] == "error"
-    assert "Ollama" in data["error"]
+    assert "Gemini" in data["error"]
 
 
-# ── Spec-cache generation matches the primary path's quality bar ──────
+# ── No background pre-generation (each one spends API quota) ──────────
 
 @pytest.mark.asyncio
-async def test_spec_generation_uses_same_temperature_as_primary_path(client, db, monkeypatch):
+async def test_generation_makes_exactly_one_api_call_and_nothing_in_the_background(client, db, monkeypatch):
+    """A successful generation used to kick off a second, background generation
+    to pre-cache the user's next plan. On a small free-tier Gemini quota that
+    silently doubled usage, so it's gone: one request in, one API call out."""
     names = await _real_exercise_names(db, 1)
     fake_plan = {
-        "title": "Spec Plan", "summary": "",
+        "title": "One Shot", "summary": "",
         "days": [{"focus": "Full Body", "exercises": [
             {"name": names[0], "sets": 3, "reps": "10"},
         ]}],
     }
-    temps_seen = []
+    calls = {"n": 0}
 
-    async def _recording_chat(system, user, schema, **kwargs):
-        temps_seen.append(kwargs.get("temperature"))
+    async def _counting_chat(system, user, schema, **kwargs):
+        calls["n"] += 1
         return fake_plan
 
-    monkeypatch.setattr(coach.ollama, "chat_json", _recording_chat)
+    monkeypatch.setattr(coach.gemini, "chat_json", _counting_chat)
 
-    await _generate(client, "general", 1)
-    # Primary generation call already fired; now let the background spec-gen
-    # task (kicked off after a successful generation) run to completion.
-    for _ in range(50):
-        if len(temps_seen) >= 2:
-            break
-        await asyncio.sleep(0.02)
+    data = await _generate(client, "general", 1)
+    assert data["status"] == "done"
+    # Give any (unwanted) background task ample time to fire.
+    await asyncio.sleep(0.3)
+    assert calls["n"] == 1
+    assert not hasattr(coach, "_SPEC_CACHE") and not hasattr(coach, "_run_spec_generation")
 
-    assert len(temps_seen) >= 2, "speculative generation never ran"
-    assert temps_seen[0] == temps_seen[1] == 0.2
+
+# ── Equipment-tagged names (the prompt lists "Bench Press [Barbell]") ───
+
+@pytest.mark.asyncio
+async def test_normalise_plan_accepts_names_copied_with_equipment_tag(db):
+    """The prompt's ALLOWED list labels exercises "Name [Equipment]". With the
+    schema enum gone (Gemini rejects catalog-sized enums), the model copies the
+    label verbatim — a live generation had 18/18 names dropped this way. The
+    trailing [tag] must not stop a name from resolving."""
+    name_map, norm_map = await coach._name_to_id_map(db)
+    raw = {"title": "T", "summary": "", "days": [{"focus": "Push", "exercises": [
+        {"name": "Bench Press [Barbell]", "sets": 4, "reps": "8"},
+        {"name": "back squat [Barbell]  ", "sets": 4, "reps": "5"},   # case + whitespace
+        {"name": "Totally Fake Lift [Cable]", "sets": 3, "reps": "10"},
+    ]}]}
+    plan, dropped = coach._normalise_plan(raw, "strength", 1, name_map, norm_map)
+    assert [e["name"] for e in plan["days"][0]["exercises"]] == ["Bench Press", "Back Squat"]
+    assert dropped == ["Totally Fake Lift"]   # reported without the tag
+
+
+@pytest.mark.asyncio
+async def test_prompt_tells_model_to_write_the_name_without_the_equipment_tag(db):
+    profile = await coach.build_profile(db, uid=1)
+    catalog = await coach._exercise_catalog(db, uid=1)
+    prompt = coach._build_prompt("strength", 3, profile, catalog, "")
+    assert "without the [equipment] tag" in prompt

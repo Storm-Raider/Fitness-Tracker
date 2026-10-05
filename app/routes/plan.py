@@ -15,7 +15,7 @@ from fastapi.responses import HTMLResponse
 
 from app.db import get_db
 from app.routes.auth import get_current_user
-from app.utils import ollama
+from app.utils import gemini
 from app.utils.render import render
 from app.utils.training_profile import build_profile
 
@@ -124,8 +124,6 @@ async def plan_page(
         reverse=True,
     )[:15]
 
-    available, models = await ollama.is_available()
-
     return render(
         request,
         "plan",
@@ -135,8 +133,7 @@ async def plan_page(
             "top_lifts": top_lifts,
             "saved_plans": saved_plans,
             "draft_plan": draft_plan,
-            "ollama_available": available,
-            "ollama_models": models,
-            "ollama_model": ollama.ollama_model(),
+            "llm_available": gemini.is_configured(),
+            "llm_model": gemini.model(),
         },
     )

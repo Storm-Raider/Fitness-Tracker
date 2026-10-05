@@ -31,7 +31,7 @@ Open `http://<your-pi-ip>:8000`
 - **Personal records** — PR table on the dashboard; gold badge on every set that beats your best.
 - **Exercise detail** — weight progression sparkline, session history, estimated 1RM.
 - **52-week heatmap** — GitHub-style activity grid. Streak badge next to it.
-- **AI Coach** — a local LLM (via [Ollama](https://ollama.com)) reads your training history and writes a tailored multi-day routine; pick a goal + days/week, review, and save it straight into your routines. Runs fully on-device — no data leaves the Pi.
+- **AI Coach** — Google Gemini (via the [AI Studio API](https://aistudio.google.com)) reads your training history and writes a tailored multi-day routine; pick a goal + days/week, review, and save it straight into your routines. Your training summary is sent to Google to generate the plan — see [AI Coach](#ai-coach-gemini).
 - **Stats page** — weekly volume sparkline (12 weeks), top exercises by set count, muscle coverage for the current week.
 - **Volume tracking** — live kg total per session; 7-day volume on the dashboard.
 - **Rest timer** — SVG ring countdown after each logged set. 90 s default, adjustable.
@@ -112,31 +112,42 @@ All settings go in `.env` (copied from `.env.example`):
 | `SESSION_DAYS` | No | `30` | How long a login session lasts (1–365) |
 | `DATABASE_PATH` | No | `/data/fitness.db` | SQLite file path inside container |
 | `WEBHOOK_URL` | No | *(empty)* | HTTP endpoint to notify on events |
-| `OLLAMA_URL` | No | `http://localhost:11434` | Ollama server for the AI Coach (Docker: `http://host.docker.internal:11434`) |
-| `OLLAMA_MODEL` | No | `qwen2.5:3b` | Model the AI Coach generates with |
+| `GEMINI_API_KEY` | For AI Coach | — | Google AI Studio API key ([get one](https://aistudio.google.com/apikey)). Without it the Coach is disabled |
+| `GEMINI_MODEL` | No | `gemini-3.5-flash-lite` | Gemini model the AI Coach generates with |
 
 ---
 
-## AI Coach (local LLM)
+## AI Coach (Gemini)
 
-The **Coach** page turns your logged training into a tailored routine using a
-local [Ollama](https://ollama.com) model — nothing leaves the Pi.
+The **Coach** page turns your logged training into a tailored routine using
+Google's [Gemini API](https://aistudio.google.com) (Google AI Studio).
 
-```bash
-# Install Ollama (https://ollama.com/download), then pull a model:
-ollama pull qwen2.5:3b        # good reasoning + reliable JSON (default)
-# or, for faster/lighter generation on small hardware:
-ollama pull gemma3:1b
-```
+1. Create a key at <https://aistudio.google.com/apikey>.
+2. Add it to `.env` (or your Docker environment) and restart:
 
-Make sure `ollama serve` is running, then open **Coach**, pick a goal and how
-many days per week you train, and hit *Generate*. Review the plan and save it —
-each day becomes a routine you can load straight into the workout logger.
+   ```bash
+   GEMINI_API_KEY=your-key-here
+   # GEMINI_MODEL=gemini-3.5-flash-lite   # optional; this is the default
+   ```
 
-On a Raspberry Pi, generation is CPU-bound and typically takes **1–3 minutes**.
-If it times out, set `OLLAMA_MODEL=gemma3:1b`. Running Docker? The host's Ollama
-is reachable at `http://host.docker.internal:11434` (already wired in
-`docker-compose.yml`).
+3. Open **Plan → AI Routine**, pick a goal and how many days per week you train,
+   and hit *Generate*. Review the plan and save it — each day becomes a routine
+   you can load straight into the workout logger.
+
+Generation typically takes a few seconds to under a minute. Rate-limit and
+temporary Gemini errors are retried automatically.
+
+**Free-tier quota:** Gemini's free tier caps requests per model per day (it was
+20/day for `gemini-3.8-flash` when this was set up; see your limits at
+<https://ai.dev/rate-limit>). One routine normally uses 1 request (up to 3
+if a retry is needed); nothing is generated in the background. Quotas are per model — set `GEMINI_MODEL` to a different one, or
+enable billing, for more headroom.
+
+**Privacy:** the prompt — your training history, set notes, RPE trend, journal
+wellness entries and injury flags — is sent to Google. On the free AI Studio tier
+Google may use submitted content to improve its products; the paid tier does
+not. If that's not acceptable, leave `GEMINI_API_KEY` unset and the Coach stays
+disabled (everything else in the app is unaffected).
 
 ---
 
