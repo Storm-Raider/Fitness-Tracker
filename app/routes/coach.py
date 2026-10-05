@@ -31,7 +31,7 @@ from pydantic import BaseModel, Field
 from app.db import WriteConflict, get_db, write_tx
 from app.routes.auth import get_current_user
 from app.utils import coach_budget, gemini
-from app.utils.coach_plan import athlete_context, pain_constraint
+from app.utils.coach_plan import athlete_context, catalog_lines, pain_constraint
 from app.utils.coach_plan import (  # noqa: F401  TEMPORARY re-export shims, removed in PR2
     catalog_names as _catalog_names,
     exercise_catalog as _exercise_catalog,
@@ -246,13 +246,7 @@ def _build_prompt(goal: str, days: int, profile: dict, catalog: dict, focus_note
     lines.append("")
 
     # ── Exercise catalog ──────────────────────────────────────────────
-    lines.append(
-        "ALLOWED EXERCISES — use EXACT names from this list, grouped by Category/Muscle. "
-        "Write the name only, without the [equipment] tag:"
-    )
-    for cat, muscle_map in catalog.items():
-        for muscle, exercise_labels in muscle_map.items():
-            lines.append(f"  {cat}/{muscle}: {', '.join(exercise_labels)}")
+    lines.extend(catalog_lines(catalog))
     lines.append("")
 
     # ── Task ──────────────────────────────────────────────────────────

@@ -557,3 +557,15 @@ def pain_constraint(profile: dict) -> str:
     if avoid:
         out += " " + "; ".join(avoid) + "."
     return out
+
+
+def catalog_lines(catalog: dict) -> list[str]:
+    """The ALLOWED EXERCISES block of a prompt, shared by generation and chat."""
+    lines = [
+        "ALLOWED EXERCISES — use EXACT names from this list, grouped by Category/Muscle. "
+        "Write the name only, without the [equipment] tag:"
+    ]
+    for cat, muscle_map in catalog.items():
+        for muscle, exercise_labels in muscle_map.items():
+            lines.append(f"  {cat}/{muscle}: {', '.join(exercise_labels)}")
+    return lines
