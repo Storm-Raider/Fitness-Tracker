@@ -523,3 +523,37 @@ def athlete_context(profile: dict, goal: str) -> list[str]:
         )
     lines.append("")
     return lines
+
+
+# Flagged-pain area -> movements that load it. A small model sees the pain flag but
+# does not reliably know that Leg Press or Leg Extension load the knee (live eval:
+# it kept programming both), so the task line spells the area out. Matching is a
+# plain keyword check on the athlete's own words; an unrecognised area still gets
+# the generic constraint.
+_PAIN_AVOID = [
+    (("knee", "patella", "acl", "meniscus"), "knee",
+     "squats, lunges, leg presses, leg extensions, step-ups and jumping"),
+    (("shoulder", "rotator"), "shoulder",
+     "overhead pressing, dips, upright rows and behind-the-neck work"),
+    (("lower back", "low back", "lumbar", "spine", "disc", "sciatic"), "lower back",
+     "deadlifts, good mornings, bent-over rows and heavy squats"),
+    (("elbow",), "elbow", "skull crushers, dips, close-grip pressing and heavy curls"),
+    (("hip",), "hip", "deep squats, lunges, sumo deadlifts and hip-thrust variations that pinch"),
+]
+
+
+def pain_constraint(profile: dict) -> str:
+    """One sentence for the end of the prompt restating flagged pain as a hard
+    constraint, with the movements each recognised area rules out. Empty when
+    nothing is flagged."""
+    flags = profile.get("injury_flags") or []
+    if not flags:
+        return ""
+    text = " ".join(f.get("text", "") for f in flags).lower()
+    avoid = [f"for the {area}: no {movements}"
+             for words, area, movements in _PAIN_AVOID if any(w in text for w in words)]
+    out = ("The athlete flagged pain: no exercise on any day may load the painful area, "
+           "so choose alternatives from the ALLOWED list.")
+    if avoid:
+        out += " " + "; ".join(avoid) + "."
+    return out

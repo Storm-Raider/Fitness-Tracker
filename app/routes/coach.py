@@ -31,7 +31,7 @@ from pydantic import BaseModel, Field
 from app.db import WriteConflict, get_db, write_tx
 from app.routes.auth import get_current_user
 from app.utils import gemini
-from app.utils.coach_plan import athlete_context
+from app.utils.coach_plan import athlete_context, pain_constraint
 from app.utils.coach_plan import (  # noqa: F401  TEMPORARY re-export shims, removed in PR2
     catalog_names as _catalog_names,
     exercise_catalog as _exercise_catalog,
@@ -257,10 +257,19 @@ def _build_prompt(goal: str, days: int, profile: dict, catalog: dict, focus_note
 
     # ── Task ──────────────────────────────────────────────────────────
     # The standing rules live in _SYSTEM_PROMPT; only what varies per request is here.
-    lines.append(
+    task = (
         f"TASK: design a {days}-day training week for this athlete. Return exactly {days} day(s). "
         f"No exercise may appear on more than {_max_weekly_repeats(days)} day(s) in the week."
     )
+    # Constraints the athlete set for THIS week are restated here, at the end, because
+    # a small model honours the tail of the message better than the middle (live
+    # eval: a flagged knee went 0/3 -> 3/3 clean and "avoid deadlifts" failed -> 2/2
+    # once restated here). A fatigued muscle on Day 1 did NOT improve this way, so
+    # it is deliberately not repeated: it stays a known weak spot in the eval.
+    reminders = [pain_constraint(profile)]
+    if note:
+        reminders.append(f'The athlete asked: "{note}" Follow it unless it conflicts with the pain or safety rules.')
+    lines.append(" ".join([task] + [r for r in reminders if r]))
     return "\n".join(lines)
 
 

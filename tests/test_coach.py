@@ -681,3 +681,33 @@ async def test_prompt_tells_model_to_write_the_name_without_the_equipment_tag(db
     catalog = await coach._exercise_catalog(db, uid=1)
     prompt = coach._build_prompt("strength", 3, profile, catalog, "")
     assert "without the [equipment] tag" in prompt
+
+
+# ── Task-line constraints (restated at the end of the message) ───────────────
+
+def test_pain_constraint_is_empty_without_flags_and_names_recognised_areas():
+    from app.utils.coach_plan import pain_constraint
+    assert pain_constraint({}) == "" and pain_constraint({"injury_flags": []}) == ""
+    knee = pain_constraint({"injury_flags": [{"text": "sharp pain in my left knee", "exercise": "Back Squat"}]})
+    assert "no exercise on any day may load the painful area" in knee
+    assert "for the knee: no squats, lunges, leg presses, leg extensions" in knee
+    both = pain_constraint({"injury_flags": [{"text": "knee clicks"}, {"text": "Lower back tight"}]})
+    assert "for the knee" in both and "for the lower back" in both
+    unknown = pain_constraint({"injury_flags": [{"text": "weird pain somewhere"}]})
+    assert "flagged pain" in unknown and "for the" not in unknown     # generic constraint only
+
+
+@pytest.mark.asyncio
+async def test_task_line_restates_pain_and_request_but_nothing_else_is_added(db):
+    catalog = await coach._exercise_catalog(db, uid=1)
+    plain = coach._build_prompt("strength", 3, _base_profile(), catalog, "").splitlines()[-1]
+    assert plain.startswith("TASK:") and "flagged pain" not in plain and "asked" not in plain
+    prof = _base_profile(injury_flags=[{"text": "knee pain", "exercise": "Back Squat", "days_ago": 1}])
+    last = coach._build_prompt("strength", 3, prof, catalog, 'avoid "deadlifts"').splitlines()[-1]
+    assert last.startswith("TASK:") and "for the knee: no squats" in last
+    assert 'The athlete asked: "avoid \'deadlifts\'"' in last      # quotes neutralised, still one line
+    assert last.count("\n") == 0
+    # a fatigued muscle is intentionally NOT repeated here (it did not help in the live eval)
+    fat = coach._build_prompt("strength", 3, _base_profile(muscle_recovery={"Chest": "fatigued"}), catalog, "")
+    assert "on Day 1: trained within the last day" not in fat.splitlines()[-1]
+

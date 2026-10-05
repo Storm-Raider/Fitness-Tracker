@@ -73,11 +73,11 @@ async def test_every_scenario_builds_a_prompt(db):
 def test_checks_pass_and_fail_as_described():
     good = result([{"names": ["Back Squat", "Bench Press"], "notes": {"Back Squat": "@ 100 kg add 2.5 kg"}},
                    {"names": ["Barbell Row", "Barbell Curl"]}])
-    assert ev.evaluate(ev.Scenario("x", "general", 2, [ev.days_exact(2), ev.NO_DROPPED, ev.NO_DUP_IN_DAY,
+    assert ev.evaluate(ev.Scenario("x", "general", 2, [ev.days_exact(2), ev.FEW_DROPPED, ev.NO_DUP_IN_DAY,
                                                        ev.REPEAT_CAP, ev.NOTES_MENTION_KG,
                                                        ev.muscles_covered(["Back", "Biceps"])]), good) == []
     assert ev.evaluate(ev.Scenario("x", "general", 3, [ev.days_exact(3)]), good) == ["returns exactly 3 day(s)"]
-    assert ev.evaluate(ev.Scenario("x", "general", 2, [ev.NO_DROPPED]), result([{"names": ["Back Squat"]}], dropped=["Fake"]))
+    assert ev.evaluate(ev.Scenario("x", "general", 2, [ev.FEW_DROPPED]), result([{"names": ["Back Squat"]}], dropped=["Fake"]))
     assert ev.evaluate(ev.Scenario("x", "general", 2, [ev.REPEAT_CAP]), result([{"names": ["Back Squat"]}], issues=["x"]))
     assert ev.evaluate(ev.Scenario("x", "general", 1, [ev.NO_DUP_IN_DAY]), ev.RunResult(
         {"days": [{"focus": "d", "exercises": [{"exercise_id": 1, "name": "a"}, {"exercise_id": 1, "name": "a"}]}]},
@@ -156,3 +156,15 @@ def test_a_live_run_without_a_key_is_refused_with_a_clear_message():
     out = subprocess.run([sys.executable, str(SCRIPT), "--only", "one-day", "--env-file", "/nonexistent"],
                          capture_output=True, text=True, env=env, timeout=120)
     assert out.returncode == 2 and "GEMINI_API_KEY is not set" in out.stdout
+
+
+def test_few_dropped_tolerates_a_stray_name_but_not_a_pile():
+    base = [{"names": [f"Back Squat" for _ in range(10)]}]
+    one_of_eleven = result(base, dropped=["Standing Calf Raise"])           # 9.1%
+    assert ev.evaluate(ev.Scenario("x", "general", 1, [ev.FEW_DROPPED]), one_of_eleven) == []
+    two_of_twelve = result(base, dropped=["a", "b"])                         # 16.7%
+    assert ev.evaluate(ev.Scenario("x", "general", 1, [ev.FEW_DROPPED]), two_of_twelve)
+    assert ev.evaluate(ev.Scenario("x", "general", 1, [ev.FEW_DROPPED]), result(base)) == []
+    empty = ev.RunResult({"days": []}, ["x"], [], META, {})
+    assert ev.evaluate(ev.Scenario("x", "general", 1, [ev.FEW_DROPPED]), empty)   # all dropped = fail
+
