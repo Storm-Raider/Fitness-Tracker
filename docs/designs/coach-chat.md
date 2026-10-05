@@ -350,4 +350,16 @@ persistent pain (chat prompt rule); the existing `maximum-scale=1, user-scalable
          no rev bump, no draft CAS, model `days` discarded and logged; (3) shared `.pill` carries `.muscle-pill`'s mobile override (exercises.html:135) and the
          non-interactive `.profile-pill` (plan.html:88) stays a separate documented component; (4) chips use a 44px minimum height on touch; (5) the confirm chip's "Saved"
          state uses `--success`.
+- ER-17  BUILT IN THE UI-PRIMITIVES PR (branch feat/ui-primitives), deviations from the text above, found by running it in a browser:
+         (a) `sheet.js` makes everything outside the sheet's own ANCESTOR CHAIN `inert` (siblings at each level up to <body>), not named page regions.
+             This lets the composer live inside `#plan-ai` (ER-10) with the sheet root unmoved; `.undo-toast`, `#ach-toast-rack` and `[data-sheet-keep]`
+             are never inerted and Escape/Tab are ignored while `#confirm-sheet` exists. No shared overlay root was needed (supersedes the overlay-root
+             wording in ER-14); the z-index values are as written in ER-14 and recorded in DESIGN.md.
+         (b) A fixed element inside `.container` is safe: base.html already clears the fadeUp transform on animationend. Do not add a body-level
+             mount for the composer.
+         (c) The plan-name bug is NOT fixed there: the Save row is static and the title input is kept, but `POST /coach/plans/{id}/confirm` still ignores the
+             posted title (it uses the stored one). The server half ({base_rev, title}, ER-12) lands with the backend PR2.
+         (d) `PlanView` tints and labels every row of each day listed in `changedDays` (one option drives the EDITED label and the tint); a per-row
+             tint (as in the desktop mockup) needs per-change data from the server and is a PR4a decision.
+         (e) `PlanState.busy` already disables Save and Regenerate during generate and save; PR4a adds the chat's own mutators to the same flag.
 
