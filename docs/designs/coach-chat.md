@@ -249,7 +249,7 @@ AI image tool was not configured): `~/.gstack/projects/Storm-Raider-Fitness-Trac
         `.undo-toast` bottom becomes `calc(72px + var(--composer-h, 0px) + env(safe-area-inset-bottom))` with `--composer-h: 72px` while
         the composer is present; sheet top radius 8px.
 - DS-6  DESKTOP PLACEMENT (revises CEO decision 25). At >=768px the existing 320px left column of `.plan-grid` swaps between `Generate` and
-        `Coach` using the existing `.kind-toggle` (defaults to Coach when a plan is on screen); the plan keeps the wide right column. Below
+        `Coach` using a real `.seg-toggle` (ER-10; defaults to Coach when a plan is on screen); the plan keeps the wide right column. Below
         768px: DS-1. No third column.
 - DS-7  SHEET CONTRACT. Height 62% of the visual viewport; while the keyboard is open it resizes to the visual viewport (visualViewport
         listener) so the input stays above it. Dismiss: 44px Close, Escape, tap the dimmed plan; NO drag gesture in v1. role="dialog"
@@ -291,4 +291,63 @@ persistent pain (chat prompt rule); the existing `maximum-scale=1, user-scalable
 | Mobile, collapsed | .../mobile-collapsed-v2.png | one-row composer above the fixed tab bar; undo toast above the composer | toast offset uses --composer-h (DS-5) |
 | Mobile, sheet open | .../mobile-sheet-v2.png | 62% dialog over the tab bar; notes row, transcript, composer | contract DS-7 |
 | Mobile, first use | .../mobile-privacy.png | blocking privacy card in the sheet | copy to be finalized after reading Google's Gemini API terms |
+
+## Engineering re-review amendments (/plan-eng-review pass 2, after the design review, 2026-10-04); these supersede conflicts above
+- ER-1  PLAN RENDERER (D2): a shared `app/static/plan_view.js` builds the plan DOM with createElement + textContent (no innerHTML) and is used by
+        generation, drafts, saved plans, chat edits, undo and swap: `PlanView.render(container, plan, {readonly, changedDays, dropped})`.
+        It emits `data-day`/`data-idx`, the overflow button, the EDITED label and the changed-row class. `renderAiPlan` in plan.html is replaced by
+        a call to it. PlanView renders ONLY the summary header and the day cards; the title input, Save & add to Routines and Regenerate stay static in plan.html (ER-12). All new JS is served by content-hash URL (D6 of the
+        first eng review).
+- ER-2  UNDO TOAST (D3): add `window.showActionToast(message, onUndo)` to base.html (same `.undo-toast` markup; Undo awaits `onUndo()`, no reload,
+        shows "Undone"/"Undo failed"). `showUndoToast(token, label)` becomes a thin wrapper that keeps its exact behaviour (POST /undo/{token}, then reload).
+        Chat and swap use `showActionToast`; its offset uses `--composer-h` (DS-5).
+- ER-3  SAVED PLAN OPEN (D4): `GET /coach/plans/{id}/chat` returns `{plan, rev, can_edit, messages, notes}` (user-scoped; 404 for other users). The saved
+        card's "Coach" action fetches it, renders the plan through PlanView with `readonly:true` in the AI output area, switches the left column to
+        Coach and shows the saved-plan banner. plan.py keeps popping `plan_json` from the saved list (no 50 KB embed).
+- ER-4  SHEET PRIMITIVE (D5): new `app/static/sheet.js` (`Sheet.open(root, {onClose, initialFocus})`) implements the DS-7 contract once (overlay, slide with
+        reduced-motion fallback, Escape, tap-outside, role=dialog + aria-modal, `inert` on everything except the sheet root including the tab bar, focus
+        trap and return, scroll lock, rAF-throttled visualViewport resize removed on close). The chat uses it; `showConfirm` is untouched for now
+        (migration tracked as a TODO).
+- ER-5  XSS GUARD (D6): `tests/test_chat_js_safety.py` fails on innerHTML, insertAdjacentHTML, outerHTML, document.write and eval in plan_view.js, sheet.js and
+        coach_chat.js (an explicit allow marker may exempt a reviewed constant-string use); the /qa payload pass remains for live-DOM behaviour.
+- ER-6  IRON-RULE REGRESSIONS: (a) the generate -> render -> Save & add to Routines -> Regenerate flow after the PlanView refactor (no automated test covers
+        plan.html JS today), verified by /qa and by existing server tests for /coach/save and confirm; (b) delete-undo through the `showUndoToast` wrapper.
+- ER-7  PR SPLIT: a UI-primitives PR (plan_view.js refactor of renderAiPlan, sheet.js, showActionToast, shared `.pill`, DESIGN.md Coach chat section,
+        `--composer-h` toast offset, the safety lint) is independent of every backend PR and may ship in parallel with R and W; PR4a then builds the chat
+        on top of it. Updated order: #45, then in parallel [R -> W] and [UI primitives]; then PR1, PR2, PR3, PR4a, PR4b.
+- ER-8  Notes: day dividers use the server-local created_at date like the rest of the app (no client timezone logic); the shared `.pill` extraction gets an
+        exercises-page pass in /qa.
+- ER-9   GENERATE vs COACH (CM1): Generate, Regenerate and "Regenerate from this chat" first call `showTab('generate')` and scroll to the generate button; the Coach
+         tab is disabled with a tooltip ("Generating...") while a generation runs. "Regenerate from this chat" = set the focus note (<=300 chars), switch to
+         Generate, scroll to the button. generateAiRoutine's progress UI (written into #ai-generate-btn) is unchanged.
+- ER-10  TOGGLE COMPONENT (CM2): `.kind-toggle` has no CSS (only a JS className with inline styles in partials/rule_editor.html:31, ~28px tall). Create a real
+         `.seg-toggle` in base.html (44px min height, aria-pressed buttons, the DESIGN.md pill look); use it for Generate|Coach at >=768px only (hidden below,
+         where the composer + sheet take over). The composer mounts INSIDE `#plan-ai`; `setMode('meso')` hides it and sets `--composer-h` to 0. DESIGN.md documents
+         the real class; rule_editor.html may adopt it later.
+- ER-11  PLAN STATE (CM3): one `PlanState` store `{plan, draftId, rev, readonly, busy}` (in plan_view.js) with `plan:changed` and `plan:cleared` events replaces the
+         inline `_currentPlan`/`_currentDraftId`. plan.html's generate, save, dismiss and saved-plan-open functions read/write it; the chat subscribes. On
+         `plan:cleared`: close the sheet, remove the composer, set `--composer-h` to 0, dismiss any toast. The draft notice moves inside the rendered output and
+         is removed when a saved plan is shown. Confirm sends `{base_rev, title}`.
+- ER-12  PLANVIEW SCOPE + TITLE (CM4): PlanView patches by `data-day` (only changed days redraw; an open swap list survives). The title input, Save, Regenerate,
+         `#ai-save-msg` and the draft notice stay static in plan.html and toggle with `readonly`. `POST /coach/plans/{id}/confirm` accepts `{base_rev, title}` and uses
+         the posted title (validated, <=120 chars) when present; this fixes the existing bug where the title input is cosmetic (saveAiPlan sent `{}`; confirm used the
+         stored title, coach.py:1240). Test: confirm uses the posted title.
+- ER-13  CONCURRENT UI (CM5): `PlanState.busy` disables every mutator (Save, Regenerate, Swap, Why, sheet Undo, toast Undo, chips, input) while a turn, generation,
+         save or undo is in flight, so a tab never causes its own 409. A toast Undo always undoes the stack top using the CURRENT rev and is dismissed/replaced by
+         any newer edit. Action toasts use a different element id from delete toasts so they coexist. The stale banner's [Reload] is an in-place refetch of
+         `GET /coach/plans/{id}/chat` (keeps the textarea). New copy: single-flight 409 "Still working on your last message."; plan-replaced 409 "This plan was
+         replaced. Reload to see the new one."; kill switch 503 "Coach chat is off right now."; malformed/empty/bad_request/502 "The coach had a problem. Try again."
+- ER-14  STACKING (CM6): z-index: nav 50, composer 90, tab bar 100, More 140/150, chat sheet + dim 350, confirm overlay/sheet 399/400 (unchanged, already above the
+         sheet), undo toast raised 300 -> 450, achievement rack 9999 with its bottom offset lifted by `--composer-h`. `inert` is applied to page REGIONS (nav,
+         `.container`, `.mob-tab-bar`, More menu), never to overlay elements, so a confirm or toast opened from the sheet still works. The sheet ignores Escape while
+         `#confirm-sheet` exists. `.container` bottom padding becomes `calc(1rem + 64px + var(--composer-h,0px) + env(safe-area-inset-bottom))` (base.html ~322, 509).
+         The stack values go into DESIGN.md.
+- ER-15  iOS SHEET MECHANICS (CM7): the collapsed composer and the sheet share ONE textarea that is never reparented; the tap handler focuses it synchronously. While
+         open the sheet uses `top = visualViewport.offsetTop` and `height = visualViewport.height` (rAF-throttled resize/scroll listeners, removed on close). Scroll lock
+         = `position: fixed; top: -scrollY` on the body, restoring scrollY on close (`overflow: hidden` does not lock iOS). A manual real-iPhone checklist (keyboard
+         opens, input stays visible, scroll position restored, rotation) is added to the test plan and GATES PR4a; headless /qa cannot reproduce it.
+- ER-16  SMALL CORRECTIONS (CM8): (1) the composer exists only while a plan is on screen; (2) chat Q&A on a saved plan appends the two messages only: no plan_json write,
+         no rev bump, no draft CAS, model `days` discarded and logged; (3) shared `.pill` carries `.muscle-pill`'s mobile override (exercises.html:135) and the
+         non-interactive `.profile-pill` (plan.html:88) stays a separate documented component; (4) chips use a 44px minimum height on touch; (5) the confirm chip's "Saved"
+         state uses `--success`.
 
