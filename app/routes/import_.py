@@ -9,6 +9,7 @@ from fastapi import APIRouter, Depends, HTTPException, UploadFile
 import app.db
 from app.db import get_db
 from app.routes.auth import get_current_user
+from app.utils.coach_plan import invalidate_exercise_caches
 from app.utils.csv_utils import get_or_create_exercise
 
 logger = logging.getLogger(__name__)
@@ -167,6 +168,7 @@ async def import_csv(
                 imported += 1
 
             await conn.execute("COMMIT")
+            invalidate_exercise_caches()   # the import may have created exercises the coach hasn't seen
         except HTTPException:
             await conn.execute("ROLLBACK")
             raise

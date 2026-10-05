@@ -219,6 +219,11 @@ class PlanIn(BaseModel):
     days: list[PlanDay]
 
 
+class ConfirmIn(BaseModel):
+    base_rev: int | None = None
+    title: str | None = Field(default=None, max_length=120)
+
+
 class FeedbackIn(BaseModel):
     feedback: str = Field(pattern=r"^(too_easy|just_right|too_hard|skipped_often)$")
 
@@ -727,22 +732,31 @@ async def save_plan(
 @router.post("/coach/plans/{plan_id}/confirm", status_code=201)
 async def confirm_plan(
     plan_id: int,
+    body: ConfirmIn | None = None,
     conn: aiosqlite.Connection = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
-    """Promote a draft plan to saved: create routines and flip status to 'saved'."""
+    """Promote a draft plan to saved: create routines and flip status to 'saved'.
+
+    The optional body carries `base_rev` (409 if the plan changed since the client last
+    saw it, e.g. a chat edit in another tab) and `title` (the name the athlete typed)."""
     uid = current_user["id"]
+    base_rev = body.base_rev if body else None
     async with conn.execute(
-        "SELECT id, title, goal, days_per_week, plan_json FROM coach_plans "
+        "SELECT id, title, goal, days_per_week, plan_json, rev FROM coach_plans "
         "WHERE id=? AND user_id=? AND status='draft'",
         (plan_id, uid),
     ) as cur:
         row = await cur.fetchone()
     if not row:
         raise HTTPException(status_code=404, detail="Draft plan not found")
+    if base_rev is not None and base_rev != row["rev"]:
+        raise WriteConflict("This plan changed. Review it again before saving.", kind="stale")
 
     plan_obj = json.loads(row["plan_json"] or "{}")
-    title = (plan_obj.get("title") or row["title"] or "My Plan").strip()
+    posted = " ".join((body.title or "").split()) if body else ""
+    title = (posted or plan_obj.get("title") or row["title"] or "My Plan").strip()
+    plan_obj["title"] = title
     stored_days = plan_obj.get("days", [])
     if not stored_days:
         raise HTTPException(status_code=422, detail="Draft has no exercises")
@@ -751,17 +765,27 @@ async def confirm_plan(
     # (real generated plans always have it via _normalise_plan; this guards edge cases).
     name_map, _ = await _name_to_id_map(conn)
 
+    # An exercise removed from the library since the plan was made (or since a chat undo
+    # restored an old snapshot) would otherwise surface as a foreign-key 500.
+    wanted = {ex["exercise_id"] for d in stored_days for ex in d.get("exercises", []) if ex.get("exercise_id")}
+    if wanted:
+        marks = ",".join("?" * len(wanted))
+        async with conn.execute(f"SELECT id FROM exercises WHERE id IN ({marks})", tuple(wanted)) as cur:
+            present = {r["id"] for r in await cur.fetchall()}
+        if wanted - present:
+            raise WriteConflict("An exercise in this plan was deleted. Review the plan again.", kind="exercise_deleted")
+
     routine_ids = []
     async with write_tx(conn):
-        # Compare-and-set first: of two concurrent confirms (double tap, two tabs)
-        # only one may flip the draft to saved and create routines.
+        # Compare-and-set first: of two concurrent confirms (double tap, two tabs), or a
+        # confirm racing a chat edit, only one may flip the draft to saved and create routines.
         async with conn.execute(
-            "UPDATE coach_plans SET status='saved' "
-            "WHERE id=? AND user_id=? AND status='draft'",
-            (plan_id, uid),
+            "UPDATE coach_plans SET status='saved', rev = rev + 1, updated_at = datetime('now','localtime') "
+            "WHERE id=? AND user_id=? AND status='draft' AND (? IS NULL OR rev = ?)",
+            (plan_id, uid, base_rev, base_rev),
         ) as cur:
             if cur.rowcount == 0:
-                raise WriteConflict("This plan was already saved or replaced. Reload to see it.")
+                raise WriteConflict("This plan was already saved, replaced or changed. Reload to see it.")
         for i, day in enumerate(stored_days, start=1):
             label = f"{title} · Day {i}: {day.get('focus', day.get('name', 'Training'))}"[:100]
             async with conn.execute(

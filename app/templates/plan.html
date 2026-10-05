@@ -763,7 +763,7 @@ document.addEventListener('plan:busy', e => {
 {% if draft_plan %}
 (function() {
   const _draft = {{ draft_plan.plan | tojson }};
-  PlanState.set({plan: _draft, draftId: _initialDraftId, readonly: false});
+  PlanState.set({plan: _draft, draftId: _initialDraftId, rev: {{ draft_plan.rev }}, readonly: false});
   renderAiPlan(_draft, []);
 })();
 {% endif %}
@@ -850,7 +850,7 @@ async function generateAiRoutine() {
       es.onerror = () => { if (settled) es.close(); };
     });
 
-    PlanState.set({plan: plan, draftId: draft_id || null, readonly: false});
+    PlanState.set({plan: plan, draftId: draft_id || null, rev: 0, readonly: false});   // a new draft starts at rev 0
     renderAiPlan(plan, dropped);
   } catch (e) {
     errBox.textContent = e.message;
@@ -879,7 +879,7 @@ function renderAiPlan(plan, dropped) {
 }
 
 async function saveAiPlan() {
-  const {plan: currentPlan, draftId: currentDraftId, busy} = PlanState.get();
+  const {plan: currentPlan, draftId: currentDraftId, rev, busy} = PlanState.get();
   if (!currentPlan || busy) return;
   const btn = document.getElementById('ai-save-btn');
   const msg = document.getElementById('ai-save-msg');
@@ -896,7 +896,7 @@ async function saveAiPlan() {
       resp = await fetch('/coach/plans/' + currentDraftId + '/confirm', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({}),
+        body: JSON.stringify({title: title, base_rev: rev}),
       });
     } else {
       // No draft id (the server's draft auto-save failed): save the plan directly.

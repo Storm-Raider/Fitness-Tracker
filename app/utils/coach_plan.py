@@ -81,7 +81,13 @@ async def exercise_catalog(
             WHERE COALESCE(e.category, '') != 'Cardio'
             """
         ) as cur:
-            _EXERCISE_BASE_ROWS = [dict(r) for r in await cur.fetchall()]
+            all_rows = [dict(r) for r in await cur.fetchall()]
+        # The enforced boundary into prompts: a name an athlete (or an imported CSV)
+        # could have used to smuggle instructions never reaches the model.
+        _EXERCISE_BASE_ROWS = [r for r in all_rows if is_safe_exercise_name(r["name"])]
+        for r in all_rows:
+            if not is_safe_exercise_name(r["name"]):
+                logging.warning("coach: leaving exercise %r out of prompts (name not allowed)", r["name"])
 
     rows = list(_EXERCISE_BASE_ROWS)
 
@@ -569,3 +575,32 @@ def catalog_lines(catalog: dict) -> list[str]:
         for muscle, exercise_labels in muscle_map.items():
             lines.append(f"  {cat}/{muscle}: {', '.join(exercise_labels)}")
     return lines
+
+
+# ── Exercise names: what may reach a prompt ──────────────────────────
+# Letters and digits (any script), space, and - ' ( ) / + & . , up to 60 characters.
+# No quotes, brackets, colons, angle brackets, newlines or control characters: nothing
+# that can close a quoted block, fake a section header or look like a tag. All 176 names
+# in the built-in library pass (measured), so this does not touch the seeded catalog.
+_SAFE_NAME = re.compile(r"(?:[^\W_]|[ \-'()/+&.,]){1,60}")
+NAME_RULE = "Exercise names can use letters, numbers, spaces and - ' ( ) / + & . , (up to 60 characters)."
+
+
+def is_safe_exercise_name(name) -> bool:
+    return isinstance(name, str) and name == name.strip() and bool(_SAFE_NAME.fullmatch(name))
+
+
+def validate_exercise_name(name) -> str:
+    """The stripped name, or ValueError(NAME_RULE). Used when an exercise is created."""
+    cleaned = name.strip() if isinstance(name, str) else ""
+    if not is_safe_exercise_name(cleaned):
+        raise ValueError(NAME_RULE)
+    return cleaned
+
+
+def invalidate_exercise_caches() -> None:
+    """Forget the process-lifetime exercise caches. Call after anything that adds or
+    removes exercises (creating one, a CSV import) so the next prompt and name match see it."""
+    global _EXERCISE_BASE_ROWS, _NAME_MAP_CACHE
+    _EXERCISE_BASE_ROWS = None
+    _NAME_MAP_CACHE = None
