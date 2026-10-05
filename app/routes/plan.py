@@ -13,7 +13,7 @@ import aiosqlite
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import HTMLResponse
 
-from app.db import get_db
+from app.db import get_db, write_tx
 from app.routes.auth import get_current_user
 from app.utils import gemini
 from app.utils.render import render
@@ -49,12 +49,21 @@ async def plan_page(
         top_lifts = [dict(r) for r in await c.fetchall()]
 
     # Clean stale drafts (> 7 days old) before fetching plans.
-    await conn.execute(
-        "DELETE FROM coach_plans WHERE user_id=? AND status='draft' "
-        "AND created_at < datetime('now','-7 days')",
+    # created_at is stored in localtime, so compare in localtime. Check with a
+    # plain read first so ordinary page loads never take the write lock.
+    async with conn.execute(
+        "SELECT 1 FROM coach_plans WHERE user_id=? AND status='draft' "
+        "AND created_at < datetime('now','localtime','-7 days') LIMIT 1",
         (uid,),
-    )
-    await conn.commit()
+    ) as c:
+        has_stale = await c.fetchone() is not None
+    if has_stale:
+        async with write_tx(conn):
+            await conn.execute(
+                "DELETE FROM coach_plans WHERE user_id=? AND status='draft' "
+                "AND created_at < datetime('now','localtime','-7 days')",
+                (uid,),
+            )
 
     # Fetch the latest pending draft so the template can auto-render it.
     draft_plan = None

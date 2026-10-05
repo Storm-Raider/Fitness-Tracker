@@ -28,7 +28,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import JSONResponse, RedirectResponse, StreamingResponse
 from pydantic import BaseModel, Field
 
-from app.db import get_db
+from app.db import WriteConflict, get_db, write_tx
 from app.routes.auth import get_current_user
 from app.utils import gemini
 from app.utils.training_profile import build_profile
@@ -976,18 +976,18 @@ async def _run_generation(
         # Remove any previous unconfirmed draft for this user first (one draft at a time).
         draft_id: int | None = None
         try:
-            await conn.execute(
-                "DELETE FROM coach_plans WHERE user_id=? AND status='draft'",
-                (uid,),
-            )
-            async with conn.execute(
-                """INSERT INTO coach_plans(user_id, title, goal, days_per_week, plan_json, model, status)
-                   VALUES (?, ?, ?, ?, ?, ?, 'draft')""",
-                (uid, plan.get("title", "My Plan"), goal, days,
-                 json.dumps(plan), model_used),
-            ) as _c:
-                draft_id = _c.lastrowid
-            await conn.commit()
+            async with write_tx(conn):
+                await conn.execute(
+                    "DELETE FROM coach_plans WHERE user_id=? AND status='draft'",
+                    (uid,),
+                )
+                async with conn.execute(
+                    """INSERT INTO coach_plans(user_id, title, goal, days_per_week, plan_json, model, status)
+                       VALUES (?, ?, ?, ?, ?, ?, 'draft')""",
+                    (uid, plan.get("title", "My Plan"), goal, days,
+                     json.dumps(plan), model_used),
+                ) as _c:
+                    draft_id = _c.lastrowid
         except Exception:
             logging.warning("coach: could not auto-save draft for uid=%d", uid, exc_info=True)
 
@@ -1183,39 +1183,39 @@ async def save_plan(
         "days": stored_days,
     }
 
-    async with conn.execute(
-        """
-        INSERT INTO coach_plans(user_id, title, goal, days_per_week, plan_json, model)
-        VALUES (?, ?, ?, ?, ?, ?)
-        """,
-        (uid, plan_obj["title"], body.goal, body.days_per_week,
-         json.dumps(plan_obj), gemini.model()),
-    ) as cur:
-        plan_id = cur.lastrowid
-
-    # Create one user-owned routine per day so the plan is usable in the logger.
-    for i, day in enumerate(stored_days, start=1):
-        label = f"{plan_obj['title']} · Day {i}: {day['focus']}"[:100]
+    async with write_tx(conn):
         async with conn.execute(
-            "INSERT INTO routines(name, user_id) VALUES (?, ?)",
-            (label, uid),
+            """
+            INSERT INTO coach_plans(user_id, title, goal, days_per_week, plan_json, model)
+            VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            (uid, plan_obj["title"], body.goal, body.days_per_week,
+             json.dumps(plan_obj), gemini.model()),
         ) as cur:
-            rid = cur.lastrowid
-        for idx, ex in enumerate(day["exercises"]):
-            await conn.execute(
-                "INSERT INTO routine_exercises(routine_id, exercise_id, order_idx) VALUES (?,?,?)",
-                (rid, ex["exercise_id"], idx),
-            )
-        routine_ids.append(rid)
+            plan_id = cur.lastrowid
 
-    # Embed routine_ids into the stored plan_json so GET /plan can surface them
-    # without a secondary JOIN — no schema change required.
-    plan_obj["routine_ids"] = routine_ids
-    await conn.execute(
-        "UPDATE coach_plans SET plan_json=? WHERE id=?",
-        (json.dumps(plan_obj), plan_id),
-    )
-    await conn.commit()
+        # Create one user-owned routine per day so the plan is usable in the logger.
+        for i, day in enumerate(stored_days, start=1):
+            label = f"{plan_obj['title']} · Day {i}: {day['focus']}"[:100]
+            async with conn.execute(
+                "INSERT INTO routines(name, user_id) VALUES (?, ?)",
+                (label, uid),
+            ) as cur:
+                rid = cur.lastrowid
+            for idx, ex in enumerate(day["exercises"]):
+                await conn.execute(
+                    "INSERT INTO routine_exercises(routine_id, exercise_id, order_idx) VALUES (?,?,?)",
+                    (rid, ex["exercise_id"], idx),
+                )
+            routine_ids.append(rid)
+
+        # Embed routine_ids into the stored plan_json so GET /plan can surface them
+        # without a secondary JOIN — no schema change required.
+        plan_obj["routine_ids"] = routine_ids
+        await conn.execute(
+            "UPDATE coach_plans SET plan_json=? WHERE id=?",
+            (json.dumps(plan_obj), plan_id),
+        )
     return JSONResponse({"id": plan_id, "routine_ids": routine_ids}, status_code=201)
 
 
@@ -1247,31 +1247,40 @@ async def confirm_plan(
     name_map, _ = await _name_to_id_map(conn)
 
     routine_ids = []
-    for i, day in enumerate(stored_days, start=1):
-        label = f"{title} · Day {i}: {day.get('focus', day.get('name', 'Training'))}"[:100]
+    async with write_tx(conn):
+        # Compare-and-set first: of two concurrent confirms (double tap, two tabs)
+        # only one may flip the draft to saved and create routines.
         async with conn.execute(
-            "INSERT INTO routines(name, user_id) VALUES (?, ?)", (label, uid),
+            "UPDATE coach_plans SET status='saved' "
+            "WHERE id=? AND user_id=? AND status='draft'",
+            (plan_id, uid),
         ) as cur:
-            rid = cur.lastrowid
-        for idx, ex in enumerate(day.get("exercises", [])):
-            eid = ex.get("exercise_id")
-            if not eid:
-                match = name_map.get((ex.get("name") or "").lower())
-                eid = match["id"] if match else None
-            if not eid:
-                continue
-            await conn.execute(
-                "INSERT INTO routine_exercises(routine_id, exercise_id, order_idx) VALUES (?,?,?)",
-                (rid, eid, idx),
-            )
-        routine_ids.append(rid)
+            if cur.rowcount == 0:
+                raise WriteConflict("This plan was already saved or replaced. Reload to see it.")
+        for i, day in enumerate(stored_days, start=1):
+            label = f"{title} · Day {i}: {day.get('focus', day.get('name', 'Training'))}"[:100]
+            async with conn.execute(
+                "INSERT INTO routines(name, user_id) VALUES (?, ?)", (label, uid),
+            ) as cur:
+                rid = cur.lastrowid
+            for idx, ex in enumerate(day.get("exercises", [])):
+                eid = ex.get("exercise_id")
+                if not eid:
+                    match = name_map.get((ex.get("name") or "").lower())
+                    eid = match["id"] if match else None
+                if not eid:
+                    continue
+                await conn.execute(
+                    "INSERT INTO routine_exercises(routine_id, exercise_id, order_idx) VALUES (?,?,?)",
+                    (rid, eid, idx),
+                )
+            routine_ids.append(rid)
 
-    plan_obj["routine_ids"] = routine_ids
-    await conn.execute(
-        "UPDATE coach_plans SET status='saved', title=?, plan_json=? WHERE id=?",
-        (title, json.dumps(plan_obj), plan_id),
-    )
-    await conn.commit()
+        plan_obj["routine_ids"] = routine_ids
+        await conn.execute(
+            "UPDATE coach_plans SET title=?, plan_json=? WHERE id=?",
+            (title, json.dumps(plan_obj), plan_id),
+        )
     return JSONResponse({"id": plan_id, "routine_ids": routine_ids}, status_code=201)
 
 
@@ -1290,14 +1299,14 @@ async def delete_plan(
         if not row:
             raise HTTPException(status_code=404, detail="Plan not found")
     routine_ids = (json.loads(row["plan_json"] or "{}") or {}).get("routine_ids") or []
-    if routine_ids:
-        placeholders = ",".join("?" * len(routine_ids))
-        await conn.execute(
-            f"DELETE FROM routines WHERE id IN ({placeholders}) AND user_id = ?",
-            (*routine_ids, uid),
-        )
-    await conn.execute("DELETE FROM coach_plans WHERE id = ? AND user_id = ?", (plan_id, uid))
-    await conn.commit()
+    async with write_tx(conn):
+        if routine_ids:
+            placeholders = ",".join("?" * len(routine_ids))
+            await conn.execute(
+                f"DELETE FROM routines WHERE id IN ({placeholders}) AND user_id = ?",
+                (*routine_ids, uid),
+            )
+        await conn.execute("DELETE FROM coach_plans WHERE id = ? AND user_id = ?", (plan_id, uid))
 
 
 @router.post("/coach/plans/{plan_id}/feedback", status_code=204)
@@ -1313,8 +1322,8 @@ async def set_plan_feedback(
     ) as cur:
         if not await cur.fetchone():
             raise HTTPException(status_code=404, detail="Plan not found")
-    await conn.execute(
-        "UPDATE coach_plans SET feedback = ? WHERE id = ? AND user_id = ?",
-        (body.feedback, plan_id, current_user["id"]),
-    )
-    await conn.commit()
+    async with write_tx(conn):
+        await conn.execute(
+            "UPDATE coach_plans SET feedback = ? WHERE id = ? AND user_id = ?",
+            (body.feedback, plan_id, current_user["id"]),
+        )

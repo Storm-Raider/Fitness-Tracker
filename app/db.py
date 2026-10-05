@@ -1,4 +1,6 @@
 import asyncio
+import contextlib
+import contextvars
 import os as _os
 import sys as _sys
 
@@ -35,6 +37,55 @@ _conn: aiosqlite.Connection | None = None
 # not per-table/per-route — this app's real concurrency is low enough that
 # serializing the rare multi-statement write is the right amount of locking.
 write_lock = asyncio.Lock()
+
+# True while the current task is inside write_tx(). write_tx takes write_lock,
+# which is not reentrant, so nested use would deadlock; the flag turns that
+# into an immediate error instead.
+_in_write_tx: contextvars.ContextVar[bool] = contextvars.ContextVar("in_write_tx", default=False)
+
+
+class WriteConflict(Exception):
+    """Raised inside write_tx() when a compare-and-set guard finds the row changed.
+
+    write_tx COMMITs (nothing was written, the guard runs first) and re-raises;
+    app.main turns it into a 409 response.
+    """
+
+
+@contextlib.asynccontextmanager
+async def write_tx(conn: aiosqlite.Connection):
+    """One atomic write: write_lock + BEGIN IMMEDIATE ... COMMIT.
+
+    Rules for the body: database statements only (never await the network or
+    sleep while holding the app's single write lock), and put any
+    compare-and-set UPDATE first, raising WriteConflict when it matches no row.
+    Any other exception rolls the whole transaction back.
+    """
+    if _in_write_tx.get():
+        raise RuntimeError("nested write_tx")
+    async with write_lock:  # module global, so clear_db()'s fresh lock is seen
+        token = _in_write_tx.set(True)
+        try:
+            await conn.execute("BEGIN IMMEDIATE")
+            try:
+                yield conn
+                await conn.execute("COMMIT")
+            except WriteConflict:
+                await conn.execute("COMMIT")
+                raise
+            except BaseException:
+                try:
+                    await conn.execute("ROLLBACK")
+                except Exception:
+                    logging.warning("write_tx: ROLLBACK failed", exc_info=True)
+                raise
+        finally:
+            _in_write_tx.reset(token)
+
+
+async def _commit_is_a_noop() -> None:
+    return None
+
 
 SCHEMA = Path(__file__).parent.parent / "schema.sql"
 
@@ -402,6 +453,14 @@ async def init_db(conn: aiosqlite.Connection) -> None:
 async def open_db(path: str) -> aiosqlite.Connection:
     conn = await aiosqlite.connect(path, isolation_level=None)
     conn.row_factory = aiosqlite.Row
+    # The connection is shared by every request and runs in autocommit mode
+    # (isolation_level=None). A stray `await conn.commit()` from one request
+    # would therefore COMMIT another request's open BEGIN IMMEDIATE, and its
+    # later ROLLBACK would fail with the partial writes already persisted.
+    # Transactions end only with an explicit execute("COMMIT"/"ROLLBACK")
+    # (write_tx and the existing BEGIN IMMEDIATE sites do), so commit() is
+    # made a no-op; outside a transaction each statement already autocommits.
+    conn.commit = _commit_is_a_noop
     if _DB_ENCRYPTION_KEY:
         # SQLCipher: must precede every other query, including PRAGMAs.
         # Hex-blob format avoids injection: x'<64 lowercase hex chars>'
