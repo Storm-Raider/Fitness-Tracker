@@ -13,7 +13,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.middleware.gzip import GZipMiddleware
 from starlette.responses import RedirectResponse
 
-from app.db import open_db, set_db, clear_db
+from app.db import open_db, set_db, clear_db, WriteConflict
 import app.db as _db
 from app.routes import achievements, analytics, cardio, challenges, coach, dashboard, exercises, export, feedback, import_, journal, metrics, plan, planner, prs, routines, settings, stats, templates, trash, webhooks, workouts
 from app.routes.auth import router as auth_router, COOKIE_NAME, _serializer, _hash_password, _verify_password
@@ -183,6 +183,12 @@ def _wants_html(request: Request) -> bool:
     if request.headers.get("HX-Request"):
         return False
     return "text/html" in request.headers.get("Accept", "")
+
+
+@app.exception_handler(WriteConflict)
+async def _write_conflict(_req: Request, exc: WriteConflict):
+    return JSONResponse({"detail": str(exc) or "This changed in the meantime. Reload and try again."},
+                        status_code=409)
 
 
 @app.exception_handler(404)
