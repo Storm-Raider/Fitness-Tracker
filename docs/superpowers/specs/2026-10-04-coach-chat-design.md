@@ -1,68 +1,82 @@
 # AI Coach Chat — design
 
-**Date:** 2026-10-04
-**Status:** Approved in conversation, awaiting written-spec review
-**Builds on:** PR #45 (AI Coach backend moved from Ollama to the Gemini API,
-default model `gemini-3.5-flash-lite`). This work stacks on that branch.
+**Date:** 2026-10-04 (rewritten 2026-10-05 to match the reviewed plan)
+**Status:** Reviewed (CEO, engineering x2, design). Implementation in progress, see Delivery.
+**Source of truth:** this document is the behaviour and interface contract.
+`docs/designs/coach-chat.md` is the review record: every decision with its
+rationale (D#, CM#, ER#), the full UI specification (DS-1..DS-10, state table,
+mockups) and the amendments. If the two ever disagree, the plan's numbered
+amendments win and this document is wrong: fix it.
+**Builds on:** the Gemini coach (PR #45), default model `gemini-3.5-flash-lite`.
 
 ## Problem
 
-The AI Coach is a one-shot job: the user picks a goal and days/week, the server
-builds a prompt from their training profile, Gemini returns one structured plan,
-and it is stored as a `coach_plans` draft. There is no conversation. To change
-anything ("swap squats for leg press", "day 2 is too long", "my knee hurts") the
-user must regenerate the whole plan and hope. The system prompt was also written
-for small local Qwen models: it carries a long worked JSON example that models
-copy, and it relies on a catalog-sized schema `enum` that Gemini rejects.
-
-The user asked for the system prompt to be redone for Gemini 3.5 Flash-Lite and
-for the coach to work as a **conversational chat with memory**.
+The AI Coach is a one-shot job: pick a goal and days per week, the server builds
+a prompt from the training profile, Gemini returns one structured plan, stored as
+a `coach_plans` draft. There is no conversation. To change anything ("swap squats
+for leg press", "day 2 is too long", "my knee hurts") the user regenerates the
+whole plan and hopes.
 
 ## Goals
 
-1. Rewrite the coach's prompts for Gemini 3.5 Flash-Lite (generation and chat
-   share one persona and rule set).
-2. A chat on the Plan page where the user can **refine the current plan** and
-   **ask coaching questions**; the coach knows their training profile.
-3. **Memory:** each plan keeps its own saved conversation, and the coach can save
-   short **durable notes** (preferences, limits) that carry into every future
-   chat and plan.
-4. Plan edits **apply instantly, with Undo**.
-5. Keep quota use predictable: one Gemini request per chat message.
+1. A chat on the Plan page that **refines the current draft plan** and **answers
+   coaching questions**, grounded in the athlete's training profile.
+2. **Memory:** each plan has its own saved conversation, and the athlete can keep
+   short **durable notes** (limits, preferences) that carry into every future chat
+   and plan. The athlete confirms every note; the model only proposes.
+3. Edits **apply instantly and reversibly** (Undo), and every change is shown as a
+   diff computed by the server, never the model's description of itself.
+4. Predictable quota use and failure behaviour on a small self-hosted install
+   (~5 users, one Pi, one uvicorn worker).
 
 ## Non-goals (v1)
 
-- Replacing the goal/days form — plan generation stays as it is (prompt rewrite
-  aside). Chat does not create plans from scratch.
-- Removing or reordering days. Asking for fewer days gets a reply telling the
-  user to generate a new plan. (Adding a day, at index `len+1`, is supported.)
-- Editing a *saved* plan in place (see "Saved plans" — they fork instead).
-- Streaming chat replies (a reply takes ~3–5 s; plain JSON is enough).
-- Cross-plan single mega-thread, summarisation of old history, per-message
-  editing/deleting of chat history.
+- Creating plans from scratch (generation stays the form).
+- Adding, removing or reordering days: the day count is fixed after generation, so
+  `days_per_week` never changes. The coach points to regenerating.
+- Editing a **saved** plan, or forking one. Saved plans get read-only Q&A and a
+  "Regenerate from this chat" action that prefills the generator's focus note from
+  the athlete's recent requests (<= 300 chars).
+- Progression suggestions (kept in TODOS.md), streaming replies, a cross-plan
+  thread or summarisation, editing or deleting single messages, voice input,
+  exporting chat or notes, a "clear conversation" control, per-user caps or usage
+  stats, model-written notes without confirmation.
 
 ## User-facing behaviour
 
-On **Plan → AI Routine**, under the plan output, a chat panel appears for any
-draft or saved AI plan:
+Layout and visuals are specified in the plan (DS-1..DS-10); in short:
 
-- The user types a message (≤500 chars). The coach replies in a short coaching
-  voice. If the message asked for a change, the plan above updates immediately;
-  changed days get an "edited" chip and a highlighted border, and the latest
-  applied edit shows **Undo**. Undo can be pressed repeatedly to walk back.
-- A collapsible **Coach notes** list shows what the coach remembers, each with a
-  delete button.
-- **Draft plans** are editable. **Saved plans** are read-only in chat: the user
-  can ask questions; asking for a change makes the coach point to **Edit as new
-  draft**, which forks the plan (below).
-- With no `GEMINI_API_KEY`, the chat is disabled with the same notice the
-  generator already shows.
+- **Desktop (>= 768px):** the 320px left column of the Plan page swaps between
+  *Generate* and *Coach* with a `.seg-toggle`; the plan stays in the wide right
+  column. **Mobile:** one 56px composer row above the tab bar opens a bottom sheet.
+- The athlete types a message (1-500 chars). The coach replies in a short coaching
+  voice. If a change was asked for, the draft updates at once; changed days get an
+  EDITED label and a neutral row tint, and the reply carries a server-computed
+  change summary. **Undo** walks back the last 3 edits. A toast offers Undo when
+  the sheet is closed.
+- **Swap:** a per-row action lists up to 6 ranked alternatives; choosing one applies
+  it instantly (draft plans only) and is undoable. It writes no chat message.
+- **Why:** tapping "?" on a row sends a normal chat message asking why.
+- **Prompt chips** (empty thread only) seed common requests.
+- **Coach notes:** a collapsible list of what the coach remembers, each deletable.
+  When the athlete states a stable limit or preference the coach *proposes* a note
+  and the UI shows "Remember: ...? Yes / No"; only Yes saves it. Cap 20 notes,
+  <= 120 chars each, case-insensitively unique. A full list says so honestly.
+- **Feedback chip:** the coach may propose a value for the existing plan feedback
+  (`too_easy`, `just_right`, `too_hard`, `skipped_often`); Yes calls the existing
+  endpoint and shows the old value before replacing it.
+- **Saved plans** open read-only in the same panel (questions only).
+- **First use:** a blocking privacy card (messages and notes go to Google); the
+  acknowledgement is stored per user.
+- **Disabled states:** no `GEMINI_API_KEY` uses the generator's existing notice; the
+  kill switch hides the panel; at the daily cap the composer is disabled with
+  "Coach is resting until tomorrow. Undo and swaps still work."
 
 ## Data model
 
-Appended to the end of `_MIGRATIONS` in `app/db.py` (the list is **append-only**
-— never insert in the middle; the runner executes one statement per entry, so
-each statement below is its own entry):
+Appended to the end of `_MIGRATIONS` in `app/db.py` (**append-only**; the runner
+executes one statement per entry, so each statement is its own entry, all
+idempotent with `IF NOT EXISTS`):
 
 ```sql
 CREATE TABLE IF NOT EXISTS coach_messages (
@@ -71,9 +85,9 @@ CREATE TABLE IF NOT EXISTS coach_messages (
     user_id      INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     role         TEXT    NOT NULL CHECK(role IN ('user','model')),
     content      TEXT    NOT NULL,
-    plan_before  TEXT,                       -- plan JSON before this model message's edit; NULL if no edit
-    changed_days TEXT,                       -- JSON array of 1-based day indexes the edit changed
-    undone       INTEGER NOT NULL DEFAULT 0, -- 1 once the edit was undone
+    changed_days TEXT,                        -- JSON array of 1-based day indexes
+    changes      TEXT,                        -- JSON server-computed change summary
+    undone       INTEGER NOT NULL DEFAULT 0,
     created_at   TEXT    NOT NULL DEFAULT (datetime('now','localtime'))
 )
 CREATE INDEX IF NOT EXISTS idx_coach_messages_plan ON coach_messages(plan_id, id)
@@ -85,196 +99,196 @@ CREATE TABLE IF NOT EXISTS coach_notes (
     created_at     TEXT    NOT NULL DEFAULT (datetime('now','localtime')),
     UNIQUE(user_id, text COLLATE NOCASE)
 )
+ALTER TABLE coach_plans ADD COLUMN updated_at TEXT            -- last activity; drives the 7-day purge only
+ALTER TABLE coach_plans ADD COLUMN rev INTEGER NOT NULL DEFAULT 0   -- compare-and-set token
+ALTER TABLE coach_plans ADD COLUMN undo_json TEXT             -- last 3: [{message_id|null, plan_json, label}]
+CREATE TABLE IF NOT EXISTS coach_usage (
+    day   TEXT PRIMARY KEY,                   -- America/Los_Angeles date
+    count INTEGER NOT NULL DEFAULT 0
+)
+ALTER TABLE user_settings ADD COLUMN coach_chat_ack_at TEXT
 ```
 
-Undo needs no versions table: the latest model message with `plan_before IS NOT
-NULL AND undone = 0` is restored into `coach_plans.plan_json` and flagged
-`undone = 1`. Deleting a plan cascades its messages. Notes are capped at **20
-per user**, **≤120 chars** each, case-insensitively unique.
+Deleting a plan cascades its messages. Drafts purge after 7 days without activity
+(`COALESCE(updated_at, created_at)`, localtime). A failing non-benign migration is
+recorded as applied and never retried by `init_db`, hence the migration test below.
 
 ## API
 
-All under `/coach`, user-scoped (other users' plans 404 like the existing
-routes), authenticated like the rest of the app.
+All under `/coach`, authenticated, user-scoped (other users' plans 404). Paths for
+the chat, undo and swap endpoints are proposals that PR2 and PR3 finalise; the
+behaviour is the contract.
 
-| Method & path | Purpose |
+| Endpoint | Purpose |
 |---|---|
-| `GET /plans/{id}/chat` | History (`messages`, each with `changed_days`/`undone`), `can_edit` (plan is a draft), `notes`. |
-| `POST /plans/{id}/chat` | Body `{message, base_message_id}` (`base_message_id` is the id of the newest message the client has seen, `null` for an empty thread). One Gemini call. Returns `{reply, plan, changed_days, notes_added, message_ids}`. `409` if `base_message_id` ≠ the plan's latest message id (changed in another tab); `429` over the per-user cap; `502` with a friendly `detail` on any Gemini failure (nothing saved). |
-| `POST /plans/{id}/chat/undo` | Restore the latest un-undone edit; returns the restored `plan`. `404` if there is nothing to undo. |
-| `POST /plans/{id}/fork` | Saved plan → new draft (see below). Returns `{plan_id}`. |
-| `GET /notes`, `DELETE /notes/{id}` | View / remove durable notes. |
+| `GET /plans/{id}/chat` | `{plan, rev, can_edit, messages, notes}` (last 100 messages). Also how a saved plan opens read-only. |
+| `POST /plans/{id}/chat` | `{message, base_rev}` -> `{reply, plan, rev, changed_days, changes, propose_note, feedback}`. |
+| `POST /plans/{id}/undo` | `{base_rev}` -> restored plan and new rev. |
+| `GET/POST /plans/{id}/swap` | Up to 6 ranked alternatives; apply one (`{base_rev, day, idx, exercise_id}`). |
+| `GET /notes`, `POST /notes`, `DELETE /notes/{id}` | List; confirm a proposed note; delete. |
+| `POST /plans/{id}/confirm` | Existing; now `{base_rev, title}`: 409 on a stale rev, and the posted title is saved (today the title box is cosmetic server-side). |
+| `GET /usage` | Admin only: today's count against the cap, per-kind counters since boot. |
+
+Errors map from `GeminiError.kind` (`not_configured, auth, quota, rate_limited,
+timeout, unreachable, blocked, empty, malformed, bad_request`) to 503/429/502 with
+fixed user-facing copy (plan, state table). A stale `base_rev` is 409 ("plan changed
+in another tab"); a plan id that no longer exists is the same 409 ("this plan was
+replaced, reload"); a saved plan on an edit endpoint is 409 ("chat and swap edit
+drafts; use Regenerate"); a second message while one is running is 409 ("still
+working on your last message").
 
 ## A chat turn
 
-Memory is real multi-turn `contents` (user/model roles), not history pasted into
-one prompt.
+1. **Gate (no model call):** kill switch (503), ownership, plan exists, `base_rev`
+   matches, per-user single-flight, daily cap not reached, a limiter slot within 5 s
+   (semaphore of 2, else 429 "busy"), message 1-500 chars.
+2. **Context**, built fresh every turn (profile build ~2 ms), ordered stable-first
+   and volatile-last so implicit prefix caching works: system instruction, ALLOWED
+   exercise catalog, athlete context (the same renderer generation uses, via
+   `coach_plan.athlete_context`), durable notes as quoted data, then the **current
+   plan JSON** and the history (last 20 messages **and** <= 6,000 characters; a
+   message whose edit was undone is suffixed `[the athlete undid this edit]`).
+3. **Final user turn:** the new message, then a short task line restating this
+   week's hard constraints (flagged pain and the area's off-limits movements, the
+   fixed day count). A small model honours the end of the message better than the
+   middle: the generation eval showed a flagged knee ignored 3 of 3 times until it
+   was restated there.
+4. **One model request** through `chat_turn_json`. A turn issues at most 2 requests
+   across every retry reason, within a 30 s end-to-end budget (20 s per attempt);
+   only fast failures (429/5xx/malformed) retry, and only with >= 10 s left; never
+   after a timeout.
+5. **Reply schema** (`responseJsonSchema`, no enum):
+   `{ reply, days: [{index, focus, exercises: [{name, sets, reps, note}]}], propose_note | null, feedback | null }`.
+   `days` holds **only changed days**, indexes `1..len(days)`; it is empty when
+   nothing changes.
+6. **Apply (server, deterministic):** ignore `days` on a saved plan; reject an index
+   outside `1..len`; resolve names with `normalise_plan` (tag strip, unknown names
+   dropped); a day left with no valid exercise is not applied and the reply says
+   which name was not found; merge into a copy; run `repair_plan` and
+   `plan_quality_issues`; **diff old vs new to produce `changed_days` and
+   `changes`**, never trusting the model's own account.
+7. **Final write, one `write_tx`:** compare-and-set on `rev` first (rowcount 0 ->
+   commit, 409, nothing written), then both messages, the new plan, the undo entry
+   and `rev + 1`. The user message is persisted only together with the reply, so a
+   failed turn leaves no rows (the client keeps the text). The usage counter delta
+   flushes in a `finally`.
 
-1. **Context turn (user role):** the athlete profile (the existing
-   `build_profile` data rendered by the shared context renderer), the durable
-   notes (`ATHLETE NOTES`, delimited as athlete-stated facts), whether the plan
-   is editable, the ALLOWED exercise list, and the **current plan JSON** — rebuilt
-   every turn so Undo and edits from other turns are always reflected.
-2. **History:** the last **20** messages as plain text. Old plan JSON is not
-   repeated. A message whose edit was undone is rendered with the suffix
-   `[the athlete undid this edit]`.
-3. **Final user turn:** the new message, followed by a short reminder of the
-   non-negotiables (flagged pain, only allowed exercise names, minimal edits).
-4. **System instruction:** the shared coach persona and the chat rules (below).
+Undo pops the top `undo_json` entry (<= 3), marks its message `undone`, re-validates
+exercise ids against the library (missing ones dropped with a notice) and bumps `rev`.
+A corrupt entry is 409 "Can't restore this edit", logged, row untouched.
 
-**Reply schema** (`responseJsonSchema`, no `enum` — Gemini rejects large enums;
-field `description`s carry the guidance):
+## Concurrency and transactions
 
-```jsonc
-{
-  "reply":    "string, <=600 chars, plain text, coach voice, no markdown",
-  "days":     [ {"index": 1-based int, "focus": "...", "exercises": [ {name, sets, reps, note} ]} ],
-  "remember": [ "string, <=120 chars" ]
-}
-```
+- One shared autocommit connection: `conn.commit` is a no-op and every writer uses
+  `write_tx(conn)` (write lock + `BEGIN IMMEDIATE`, non-reentrant, compare-and-set
+  first, `WriteConflict` -> 409). **Done in PR #47.**
+- Never hold the write lock across the network: the model call finishes before
+  `write_tx` starts.
+- `rev` is the only stale-tab token; `updated_at` is for the purge.
 
-`days` is empty when nothing changes; `remember` is empty unless the athlete
-stated a stable preference or limit.
+## Prompts
 
-**Applying the patch (server, deterministic):**
+- **Generation prompt: done in PR #49.** Rules live once in the system prompt; the
+  user message is data plus a one-line task; no worked example; athlete-written text
+  is marked as data that cannot change the rules; flagged pain and the request are
+  restated in the task line.
+- **Chat** shares the persona and `athlete_context`, and adds its own rules: edit
+  only when asked and change as few days as possible; never program through flagged
+  pain; ask a clarifying question instead of guessing (return no `days`); never
+  invent exercises; no medical diagnosis (calm, direct, points to a professional for
+  persistent pain); decline a day-count change and point to regenerating; propose a
+  note only for a stable limit or preference the athlete states; safety rules
+  outrank notes.
+- Durable notes also reach the **generation** prompt as quoted data.
+- Optional `GEMINI_CHAT_MODEL` (defaults to `GEMINI_MODEL`) lets chat use a
+  stronger model; the chat route resolves it and `model=` is threaded through the
+  client.
 
-1. If the plan is not a draft, ignore `days` entirely.
-2. For each returned day with `1 <= index <= min(len(plan.days)+1, 7)`: resolve
-   exercise names with the existing `_normalise_plan` matcher (including the
-   `[equipment]` tag strip), dropping unknown names. A day left with no valid
-   exercises is **not applied**, and the reply gets a one-line note naming the
-   exercise that could not be found.
-3. Merge by index into a copy of the plan; run `_repair_plan` and
-   `_plan_quality_issues` (existing code) over the merged plan.
-4. Compute `changed_days` by diffing old vs new (focus + exercise name/sets/reps/
-   note) — the model's claim is never trusted. If nothing differs, it is a
-   no-change turn.
-5. Write atomically: user message, model message (with `plan_before` and
-   `changed_days` when changed), the updated `coach_plans.plan_json`, and any
-   accepted `remember` notes. A failed Gemini call writes nothing.
-6. `remember` entries are stripped, length-capped, de-duplicated and counted
-   against the 20-note cap; extras are dropped silently.
+## Limits and kill switches
 
-## Prompt rewrite (Gemini 3.5 Flash-Lite)
+- **Daily cap:** one app-wide counter, authoritative in memory on the hot path
+  (incremented before each HTTP request via the client's `on_request` callback, so
+  retries and failures count), persisted as a delta to `coach_usage` and seeded at
+  startup and on day rollover. Day key is the America/Los_Angeles date (Google's
+  quota resets at Pacific midnight). `COACH_AI_MAX_PER_DAY` is set to about 80% of
+  the real limit. At the cap: 429 "coach is resting until tomorrow"; swap, undo and
+  notes keep working. Generation stops at the cap too.
+- **Chat limiter** is separate from the generation lock. **`COACH_CHAT_ENABLED`**
+  (default true) off: chat and note-confirm return 503 and the panel is hidden;
+  swap, undo and notes view/delete keep working.
+- No per-user hourly cap, no 80% notice, no per-user stats.
 
-Applies first to generation, then to chat (shared persona and rules).
+## Security and privacy
 
-- **System instruction** = a short persona (a direct, warm strength coach) plus a
-  compact list of positively-phrased rules. The existing rules are kept in
-  spirit — specificity, compound anchor, progressive overload, one-cue notes
-  (≤12 words), 48 h recovery, 10–20 hard sets/muscle/week, proven splits only,
-  respect the athlete's flagged pain / RPE / wellness, daily variety, allowed
-  exercise names only — but tightened.
-- **Remove the worked JSON example** ("Exercise A–E"). It costs tokens, was the
-  source of copy-the-example failures, and is replaced by schema `description`
-  fields (e.g. note: "one cue, ≤12 words, includes the load and how to
-  progress"). The test that guards against example copying is replaced by a test
-  that the prompt contains no example block.
-- **Order for a small model:** athlete context and allowed list first, the task
-  last, then a short reminder of the safety rules (pain flags), because
-  constraints stated only at the top get dropped.
-- **Voice:** the plan `summary` and exercise `note`s, and all chat replies, are in
-  a coaching voice — second person, direct, encouraging, concise, no emojis, no
-  markdown.
-- **Chat-only rules:** edit only when asked, change as few days as possible,
-  never program through flagged pain, ask a clarifying question instead of
-  guessing (returning no `days`), never invent exercises, give no medical
-  diagnosis (suggest seeing a professional for persistent pain), say so when a
-  request needs a new plan (fewer days), and `remember` only stable preferences
-  and limits the athlete states.
-- Durable notes are also injected into the **generation** prompt (`ATHLETE
-  NOTES`), so they shape future plans.
-
-## Saved plans: fork
-
-A saved plan has real routines (one per day), so editing it in place would mean
-rewriting routines the user may have changed or be mid-session on. Instead
-`POST /plans/{id}/fork`:
-
-- creates a new `coach_plans` row, `status='draft'`, titled `"<title> (edited)"`,
-  same goal/days/model, `plan_json` copied **without** `routine_ids`;
-- copies the last 20 messages with `plan_before`/`changed_days` cleared and
-  `undone = 0` (a fresh Undo history);
-- deletes the user's existing unconfirmed draft first — the app allows one draft
-  at a time — which is why the UI confirms before forking;
-- leaves the saved plan and its routines untouched; confirming the new draft uses
-  the existing `confirm` flow and creates new routines.
-
-## UI
-
-Plan page, AI Routine tab, `app/templates/plan.html`. `DESIGN.md` is read before
-building and followed: blue (`--accent`) for interactive chrome and the "edited"
-highlight, never gold; no light mode; numbers in JetBrains Mono via `.num`;
-primary actions ≥56 px tall (Send), other controls ≥40 px; mobile-first. Components:
-message thread, composer, Undo on the latest applied edit, collapsible Coach
-notes with delete, read-only banner + **Edit as new draft** for saved plans.
-
-## Limits and failure handling
-
-- **Per-user cap:** 30 messages/hour by default (`COACH_CHAT_MAX_PER_HOUR`),
-  counted per attempt in an in-memory sliding window (resets on restart —
-  acceptable for a small self-hosted app); over the cap → `429` with the retry
-  time.
-- **Serial API calls:** chat calls take the existing `_GEN_LOCK` so generation and
-  chat never run concurrently (keeps Gemini per-minute limits calm). The existing
-  queue-depth cap does not apply to chat; the per-user cap does.
-- **Quota:** each chat message is exactly one Gemini request (plus the client's
-  transient-error retries). On a small free-tier quota, chat will use it up
-  faster than generation; the README documents this.
-- **Gemini errors / no key / quota:** inline error bubble, nothing saved, input
-  restored. Messages are validated server-side (1–500 chars, non-blank).
-- **Concurrency:** `base_message_id` mismatch → `409` ("this plan changed in
-  another tab — reload").
-- **Prompt injection hygiene:** notes and history are athlete-authored text
-  placed in clearly delimited blocks and described as data; the server, not the
-  model, enforces what can change (draft-only, valid exercises, index bounds).
-
-## Privacy
-
-Chat messages, durable notes, and the plan are sent to Google (as the generation
-prompt already is). They are stored in the app's encrypted database, deleted with
-their plan (messages) or individually by the user (notes). The README and the
-privacy note in `.env.example` / CHANGELOG are extended.
+- All model text, change summaries, notes, history and exercise names render as
+  plain text (`createElement` + `textContent`). `tests/test_chat_js_safety.py`
+  fails on HTML-string APIs in the files that render them (**done in PR #48**);
+  `/qa` runs an XSS payload pass for live-DOM behaviour.
+- Custom exercise names are allowlisted at creation (letters, digits, spaces,
+  `- ' ( ) / + & . ,`, max 60) and sanitised when the catalog is built (hostile names
+  are left out of prompts with a logged warning); CSV import keeps names raw so
+  repeat imports still dedupe, but invalidates the catalog caches.
+- Notes, history and the focus request are athlete-authored data in quoted blocks;
+  the server, not the model, decides what can change (draft only, valid exercises,
+  index bounds).
+- **Privacy:** chat messages, notes and the plan are sent to Google (on the unpaid
+  tier Google may use them; the exact Gemini API terms wording must be verified
+  before the notice copy is final). They are stored in the app's database, deleted
+  with their plan (messages) or individually (notes). Blocking first-use card;
+  README, CHANGELOG and `.env.example` extended.
 
 ## Testing
 
-- **Unit:** patch merge, index bounds, unknown-name drop, empty-day rejection,
-  changed-day diff, no-change detection, Undo chain, note rules (strip, cap 120,
-  dedupe case-insensitively, cap 20), history windowing and the undone-suffix,
-  prompt has no example block / correct section order.
-- **Endpoint (Gemini mocked):** ownership 404s, draft vs saved behaviour, `days`
-  ignored on saved plans, per-user cap `429`, `409` on stale `base_message_id`,
-  undo with nothing to undo `404`, fork copies history / drops `routine_ids` /
-  replaces the draft, notes endpoints, plan delete cascades messages, and a
-  failing Gemini call leaves no rows.
-- **Migrations:** new entries are appended at the end; a fresh DB and an
-  already-migrated DB both end up with the tables.
-- **Live (manual, real model, on a copy of the production DB):** a scripted set of
-  realistic turns — a swap, a day edit, a pain report, a question, a request for
-  fewer days, a stated preference to remember — checking valid output, minimal
-  diffs, safe behaviour, and that the rewritten generation prompt still yields
-  complete, valid, non-repetitive plans.
+- **Unit (pure `coach_chat.py`):** patch merge, index bounds, unknown-name drop,
+  empty-day rejection, diff and no-change detection, undo stack (3), note rules,
+  history windowing and the undone suffix, task-line constraints.
+- **Endpoint (Gemini mocked):** ownership 404s, draft vs saved, `days` ignored on
+  saved plans, every 409 and 429 above, kill switch, cap at 100% (including the
+  **generation** path via `on_request`), a failing call leaves no rows, notes cap and
+  dedupe, plan delete cascades, `asyncio.gather` races modelled on
+  `tests/test_workouts.py`.
+- **Migrations:** on a fresh DB the error rows equal exactly the frozen benign set
+  `{0, 10, 38, 48, 49, 51}`; no error at any new index; new tables, columns and
+  indexes exist on a fresh DB **and** on one built from the pre-chat schema.
+- **Live eval (manual, never CI):** `scripts/coach_eval.py`. Generation scenarios and
+  the recorded baseline exist (PR #49); PR2 adds the chat scenarios (swap, shorten a
+  day, pain report, question only, fewer days, propose a note, message and
+  hostile-name injection, undo awareness, very long message, blocked request).
+  Gate: >= 80% overall and no safety regression against the baseline.
+- **Browser (`/qa`) and a real iPhone:** DOM behaviour, the sheet and keyboard. The
+  iPhone check gates PR4a, because headless Chrome cannot reproduce iOS keyboard
+  behaviour.
 
 ## Delivery
 
-Three PRs, in order, each stacked on the previous (the first on PR #45):
+| Step | What | Status |
+|---|---|---|
+| #45 | Gemini backend, default `gemini-3.5-flash-lite` | merged |
+| R (#46) | Plan logic moved to `app/utils/coach_plan.py` | merged |
+| W (#47) | `write_tx`, no-op commit, coach writers atomic | merged |
+| UI (#48) | `PlanView`/`PlanState`, `sheet.js`, `showActionToast`, `.pill`, `.seg-toggle` | merged |
+| PR1 (#49) | Generation prompt rewrite + live eval + baseline (11/12) | open |
+| PR2 | Chat backend: migrations, `kind` errors, `chat_turn_json`, turn pipeline, undo, notes, daily cap, limiter, kill switch, `/coach/usage`, name allowlist, chat eval scenarios | **gate: you check the real daily quota** |
+| PR3 | Swap endpoint | |
+| PR4a | Chat UI core: panel, transcript, privacy card, Undo, notes, saved-plan read-only | **gates: real-iPhone check, final privacy copy** |
+| PR4b | Swap sheet, chips, summaries, feedback chip, Why-tap | cuttable |
 
-1. **Generation prompt rewrite** (the originally requested change): new shared
-   persona/rules, no worked example, schema descriptions, section order, coaching
-   voice. Verified live on `gemini-3.5-flash-lite`. Independent of chat.
-2. **Chat backend:** migrations, endpoints, turn pipeline, notes, fork, caps, and
-   the notes block in the generation prompt.
-3. **Chat UI** on the Plan page.
+**Deploy checklist for every PR with migrations or transaction changes:** check
+`systemctl list-timers` and pause the auto-deploy timer if installed, run
+`scripts/backup.py`, dry-run migrations on a copy of the production database, merge,
+restart, verify `/health`, one generation, one chat turn and one Undo, resume the
+timer. Tests, README, CHANGELOG and the privacy copy ship with the PR that
+introduces each behaviour.
 
-## Open details, decided
+## Decided details
 
 | Detail | Decision |
 |---|---|
-| History window | Last 20 messages |
-| Message length | 1–500 chars |
-| Reply length | ≤600 chars |
-| Durable notes | ≤20 per user, ≤120 chars each |
-| Per-user cap | 30/hour, `COACH_CHAT_MAX_PER_HOUR` |
-| Max days | 7 (existing limit) |
-| Reply format | Single JSON response (no SSE) |
-| Undo | Unlimited, newest-first, via `plan_before` on messages |
+| History sent to the model | last 20 messages and <= 6,000 characters |
+| Message / reply length | 1-500 chars in / <= 600 chars out |
+| Durable notes | <= 20 per user, <= 120 chars, confirmed by the athlete |
+| Undo depth | last 3 |
+| Max days | 7 (existing limit), fixed after generation |
+| Reply format | single JSON response, no streaming |
+| Chat budget | 30 s end to end, 20 s per attempt, <= 2 requests per turn |
+| Stale-tab token | integer `coach_plans.rev` |
