@@ -7,7 +7,7 @@ Branch: feat/coach-chat (stacked on feat/gemini-coach, PR #45) | Mode: SELECTIVE
 Repo: Storm-Raider/Fitness-Tracker
 Baseline spec (in-repo): `docs/superpowers/specs/2026-10-04-coach-chat-design.md` is STALE against this
 document; rewriting it is task T0 so there is one source of truth.
-Review state: all 11 sections + outside voice complete. 25 section decisions + 8 cross-model decisions
+Review state: CEO review (25 section + 8 cross-model decisions) and ENGINEERING review (D3-D14 + 9 cross-model decisions CM-A..CM-I) complete;
 recorded by the user. Cross-model decisions (CM1-CM8) supersede earlier section decisions where noted.
 
 ## Vision
@@ -33,16 +33,18 @@ description of itself. (Progression suggestions were considered and moved out; s
 ## Approach: C (hardened + modularized), implemented as LEAN v1
 New: `app/utils/coach_chat.py` (pure: validate/merge/diff/notes/history), `app/utils/coach_plan.py`
 (plan logic MOVED out of coach.py in its own refactor PR), `app/routes/coach_chat.py`, `write_tx` in
-`app/db.py`, `app/static/coach_chat.js` + template partial (registered with the service-worker cache).
+`app/db.py`, `app/static/coach_chat.js` + template partial (served by content-hash URL; NOT precached, see eng review CM-H).
 
 ## FINAL decisions (supersede earlier ones where marked)
 Concurrency / undo (lean v1, CM3):
 - Chat edits DRAFT plans only. Saved plans: chat is read-only Q&A plus a "Regenerate from this chat"
   action that prefills the generator's focus note from the athlete's recent requests (<=300 chars).
   No fork. No in-place edits on saved plans. (REPLACES D1 rev, D2 event role, D3b, D15 pruning.)
-- Stale-tab guard: compare-and-set on `coach_plans.updated_at` (millisecond precision,
-  strftime('%Y-%m-%d %H:%M:%f','now')): `UPDATE ... WHERE id=? AND user_id=? AND status='draft'
-  AND updated_at=?`; rowcount 0 => 409. Pre-checked before calling Gemini and enforced in the write tx.
+- Stale-tab guard (REVISED by eng review D3): compare-and-set on an integer `coach_plans.rev INTEGER NOT NULL
+  DEFAULT 0`: chat, undo and swap send `base_rev`; `UPDATE ... SET rev=rev+1 ... WHERE id=? AND user_id=? AND
+  status='draft' AND rev=?`; rowcount 0 => 409. Pre-checked before calling Gemini and enforced in the write tx.
+  (A nullable timestamp token would never match existing rows: NULL = ? is never true.) `updated_at` stays
+  nullable and is used ONLY for the purge.
 - Undo = last 3 plans in `coach_plans.undo_json` (JSON array of {message_id, plan_json}, trimmed to 3
   on write). Undo pops the top entry, marks that message `undone`. Corrupt entry => 409 "Can't
   restore this edit", logged, row untouched. `coach_messages.role` is ('user','model') only.
@@ -55,8 +57,10 @@ Concurrency of writers:
 Quota / caps (CM1, CM2):
 - GATE: before PR2, the user checks https://ai.dev/rate-limit (or enables billing); `COACH_AI_MAX_PER_DAY`
   is then set to ~80% of the real daily limit (placeholder 300 until checked).
-- ONE persisted app-wide daily counter `coach_usage(day PK, count)`, upserted per Gemini request in
-  write_tx (failed requests count). NO per-user hourly cap, NO 80% notice, NO per-user usage stats.
+- ONE app-wide daily counter, authoritative IN MEMORY on the hot path (eng review D13): `on_request` increments it
+  synchronously and checks the cap; the turn's final write_tx (and the end of each generation) persists the delta
+  to `coach_usage(day PK, count)`; seeded from the table at startup and on day rollover; failed requests count.
+  Worst-case crash undercount: one turn. NO per-user hourly cap, NO 80% notice, NO per-user usage stats.
   At 100%: 429 "coach is resting until tomorrow"; swap, undo, notes view/delete keep working.
   (REPLACES D11/D16/D18 details.)
 - Chat has its own limiter (semaphore 2), slot wait <=5s else 429 "busy", not `_GEN_LOCK`; 30s
@@ -70,8 +74,7 @@ Errors / client:
   empty, malformed, bad_request); chat and generation map kind to 503/429/502 and fixed user messages. (D6)
 - `chat_turn_json(system, contents, schema, *, deadline=None, ...)` is the one request core;
   `chat_json(system, user, ...)` remains a thin wrapper. History sent to the model: last 20 messages
-  AND <=6,000 characters total. Reusing the app's shared httpx client needs streaming + per-call
-  timeout tests. (D13 + completions)
+  AND <=6,000 characters total. gemini.py keeps one AsyncClient per call (no shared client; eng CM-H). (D13 + completions)
 - Optional `GEMINI_CHAT_MODEL` (defaults to `GEMINI_MODEL`) so chat can use a stronger model. (CM6)
 Notes (CM7, replaces auto-saving):
 - The model only PROPOSES a note (`propose_note`, <=120 chars, printable single line). The UI shows a
@@ -95,7 +98,7 @@ UI (D25 + completions): right sticky panel >=768px; below that a sticky bottom c
   `role="log"` + `aria-live="polite"`, reduced motion respected, sends/undo/chips disabled in flight.
 Tests / quality (D14, CM4, CM6): committed `scripts/coach_eval.py` (~15 asserted live scenarios, manual,
   never CI); GATE: >=80% valid-and-correct on the real model before PR2; AUTOMATED migration test: run
-  init_db on a fresh DB and an old-schema DB and assert no `_schema_migrations` row has `error` set.
+  init_db on a fresh DB and an old-schema DB per eng review CM-B (frozen benign error set, NOT 'no error rows': a fresh DB already has 6 benign rows).
 Observability (D16 trimmed): one structured log line per chat/swap/undo (ids, outcome/kind, duration_ms,
   changed days, dropped names; never text) + admin-only `GET /coach/usage` (today's count vs cap,
   per-kind counters since boot).
@@ -109,23 +112,27 @@ Deploy: dry-run migrations on a copy of the production (encrypted) DB; run scrip
   changed_days, changes, undone DEFAULT 0, created_at)` + index (plan_id, id)
 - `coach_notes(id, user_id FK CASCADE, text, source_plan_id FK SET NULL, created_at,
   UNIQUE(user_id, text COLLATE NOCASE))`
-- `ALTER TABLE coach_plans ADD COLUMN updated_at TEXT`
+- `ALTER TABLE coach_plans ADD COLUMN updated_at TEXT`   (purge only)
+- `ALTER TABLE coach_plans ADD COLUMN rev INTEGER NOT NULL DEFAULT 0`   (CAS token, D3)
 - `ALTER TABLE coach_plans ADD COLUMN undo_json TEXT`
 - `coach_usage(day TEXT PRIMARY KEY, count INTEGER NOT NULL DEFAULT 0)`
 - `ALTER TABLE user_settings ADD COLUMN coach_chat_ack_at TEXT`
-(Gone vs earlier drafts: rev, plan_before, event role, coach_suggestions.)
+(Gone vs earlier drafts: plan_before, event role, coach_suggestions. `rev` is back as the sole CAS token only.)
 
 ## PR sequence (CM8)
 Prereq: merge PR #45 first.
 0. T0: rewrite the in-repo spec to match this document (docs only).
 R. Pure refactor: move plan logic from coach.py to `app/utils/coach_plan.py` (+ shared athlete-context
-   renderer split from `_build_prompt`); update tests; NO behaviour change.
+   renderer split from `_build_prompt`); coach.py keeps temporary RE-EXPORT SHIMS so the existing suites pass unchanged;
+   NO behaviour change (eng CM-G).
+W. Transaction-safety PR (ungated, eng CM-A/CM-I): `open_db` makes `conn.commit` a no-op; non-reentrant `write_tx`;
+   retrofit of coach save/confirm/delete/feedback and the check-then-purge; interleaving + asyncio.gather race tests.
 1. Generation prompt rewrite for Gemini 3.5 Flash-Lite + `scripts/coach_eval.py`; run the eval gate (>=80%).
    (Quota gate CM1 also here: user checks the real daily limit.)
 2. Core chat backend: migrations above + automated migration test, `kind` errors, `chat_turn_json`,
    `GEMINI_CHAT_MODEL`, `write_tx` everywhere, turn pipeline, undo (last 3), notes endpoints (propose/confirm),
-   persisted daily cap, chat semaphore, kill switch, observability + `/coach/usage`, exercise-name
-   allowlist + sanitizer.
+   global daily cap (in-memory authoritative, flushed in a finally; see eng CM-C), chat limiter, kill switch,
+   observability + `/coach/usage`, exercise-name allowlist + sanitizer.
 3. Swap endpoint (E1 backend).
 4a. Chat UI core: `coach_chat.js` + partial, placement, transcript, privacy card, Undo, notes list,
     saved-plan read-only + "Regenerate from this chat".
@@ -143,7 +150,7 @@ E2, E3, E5 are independent UI items; PR4b can be cut entirely without affecting 
 - E6 progression suggestions (moved to TODOS.md: its in-place apply path was removed by lean v1, it is
   independent of chat and the riskiest new surface; full design kept in TODOS).
 - Fork of saved plans and in-place edits on saved plans ("Regenerate from this chat" instead).
-- `rev` counter, `event` rows, per-message snapshots, per-user hourly cap, 80% notice, per-user usage stats.
+- `event` rows, per-message snapshots, per-user hourly cap, 80% notice, per-user usage stats. (The integer `rev` CAS token IS in scope, D3.)
 - Model-written notes without confirmation.
 - Removing/reordering days via chat; streaming replies; cross-plan thread / summarisation; editing or
   deleting individual messages; voice input (third-party audio); exporting chat/notes; a "clear
@@ -154,3 +161,74 @@ E2, E3, E5 are independent UI items; PR4b can be cut entirely without affecting 
 - GATE (CM6): >=80% on `scripts/coach_eval.py` with the real model before PR2.
 - Privacy notice copy must be final BEFORE PR4a (read Google's Gemini API additional terms for the unpaid tier).
 - Moving the draft purge out of the GET handler was NOT adopted; it stays in plan.py, wrapped in write_tx.
+
+## Engineering review amendments (/plan-eng-review, 2026-10-04); these supersede anything above that conflicts
+Architecture
+- D3  Integer `rev` is the CAS token (see Stale-tab guard above).
+- D4  `chat_turn_json(..., on_request=cb)` awaits `cb()` right before EACH HTTP request, including retries; the cap check and the
+      in-memory increment live in the callback; chat and generation pass the same callback; gemini.py stays DB-free.
+- D5  Day count is FIXED: patch indexes must be 1..len(days); the coach declines add/remove-a-day and points to regenerating, so
+      `days_per_week` (column + plan_json) never changes after generation.
+- D6  `coach_chat.js` loads as `/static/coach_chat.js?v={{ coach_js_v }}`, a content hash computed at startup (sw.js serves
+      /static/ cache-first, so a changed file must change its URL). A test asserts the partial carries the hash.
+Code quality
+- D7  `invalidate_exercise_caches()` in coach_plan.py resets `_EXERCISE_BASE_ROWS` and `_NAME_MAP_CACHE`; called on exercise create and
+      delete AND after a CSV import. Test: create an exercise, then resolve it.
+- D8  `write_tx` is NON-reentrant: a ContextVar flag makes nested use raise `RuntimeError('nested write_tx')` instead of deadlocking.
+- D9  The 7-day purge on GET /plan first runs a read (`SELECT 1 ... COALESCE(updated_at, created_at) < datetime('now','localtime','-7 days') LIMIT 1`; localtime everywhere, matching created_at's default)
+      and enters write_tx only when a stale draft exists, so ordinary page loads never take the write lock.
+Tests
+- D10 Exercises are created in THREE places: the route (allowlist via shared `validate_exercise_name()`, 422), CSV import
+      (csv_utils.py:7; names stay RAW to preserve repeat-import dedupe, but it calls `invalidate_exercise_caches()`), and the seed (trusted).
+      The catalog sanitizer is the enforced boundary into prompts (hostile names are left out with a logged warning).
+- D11 DOM behaviour (XSS rule, sheet, privacy card) is verified by `/qa` (headless browser) from the committed test plan
+      (`~/.gstack/projects/<slug>/*-eng-review-test-plan-*.md`) before PR4a/4b merge; no JS toolchain is added.
+- D12 `scripts/coach_eval.py`: 15 scenarios (swap; shorten a day; pain report; question-only; fewer-days; fixed day count; propose a note;
+      message injection; hostile-name injection; tagged-name copying; empty history; undo awareness; blocked/unsafe; very long message;
+      generation x2 goals), results written to `scripts/coach_eval_baseline.json`; each run diffs against it and fails on a safety-scenario
+      regression or <80% overall. Run before any prompt change merges. Never in CI.
+Performance
+- D13 In-memory counter on the Gemini hot path; delta flushed in the turn's final write_tx (see counter bullet). The final write_tx may
+      wait behind a long writer (CSV import holds write_lock for the whole file); that wait is outside the 30 s budget.
+- D14 Chat builds a FRESH profile each turn (`build_profile(..., fresh=True)`; measured ~2 ms at 442 sets); generation keeps the cached
+      path. A timing test asserts a fresh build is < 100 ms on test data.
+Completions (no alternatives)
+- Chat context turn order is stable-first (system, catalog, profile, notes) and volatile-last (plan JSON, history) for implicit prefix caching.
+- The chat limiter is recreated per test like `write_lock` in `clear_db()` (asyncio primitives bind to a loop; pytest-asyncio gives each
+  test its own).
+- Regression tests (iron rule): moved helpers (via shims) and client wrappers pass the EXISTING suites unchanged; purge and the write_tx
+  wrap of save/confirm/delete/feedback each get a behaviour-preserved test + an asyncio.gather race test modelled on tests/test_workouts.py:28.
+  (The earlier claim that the allowlist flips old names from 201 to 422 was wrong: measured 0 of 176 exercises, 0 of the 54 used in sets, fail it.)
+- TODO-CC-4 covers FOUR hand-rolled BEGIN IMMEDIATE sites: workouts.py:323, import_.py:84, auth.py:485, routines.py:156.
+
+## Cross-model engineering amendments (independent plan review of the engineering-amended plan, 2026-10-04)
+Items 1 and 2 were verified by reproduction against the real code before being accepted.
+- CM-A  ATOMICITY INVARIANT (verified: 54 bare `conn.commit()` calls in app/routes; one foreign commit() ends another request's open
+        BEGIN IMMEDIATE, ROLLBACK then fails, both rows persist). `open_db` replaces `conn.commit` with a no-op coroutine (the four
+        existing explicit-transaction sites finish with `execute('COMMIT'/'ROLLBACK')`, verified, so none depends on it). `write_tx`:
+        `BEGIN IMMEDIATE`; DB statements only; CAS `UPDATE ... WHERE rev=?` FIRST; on rowcount 0 -> `execute('COMMIT')` (nothing written)
+        then raise 409, never ROLLBACK; on other errors ROLLBACK. Interleaving test: hold a write_tx open, run another route that
+        commits, assert the transaction is still open. This also fixes the same latent hole in workouts/import/auth/routines.
+- CM-B  MIGRATION TEST SPEC: on a fresh DB the error rows must equal exactly the frozen benign set {0,10,38,48,49,51}; no row at an index
+        >= the first new migration may have an error; new tables, columns and indexes must exist (PRAGMA table_info / sqlite_master) on a
+        fresh DB AND on a DB built from the pre-chat schema. The runner executes ONE statement per entry: table and index are separate entries.
+- CM-C  COUNTER: the delta flush runs in a `finally` on every chat turn and every generation (success or failure) via write_tx, with a
+        `persisted_mark` advanced only after COMMIT; the day key is the America/Los_Angeles calendar date (Google's quota resets at midnight
+        Pacific); lazy initialization on first use (conftest never runs the lifespan); counter reset per test like `coach._JOBS`.
+- CM-D  SINGLE-FLIGHT: per-user in-flight guard for chat (409 'already working on your last message'); one user holds at most one limiter
+        slot. Retry only fast failures (429/5xx/malformed) and only if >=10 s of the 30 s budget remain; never retry after a timeout.
+        The user message is persisted ONLY with the model reply in the final write; a failed turn leaves no rows (the client keeps the text).
+- CM-E  UNDO: entries are {message_id|null, plan_json, label}; a swap entry has message_id null. Exercise ids in the restored plan are
+        re-validated at undo time (missing ones dropped with a notice) and again in confirm_plan (409 'an exercise in this plan was deleted').
+- CM-F  REGENERATE/CONFIRM: a new plan starts a NEW chat (UI says 'your notes carry over'); a chat request for a plan id that no longer
+        exists returns the same 409 'this plan was replaced, reload' (not a bare 404); `POST /coach/plans/{id}/confirm` takes `base_rev` and
+        returns 409 'plan changed, review it again' on mismatch, checked inside write_tx.
+- CM-G  REFACTOR: temporary re-export shims in coach.py for one PR; add a test that the GENERATION path stops at 100% of the daily cap via
+        the on_request callback (the existing fakes take **kwargs and would hide it).
+- CM-H  GEMINI DETAILS: no shared httpx client; `model=` is threaded through the whole core (payload, URL, error messages,
+        `_NO_THINKING_CFG`, wrappers), `GEMINI_CHAT_MODEL` is resolved by the chat route only; coach_chat.js is hash-URL served and NOT precached;
+        CACHE_VERSION is not bumped for chat releases (its activate handler navigates every window and would destroy an unsent message).
+- CM-I  SEQUENCING + DEPLOY SAFETY: PR order #45, R, W, PR1, PR2, PR3, PR4a, PR4b. W is ungated; the quota and >=80% eval gates stay on PR2
+        (if they fail, the chat is cancelled and its tables never ship). Every PR with migrations or transaction changes follows a checklist:
+        pause the auto-deploy timer (check `systemctl list-timers`), run scripts/backup.py, merge, verify /health plus one generation and one chat
+        turn, resume the timer. `updated_at` and the purge use `datetime('now','localtime')` consistently.
