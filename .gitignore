@@ -52,3 +52,6 @@ graphify-out/
 
 # App icon (binary asset, not tracked in git)
 ICON.png
+
+# last live coach eval run (scripts/coach_eval.py); the baseline file IS committed
+scripts/coach_eval_last.json
