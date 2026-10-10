@@ -126,7 +126,7 @@ def main() -> None:
     log.info("Done. %s is now SQLCipher-encrypted.", db_path)
     log.info("Next steps:")
     log.info("  1. Ensure DB_ENCRYPTION_KEY is set in your .env")
-    log.info("  2. Restart the service: sudo systemctl restart fitstorm")
+    log.info("  2. Restart the service: sudo systemctl restart zenkai")
     log.info("  3. Verify the app loads and your data is intact")
     log.info("  4. Remove the backup: rm %s", bak_path)
 

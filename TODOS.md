@@ -14,7 +14,7 @@ Deferred work from engineering + design reviews. Each item has enough context to
 - `app/utils/charts.py` — `generate_sparkline(values, labels, color, width, height, unit)` fully built, used by metrics and exercises routes. Zero callers from dashboard context — free to use.
 - `app/utils/heatmap.py` — heatmap generator already in use
 - `exercise_muscles` table — 314 rows, muscle/is_primary, ready for muscle-coverage queries
-- `streak.py` — `max_streak()` will exist after the FitStorm rename PR ships
+- `streak.py` — `max_streak()` already exists
 
 **Scope (minimum viable /stats):**
 1. New route `GET /stats` in `app/routes/` (or add to dashboard.py)
@@ -28,7 +28,7 @@ Deferred work from engineering + design reviews. Each item has enough context to
 
 **Where to start:** `app/routes/` — add `stats.py`. Copy query pattern from `dashboard.py`. Call `generate_sparkline()` for the weekly volume trend (it returns an inline SVG — same as the heatmap).
 
-**Depends on:** FitStorm rename PR shipped (for consistency). No schema changes needed.
+**Depends on:** nothing — the FitStorm rename was reversed (2026-09-09); Zenkai is the retained product name. No schema changes needed.
 
 **Effort:** M (human ~2h / CC ~15min)
 

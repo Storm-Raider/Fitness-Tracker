@@ -1,5 +1,5 @@
 [Unit]
-Description=Poll origin/main for FitStorm updates every 2 minutes
+Description=Poll origin/main for Zenkai updates every 2 minutes
 
 [Timer]
 OnBootSec=2min

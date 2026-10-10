@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 #
-# Auto-deploy FitStorm when origin/main advances.
+# Auto-deploy Zenkai when origin/main advances.
 #
-# Run by fitstorm-deploy.timer (every ~2 min) as root. Git runs as the repo
+# Run by zenkai-deploy.timer (every ~2 min) as root. Git runs as the repo
 # owner (so it uses their SSH key + config); the service restart runs as root.
 #
 # Safe by design — this box is both dev and deploy host, so it NEVER clobbers:
@@ -11,13 +11,13 @@
 #   • can't fast-forward    → skip (diverged history; reconcile by hand)
 #   • requirements changed  → pip install before restart, else leave old code up
 #
-# Logs go to the journal:  journalctl -u fitstorm-deploy
+# Logs go to the journal:  journalctl -u zenkai-deploy
 
 set -uo pipefail
 
 REPO="/home/stormraider/Desktop/Git/Fitness-Tracker"
 OWNER="stormraider"
-SERVICE="fitstorm"
+SERVICE="zenkai"
 BRANCH="main"
 
 log() { echo "$(date '+%Y-%m-%d %H:%M:%S')  $*"; }

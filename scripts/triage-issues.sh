@@ -34,7 +34,7 @@ export HOME="/home/stormraider"
 
 REPO="/home/stormraider/Desktop/Git/Fitness-Tracker"
 BRANCH="main"
-LOCK="/tmp/fitstorm-triage.lock"
+LOCK="/tmp/zenkai-triage.lock"
 PYTEST="$REPO/.venv/bin/pytest"
 MAX_ISSUES=10                     # cap per run so a backlog can't run away
 CLAUDE_TIMEOUT=600                # 10 min per issue
@@ -164,7 +164,7 @@ while IFS= read -r issue <&3; do
     BODY="$(echo "$issue" | jq -r '.body // ""')"
     log "triaging #$NUM: $TITLE"
 
-    PROMPT="You are triaging GitHub issue #$NUM for the FitStorm project (self-hosted
+    PROMPT="You are triaging GitHub issue #$NUM for the Zenkai project (self-hosted
 fitness tracker; FastAPI + Jinja2 + HTMX; tests live in tests/ and run with pytest;
 templates in app/templates; routes in app/routes).
 

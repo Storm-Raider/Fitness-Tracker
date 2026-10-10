@@ -11,10 +11,10 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
-RUN useradd --no-create-home --shell /bin/false fitstorm \
+RUN useradd --no-create-home --shell /bin/false zenkai \
     && mkdir -p /data \
-    && chown fitstorm:fitstorm /data
+    && chown zenkai:zenkai /data
 
-USER fitstorm
+USER zenkai
 
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
