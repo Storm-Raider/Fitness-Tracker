@@ -135,6 +135,7 @@ async def plan_page(
         reverse=True,
     )[:15]
 
+    active_job = coach.active_job_id(uid)
     return render(
         request,
         "plan",
@@ -149,6 +150,7 @@ async def plan_page(
             # or when there is no key to talk to.
             "coach_chat_enabled": coach_budget.chat_enabled() and gemini.is_configured(),
             "llm_model": gemini.model(),
-            "active_job_id": coach.active_job_id(uid),
+            "active_job_id": active_job,
+            "failed_generation": None if active_job else coach.take_unseen_failure(uid),
         },
     )

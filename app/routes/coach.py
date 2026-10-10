@@ -49,6 +49,7 @@ _JOBS: dict[str, dict] = {}
 _JOBS_MAX = 50              # cap retained jobs (small self-hosted app; in-memory is fine)
 _TASKS: set = set()        # keep task refs so they aren't GC'd mid-flight
 _ACTIVE_BY_USER: dict[int, str] = {}  # uid -> in-flight job id (single-flight)
+_LAST_BY_USER: dict[int, str] = {}    # uid -> most recent job id, kept after it ends
 _GEN_LOCK = asyncio.Lock()  # one generation at a time; keeps us well inside the Gemini API rate limits
 
 # Explicit queue so a burst of friends hitting "Generate" at once is bounded and
@@ -79,6 +80,18 @@ def active_job_id(uid: int) -> str | None:
     if job and job.get("user_id") == uid and job.get("status") in _ACTIVE_STATES:
         return job_id
     return None
+
+
+def take_unseen_failure(uid: int) -> str | None:
+    """The error of the user's latest generation if it failed and no page has
+    shown it yet; marks it shown. The Plan page reports it once, so a job that
+    fails while the user is on another page doesn't vanish silently."""
+    job_id = _LAST_BY_USER.get(uid)
+    job = _JOBS.get(job_id) if job_id else None
+    if not job or job.get("user_id") != uid or job.get("status") != "error" or job.get("seen"):
+        return None
+    job["seen"] = True
+    return job["error"]
 
 
 def _prune_jobs() -> None:
@@ -572,6 +585,7 @@ async def generate(
     _JOBS[job_id] = {"status": "queued", "user_id": uid}
     _QUEUE.append(job_id)
     _ACTIVE_BY_USER[uid] = job_id
+    _LAST_BY_USER[uid] = job_id
     _prune_jobs()
     task = asyncio.create_task(
         _run_generation(job_id, conn, uid, body.goal, body.days_per_week, body.focus_note)
@@ -596,6 +610,7 @@ async def generation_status(
     if job["status"] == "processing":
         return JSONResponse({"status": "processing"})
     if job["status"] == "error":
+        job["seen"] = True
         return JSONResponse({"status": "error", "error": job["error"]})
     return JSONResponse({
         "status": "done",
@@ -639,6 +654,7 @@ async def stream_job_events(
                 yield f"event: done\ndata: {json.dumps(payload)}\n\n"
                 return
             if status == "error":
+                current["seen"] = True
                 yield f"event: failed\ndata: {json.dumps({'type': 'failed', 'error': current['error']})}\n\n"
                 return
             if status == "queued":
@@ -650,6 +666,8 @@ async def stream_job_events(
                 try:
                     event = await asyncio.wait_for(q.get(), timeout=20.0)
                     etype = event.get("type", "message")
+                    if etype == "failed" and job_id in _JOBS:
+                        _JOBS[job_id]["seen"] = True   # delivered live; don't repeat on the next visit
                     yield f"event: {etype}\ndata: {json.dumps(event)}\n\n"
                     if etype in ("done", "failed"):
                         return
