@@ -47,12 +47,36 @@ def _is_rate_limited(ip: str, action: str) -> bool:
         return False
 
 
+_BCRYPT_MAX_BYTES = 72  # bcrypt 5 raises ValueError above this instead of truncating
+
+
+def _password_error(password: str) -> str | None:
+    """The validation message for a new password, or None when it is acceptable."""
+    if len(password) < 8:
+        return "Password must be at least 8 characters"
+    if len(password.encode()) > _BCRYPT_MAX_BYTES:
+        return "Password is too long (72 bytes at most)"
+    return None
+
+
 def _hash_password(password: str) -> str:
     return bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
 
 
 def _verify_password(password: str, hashed: str) -> bool:
+    if len(password.encode()) > _BCRYPT_MAX_BYTES:
+        return False  # no stored hash can match; never let bcrypt raise
     return bcrypt.checkpw(password.encode(), hashed.encode())
+
+
+def public_base_url(request: Request) -> str:
+    """Base URL for links that leave the app (reset emails, invite links).
+
+    PUBLIC_URL wins so a forged Host header can't redirect a reset link to
+    another site; without it, fall back to the request's own base URL.
+    """
+    configured = os.environ.get("PUBLIC_URL", "").strip()
+    return (configured or str(request.base_url)).rstrip("/")
 
 
 def _serializer() -> URLSafeTimedSerializer:
@@ -286,7 +310,7 @@ async def forgot_password_post(
         )
         await conn.commit()
 
-        base = str(request.base_url).rstrip("/")
+        base = public_base_url(request)
         reset_url = f"{base}/reset-password/{token}"
         body_text = (
             f"Hi,\n\nClick the link below to reset your Zenkai password.\n"
@@ -339,8 +363,8 @@ async def reset_password_post(
     row = await _fetch_valid_token(conn, "password_reset_tokens", token, "Invalid or expired password reset link")
 
     errors = {}
-    if len(password) < 8:
-        errors["password"] = "Password must be at least 8 characters"
+    if password_error := _password_error(password):
+        errors["password"] = password_error
     elif password != password_confirm:
         errors["password_confirm"] = "Passwords do not match"
 
@@ -390,7 +414,7 @@ async def invite_get(
         "ORDER BY created_at DESC"
     ) as cur:
         pending_invites = [dict(r) for r in await cur.fetchall()]
-    base = str(request.base_url).rstrip("/")
+    base = public_base_url(request)
     return templates.TemplateResponse(
         request, "invite.html", {"user": dict(user), "pending_invites": pending_invites, "base_url": base}
     )
@@ -421,7 +445,7 @@ async def invite_post(
         (token, user["id"], max_uses),
     )
     await conn.commit()
-    base = str(request.base_url).rstrip("/")
+    base = public_base_url(request)
     invite_url = f"{base}/invite/accept/{token}"
     async with conn.execute(
         "SELECT token, created_at, expires_at, max_uses, uses_count FROM invite_tokens "
@@ -468,8 +492,8 @@ async def invite_accept_post(
         errors["username"] = "Username must be 3–30 characters: letters, numbers, underscores only"
     if not _EMAIL_RE.match(email):
         errors["email"] = "Enter a valid email address"
-    if len(password) < 8:
-        errors["password"] = "Password must be at least 8 characters"
+    if password_error := _password_error(password):
+        errors["password"] = password_error
     elif password != password_confirm:
         errors["password_confirm"] = "Passwords do not match"
 

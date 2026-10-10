@@ -9,6 +9,7 @@ from app.db import get_db
 from app.routes.auth import (
     _EMAIL_RE,
     _hash_password,
+    _password_error,
     _verify_password,
     get_current_user,
 )
@@ -134,8 +135,8 @@ async def settings_password_post(
     errors = {}
     if not _verify_password(current_password, user_row["password_hash"]):
         errors["current_password"] = "Current password is incorrect"
-    elif len(new_password) < 8:
-        errors["new_password"] = "New password must be at least 8 characters"
+    elif password_error := _password_error(new_password):
+        errors["new_password"] = password_error
     elif new_password != new_password_confirm:
         errors["new_password_confirm"] = "Passwords do not match"
 

@@ -223,9 +223,10 @@ async def get_workout(
     if tpl_id and not is_finished:
         async with conn.execute(
             """SELECT e.id, e.name FROM workout_template_exercises wte
+               JOIN workout_templates wt ON wt.id = wte.template_id
                JOIN exercises e ON e.id = wte.exercise_id
-               WHERE wte.template_id = ? ORDER BY wte.order_idx""",
-            (tpl_id,),
+               WHERE wte.template_id = ? AND wt.user_id = ? ORDER BY wte.order_idx""",
+            (tpl_id, current_user["id"]),
         ) as cur:
             template_exercises = [dict(r) for r in await cur.fetchall()]
 
@@ -235,11 +236,12 @@ async def get_workout(
             """
             SELECT e.id, e.name
             FROM routine_exercises re
+            JOIN routines r ON r.id = re.routine_id
             JOIN exercises e ON e.id = re.exercise_id
-            WHERE re.routine_id = ?
+            WHERE re.routine_id = ? AND (r.user_id = ? OR r.user_id IS NULL)
             ORDER BY re.order_idx
             """,
-            (routine_id,),
+            (routine_id, current_user["id"]),
         ) as cur:
             template_exercises = [dict(r) for r in await cur.fetchall()]
 
