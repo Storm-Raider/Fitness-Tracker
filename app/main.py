@@ -14,7 +14,9 @@ from starlette.middleware.gzip import GZipMiddleware
 from starlette.responses import RedirectResponse
 
 from app.db import open_db, set_db, clear_db, WriteConflict
+from app.routes.coach_chat import ChatError, router as coach_chat_router
 import app.db as _db
+from app.utils import coach_plan
 from app.routes import achievements, analytics, cardio, challenges, coach, dashboard, exercises, export, feedback, import_, journal, metrics, plan, planner, prs, routines, settings, stats, templates, trash, webhooks, workouts
 from app.routes.auth import router as auth_router, COOKIE_NAME, _serializer, _hash_password, _verify_password
 from app.routes.workouts import set_http_client
@@ -161,7 +163,7 @@ async def lifespan(app: FastAPI):
     client = httpx.AsyncClient()
     set_http_client(client)
     # Pre-populate exercise caches (synchronous with startup — DB is open, costs ~5 ms).
-    await coach.warm_caches(conn)
+    await coach_plan.warm_caches(conn)
     try:
         yield
     finally:
@@ -187,8 +189,13 @@ def _wants_html(request: Request) -> bool:
 
 @app.exception_handler(WriteConflict)
 async def _write_conflict(_req: Request, exc: WriteConflict):
-    return JSONResponse({"detail": str(exc) or "This changed in the meantime. Reload and try again."},
-                        status_code=409)
+    return JSONResponse({"detail": str(exc) or "This changed in the meantime. Reload and try again.",
+                         "kind": exc.kind}, status_code=409)
+
+
+@app.exception_handler(ChatError)
+async def _chat_error(_req: Request, exc: ChatError):
+    return JSONResponse({"detail": exc.detail, "kind": exc.kind}, status_code=exc.status)
 
 
 @app.exception_handler(404)
@@ -228,6 +235,7 @@ app.include_router(achievements.router)
 app.include_router(plan.router)
 app.include_router(planner.router)
 app.include_router(coach.router)
+app.include_router(coach_chat_router)
 app.include_router(trash.router)
 app.include_router(challenges.router)
 

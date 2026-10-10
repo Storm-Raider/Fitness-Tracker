@@ -114,6 +114,9 @@ All settings go in `.env` (copied from `.env.example`):
 | `WEBHOOK_URL` | No | *(empty)* | HTTP endpoint to notify on events |
 | `GEMINI_API_KEY` | For AI Coach | — | Google AI Studio API key ([get one](https://aistudio.google.com/apikey)). Without it the Coach is disabled |
 | `GEMINI_MODEL` | No | `gemini-3.5-flash-lite` | Gemini model the AI Coach generates with |
+| `GEMINI_CHAT_MODEL` | No | `GEMINI_MODEL` | Model for the Coach chat, if you want a stronger one than plan generation uses |
+| `COACH_AI_MAX_PER_DAY` | No | `300` | App-wide cap on Gemini requests per day (Pacific time, when Google's quota resets). Set it to about 80% of your real limit from <https://ai.dev/rate-limit> |
+| `COACH_CHAT_ENABLED` | No | `true` | `false` turns the Coach chat off (undo and note management keep working) |
 
 ---
 
@@ -143,8 +146,26 @@ temporary Gemini errors are retried automatically.
 if a retry is needed); nothing is generated in the background. Quotas are per model — set `GEMINI_MODEL` to a different one, or
 enable billing, for more headroom.
 
+**Coach chat (backend):** each plan can have a conversation with the coach: ask a
+question, or ask for a change ("swap squats for leg press", "day 2 is too long",
+"my knee hurts") and the draft updates at once, with Undo (last 3 edits) and a change
+summary the server computes itself. It only edits **drafts**; a saved plan answers
+questions but is never changed. The coach can propose a short note to remember
+("left knee clicks on squats"); it is saved only when you confirm, and notes (up to 20)
+shape later chats and plans. The Plan-page panel for this arrives in a follow-up; the
+endpoints (`/coach/plans/{id}/chat`, `/undo`, `/coach/notes`) are in place.
+
+Limits worth knowing: every Gemini request counts toward `COACH_AI_MAX_PER_DAY`
+(retries and failed requests included; the count is also stored in `coach_usage`, and
+admins can see it at `GET /coach/usage`). A chat message is one request (two at most if
+Google answers badly), 1–500 characters, with a 30-second budget. At the cap the coach
+rests until the next Pacific day; undo, notes and everything outside the Coach keep
+working. `scripts/coach_eval.py` is a manual live evaluation of generation and chat
+(about 1–2 requests per scenario; never run in CI).
+
 **Privacy:** the prompt — your training history, set notes, RPE trend, journal
-wellness entries and injury flags — is sent to Google. On the free AI Studio tier
+wellness entries and injury flags — is sent to Google. Chat messages and your coach
+notes are sent too, which is why the chat asks you to acknowledge that once. On the free AI Studio tier
 Google may use submitted content to improve its products; the paid tier does
 not. If that's not acceptable, leave `GEMINI_API_KEY` unset and the Coach stays
 disabled (everything else in the app is unaffected).

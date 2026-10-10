@@ -6,8 +6,9 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from pydantic import BaseModel, Field
 
 from app.data.exercises import infer_muscle_and_category
-from app.db import get_db
+from app.db import get_db, write_tx
 from app.routes.auth import get_current_user
+from app.utils.coach_plan import invalidate_exercise_caches, validate_exercise_name
 from app.utils.render import render, templates
 
 router = APIRouter()
@@ -161,25 +162,31 @@ async def create_exercise(
     conn: aiosqlite.Connection = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
+    # Exercise names end up inside AI prompts, so they are restricted to a safe alphabet.
+    try:
+        name = validate_exercise_name(body.name)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
     # Resolve the muscle group + category: use the one the user picked if valid,
     # otherwise infer from the name so the exercise is never left unclassified.
-    inferred_muscle, inferred_cat = infer_muscle_and_category(body.name)
+    inferred_muscle, inferred_cat = infer_muscle_and_category(name)
     muscle = body.muscle_primary if body.muscle_primary in _MUSCLES else inferred_muscle
     category = inferred_cat
 
     try:
-        async with conn.execute(
-            "INSERT INTO exercises(name, category) VALUES (?, ?)", (body.name, category or None)
-        ) as cur:
-            exercise_id = cur.lastrowid
-        if muscle:
-            await conn.execute(
-                "INSERT INTO exercise_muscles(exercise_id, muscle, is_primary) VALUES (?, ?, 1)",
-                (exercise_id, muscle),
-            )
-        await conn.commit()
+        async with write_tx(conn):
+            async with conn.execute(
+                "INSERT INTO exercises(name, category) VALUES (?, ?)", (name, category or None)
+            ) as cur:
+                exercise_id = cur.lastrowid
+            if muscle:
+                await conn.execute(
+                    "INSERT INTO exercise_muscles(exercise_id, muscle, is_primary) VALUES (?, ?, 1)",
+                    (exercise_id, muscle),
+                )
     except aiosqlite.IntegrityError:
         raise HTTPException(status_code=409, detail="Exercise name already exists")
+    invalidate_exercise_caches()   # the coach's catalog and name matcher are process-lifetime caches
     return JSONResponse({"id": exercise_id, "muscle": muscle, "category": category}, status_code=201)
 
 

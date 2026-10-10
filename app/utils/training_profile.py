@@ -34,10 +34,16 @@ def _has_pain_flag(text: str) -> bool:
     return any(k in t for k in _PAIN_KEYWORDS)
 
 
-async def build_profile(conn: aiosqlite.Connection, uid: int) -> dict:
-    """Summarise the user's recent training for the coach prompt."""
+has_pain_words = _has_pain_flag   # public name for callers outside this module (the coach chat)
+
+
+async def build_profile(conn: aiosqlite.Connection, uid: int, *, fresh: bool = False) -> dict:
+    """Summarise the user's recent training for the coach prompt.
+
+    Cached for _PROFILE_TTL by default (plan generation). The chat passes fresh=True:
+    it must see a workout logged a minute ago, and a build is cheap (~2 ms at 442 sets)."""
     _cached = _PROFILE_CACHE.get(uid)
-    if _cached and (time.monotonic() - _cached[1]) < _PROFILE_TTL:
+    if not fresh and _cached and (time.monotonic() - _cached[1]) < _PROFILE_TTL:
         return _cached[0]
 
     # Frequency / span (finished workouts only).

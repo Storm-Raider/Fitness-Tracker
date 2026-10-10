@@ -14,6 +14,7 @@ from itsdangerous import URLSafeTimedSerializer
 
 from app.main import app
 from app.db import open_db, set_db, clear_db
+from app.utils import coach_budget
 from app.routes.auth import COOKIE_NAME, _SALT
 from app.routes.workouts import set_http_client
 
@@ -47,11 +48,13 @@ async def _seed_session(conn, user_id: int, sid: str = "test-sid") -> None:
 
 @pytest_asyncio.fixture
 async def db_conn():
+    coach_budget.reset()      # loop-bound asyncio state and the in-memory daily counter
     conn = await open_db(":memory:")
     set_db(conn)
     yield conn
     await conn.close()
     clear_db()
+    coach_budget.reset()
 
 
 @pytest_asyncio.fixture

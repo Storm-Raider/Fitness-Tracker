@@ -53,7 +53,7 @@ async def plan_page(
     # plain read first so ordinary page loads never take the write lock.
     async with conn.execute(
         "SELECT 1 FROM coach_plans WHERE user_id=? AND status='draft' "
-        "AND created_at < datetime('now','localtime','-7 days') LIMIT 1",
+        "AND COALESCE(updated_at, created_at) < datetime('now','localtime','-7 days') LIMIT 1",
         (uid,),
     ) as c:
         has_stale = await c.fetchone() is not None
@@ -61,14 +61,14 @@ async def plan_page(
         async with write_tx(conn):
             await conn.execute(
                 "DELETE FROM coach_plans WHERE user_id=? AND status='draft' "
-                "AND created_at < datetime('now','localtime','-7 days')",
+                "AND COALESCE(updated_at, created_at) < datetime('now','localtime','-7 days')",
                 (uid,),
             )
 
     # Fetch the latest pending draft so the template can auto-render it.
     draft_plan = None
     async with conn.execute(
-        """SELECT id, title, created_at, plan_json
+        """SELECT id, title, created_at, plan_json, rev
            FROM coach_plans WHERE user_id=? AND status='draft'
            ORDER BY created_at DESC LIMIT 1""",
         (uid,),
@@ -78,6 +78,7 @@ async def plan_page(
         try:
             draft_plan = {
                 "id": draft_row["id"],
+                "rev": draft_row["rev"],
                 "title": draft_row["title"],
                 "created_at": draft_row["created_at"],
                 "plan": _json.loads(draft_row["plan_json"] or "{}"),

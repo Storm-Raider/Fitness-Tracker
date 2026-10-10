@@ -365,3 +365,251 @@ async def test_streaming_http_error_is_mapped(monkeypatch):
 
     with pytest.raises(gemini.GeminiError, match="API key"):
         await gemini.chat_json("s", "u", SCHEMA, on_tokens=on_tokens)
+
+
+# ── Error kinds ──────────────────────────────────────────────────────
+
+async def _kind_of(monkeypatch, responses):
+    _install_client(monkeypatch, responses)
+    with pytest.raises(gemini.GeminiError) as ei:
+        await gemini.chat_json("s", "u", SCHEMA)
+    return ei.value
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("status,text,kind", [
+    (401, "no", "auth"), (403, "no", "auth"), (400, "API key not valid", "auth"),
+    (404, "{}", "bad_request"), (400, "bad schema", "bad_request"), (418, "teapot", "bad_request"),
+])
+async def test_http_errors_carry_a_kind(monkeypatch, status, text, kind):
+    err = await _kind_of(monkeypatch, [_FakeResponse(status, text=text)] * 3)
+    assert err.kind == kind
+
+
+@pytest.mark.asyncio
+async def test_per_minute_429_is_rate_limited_and_retried(monkeypatch):
+    calls = _install_client(monkeypatch, [_FakeResponse(429, text="RESOURCE_EXHAUSTED per minute")] * 3)
+    with pytest.raises(gemini.GeminiError) as ei:
+        await gemini.chat_json("s", "u", SCHEMA)
+    assert ei.value.kind == "rate_limited" and ei.value.retryable and len(calls) == gemini.MAX_ATTEMPTS
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("body", [
+    '{"error":{"details":[{"violations":[{"quotaId":"GenerateRequestsPerDayPerProjectPerModel-FreeTier"}]}]}}',
+    "Quota exceeded for metric ... per day",
+])
+async def test_per_day_429_is_quota_and_is_not_retried(monkeypatch, body):
+    calls = _install_client(monkeypatch, [_FakeResponse(429, text=body)] * 3)
+    with pytest.raises(gemini.GeminiError) as ei:
+        await gemini.chat_json("s", "u", SCHEMA)
+    assert ei.value.kind == "quota" and not ei.value.retryable and len(calls) == 1
+
+
+@pytest.mark.asyncio
+async def test_other_failures_carry_a_kind(monkeypatch):
+    assert (await _kind_of(monkeypatch, [_FakeResponse(503, text="x")] * 3)).kind == "unreachable"
+    assert (await _kind_of(monkeypatch, [httpx.ConnectError("x")] * 3)).kind == "unreachable"
+    assert (await _kind_of(monkeypatch, [httpx.ReadTimeout("x")] * 3)).kind == "timeout"
+    assert (await _kind_of(monkeypatch, [_FakeResponse(200, {"promptFeedback": {"blockReason": "SAFETY"}})])).kind == "blocked"
+    assert (await _kind_of(monkeypatch, [_FakeResponse(200, {"candidates": []})])).kind == "empty"
+    assert (await _kind_of(monkeypatch, [_FakeResponse(200, _ok_body("{nope"))])).kind == "malformed"
+    monkeypatch.delenv("GEMINI_API_KEY")
+    assert (await _kind_of(monkeypatch, [])).kind == "not_configured"
+    assert all(k in gemini.KINDS for k in ("auth", "quota", "rate_limited", "timeout", "unreachable",
+                                           "blocked", "empty", "malformed", "bad_request", "not_configured"))
+
+
+# ── chat_turn_json: turns, model, hooks ──────────────────────────────
+
+@pytest.mark.asyncio
+async def test_chat_turn_json_sends_the_turns_as_given_and_honours_model(monkeypatch):
+    calls = _install_client(monkeypatch, [_FakeResponse(200, _ok_body())])
+    turns = [gemini.user_turn("context"), gemini.model_turn("ok"), gemini.user_turn("swap squats")]
+    out = await gemini.chat_turn_json("sys", turns, SCHEMA, model="gemini-2.5-flash")
+    assert out == {"ok": "ok"}
+    sent = calls[0]
+    assert sent["json"]["contents"] == turns
+    assert [t["role"] for t in sent["json"]["contents"]] == ["user", "model", "user"]
+    assert sent["json"]["systemInstruction"]["parts"][0]["text"] == "sys"
+    assert "/models/gemini-2.5-flash:generateContent" in sent["url"]
+    assert sent["json"]["generationConfig"]["thinkingConfig"] == {"thinkingBudget": 0}   # decided per model
+
+
+@pytest.mark.asyncio
+async def test_model_param_is_remembered_per_model_not_globally(monkeypatch):
+    _install_client(monkeypatch, [
+        _FakeResponse(400, text="thinking not supported"), _FakeResponse(200, _ok_body())])
+    await gemini.chat_turn_json("s", [gemini.user_turn("u")], SCHEMA, model="gemini-9-flash")
+    assert gemini._NO_THINKING_CFG == {"gemini-9-flash"}
+
+
+def test_chat_model_prefers_gemini_chat_model(monkeypatch):
+    assert gemini.chat_model() == gemini.DEFAULT_MODEL
+    monkeypatch.setenv("GEMINI_MODEL", "gemini-a")
+    assert gemini.chat_model() == "gemini-a"
+    monkeypatch.setenv("GEMINI_CHAT_MODEL", "gemini-b")
+    assert gemini.chat_model() == "gemini-b" and gemini.model() == "gemini-a"
+    monkeypatch.setenv("GEMINI_CHAT_MODEL", "  ")
+    assert gemini.chat_model() == "gemini-a"
+
+
+@pytest.mark.asyncio
+async def test_generate_json_reports_the_model_it_was_given(monkeypatch):
+    _install_client(monkeypatch, [_FakeResponse(200, _ok_body())])
+    _, used = await gemini.generate_json("s", "u", SCHEMA, model="gemini-z")
+    assert used == "gemini-z"
+
+
+@pytest.mark.asyncio
+async def test_on_request_runs_before_every_http_request_including_retries(monkeypatch):
+    events: list[str] = []
+    calls = _install_client(monkeypatch, [_FakeResponse(503, text="x"), _FakeResponse(200, _ok_body())])
+
+    async def hook():
+        events.append(f"hook:{len(calls)}")      # number of requests already sent when the hook ran
+
+    await gemini.chat_json("s", "u", SCHEMA, on_request=hook)
+    assert events == ["hook:0", "hook:1"]
+
+
+@pytest.mark.asyncio
+async def test_on_request_also_counts_the_thinking_config_fallback(monkeypatch):
+    n = 0
+    calls = _install_client(monkeypatch, [_FakeResponse(400, text="no thinking"), _FakeResponse(200, _ok_body())])
+
+    async def hook():
+        nonlocal n
+        n += 1
+
+    await gemini.chat_turn_json("s", [gemini.user_turn("u")], SCHEMA, model="gemini-9-flash", on_request=hook)
+    assert n == 2 == len(calls)
+
+
+@pytest.mark.asyncio
+async def test_on_request_raising_aborts_before_anything_is_sent(monkeypatch):
+    calls = _install_client(monkeypatch, [_FakeResponse(200, _ok_body())])
+
+    class Capped(Exception):
+        pass
+
+    async def hook():
+        raise Capped()
+
+    with pytest.raises(Capped):
+        await gemini.chat_json("s", "u", SCHEMA, on_request=hook)
+    assert calls == []
+
+
+# ── Retry policy knobs (the chat turn's budget rules) ────────────────
+
+@pytest.mark.asyncio
+async def test_max_requests_caps_every_kind_of_request(monkeypatch):
+    calls = _install_client(monkeypatch, [_FakeResponse(503, text="x")] * 5)
+    with pytest.raises(gemini.GeminiError):
+        await gemini.chat_turn_json("s", [gemini.user_turn("u")], SCHEMA, max_requests=2)
+    assert len(calls) == 2
+    # the thinkingConfig fallback spends from the same budget
+    calls = _install_client(monkeypatch, [_FakeResponse(400, text="bad"), _FakeResponse(200, _ok_body())])
+    with pytest.raises(gemini.GeminiError):
+        await gemini.chat_turn_json("s", [gemini.user_turn("u")], SCHEMA, model="gemini-9-flash", max_requests=1)
+    assert len(calls) == 1
+
+
+@pytest.mark.asyncio
+async def test_retry_timeouts_false_never_retries_a_timeout(monkeypatch):
+    calls = _install_client(monkeypatch, [httpx.ReadTimeout("slow")] * 3)
+    with pytest.raises(gemini.GeminiError) as ei:
+        await gemini.chat_turn_json("s", [gemini.user_turn("u")], SCHEMA, retry_timeouts=False)
+    assert ei.value.kind == "timeout" and len(calls) == 1
+
+
+@pytest.mark.asyncio
+async def test_retry_malformed_retries_bad_json_once_it_is_asked_to(monkeypatch):
+    calls = _install_client(monkeypatch, [_FakeResponse(200, _ok_body("{nope")), _FakeResponse(200, _ok_body())])
+    out = await gemini.chat_turn_json("s", [gemini.user_turn("u")], SCHEMA, retry_malformed=True, max_requests=2)
+    assert out == {"ok": "ok"} and len(calls) == 2
+    calls = _install_client(monkeypatch, [_FakeResponse(200, _ok_body("{nope")), _FakeResponse(200, _ok_body())])
+    with pytest.raises(gemini.GeminiError):
+        await gemini.chat_turn_json("s", [gemini.user_turn("u")], SCHEMA)       # default: no retry
+    assert len(calls) == 1
+
+
+@pytest.mark.asyncio
+async def test_malformed_then_transient_never_exceeds_two_requests(monkeypatch):
+    calls = _install_client(monkeypatch, [_FakeResponse(200, _ok_body("{nope")), _FakeResponse(503, text="x"),
+                                          _FakeResponse(200, _ok_body())])
+    with pytest.raises(gemini.GeminiError):
+        await gemini.chat_turn_json("s", [gemini.user_turn("u")], SCHEMA, retry_malformed=True, max_requests=2)
+    assert len(calls) == 2
+
+
+class _Clock:
+    def __init__(self):
+        self.now = 1000.0
+
+    def __call__(self):
+        return self.now
+
+
+def _capture_timeouts(monkeypatch, responses, clock=None, advance_per_call=0.0):
+    seen: list[float] = []
+    queue = list(responses)
+
+    class _C:
+        def __init__(self, *a, timeout=None, **k):
+            seen.append(timeout)
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *a):
+            return False
+
+        async def post(self, url, json=None, headers=None):
+            if clock:
+                clock.now += advance_per_call
+            item = queue.pop(0)
+            if isinstance(item, Exception):
+                raise item
+            return item
+
+    monkeypatch.setattr(gemini.httpx, "AsyncClient", _C)
+    return seen
+
+
+@pytest.mark.asyncio
+async def test_deadline_bounds_each_attempt_and_skips_a_retry_without_enough_budget(monkeypatch):
+    clock = _Clock()
+    monkeypatch.setattr(gemini.time, "monotonic", clock)
+    seen = _capture_timeouts(monkeypatch, [_FakeResponse(503, text="x"), _FakeResponse(200, _ok_body())],
+                             clock, advance_per_call=8.0)
+    # 30 s budget, 20 s attempt cap: first attempt gets 20 s; it fails after 8 s, leaving 22 s;
+    # the 2 s backoff leaves 20 s >= 10 s, so a retry happens with the 20 s cap again.
+    out = await gemini.chat_turn_json("s", [gemini.user_turn("u")], SCHEMA, timeout=20.0,
+                                      deadline=clock.now + 30, min_retry_seconds=10.0, max_requests=2)
+    assert out == {"ok": "ok"} and seen == [20.0, 20.0]
+
+    clock.now = 1000.0
+    seen = _capture_timeouts(monkeypatch, [_FakeResponse(503, text="x"), _FakeResponse(200, _ok_body())],
+                             clock, advance_per_call=12.0)
+    # 20 s budget: the first attempt fails after 12 s, so 8 s remain (6 after the 2 s backoff),
+    # which is below the 10 s a retry needs: it must give up instead of retrying.
+    with pytest.raises(gemini.GeminiError) as ei:
+        await gemini.chat_turn_json("s", [gemini.user_turn("u")], SCHEMA, timeout=20.0,
+                                    deadline=clock.now + 20, min_retry_seconds=10.0, max_requests=2)
+    assert ei.value.kind == "unreachable" and len(seen) == 1
+
+
+@pytest.mark.asyncio
+async def test_attempt_timeout_shrinks_to_the_time_left_and_an_expired_deadline_sends_nothing(monkeypatch):
+    clock = _Clock()
+    monkeypatch.setattr(gemini.time, "monotonic", clock)
+    seen = _capture_timeouts(monkeypatch, [_FakeResponse(200, _ok_body())])
+    await gemini.chat_turn_json("s", [gemini.user_turn("u")], SCHEMA, timeout=20.0, deadline=clock.now + 7.5)
+    assert seen == [7.5]
+
+    calls = _install_client(monkeypatch, [_FakeResponse(200, _ok_body())])
+    with pytest.raises(gemini.GeminiError) as ei:
+        await gemini.chat_turn_json("s", [gemini.user_turn("u")], SCHEMA, deadline=clock.now - 1)
+    assert ei.value.kind == "timeout" and calls == []
