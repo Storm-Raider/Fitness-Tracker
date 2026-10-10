@@ -17,7 +17,7 @@ from dataclasses import dataclass, field
 
 from app.utils import gemini
 from app.utils.coach_plan import (
-    athlete_context, catalog_lines, max_weekly_repeats, normalise_plan, pain_constraint,
+    athlete_context, catalog_lines, max_weekly_repeats, normalise_plan, pain_constraint, staple_rank,
 )
 
 MAX_MESSAGE_CHARS = 500
@@ -322,6 +322,58 @@ def drop_missing_exercises(plan: dict, existing_ids: set[int]) -> tuple[dict, li
                 missing.append(ex["name"])
         day["exercises"] = kept
     return restored, missing
+
+
+# ── Swap alternatives ────────────────────────────────────────────────
+
+ALTERNATIVES = 6
+_GENERIC_WORDS = {"dumbbell", "barbell", "cable", "machine", "seated", "standing", "smith", "ez", "bar",
+                  "bodyweight", "assisted", "single", "arm", "one", "the", "and"}
+
+
+def _words(name: str) -> set[str]:
+    return set(re.findall(r"[a-z]+", name.lower())) - _GENERIC_WORDS
+
+
+def rank_alternatives(rows: list[dict], name_map: dict, current: str, *, day_names: set[str],
+                      used_elsewhere: set[str], preferred_equipment: list[str] | None = None,
+                      avoid=None, limit: int = ALTERNATIVES) -> list[dict]:
+    """Up to `limit` replacements for `current`, best first.
+
+    Candidates share the current exercise's primary muscle (its category when it has none),
+    are not already on that day, and do not match `avoid` (a compiled regex over names, the
+    movements a painful area rules out). Ranked: not already used on another day, then the
+    most similar name (a Back Squat swaps to other squats before it swaps to a leg curl), the
+    athlete's preferred equipment, conventional staples, then the usual barbell-first order.
+    `rows` are coach_plan.exercise_rows(); `name_map` supplies the exercise ids."""
+    cur = next((r for r in rows if r["name"].lower() == current.lower()), None)
+    if not cur:
+        return []
+    muscle = cur["primary_muscle"]
+    preferred = set(preferred_equipment or [])
+    cur_words = _words(current)
+    day = {n.lower() for n in day_names}
+    other = {n.lower() for n in used_elsewhere}
+    pool = []
+    for r in rows:
+        low = r["name"].lower()
+        same = (r["primary_muscle"] == muscle) if muscle else (r["category"] == cur["category"])
+        if not same or low == current.lower() or low in day or low not in name_map:
+            continue
+        if avoid is not None and avoid.search(r["name"]):
+            continue
+        pool.append((
+            1 if low in other else 0,
+            -len(cur_words & _words(r["name"])),
+            0 if (not preferred or r["equipment"] in preferred) else 1,
+            *staple_rank(r),
+            r["name"],
+            r,
+        ))
+    pool.sort(key=lambda t: t[:6])
+    return [{"exercise_id": name_map[t[6]["name"].lower()]["id"], "name": t[6]["name"],
+             "equipment": t[6]["equipment"], "muscle": t[6]["primary_muscle"] or t[6]["category"],
+             "category": t[6]["category"]} for t in pool[:limit]]
 
 
 # ── History and the model's turns ────────────────────────────────────

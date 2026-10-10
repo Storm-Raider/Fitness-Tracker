@@ -546,16 +546,42 @@ def athlete_context(profile: dict, goal: str) -> list[str]:
 # it kept programming both), so the task line spells the area out. Matching is a
 # plain keyword check on the athlete's own words; an unrecognised area still gets
 # the generic constraint.
+# Each entry: (words in the athlete's text, area, movements as prose for the prompt, a
+# regex over exercise NAMES for the same movements, used to filter swap alternatives).
 _PAIN_AVOID = [
     (("knee", "patella", "acl", "meniscus"), "knee",
-     "squats, lunges, leg presses, leg extensions, step-ups and jumping"),
+     "squats, lunges, leg presses, leg extensions, step-ups and jumping",
+     r"squat|lunge|leg press|leg extension|step[- ]?up|jump|sissy"),
     (("shoulder", "rotator"), "shoulder",
-     "overhead pressing, dips, upright rows and behind-the-neck work"),
+     "overhead pressing, dips, upright rows and behind-the-neck work",
+     r"overhead|military|upright row|\bdip|behind|snatch|handstand|arnold|push press|jerk"),
     (("lower back", "low back", "lumbar", "spine", "disc", "sciatic"), "lower back",
-     "deadlifts, good mornings, bent-over rows and heavy squats"),
-    (("elbow",), "elbow", "skull crushers, dips, close-grip pressing and heavy curls"),
-    (("hip",), "hip", "deep squats, lunges, sumo deadlifts and hip-thrust variations that pinch"),
+     "deadlifts, good mornings, bent-over rows and heavy squats",
+     r"deadlift|good morning|bent[- ]?over|squat|clean|snatch|back extension|hyperextension"),
+    (("elbow",), "elbow", "skull crushers, dips, close-grip pressing and heavy curls",
+     r"skull|\bdip|close[- ]grip|curl"),
+    (("hip",), "hip", "deep squats, lunges, sumo deadlifts and hip-thrust variations that pinch",
+     r"squat|lunge|sumo|hip thrust|bulgarian"),
 ]
+
+
+def _pain_areas(profile: dict, said: str = ""):
+    """The _PAIN_AVOID entries that match the profile's pain flags and what was said."""
+    flags = [f.get("text", "") for f in (profile.get("injury_flags") or [])]
+    if said and has_pain_words(said):
+        flags.append(said)
+    text = " ".join(flags).lower()
+    return bool(flags), [e for e in _PAIN_AVOID if any(w in text for w in e[0])]
+
+
+def pain_avoid_pattern(profile: dict, said: str = "") -> "re.Pattern | None":
+    """A regex over exercise names for every movement the recognised painful areas rule
+    out, or None when no recognised area is in play. Used to keep such exercises out of the
+    alternatives offered for a swap."""
+    _, areas = _pain_areas(profile, said)
+    if not areas:
+        return None
+    return re.compile("|".join(f"(?:{a[3]})" for a in areas), re.I)
 
 
 def pain_constraint(profile: dict, said: str = "") -> str:
@@ -563,19 +589,27 @@ def pain_constraint(profile: dict, said: str = "") -> str:
     movements each recognised area rules out. Pain comes from the profile's flags and, in
     the chat, from what the athlete just said (`said`, only when it contains a pain word).
     Empty when there is none."""
-    flags = [f.get("text", "") for f in (profile.get("injury_flags") or [])]
-    if said and has_pain_words(said):
-        flags.append(said)
-    if not flags:
+    any_pain, areas = _pain_areas(profile, said)
+    if not any_pain:
         return ""
-    text = " ".join(flags).lower()
-    avoid = [f"for the {area}: no {movements}"
-             for words, area, movements in _PAIN_AVOID if any(w in text for w in words)]
+    avoid = [f"for the {area}: no {movements}" for _words, area, movements, _rx in areas]
     out = ("The athlete flagged pain: no exercise on any day may load the painful area, "
            "so choose alternatives from the ALLOWED list.")
     if avoid:
         out += " " + "; ".join(avoid) + "."
     return out
+
+
+def staple_rank(row: dict) -> tuple[int, int]:
+    """Sort key putting conventional staples first, then barbell-first equipment order."""
+    return (_PRIORITY_RANK.get(row["name"].lower(), 999), _EQUIP_RANK.get(row["equipment"], 5))
+
+
+async def exercise_rows(conn: aiosqlite.Connection) -> list[dict]:
+    """The library as {name, category, equipment, primary_muscle} rows (no cardio, names
+    that are safe to show), from the same cache the catalog uses."""
+    await exercise_catalog(conn, 0, None)          # fills the cache; the result is not needed
+    return [dict(r) for r in (_EXERCISE_BASE_ROWS or [])]
 
 
 def catalog_lines(catalog: dict) -> list[str]:

@@ -152,8 +152,12 @@ question, or ask for a change ("swap squats for leg press", "day 2 is too long",
 summary the server computes itself. It only edits **drafts**; a saved plan answers
 questions but is never changed. The coach can propose a short note to remember
 ("left knee clicks on squats"); it is saved only when you confirm, and notes (up to 20)
-shape later chats and plans. The Plan-page panel for this arrives in a follow-up; the
-endpoints (`/coach/plans/{id}/chat`, `/undo`, `/coach/notes`) are in place.
+shape later chats and plans. You can also swap a single exercise without chatting: the
+coach lists up to six alternatives (the same muscle, similar movements first, avoiding
+anything that loads an area you flagged as painful), and picking one replaces it, keeping
+the sets and reps; it is undoable and needs no AI request, so it works even when the daily
+cap is reached. The Plan-page panel for this arrives in a follow-up; the endpoints
+(`/coach/plans/{id}/chat`, `/undo`, `/swap`, `/coach/notes`) are in place.
 
 Limits worth knowing: every Gemini request counts toward `COACH_AI_MAX_PER_DAY`
 (retries and failed requests included; the count is also stored in `coach_usage`, and
