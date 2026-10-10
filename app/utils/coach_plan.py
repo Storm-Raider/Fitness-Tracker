@@ -250,31 +250,6 @@ def max_weekly_repeats(days_per_week: int) -> int:
     return 3
 
 
-# Exact cue-text fragments from _SYSTEM_PROMPT's worked example. Renaming the
-# example's exercises to unresolvable placeholders (Exercise A-E) stops the
-# model from copying them at the name level — an unresolvable name is dropped
-# by normalise_plan() — but on a small model under weak
-# personalization signal (e.g. no logged history for that muscle group) it can
-# still fall back to reproducing the example's weights/rep-scheme/note wording
-# verbatim for whatever real exercise it does pick. Live-verified: a real
-# generation reused 4 of these 5 phrases byte-for-byte, sets/reps included,
-# for an athlete with no push-day history. A SINGLE match is not itself
-# suspicious — "add 2.5 kg when all reps clean" is generic, plausible advice a
-# model could legitimately reach for on its own — but several matches in one
-# plan is a strong copying signal, so this is threshold-gated, not a hard
-# per-phrase ban.
-_EXAMPLE_NOTE_PHRASES = [
-    "add 2.5 kg when all reps clean",
-    "add 1 rep/week to 10, then +2.5 kg",
-    "increase by 2 kg when hitting 12",
-    "slow eccentric, increase when form is solid",
-    "add 2.5 kg every 2 weeks",
-]
-
-
-_EXAMPLE_COPY_THRESHOLD = 3  # phrase matches at/above this count flags the plan
-
-
 def plan_quality_issues(plan: dict) -> list[str]:
     """Detect diversity failures the schema can't express: near-identical days
     and exercises repeated across too many days. Returns human-readable issue
@@ -282,17 +257,6 @@ def plan_quality_issues(plan: dict) -> list[str]:
     issues: list[str] = []
     days = plan["days"]
     sigs = [{ex["exercise_id"] for ex in d["exercises"]} for d in days]
-
-    all_notes = " ".join(
-        ex.get("note", "") for d in days for ex in d["exercises"]
-    )
-    phrase_hits = [p for p in _EXAMPLE_NOTE_PHRASES if p in all_notes]
-    if len(phrase_hits) >= _EXAMPLE_COPY_THRESHOLD:
-        issues.append(
-            f"{len(phrase_hits)} exercise notes reuse the system prompt's worked "
-            "example wording verbatim instead of the athlete's own data — every "
-            "note must be computed fresh, not copied from the example"
-        )
 
     for i in range(len(days)):
         for j in range(i + 1, len(days)):
@@ -388,3 +352,208 @@ def repair_plan(plan: dict, name_map: dict) -> tuple[dict, list[str]]:
                 # No viable alternative — accept the repeat rather than drop work.
                 used_count[eid] = used_count.get(eid, 0) + 1
     return plan, swaps
+
+
+def athlete_context(profile: dict, goal: str) -> list[str]:
+    """Render what the coach knows about the athlete as prompt lines: feedback on
+    the last plan, flagged pain (placed early: a small model attends best near the
+    top and this is a safety constraint), then the training profile. Shared by plan
+    generation and the chat so both describe the athlete identically."""
+    lines: list[str] = []
+    _fb_map = {
+        "too_easy":      "previous plan was too easy — step up intensity and total volume",
+        "just_right":    "previous plan difficulty was appropriate — maintain similar intensity",
+        "too_hard":      "previous plan was too hard — cut volume or intensity by ~15%",
+        "skipped_often": "athlete skipped often — simplify movements and reduce session length",
+    }
+    fb = profile.get("last_plan_feedback")
+    if fb and fb in _fb_map:
+        lines.append(f"FEEDBACK ON LAST PLAN: {_fb_map[fb]}")
+
+    # Pain/injury flags — placed early and treated as non-negotiable, not
+    # buried in the general profile, since a small model attends best to
+    # instructions near the top and this is a safety constraint.
+    if profile.get("injury_flags"):
+        flagged = "; ".join(
+            f"\"{f['text']}\"" + (f" (during {f['exercise']})" if f.get("exercise") else " (journal)")
+            for f in profile["injury_flags"]
+        )
+        lines.append(
+            "ATHLETE FLAGGED PAIN/DISCOMFORT — NON-NEGOTIABLE, avoid or substitute any "
+            f"movement that loads the affected area: {flagged}."
+        )
+    lines.append("")
+
+    # ── Athlete profile ───────────────────────────────────────────────
+    lines.append("ATHLETE PROFILE (last 90 days):")
+
+    if not profile["total_workouts"]:
+        lines.append("- No workout history — design a beginner full-body programme.")
+    else:
+        spw = profile["sessions_per_week"]
+        last = profile.get("last_day", "")
+        lines.append(
+            f"- {profile['total_workouts']} sessions logged"
+            + (f", ~{spw}/week" if spw else "")
+            + (f". Last session: {last}." if last else "")
+        )
+
+    # Preferred equipment
+    equip = profile.get("preferred_equipment") or []
+    if equip:
+        lines.append(f"- Preferred equipment: {', '.join(equip)} (bias the plan toward these).")
+
+    # Top movements
+    if profile["top_exercises"]:
+        movers = ", ".join(
+            f"{e['name']} ({e['sets']} sets)" for e in profile["top_exercises"][:8]
+        )
+        lines.append(f"- Most-trained movements: {movers}.")
+
+    # Estimated 1RMs + load targets for the chosen goal
+    if profile["top_lifts"]:
+        pct_map = {"strength": 0.825, "hypertrophy": 0.70, "balance": 0.70, "general": 0.75}
+        pct = pct_map[goal]
+        lift_parts = []
+        for l in profile["top_lifts"]:
+            e1rm = l["e1rm"]
+            target = round(e1rm * pct / 2.5) * 2.5  # round to nearest 2.5 kg
+            lift_parts.append(f"{l['name']} e1RM {e1rm}kg (use ~{target}kg)")
+        lines.append(f"- Estimated 1RMs and suggested working loads: {'; '.join(lift_parts)}.")
+
+    # Weekly volume per muscle with undertrained flag
+    wvol = profile.get("avg_weekly_sets") or {}
+    if wvol:
+        ut = set(profile.get("undertrained") or [])
+        vol_parts = []
+        for m, v in sorted(wvol.items(), key=lambda x: -x[1]):
+            flag = " ⬇" if m in ut else ""
+            vol_parts.append(f"{m}: {v}{flag}")
+        lines.append(
+            f"- Weekly sets per muscle (target ≥10 for primary movers; ⬇ = under-trained): "
+            + ", ".join(vol_parts) + "."
+        )
+    if profile.get("undertrained"):
+        lines.append(
+            f"- PRIORITY — under-trained muscles that MUST receive direct work every week: "
+            + ", ".join(profile["undertrained"]) + "."
+        )
+
+    # Recovery state
+    rec = profile.get("muscle_recovery") or {}
+    fatigued = [m for m, s in rec.items() if s == "fatigued"]
+    recovering = [m for m, s in rec.items() if s == "recovering"]
+    if fatigued:
+        lines.append(
+            f"- Muscles trained ≤1 day ago — do NOT load heavily on Day 1: {', '.join(fatigued)}."
+        )
+    if recovering:
+        lines.append(
+            f"- Muscles trained 2–3 days ago — keep moderate until Day 3+: {', '.join(recovering)}."
+        )
+
+    # Stalled lifts
+    if profile.get("stalled"):
+        lines.append(
+            f"- Strength stalled (no e1RM gain in 4 weeks) — vary rep range or swap variation: "
+            + ", ".join(profile["stalled"]) + "."
+        )
+
+    # Bodyweight — for BW exercise notation and relative load context
+    bw = profile.get("bodyweight_kg")
+    if bw:
+        lines.append(f"- Current bodyweight: {bw} kg (use for BW exercise load notation, e.g. 'BW+20 kg').")
+
+    # Average session length — guides exercise count per day
+    asm = profile.get("avg_session_minutes")
+    if asm:
+        # ~7 min/exercise is a practical estimate for warm-up + working sets + rest
+        ex_count = max(4, min(10, round(asm / 7)))
+        lines.append(
+            f"- Average session length: {asm} min → target ~{ex_count} exercises per session."
+        )
+
+    # RPE trend (last 14 days) — autoregulation signal from the athlete's own
+    # effort ratings, not just weight/rep numbers.
+    if profile.get("high_effort_lifts"):
+        parts = [f"{l['name']} (avg RPE {l['avg_rpe']})" for l in profile["high_effort_lifts"]]
+        lines.append(
+            "- HIGH EFFORT — near failure the last 2 weeks, hold load or consider a deload: "
+            + ", ".join(parts) + "."
+        )
+    if profile.get("low_effort_lifts"):
+        parts = [f"{l['name']} (avg RPE {l['avg_rpe']})" for l in profile["low_effort_lifts"]]
+        lines.append(
+            "- LOW EFFORT — reps have felt easy the last 2 weeks, room to add load: "
+            + ", ".join(parts) + "."
+        )
+
+    # Journal wellness — sleep/energy/motivation the athlete logged, and any
+    # recent free-text comments. Previously invisible to the coach entirely.
+    wellness = profile.get("wellness") or {}
+    if wellness.get("avg_sleep_hrs") is not None or wellness.get("low_energy_days") or wellness.get("low_motivation_days"):
+        bits = []
+        if wellness.get("avg_sleep_hrs") is not None:
+            bits.append(f"avg sleep {wellness['avg_sleep_hrs']}h/night")
+        if wellness.get("low_energy_days"):
+            bits.append(f"{wellness['low_energy_days']} low-energy day(s) logged")
+        if wellness.get("low_motivation_days"):
+            bits.append(f"{wellness['low_motivation_days']} low-motivation day(s) logged")
+        lines.append(
+            "- RECENT WELLNESS (journal, last 14 days): " + ", ".join(bits)
+            + ". If energy/sleep is trending low, favour moderate volume over a big jump in load."
+        )
+    if wellness.get("recent_notes"):
+        notes = "; ".join(f"\"{n['note']}\" ({n['date']})" for n in wellness["recent_notes"][:3])
+        lines.append(f"- Athlete's recent journal comments: {notes}.")
+
+    if profile.get("recent_set_notes"):
+        notes = "; ".join(
+            f"{n['name']}: \"{n['notes']}\" ({n['days_ago']}d ago)" for n in profile["recent_set_notes"][:5]
+        )
+        lines.append(f"- Athlete's recent workout comments: {notes}.")
+
+    # User-set strength targets — plan should progress toward these
+    goals_list = profile.get("exercise_goals") or []
+    if goals_list:
+        goal_parts = [f"{g['name']} → {g['target_kg']} kg" for g in goals_list]
+        lines.append(
+            "- ATHLETE STRENGTH GOALS (design the plan to progress toward these): "
+            + "; ".join(goal_parts) + "."
+        )
+    lines.append("")
+    return lines
+
+
+# Flagged-pain area -> movements that load it. A small model sees the pain flag but
+# does not reliably know that Leg Press or Leg Extension load the knee (live eval:
+# it kept programming both), so the task line spells the area out. Matching is a
+# plain keyword check on the athlete's own words; an unrecognised area still gets
+# the generic constraint.
+_PAIN_AVOID = [
+    (("knee", "patella", "acl", "meniscus"), "knee",
+     "squats, lunges, leg presses, leg extensions, step-ups and jumping"),
+    (("shoulder", "rotator"), "shoulder",
+     "overhead pressing, dips, upright rows and behind-the-neck work"),
+    (("lower back", "low back", "lumbar", "spine", "disc", "sciatic"), "lower back",
+     "deadlifts, good mornings, bent-over rows and heavy squats"),
+    (("elbow",), "elbow", "skull crushers, dips, close-grip pressing and heavy curls"),
+    (("hip",), "hip", "deep squats, lunges, sumo deadlifts and hip-thrust variations that pinch"),
+]
+
+
+def pain_constraint(profile: dict) -> str:
+    """One sentence for the end of the prompt restating flagged pain as a hard
+    constraint, with the movements each recognised area rules out. Empty when
+    nothing is flagged."""
+    flags = profile.get("injury_flags") or []
+    if not flags:
+        return ""
+    text = " ".join(f.get("text", "") for f in flags).lower()
+    avoid = [f"for the {area}: no {movements}"
+             for words, area, movements in _PAIN_AVOID if any(w in text for w in words)]
+    out = ("The athlete flagged pain: no exercise on any day may load the painful area, "
+           "so choose alternatives from the ALLOWED list.")
+    if avoid:
+        out += " " + "; ".join(avoid) + "."
+    return out
