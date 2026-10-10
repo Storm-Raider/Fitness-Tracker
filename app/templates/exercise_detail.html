@@ -211,7 +211,7 @@ document.getElementById('goal-input')?.addEventListener('keydown', e => { if(e.k
   const METRICS = {
     weight: { color: '#f472b6' },
     orm:    { color: '#a78bfa' },
-    volume: { color: '#4f9cf9' },
+    volume: { color: '#9085e9' },   // --data
   };
   let metric   = 'weight';
   let hoverIdx = -1;
@@ -335,7 +335,7 @@ document.getElementById('goal-input')?.addEventListener('keydown', e => { if(e.k
       `<div style="display:flex;flex-direction:column;gap:0.1rem;">` +
       `<span style="color:var(--text);font-size:0.78rem;font-weight:600;">${wt} ${pu} top set</span>` +
       `<span style="color:#a78bfa;font-size:0.78rem;font-weight:600;">${o} ${pu} est 1RM</span>` +
-      `<span style="color:#4f9cf9;font-size:0.78rem;font-weight:600;">${vl} ${pu} volume</span>` +
+      `<span style="color:var(--text);font-size:0.78rem;font-weight:600;">${vl} ${pu} volume</span>` +
       `</div>`;
     tip.style.display = 'block';
 

@@ -7,7 +7,7 @@
            onmouseover="this.style.borderColor='var(--border-mid)';this.style.background='var(--surface-hover)'"
            onmouseout="this.style.borderColor='var(--border)';this.style.background='var(--surface)'">
         <!-- Left accent -->
-        <div style="position:absolute;left:0;top:0;bottom:0;width:3px;background:{% if w.ended_at %}var(--border-mid){% else %}var(--accent){% endif %};"></div>
+        <div style="position:absolute;left:0;top:0;bottom:0;width:3px;background:{% if w.ended_at %}var(--border-mid){% else %}var(--live){% endif %};"></div>
         <div style="padding-left:0.25rem;flex:1;min-width:0;">
           <div style="font-weight:600;font-size:0.875rem;letter-spacing:-0.01em;">{{ w.started_at[:10] | human_date }}</div>
           {% if w.notes %}

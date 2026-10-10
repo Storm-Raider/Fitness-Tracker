@@ -1,6 +1,27 @@
+# --data in base.html: single-series charts. Blue is chrome, gold a PR, cyan "running".
+DATA_COLOR = "#9085e9"
+
+# One colour per muscle, used wherever muscles are charted (dashboard bars, the
+# workout page's muscle map via the MUSCLE_COLORS template global), so a muscle
+# keeps its colour whatever its rank. No blue, gold or live cyan. Eight hues
+# can't all be told apart (worst pair Abs/Back, OKLab ΔE 9.7 < 15), so every
+# muscle chart labels its muscles and colour is a secondary cue.
+MUSCLE_COLORS = {
+    "Chest":     "#d55181",
+    "Shoulders": "#a78bfa",
+    "Biceps":    "#34d399",
+    "Triceps":   "#de47f5",
+    "Forearms":  "#8f2af4",
+    "Abs":       "#f472b6",
+    "Back":      "#f87171",
+    "Legs":      "#fb923c",
+}
+_OTHER_MUSCLE = "#94a3b8"
+
+
 def generate_weekly_bar_chart(
     day_volumes: list[tuple[str, float]],
-    color: str = "#4f9cf9",
+    color: str = DATA_COLOR,
 ) -> str:
     """Return an inline SVG bar chart for 7-day volume. day_volumes is [(date_str, volume_kg), ...]."""
     from datetime import date as _date
@@ -65,7 +86,6 @@ def generate_muscle_bars(muscle_volumes: list[tuple[str, float]]) -> str:
     if not muscle_volumes:
         return ""
 
-    COLORS = ["#4f9cf9", "#f59e0b", "#34d399", "#f472b6", "#a78bfa", "#fb923c", "#67e8f9", "#86efac"]
     W      = 420
     ROW_H  = 22
     GAP    = 8
@@ -89,7 +109,7 @@ def generate_muscle_bars(muscle_volumes: list[tuple[str, float]]) -> str:
         bar_y = cy - 7
         fill_w = max(4.0, (vol / max_v) * bar_W)
         pct   = round(vol / total * 100)
-        color = COLORS[i % len(COLORS)]
+        color = MUSCLE_COLORS.get(muscle, _OTHER_MUSCLE)
 
         parts.append(
             f'<text x="{PAD_L - 8}" y="{cy:.1f}" font-size="10" fill="#7a8a9a" '

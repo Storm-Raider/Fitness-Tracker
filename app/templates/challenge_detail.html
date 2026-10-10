@@ -66,7 +66,7 @@
 <div class="card" style="margin-bottom:1.25rem;">
   <div class="section-title" style="display:flex;align-items:center;justify-content:space-between;">
     <span>Today</span>
-    <span class="num" id="today-count" style="color:var(--accent);font-weight:700;">{{ today_done }}/{{ today_total }}</span>
+    <span class="num" id="today-count" style="color:var(--live);font-weight:700;">{{ today_done }}/{{ today_total }}</span>
   </div>
   <div id="day-complete-notice" style="display:{% if today_done == today_total and today_total > 0 %}flex{% else %}none{% endif %};
     align-items:center;gap:0.5rem;padding:0.6rem 0.75rem;margin:0.6rem 0 0.25rem;

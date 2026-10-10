@@ -126,6 +126,7 @@ These are intentional departures from the fitness app category. They are policy,
 | 2026-09-09 | *(rejected)* Instrument Console — chamfered live-card corners, single `--live` color, mono-expanded labels, no other surface changes | Too incremental — read as "the app got a skin," not a genuine futuristic departure. Superseded same day by Redline Console above. |
 | 2026-09-09 | Extended Redline Console (bracket framing, `--live` cyan) to `challenges.html`, `achievements.html`, `coach.html`, `plan.html`, `planner.html` | Those five templates defined their own bespoke card classes instead of the shared `.card`, so they'd silently missed the redesign. Challenges' "in progress" day-counter/bar and the AI coach's generating spinner also moved from `--accent` blue to `--live` cyan — both are genuinely running things, same rule as the session timer. |
 | 2026-10-10 | Accessibility pass: `--muted` #5a6a82 → #72849e, dark text on blue buttons, no zoom lock, labelled icon buttons, 44px set actions, 56px Finish | axe-core (WCAG 2.1 AA) found 76 problems across 12 pages; the contrast table here claimed ~5.4:1 for `--muted` but it measured 3.6:1. User chose dark text on the same blue over a deeper blue with white text, to keep the Redline glow. |
+| 2026-10-10 | Charts stop using blue: `--data` violet #9085e9 for single series (user's choice over magenta), muscles coloured by name not rank, strength levels on a violet ramp | DESIGN.md says blue is chrome only, yet volume bars, sparklines, Chest and the first exercise colour were blue, and the dashboard muscle bars coloured by rank (a muscle changed colour when its rank did; rank 2 was PR gold). Palettes validated with the dataviz checks; the exercise palette passes all adjacent checks. |
 | 2026-10-10 | Gold removed from everything that isn't a PR or an achievement | RPE 8 chip → peach, exercise colour palette and Abs muscle colour → non-gold, estimated 1RM and top-set text → `--text`, goal bar → `--muted-hi`, dashboard challenge card → `--live` (per 2026-09-09), best streak → `--success`, challenge partial/grace and plan "peak"/draft notices → orange `#fb923c` ("at risk", not "earned"). |
 | 2026-09-09 | Reversed the in-flight "FitStorm" rename — Zenkai retained as the product name everywhere (docs, infra, deploy) | TODOS.md referenced a planned Zenkai→FitStorm rename that README/DESIGN.md/CHANGELOG had already adopted in prose, but the running app (nav, PWA manifest, localStorage keys) never actually shipped it. User decided to keep Zenkai and retire FitStorm for good rather than finish that rename. |
 
@@ -151,6 +152,9 @@ These are intentional departures from the fitness app category. They are policy,
 --accent-dim:   rgba(79,156,249,0.09)   /* hover backgrounds */
 --accent-glow:  rgba(79,156,249,0.6)    /* bracket/halo glow on hover */
 
+/* Data (single-series charts: volume bars, trends, sparklines) */
+--data:         #9085e9   /* violet; blue is chrome only, so charts never use --accent */
+
 /* Live (active-only — session timer, rest ring, in-progress streak) */
 --live:         #22e5c9
 --live-dim:     rgba(34,229,201,0.12)
@@ -171,6 +175,8 @@ These are intentional departures from the fitness app category. They are policy,
 ```
 
 **Rule:** Blue (`--accent`) = interactive chrome. Gold (`--pr`) = data/achievement. Cyan (`--live`) = currently active/running, nothing else. Never swap — a gold button, a blue PR value, or a cyan "static" label are all wrong.
+
+**Charts.** One series → `--data`. Several series → a fixed colour per entity (never by rank): exercises use `EX_COLORS` in `workout_form.html`, muscles use `MUSCLE_COLORS` in `app/utils/charts.py` (also passed to the muscle map). Ordered levels (strength standards) use one violet ramp, brighter as the level rises; Elite keeps gold because it's earned. Numbers next to a chart stay in text colours, never the series colour. Validate a new palette with the dataviz checks (adjacent CVD ΔE ≥ 8, normal-vision ≥ 15, ≥ 3:1 on `--surface`) before shipping it. Known limitation: eight muscle colours can't all be told apart (worst pair Abs `#f472b6` / Back `#f87171`, normal-vision ΔE 9.7 against a floor of 15; it was 5.2 for Biceps/Triceps before 2026-10-10), so every muscle chart labels its muscles and colour is only a secondary cue.
 
 ---
 
