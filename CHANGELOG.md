@@ -4,6 +4,17 @@ All notable changes to Zenkai are documented here.
 
 ## [Unreleased]
 
+### Fixed
+- **The Analytics page and the coach agree on which lifts are stalled.** The query was copied into both and had drifted: the coach left out bodyweight exercises (their weight is your bodyweight, so a flat "1RM" means nothing) and Analytics listed them. Both now call one `stalled_lifts()` in `app/utils/pr_utils.py`.
+
+### Removed
+- Four templates nothing rendered any more (`prs.html`, `stats.html`, `planner.html`, `coach.html`; 1,662 lines). Their URLs still redirect to `/analytics` and `/plan`.
+- `charts.generate_sparkline` (no callers), six unused imports, three f-strings without placeholders, an unused variable in the workout page.
+
+### Changed
+- The Epley 1RM estimate has one definition, `pr_utils.epley()`, registered on the database connection as the SQL function `e1rm(weight, reps)`. The nine queries that wrote it out now call it.
+- `GET /templates` loads every template's exercises in one query instead of one per template.
+
 ### Accessibility
 - **Zero WCAG 2.1 AA violations on the 12 main pages, down from 76** (axe-core; `scripts/e2e/a11y.mjs` re-runs the check). Muted text `#5a6a82` → `#72849e` (3.6:1 → 5.2:1; DESIGN.md had claimed 5.4:1), and blue buttons, the selected RPE chip and the Plan mode toggle use near-black text (white on that blue was 2.8:1). Pinch-zoom is no longer blocked (TODO-CC-6), including on the sign-in, forgot-password, reset and invite pages, which carry their own copy of the styles; every field was already 16px, which is what stops iOS focus zoom.
 - **Screen readers.** Every icon-only button names its action ("Delete set", "Edit set", "Decrease weight", "Stop rest timer"), inputs are tied to their labels, RPE chips report `aria-pressed`, PR badges read "Personal record", errors are announced, and a logged set is announced ("Set logged: Bench Press, 60 kg × 5. Personal record!") along with every undo toast, through one persistent live region (`window.announce`).

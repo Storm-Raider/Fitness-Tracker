@@ -36,7 +36,7 @@ async def plan_page(
     # Top e1RM lifts for mesocycle lift table pre-population
     async with conn.execute(
         """
-        SELECT e.name, MAX(ROUND(s.weight_kg*(1+s.reps/30.0),1)) AS e1rm
+        SELECT e.name, MAX(ROUND(e1rm(s.weight_kg, s.reps),1)) AS e1rm
         FROM sets s
         JOIN exercises e ON e.id=s.exercise_id
         WHERE s.user_id=? AND e.category NOT IN ('Cardio')

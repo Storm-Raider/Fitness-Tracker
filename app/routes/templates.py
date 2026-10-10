@@ -1,5 +1,5 @@
 import aiosqlite
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, Request
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from pydantic import BaseModel, Field
 
@@ -29,16 +29,18 @@ async def list_templates(
     ) as cur:
         tmpl_rows = [dict(r) for r in await cur.fetchall()]
 
-    result = []
-    for t in tmpl_rows:
-        async with conn.execute(
-            """SELECT e.name FROM workout_template_exercises wte
-               JOIN exercises e ON e.id = wte.exercise_id
-               WHERE wte.template_id = ? ORDER BY wte.order_idx""",
-            (t["id"],),
-        ) as cur:
-            t["exercises"] = [r["name"] for r in await cur.fetchall()]
-        result.append(t)
+    # Every template's exercises in one query, grouped in Python.
+    async with conn.execute(
+        """SELECT wte.template_id, e.name FROM workout_template_exercises wte
+           JOIN workout_templates wt ON wt.id = wte.template_id
+           JOIN exercises e ON e.id = wte.exercise_id
+           WHERE wt.user_id = ? ORDER BY wte.template_id, wte.order_idx""",
+        (uid,),
+    ) as cur:
+        names: dict[int, list[str]] = {}
+        for r in await cur.fetchall():
+            names.setdefault(r["template_id"], []).append(r["name"])
+    result = [{**t, "exercises": names.get(t["id"], [])} for t in tmpl_rows]
 
     return templates.TemplateResponse(request, "templates.html", {
         "workout_templates": result,

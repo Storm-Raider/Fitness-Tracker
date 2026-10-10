@@ -11,6 +11,8 @@ import time
 
 import aiosqlite
 
+from app.utils.pr_utils import stalled_lifts
+
 # 30-minute TTL cache keyed by uid. Invalidated automatically on expiry.
 # Fine-grained invalidation (e.g. on workout save) can call invalidate_profile().
 _PROFILE_CACHE: dict[int, tuple[dict, float]] = {}
@@ -98,7 +100,7 @@ async def build_profile(conn: aiosqlite.Connection, uid: int, *, fresh: bool = F
     # formula to them produces a fictional "1RM" from bodyweight alone.
     async with conn.execute(
         """
-        SELECT e.name, MAX(ROUND(s.weight_kg * (1 + s.reps / 30.0), 1)) AS e1rm
+        SELECT e.name, MAX(ROUND(e1rm(s.weight_kg, s.reps), 1)) AS e1rm
         FROM sets s
         JOIN exercises e ON e.id = s.exercise_id
         WHERE s.user_id = ? AND s.weight_kg > 0
@@ -179,34 +181,8 @@ async def build_profile(conn: aiosqlite.Connection, uid: int, *, fresh: bool = F
         for r in _recovery_rows
     }
 
-    # Stalled exercises — no meaningful 1RM progress in the last 28 days
-    # vs. the 28–84-day window before that. Bodyweight-equipment exercises
-    # are excluded for the same reason as the top-lifts query above.
-    async with conn.execute(
-        """
-        SELECT e.name,
-               COUNT(DISTINCT DATE(w.started_at,'localtime')) AS session_count,
-               MAX(CASE WHEN DATE(w.started_at,'localtime') >= DATE('now','-28 days')
-                        THEN ROUND(s.weight_kg * (1.0 + s.reps / 30.0), 1) END) AS recent_1rm,
-               MAX(CASE WHEN DATE(w.started_at,'localtime') <  DATE('now','-28 days')
-                        AND  DATE(w.started_at,'localtime') >= DATE('now','-84 days')
-                        THEN ROUND(s.weight_kg * (1.0 + s.reps / 30.0), 1) END) AS prior_1rm
-        FROM sets s
-        JOIN exercises e ON e.id = s.exercise_id
-        JOIN workouts w ON w.id = s.workout_id AND w.ended_at IS NOT NULL
-        WHERE s.user_id = ?
-          AND COALESCE(e.equipment, '') != 'Bodyweight'
-        GROUP BY s.exercise_id
-        HAVING recent_1rm IS NOT NULL
-           AND prior_1rm IS NOT NULL
-           AND session_count >= 4
-           AND recent_1rm <= prior_1rm * 1.02
-        ORDER BY (prior_1rm - recent_1rm) DESC
-        LIMIT 6
-        """,
-        (uid,),
-    ) as cur:
-        stalled = [r["name"] for r in await cur.fetchall()]
+    # Stalled exercises (shared definition with the analytics page).
+    stalled = [r["name"] for r in await stalled_lifts(conn, uid, limit=6)]
 
     # Average session duration — guides the model on how many exercises to include.
     async with conn.execute(

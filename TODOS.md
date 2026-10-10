@@ -309,7 +309,7 @@ Re-action if a dedicated routine management page is built: add `user_id` to `GET
 - Mobile tab bar: Home / Sessions / Analytics / Plan / More
 - Desktop nav has single Analytics item
 - No broken `/prs` or `/stats` references in templates
-- `prs.html` and `stats.html` can be deleted in follow-up cleanup
+- `prs.html` and `stats.html` can be deleted in follow-up cleanup — **done 2026-10-10** (with `planner.html` and `coach.html`)
 
 ## ISSUE-26: [Bug] Clutter on the dashboard
 
@@ -535,3 +535,26 @@ Request to expand the achievements list beyond the current 24. Needs product dec
 **Pros:** one accessible sheet implementation. **Cons:** touches every delete confirmation (`htmx:confirm` routes through it) and the app has no automated tests for them, so it needs a careful `/qa` pass.
 
 **Effort:** S human / ~20 CC min. **Priority:** P3. **Depends on:** `sheet.js` shipped.
+
+---
+
+## TODO-EL-7: Dates are converted to local time twice
+
+**What:** `workouts.started_at` (and `ended_at`) are stored in local time already (`DEFAULT (datetime('now','localtime'))`), but 36 queries wrap them in `DATE(..., 'localtime')`, which treats the value as UTC and converts again. 10 queries also compare against `DATE('now', ...)`, which is the UTC date. On a CDT Pi, a workout started between midnight and 05:00 counts as the previous day. The result is wrong days on the dashboard (week volume, streak), analytics (heatmap, stalled windows), achievements, challenge auto-ticks and the coach's profile; and the 28/84-day windows are off by a day for part of each evening.
+
+**Where:** `app/routes/{dashboard,analytics,achievements,workouts}.py`, `app/utils/{challenges,pr_utils,training_profile}.py`. Run `grep -rn "started_at *, *'localtime'" app` and `grep -rn "DATE('now'" app | grep -v localtime`.
+
+**Fix shape:** use `DATE(w.started_at)` everywhere, and `DATE('now','localtime', ...)` for "today". Add a regression test with a workout at 01:30 local that must count for that day. One PR, since the queries must change together.
+
+**Found:** 2026-10-10, while merging the two stalled-lifts queries. **Effort:** S–M. **Priority:** P2 (wrong data, silently).
+
+---
+
+## TODO-EL-8: Five routes 500 on an HTMX request
+
+**What:** `render()` returns `{name}_partial.html` when a request carries `HX-Request`, but `achievements_partial.html`, `analytics_partial.html`, `cardio_partial.html`, `export_partial.html` and `plan_partial.html` don't exist. Nothing sends HTMX requests to those pages today, so it's latent; an `hx-get` or `hx-boost` added later would turn into a TemplateNotFound 500.
+
+**Fix shape:** have `render()` fall back to the full page when the partial is missing. Add a test that walks every route using `render()`.
+
+**Found:** 2026-10-10 (cleanup audit). **Effort:** S. **Priority:** P3.
+
