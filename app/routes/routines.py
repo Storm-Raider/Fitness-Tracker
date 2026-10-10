@@ -4,8 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import HTMLResponse, JSONResponse
 from pydantic import BaseModel, Field
 
-import app.db
-from app.db import get_db
+from app.db import get_db, write_tx
 from app.routes.auth import get_current_user
 from app.utils.db_utils import require_owns
 from app.utils.render import templates
@@ -152,26 +151,18 @@ async def create_routine(
     # Routine insert + routine_exercises inserts wrapped in one transaction so a
     # failure partway through (e.g. an exercise deleted between the validation
     # above and here) rolls back atomically instead of leaving an orphan routine.
-    async with app.db.write_lock:
-        async with conn.execute("BEGIN IMMEDIATE"):
-            pass
-        try:
-            async with conn.execute(
-                "INSERT INTO routines(name, user_id) VALUES (?, ?)",
-                (body.name.strip(), current_user["id"]),
-            ) as cur:
-                routine_id = cur.lastrowid
+    async with write_tx(conn):
+        async with conn.execute(
+            "INSERT INTO routines(name, user_id) VALUES (?, ?)",
+            (body.name.strip(), current_user["id"]),
+        ) as cur:
+            routine_id = cur.lastrowid
 
-            for idx, ex_id in enumerate(body.exercise_ids):
-                await conn.execute(
-                    "INSERT INTO routine_exercises(routine_id, exercise_id, order_idx) VALUES (?,?,?)",
-                    (routine_id, ex_id, idx),
-                )
-
-            await conn.execute("COMMIT")
-        except Exception:
-            await conn.execute("ROLLBACK")
-            raise
+        for idx, ex_id in enumerate(body.exercise_ids):
+            await conn.execute(
+                "INSERT INTO routine_exercises(routine_id, exercise_id, order_idx) VALUES (?,?,?)",
+                (routine_id, ex_id, idx),
+            )
 
     return JSONResponse({"id": routine_id}, status_code=201)
 

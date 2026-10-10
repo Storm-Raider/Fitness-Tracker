@@ -2,6 +2,7 @@ import asyncio
 import contextlib
 import contextvars
 import os as _os
+import re
 import sys as _sys
 
 # SQLCipher: replace sqlite3 with pysqlcipher3 before aiosqlite is imported.
@@ -23,6 +24,7 @@ if _DB_ENCRYPTION_KEY:
 
 import logging
 import aiosqlite
+from aiosqlite.context import Result
 from pathlib import Path
 
 from app.data.exercises import EXERCISES, RETIRED_EXERCISES, infer_muscle_and_category
@@ -30,12 +32,12 @@ from app.data.routines import ROUTINES
 
 _conn: aiosqlite.Connection | None = None
 
-# Serializes the app's explicit multi-statement transactions (BEGIN IMMEDIATE
-# blocks in workouts.py, import_.py, auth.py) so two requests racing to open
-# one on the single shared connection wait their turn instead of crashing
-# with "cannot start a transaction within a transaction". One global lock,
-# not per-table/per-route — this app's real concurrency is low enough that
-# serializing the rare multi-statement write is the right amount of locking.
+# The single writer's lock for the shared connection. write_tx() holds it for
+# a whole transaction, and every other write statement takes it for its one
+# statement (see _gate_writes), so no write ever runs inside someone else's
+# open transaction. Only write_tx opens transactions (a test enforces it).
+# One global lock, not per-table/per-route: this app's real concurrency is
+# low enough that serializing writes is the right amount of locking.
 write_lock = asyncio.Lock()
 
 # True while the current task is inside write_tx(). write_tx takes write_lock,
@@ -90,6 +92,48 @@ async def write_tx(conn: aiosqlite.Connection):
 
 async def _commit_is_a_noop() -> None:
     return None
+
+
+# Statements that only read: they run at once, even while another request's
+# transaction is open. PRAGMA only tunes or inspects the connection.
+_READ_ONLY = re.compile(r"^\s*(SELECT|EXPLAIN|PRAGMA)\b", re.IGNORECASE)
+_WITH_WRITE = re.compile(r"\b(INSERT|UPDATE|DELETE|REPLACE)\b", re.IGNORECASE)
+
+
+def _is_write(sql: str) -> bool:
+    if _READ_ONLY.match(sql):
+        return False
+    if re.match(r"^\s*WITH\b", sql, re.IGNORECASE):
+        return bool(_WITH_WRITE.search(sql))
+    return True
+
+
+def _gate_writes(conn: aiosqlite.Connection) -> None:
+    """Make every write outside write_tx wait for write_lock.
+
+    The connection is shared and autocommit, so a write issued while another
+    request's write_tx is open would run inside that transaction and vanish if
+    it rolled back. Taking the lock queues the write until the transaction
+    ends. Inside write_tx the lock is already held, so statements pass through.
+    """
+    execute, executemany, executescript = conn.execute, conn.executemany, conn.executescript
+
+    async def _gated(run, sql):
+        if _in_write_tx.get() or not _is_write(sql):
+            return await run()
+        async with write_lock:   # module global: clear_db() replaces it
+            return await run()
+
+    def gated_execute(sql, parameters=None):
+        return Result(_gated(lambda: execute(sql, parameters), sql))
+
+    def gated_executemany(sql, parameters):
+        return Result(_gated(lambda: executemany(sql, parameters), sql))
+
+    def gated_executescript(sql_script):
+        return Result(_gated(lambda: executescript(sql_script), "BEGIN"))
+
+    conn.execute, conn.executemany, conn.executescript = gated_execute, gated_executemany, gated_executescript
 
 
 SCHEMA = Path(__file__).parent.parent / "schema.sql"
@@ -508,6 +552,7 @@ async def open_db(path: str) -> aiosqlite.Connection:
     # (write_tx and the existing BEGIN IMMEDIATE sites do), so commit() is
     # made a no-op; outside a transaction each statement already autocommits.
     conn.commit = _commit_is_a_noop
+    _gate_writes(conn)
     if _DB_ENCRYPTION_KEY:
         # SQLCipher: must precede every other query, including PRAGMAs.
         # Hex-blob format avoids injection: x'<64 lowercase hex chars>'
