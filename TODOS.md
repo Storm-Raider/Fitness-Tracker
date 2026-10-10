@@ -499,6 +499,8 @@ Request to expand the achievements list beyond the current 24. Needs product dec
 
 **Effort:** S human / ~15 CC min. **Priority:** P3. **Depends on:** nothing.
 
+
+**SHIPPED 2026-10-10** — (a) for generation (`build_profile(..., fresh=True)`; measured 167 ms at 1,000 workouts / 20,000 sets) plus a targeted (c): finishing or deleting a workout calls `invalidate_profile`, so the cached Plan page profile is current. `tests/test_fresh_profile.py`.
 ---
 
 ## TODO-CC-6: Remove the pinch-zoom lock from the viewport meta (accessibility debt)
