@@ -14,7 +14,8 @@ import aiosqlite
 from app.utils.pr_utils import stalled_lifts
 
 # 30-minute TTL cache keyed by uid. Invalidated automatically on expiry.
-# Fine-grained invalidation (e.g. on workout save) can call invalidate_profile().
+# Plan generation and the chat always build fresh; the cache only serves the Plan
+# page, and finishing or deleting a workout drops it (invalidate_profile()).
 _PROFILE_CACHE: dict[int, tuple[dict, float]] = {}
 _PROFILE_TTL = 1800.0
 
@@ -42,8 +43,10 @@ has_pain_words = _has_pain_flag   # public name for callers outside this module 
 async def build_profile(conn: aiosqlite.Connection, uid: int, *, fresh: bool = False) -> dict:
     """Summarise the user's recent training for the coach prompt.
 
-    Cached for _PROFILE_TTL by default (plan generation). The chat passes fresh=True:
-    it must see a workout logged a minute ago, and a build is cheap (~2 ms at 442 sets)."""
+    Cached for _PROFILE_TTL by default (the Plan page). Plan generation and the
+    chat pass fresh=True: they must see a workout logged a minute ago, and a
+    build is cheap (~2 ms at 442 sets, ~170 ms at 20k). A fresh build also
+    refreshes the cache."""
     _cached = _PROFILE_CACHE.get(uid)
     if not fresh and _cached and (time.monotonic() - _cached[1]) < _PROFILE_TTL:
         return _cached[0]

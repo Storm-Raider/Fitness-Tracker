@@ -477,7 +477,9 @@ async def _run_generation(
 
             await coach_budget.ensure_loaded(conn)
             await _emit(job_id, {"type": "phase", "message": "Building your training profile…"})
-            profile = await build_profile(conn, uid)
+            # Fresh, not cached: a workout finished just before Generate must count.
+            # A build is ~2 ms today and ~170 ms at 20k sets, nothing next to the model call.
+            profile = await build_profile(conn, uid, fresh=True)
             catalog = await exercise_catalog(conn, uid, profile.get("preferred_equipment"))
             async with conn.execute("SELECT text FROM coach_notes WHERE user_id = ? ORDER BY id", (uid,)) as cur:
                 notes = [r["text"] for r in await cur.fetchall()]

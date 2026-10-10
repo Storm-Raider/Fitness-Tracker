@@ -13,6 +13,7 @@ from app.routes.auth import get_current_user
 from app.utils import trash
 from app.utils.db_utils import require_owns
 from app.utils.render import render, templates
+from app.utils.training_profile import invalidate_profile
 
 
 def _undo_response(token: str, label: str, status_code: int = 200) -> Response:
@@ -393,6 +394,7 @@ async def finish_workout(
             (workout_id,),
         )
         await conn.commit()
+        invalidate_profile(uid)   # the profile counts finished workouts
 
     async with conn.execute(
         "SELECT started_at, ended_at FROM workouts WHERE id = ?", (workout_id,)
@@ -464,6 +466,7 @@ async def delete_workout(
     await require_owns(conn, "workouts", workout_id, uid)
     token, label = await trash.soft_delete_workout(conn, uid, workout_id)
     await conn.commit()
+    invalidate_profile(uid)
     return _undo_response(token, label)
 
 
