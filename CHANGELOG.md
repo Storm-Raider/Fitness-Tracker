@@ -4,6 +4,12 @@ All notable changes to Zenkai are documented here.
 
 ## [Unreleased]
 
+### Operations
+- **Backups get a second copy off the SD card.** `scripts/backup.py` takes `MIRROR_DIR` (a folder on a USB drive) and copies each backup there too, keeping `MIRROR_KEEP` (default 30). An unplugged drive fails loudly instead of quietly creating the folder on the SD card; the local backup is still made. Every copy, local and mirrored, now passes `PRAGMA integrity_check` (it was only opened before), and the log line includes row counts.
+- **Restore drill: `scripts/restore_check.py`.** Opens the newest backup in each folder with the key, checks it, prints users/workouts/sets counts, and fails when a backup is damaged, unreadable or older than `MAX_AGE_DAYS` (default 3). README has the restore steps.
+- **Auto-deploy only deploys `main`, and only after the tests pass.** With a feature branch checked out, `auto-deploy-user.sh` used to restart the live app on that branch's HEAD (three times so far, per the log); now it skips. A commit that changes server code runs `pytest -x` first; on failure the app stays on its current code, the log says `ALERT: tests failed`, and that commit isn't re-tested every 2 minutes.
+- **A migration that failed for a passing reason is retried.** A failure such as "database is locked" was recorded and then treated as applied forever, silently skipping a schema change. Now only "already there" errors (duplicate column, already exists, no such column on a drop) count as applied; anything else is retried at the next start and its row is updated when it succeeds.
+
 ### Security
 - **Password-reset and invite links no longer trust the Host header.** Set `PUBLIC_URL` (for example `https://your-host.example:8443`) and every reset email and invite link uses it; before, anyone who could reach the server could request a reset whose emailed link pointed at their own site, carrying a valid token. Without `PUBLIC_URL` the old behaviour remains, so set it.
 - **Passwords longer than 72 bytes no longer crash.** bcrypt 5 rejects them, which turned login into a 500 (and only for real usernames, so it revealed which accounts exist) and broke sign-up, reset and the Settings password change. Login now just fails; the other forms say the password is too long.

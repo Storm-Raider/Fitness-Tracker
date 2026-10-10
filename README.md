@@ -220,6 +220,19 @@ DB migrations run on startup, so the restart applies schema changes
 automatically. To deploy on demand without waiting for the timer:
 `sudo systemctl start zenkai-deploy`.
 
+**No-root variant (what the Pi runs):** `scripts/auto-deploy-user.sh` from the
+user's crontab every 2 minutes, logging to `logs/auto-deploy.log`. It adds two
+gates before any restart:
+
+- **Main only.** If the checkout is on any other branch it neither pulls nor
+  restarts (`checkout is on X, not main — not deploying`); switching back to
+  `main` catches up on the next tick.
+- **Tests first.** A commit that changes server code runs the test suite
+  (`pytest -x`, about 75 s on a Pi 5; output in `logs/deploy-tests.log`). If it
+  fails, the app stays on the code it is running and the log says `ALERT: tests
+  failed`; that commit isn't re-tested every tick, and the next commit tries again.
+  Dependencies are installed before the tests run, since the tests need them.
+
 ---
 
 ## Firewall (optional but recommended)
@@ -421,23 +434,43 @@ Then `docker compose restart`.
 `scripts/backup.py` uses Python's `sqlite3.Connection.backup()` which is WAL-safe and
 works while the app is live. Run it manually or wire it to cron.
 
+Each copy is checked with `PRAGMA integrity_check` before it counts as a backup.
+
 **Manual backup:**
 ```bash
 DATABASE_PATH=./fittrack.db python3 scripts/backup.py
-# → backups/fittrack-20260521-114000.db  (176 KB)
+# → backups/fittrack-20260521-114000.db  (176 KB; integrity ok; 3 users, 40 workouts, 450 sets)
 ```
 
-**Cron — daily at 3am, keep 7 backups:**
+**A second copy on another device.** Backups on the same SD card as the database
+die with it. Set `MIRROR_DIR` to a folder on a USB drive and each backup is also
+copied there (and checked again), keeping `MIRROR_KEEP` copies (default 30). If the
+drive isn't mounted the script exits non-zero instead of quietly writing to the SD
+card; the local backup is still made. Keep a copy of `DB_ENCRYPTION_KEY` somewhere
+else too (a password manager): an encrypted backup is useless without it.
+
+**Cron — nightly at 3:30, 7 local + 30 on the drive, then a restore drill:**
 ```bash
 crontab -e
-# add:
-0 3 * * * cd /home/pi/Fitness-Tracker && DATABASE_PATH=./fittrack.db python3 scripts/backup.py >> /var/log/zenkai-backup.log 2>&1
+# add (one line):
+30 3 * * * cd /home/pi/Fitness-Tracker && export DB_ENCRYPTION_KEY="$(grep -m1 '^DB_ENCRYPTION_KEY=' .env | cut -d= -f2-)" && DATABASE_PATH=$PWD/fittrack.db KEEP_DAYS=7 MIRROR_DIR=/media/pi/USB/zenkai-backups .venv/bin/python scripts/backup.py && .venv/bin/python scripts/restore_check.py backups /media/pi/USB/zenkai-backups >> logs/backup.log 2>&1
+```
+
+**Restore drill.** `scripts/restore_check.py` opens the newest backup in each folder
+with the key, runs the integrity check, prints row counts, and fails if a backup is
+damaged, unreadable or older than `MAX_AGE_DAYS` (default 3):
+```bash
+DB_ENCRYPTION_KEY=... .venv/bin/python scripts/restore_check.py backups /media/pi/USB/zenkai-backups
+# OK    backups/fittrack-20261011-033001.db: integrity ok, 0.2 days old; 3 users, 40 workouts, 450 sets
 ```
 
 **Restore:**
 ```bash
-# Stop the app first, then overwrite the database
+# Stop the app first, then overwrite the database (and drop its WAL files)
+sudo systemctl stop zenkai
+rm -f fittrack.db-wal fittrack.db-shm
 cp backups/fittrack-20260521-114000.db fittrack.db
+sudo systemctl start zenkai
 ```
 
 **Docker volume backup (alternative — full volume tar):**

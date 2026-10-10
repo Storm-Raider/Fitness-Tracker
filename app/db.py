@@ -347,6 +347,12 @@ _MIGRATIONS = [
 ]
 
 
+def _already_applied(error: str) -> bool:
+    """True when a migration's error means its change is already in the schema."""
+    msg = error.lower()
+    return any(s in msg for s in ("duplicate column", "no such column", "already exists"))
+
+
 async def init_db(conn: aiosqlite.Connection) -> None:
     await conn.executescript(SCHEMA.read_text())
 
@@ -354,8 +360,12 @@ async def init_db(conn: aiosqlite.Connection) -> None:
         "CREATE TABLE IF NOT EXISTS _schema_migrations "
         "(idx INTEGER PRIMARY KEY, applied_at TEXT NOT NULL, error TEXT)"
     )
-    async with conn.execute("SELECT idx FROM _schema_migrations") as _cur:
-        _applied = {row[0] for row in await _cur.fetchall()}
+    # A recorded failure counts as applied only when it says the change is
+    # already there; anything else (e.g. "database is locked") is retried on
+    # every boot until it succeeds.
+    async with conn.execute("SELECT idx, error FROM _schema_migrations") as _cur:
+        _applied = {row[0] for row in await _cur.fetchall()
+                    if row[1] is None or _already_applied(row[1])}
 
     for idx, sql in enumerate(_MIGRATIONS):
         if idx in _applied:
@@ -363,17 +373,16 @@ async def init_db(conn: aiosqlite.Connection) -> None:
         try:
             await conn.execute(sql)
             await conn.execute(
-                "INSERT INTO _schema_migrations(idx, applied_at) VALUES (?, datetime('now','localtime'))",
+                "INSERT OR REPLACE INTO _schema_migrations(idx, applied_at) VALUES (?, datetime('now','localtime'))",
                 (idx,),
             )
         except Exception as exc:
-            msg = str(exc).lower()
-            if any(s in msg for s in ("duplicate column", "no such column", "already exists")):
+            if _already_applied(str(exc)):
                 logging.debug("Migration %d already applied: %s", idx, exc)
             else:
-                logging.warning("Migration %d failed: %s | sql: %.120s", idx, exc, sql)
+                logging.warning("Migration %d failed (retried next start): %s | sql: %.120s", idx, exc, sql)
             await conn.execute(
-                "INSERT OR IGNORE INTO _schema_migrations(idx, applied_at, error) VALUES (?, datetime('now','localtime'), ?)",
+                "INSERT OR REPLACE INTO _schema_migrations(idx, applied_at, error) VALUES (?, datetime('now','localtime'), ?)",
                 (idx, str(exc)),
             )
 

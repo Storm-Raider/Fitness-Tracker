@@ -2,13 +2,15 @@
 #
 # Auto-deploy Zenkai — no-root, restart-aware, health-verified.
 #
-# Runs from crontab (every 2 min) as stormraider. Three jobs:
+# Runs from crontab (every 2 min) as stormraider, only while the checkout is
+# on main (a feature branch checked out here is never deployed). Three jobs:
 #
 #   1. PULL    — origin/main advanced (commit pushed from another machine)
 #                → fast-forward the working tree to it.
 #   2. RESTART — the running server is on an older commit than HEAD AND the
-#                change actually touches server code → restart so the live app
-#                matches HEAD, then verify it serves traffic.
+#                change actually touches server code → run the test suite,
+#                and only if it passes restart so the live app matches HEAD,
+#                then verify it serves traffic.
 #   3. VERIFY  — after a restart, poll /health; if the new code fails to boot,
 #                alert loudly instead of leaving the app silently down.
 #
@@ -35,11 +37,15 @@
 
 set -uo pipefail
 
-REPO="/home/stormraider/Desktop/Git/Fitness-Tracker"
+# The ZENKAI_* overrides exist for tests/test_auto_deploy.py, which runs this
+# script against a throwaway repo; cron sets none of them.
+REPO="${ZENKAI_REPO:-/home/stormraider/Desktop/Git/Fitness-Tracker}"
 BRANCH="main"
 MARKER="$REPO/logs/deployed-commit"
-LOCK="/tmp/zenkai-auto-deploy.lock"
-HEALTH_URL="http://127.0.0.1:8000/health"
+TESTS_FAILED_MARKER="$REPO/logs/tests-failed-commit"   # HEAD whose tests failed; not re-run every tick
+TEST_CMD="${ZENKAI_TEST_CMD:-timeout 900 $REPO/.venv/bin/python -m pytest -q -x -p no:cacheprovider}"
+LOCK="${ZENKAI_DEPLOY_LOCK:-/tmp/zenkai-auto-deploy.lock}"
+HEALTH_URL="${ZENKAI_HEALTH_URL:-http://127.0.0.1:8000/health}"
 FETCH_TIMEOUT=30        # seconds — don't let a hung network pile up cron ticks
 HEALTH_RETRIES=12       # poll /health up to 12 times...
 HEALTH_INTERVAL=2       # ...every 2s = ~24s for restart delay + boot + migrations
@@ -76,6 +82,10 @@ health_ok() {
 }
 
 restart_server() {
+    if [ -n "${ZENKAI_RESTART_CMD:-}" ]; then
+        bash -c "$ZENKAI_RESTART_CMD"
+        return 0
+    fi
     # Kill uvicorn; systemd respawns it on the working-tree code. Escalate to
     # SIGKILL if the process ignores a graceful SIGTERM.
     local pid
@@ -93,6 +103,16 @@ restart_server() {
     log "uvicorn PID $pid ignored SIGTERM — escalating to SIGKILL"
     kill -9 "$pid" 2>/dev/null || true
 }
+
+# --- Only ever deploy the main branch -------------------------------------
+# This checkout doubles as the dev workspace. With a feature branch checked
+# out, its HEAD is not what was reviewed and merged, so neither pull nor
+# restart: the next tick after switching back to main catches up.
+CURRENT_BRANCH="$(git symbolic-ref --short -q HEAD || echo detached)"
+if [ "$CURRENT_BRANCH" != "$BRANCH" ]; then
+    log "checkout is on $CURRENT_BRANCH, not $BRANCH — not deploying"
+    exit 0
+fi
 
 # --- Trigger 1: PULL commits pushed from elsewhere -------------------------
 # A failed/timed-out fetch (offline) is non-fatal — the RESTART check below
@@ -140,6 +160,20 @@ if ! git diff --quiet "$DIFF_BASE" HEAD -- requirements.txt 2>/dev/null; then
         exit 1
     fi
 fi
+
+# Run the test suite before restarting: a red commit leaves the app on the
+# code it is already running. The failure is remembered per commit so the
+# suite isn't re-run every tick; the next commit (the fix) tries again.
+if [ "$(cat "$TESTS_FAILED_MARKER" 2>/dev/null)" = "$HEAD" ]; then
+    exit 0
+fi
+log "testing ${HEAD:0:8} before deploying"
+if ! (cd "$REPO" && bash -c "$TEST_CMD") > "$REPO/logs/deploy-tests.log" 2>&1; then
+    printf '%s\n' "$HEAD" > "$TESTS_FAILED_MARKER"
+    log "ALERT: tests failed on ${HEAD:0:8} — NOT restarting (app left on ${OLD_SHORT}); see logs/deploy-tests.log"
+    exit 1
+fi
+rm -f "$TESTS_FAILED_MARKER"
 
 log "deploying ${HEAD:0:8} (was $OLD_SHORT)"
 restart_server
