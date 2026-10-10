@@ -330,6 +330,18 @@ The rules that keep it on-system:
   (`bottom: calc(64px + env(safe-area-inset-bottom))`) that opens the sheet.
   **Desktop:** the 320px left column swaps between Generate and Coach with a
   `.seg-toggle`.
+- **Row menu:** a 44x44 `⋯` button on every exercise row opens a small menu
+  (z-index 120, between the tab bar and the More menu) with 48px items: "Swap
+  exercise" (drafts only) and "Why this exercise?". Arrow keys move, Escape closes
+  and returns focus to the button.
+- **Swap list:** unfolds under the row inside the day card: a `SWAP X FOR` label
+  with a 44px close, six 48px rows (name, then equipment · muscle in muted mono),
+  skeleton rows while loading, "No alternatives found for this exercise." when
+  empty. Picking one closes it, marks the day EDITED and shows "Swapped X for Y ·
+  Undo".
+- **Prompt chips:** `.pill` buttons at 44px, only while the conversation is empty.
+- **Feedback chip:** like the note chip; "Replace 'Too hard' with 'Too easy' for
+  this plan?" when it would overwrite a value.
 - **Touch targets:** send, undo and delete 44px minimum; inputs 16px+ so iOS
   does not zoom.
 

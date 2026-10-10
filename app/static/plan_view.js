@@ -32,6 +32,8 @@
 
   function fmt(v) { return v == null ? '' : String(v); }
 
+  var defaultRowAction = null;
+
   /* ── PlanView ─────────────────────────────────────── */
 
   function ensure(container) {
@@ -76,7 +78,7 @@
       if (ex.note) name.appendChild(el('span', 'ex-note', fmt(ex.note)));
       row.appendChild(name);
       row.appendChild(el('span', 'ex-scheme', fmt(ex.sets) + ' × ' + fmt(ex.reps)));
-      if (opts.onRowAction && !opts.readonly) {
+      if (opts.onRowAction) {
         var more = el('button', 'ex-more', '⋯');
         more.type = 'button';
         more.setAttribute('aria-label', 'Actions for ' + fmt(ex.name));
@@ -96,15 +98,18 @@
      *                   EDITED label and the changed-row tint
      * opts.dropped      names the model suggested that were not recognised
      * opts.onRowAction  (dayNumber, exerciseIndex, buttonElement) => void;
-     *                   when given (and not readonly) each row gets a 44x44
-     *                   overflow button
+     *                   when given each row gets a 44x44 overflow button (the
+     *                   callback decides what a read-only plan allows). Defaults
+     *                   to the page-wide hook set with PlanView.setRowAction;
+     *                   pass null to render without buttons
      *
      * Re-rendering patches in place: only days whose content or flags changed
      * are rebuilt, so UI living inside an unchanged day (an open swap list)
      * survives. Nothing outside the header and the days is touched.
      */
     render: function (container, plan, opts) {
-      opts = opts || {};
+      opts = Object.assign({}, opts || {});
+      if (opts.onRowAction === undefined) opts.onRowAction = defaultRowAction;
       plan = plan || {};
       var pv = ensure(container);
       var changed = {};
@@ -136,6 +141,10 @@
         pv.daysEl.removeChild(pv.days.pop().node);
       }
     },
+
+    /* The coach chat registers its row menu here, so every render of the plan
+       (generation, drafts, saved plans, edits, undo) gets the same buttons. */
+    setRowAction: function (fn) { defaultRowAction = fn || null; },
 
     clear: function (container) {
       while (container.firstChild) container.removeChild(container.firstChild);

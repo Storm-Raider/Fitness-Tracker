@@ -158,12 +158,13 @@ bar above the tab bar opens it as a sheet. Saved plans have a **Coach** button t
 their conversation read-only, with "Regenerate from this chat" to start a new plan from
 what you asked for.
 
-The coach can also swap a single exercise without a chat message: it lists up to six
-alternatives (the same muscle, similar movements first, avoiding anything that loads an
-area you flagged as painful), and picking one replaces it, keeping the sets and reps; it is
-undoable and needs no AI request, so it works even when the daily cap is reached. The
-per-exercise picker for this arrives in a follow-up; the endpoint
-(`/coach/plans/{id}/swap`) is in place.
+Every exercise in a plan has a **⋯** menu. **Swap exercise** (drafts) lists up to six
+alternatives right under the row (the same muscle, similar movements first, avoiding
+anything that loads an area you flagged as painful); picking one replaces it, keeping the
+sets and reps, with an Undo toast. It needs no AI request, so it works even when the daily
+cap is reached. **Why this exercise?** (drafts and saved plans) asks the coach. An empty
+conversation offers a few starter questions, and when you tell the coach how the plan felt
+it offers to record that as the plan's feedback.
 
 Limits worth knowing: every Gemini request counts toward `COACH_AI_MAX_PER_DAY`
 (retries and failed requests included; the count is also stored in `coach_usage`, and

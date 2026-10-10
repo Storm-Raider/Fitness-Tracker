@@ -390,4 +390,10 @@ persistent pain (chat prompt rule); the existing `maximum-scale=1, user-scalable
          this text to improve its products, and human reviewers may read it. Google asks that free-tier users don't send sensitive personal information, so keep
          health details brief. Deleting a plan or a note removes it from Zenkai, not from Google.") and a README section stating the region and age rules and the
          paid-tier / COACH_CHAT_ENABLED=false alternatives. Revisit (enable billing) if any user is in the EEA, UK or Switzerland.
+- ER-21  BUILT IN PR4b: every exercise row gets a 44x44 overflow button through a page-wide hook (`PlanView.setRowAction`, so generation, drafts, saved
+         plans, edits and undo all render it); the button also shows on SAVED plans because "Why this exercise?" is not an edit (the menu omits Swap there).
+         Swap list per DS-9 against `/coach/plans/{id}/swap` (stale -> banner, error -> Retry, applying -> EDITED + "Swapped X for Y · Undo" toast); the list
+         closes on any plan change. Prompt chips (draft: "Why this split?", "Make the longest day shorter", "How should I progress week to week?"; saved: the two
+         questions) send at once. The feedback chip only appears when the proposed value differs from the current one and updates the Saved Plans card in place.
+         Swap UI is unavailable with the kill switch on (the panel and its script are not rendered), though the endpoint still works.
 
