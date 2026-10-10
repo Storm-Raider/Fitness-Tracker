@@ -377,4 +377,10 @@ persistent pain (chat prompt rule); the existing `maximum-scale=1, user-scalable
              Gemini errors (quota, auth, blocked, bad_request, not_configured). Notes also reach the generation prompt.
          (g) Eval: 12 chat scenarios run through `ask_coach` + the real patch logic; baseline 22/24 (chat 11/12), all 6 safety clean. The generation check for invented
              names tolerates <= 10% (the library has no "Standing Calf Raise"; the model keeps asking for it).
+- ER-19  BUILT IN THE SWAP PR (#51): (a) alternatives rank not-used-elsewhere, then name similarity (shared non-generic words, so a squat offers squats before a leg curl),
+         then the athlete's preferred equipment, staples, barbell-first; same primary muscle (category when none); up to 6. (b) Painful areas filter alternatives through a
+         regex over names stored beside the prose in `_PAIN_AVOID` (knee, shoulder, lower back, elbow, hip), fed by profile flags, user messages in the thread and notes
+         (a note needs a pain word to count). (c) Applying keeps sets/reps, CLEARS the note (it described the old lift), pushes an undo entry with message_id null,
+         bumps rev, writes no message, spends no model request, needs no ack, and works at the cap and with the kill switch. Any library exercise with a safe name may be
+         swapped in, not only a listed alternative (the list is UX, not a security boundary). (d) A day/idx that no longer exists is 409 `stale`, a saved plan 409 `saved`.
 

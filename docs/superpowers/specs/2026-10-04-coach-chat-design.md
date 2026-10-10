@@ -116,7 +116,7 @@ recorded as applied and never retried by `init_db`, hence the migration test bel
 ## API
 
 All under `/coach`, authenticated, user-scoped. The paths below are final for chat,
-undo, notes, ack and usage (PR #50); the swap endpoint arrives with PR3. Errors are
+undo, notes, ack and usage (PR #50) and swap (PR #51). Errors are
 `{detail, kind}`. Another user's plan is a 404 on `GET .../chat` and a 409 "replaced"
 on the writes (a missing plan and someone else's are indistinguishable by design).
 
@@ -125,7 +125,8 @@ on the writes (a missing plan and someone else's are indistinguishable by design
 | `GET /plans/{id}/chat` | `{plan, rev, status, can_edit, messages, notes, note_cap, feedback, enabled, at_cap, acked, max_message_chars, has_undo, undo_label}` (last 100 messages). Also how a saved plan opens read-only. |
 | `POST /plans/{id}/chat` | `{message, base_rev}` -> `{reply, plan, rev, changed_days, changes, propose_note, notes_full, feedback: {value, current} \| null, message_ids, has_undo, undo_label}`. `base_rev` is required for drafts and ignored for saved plans. |
 | `POST /plans/{id}/undo` | `{base_rev}` -> restored plan and new rev. |
-| `GET/POST /plans/{id}/swap` | Up to 6 ranked alternatives; apply one (`{base_rev, day, idx, exercise_id}`). |
+| `GET /plans/{id}/swap?day=&idx=[&base_rev=]` | Up to 6 ranked alternatives `{exercise_id, name, equipment, muscle, category}` for one exercise of a draft: same primary muscle, not already on that day, not used on another day first, most similar name first, preferred equipment, staples; anything a painful area (profile flag, said in the thread, or a note) rules out is left out. |
+| `POST /plans/{id}/swap` | `{base_rev, day, idx, exercise_id}` -> `{plan, rev, changed_days, changes, swapped: {day, idx, from, to}, has_undo, undo_label}`. Keeps sets and reps, clears the note, pushes an undo entry with no message id, writes no chat message, spends no model request (works at the cap and with the kill switch on, no privacy ack needed). Drafts only; 409 `saved` / `stale` / `replaced`, 422 `invalid` / `duplicate`. |
 | `GET /notes`, `POST /notes`, `DELETE /notes/{id}` | List; confirm a proposed note (`{text, source_plan_id?}`: trimmed to one line of <= 120 chars, duplicates quietly accepted as 200, 409 `notes_full` at 20, 503 with the kill switch); delete. |
 | `POST /chat/ack` | The athlete accepted the privacy note (stored per user; chat returns 403 `ack_required` until then). |
 | `POST /plans/{id}/confirm` | Existing; now `{base_rev, title}`: 409 on a stale rev, and the posted title is saved (today the title box is cosmetic server-side). |
@@ -277,8 +278,8 @@ A corrupt entry is 409 "Can't restore this edit", logged, row untouched.
 | W (#47) | `write_tx`, no-op commit, coach writers atomic | merged |
 | UI (#48) | `PlanView`/`PlanState`, `sheet.js`, `showActionToast`, `.pill`, `.seg-toggle` | merged |
 | PR1 (#49) | Generation prompt rewrite + live eval + baseline (11/12) | merged |
-| PR2 (#50) | Chat backend: migrations, `kind` errors, `chat_turn_json`, turn pipeline, undo, notes, daily cap, limiter, kill switch, `/coach/usage`, name allowlist, chat eval scenarios | open; eval gate met; **before deploy: you set `COACH_AI_MAX_PER_DAY` from the real quota** |
-| PR3 | Swap endpoint | |
+| PR2 (#50) | Chat backend: migrations, `kind` errors, `chat_turn_json`, turn pipeline, undo, notes, daily cap, limiter, kill switch, `/coach/usage`, name allowlist, chat eval scenarios | merged; eval gate met; **before deploy: you set `COACH_AI_MAX_PER_DAY` from the real quota** |
+| PR3 (#51) | Swap endpoint (list ranked alternatives, apply, undoable) | open |
 | PR4a | Chat UI core: panel, transcript, privacy card, Undo, notes, saved-plan read-only | **gates: real-iPhone check, final privacy copy** |
 | PR4b | Swap sheet, chips, summaries, feedback chip, Why-tap | cuttable |
 
