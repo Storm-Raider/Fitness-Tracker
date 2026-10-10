@@ -17,6 +17,24 @@ const browser = await chromium.launch();
 const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true });
 const page = await ctx.newPage();
 
+let failures = 0;
+const totals = {};
+async function audit(pg, path) {
+  await pg.goto(BASE + path, { waitUntil: 'networkidle' });
+  await pg.addScriptTag({ content: AXE });
+  const res = await pg.evaluate(async () => (await axe.run(document, {
+    runOnly: { type: 'tag', values: ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'] },
+  })).violations.map(v => ({ id: v.id, n: v.nodes.length })));
+  const nodes = res.reduce((a, v) => a + v.n, 0);
+  failures += nodes;
+  for (const v of res) totals[v.id] = (totals[v.id] || 0) + v.n;
+  console.log(`${nodes ? 'FAIL' : 'PASS'}  ${path}  ${res.map(v => `${v.id}×${v.n}`).join(', ')}`);
+}
+
+// Signed-out pages are standalone templates (they don't extend base.html).
+await audit(page, '/login');
+await audit(page, '/forgot-password');
+
 await page.goto(BASE + '/login');
 await page.fill('input[name=username]', 'e2eadmin');
 await page.fill('input[name=password]', 'e2e-admin-password-123');
@@ -47,19 +65,16 @@ await api('POST', '/routines', { name: 'A11y Routine', exercise_ids: [bench.id] 
 const PAGES = ['/', '/workouts', `/workouts/${live.id}`, `/workouts/${done.id}`, '/exercises',
   `/exercises/${bench.id}`, '/analytics', '/metrics', '/plan', '/routines/manage', '/cardio', '/settings'];
 
-let failures = 0;
-const totals = {};
-for (const path of PAGES) {
-  await page.goto(BASE + path, { waitUntil: 'networkidle' });
-  await page.addScriptTag({ content: AXE });
-  const res = await page.evaluate(async () => (await axe.run(document, {
-    runOnly: { type: 'tag', values: ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'] },
-  })).violations.map(v => ({ id: v.id, n: v.nodes.length, ex: v.nodes[0]?.target?.join(' ') })));
-  const nodes = res.reduce((a, v) => a + v.n, 0);
-  failures += nodes;
-  for (const v of res) totals[v.id] = (totals[v.id] || 0) + v.n;
-  console.log(`${nodes ? 'FAIL' : 'PASS'}  ${path}  ${res.map(v => `${v.id}×${v.n}`).join(', ')}`);
-}
+for (const path of PAGES) await audit(page, path);
+
+// The invite page, seen by someone who isn't signed in.
+const invite = await page.evaluate(async () => {
+  const r = await fetch('/invite', { method: 'POST', body: new URLSearchParams({ max_uses: '1' }),
+                                     headers: { Accept: 'application/json' } });
+  return (await r.json()).invite_url;
+});
+const guest = await (await browser.newContext({ viewport: { width: 390, height: 844 } })).newPage();
+await audit(guest, new URL(invite).pathname);
 
 // Touch targets on the logging screen (DESIGN.md "Touch Targets").
 await page.goto(`${BASE}/workouts/${live.id}`, { waitUntil: 'networkidle' });
