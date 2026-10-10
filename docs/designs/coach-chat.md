@@ -363,4 +363,18 @@ persistent pain (chat prompt rule); the existing `maximum-scale=1, user-scalable
          (d) `PlanView` tints and labels every row of each day listed in `changedDays` (one option drives the EDITED label and the tint); a per-row
              tint (as in the desktop mockup) needs per-change data from the server and is a PR4a decision.
          (e) `PlanState.busy` already disables Save and Regenerate during generate and save; PR4a adds the chat's own mutators to the same flag.
+- ER-18  BUILT IN THE CHAT BACKEND PR (#50), deviations and additions found by building and by the live eval:
+         (a) The chat does NOT run `repair_plan`: it swaps over-repeated exercises on OTHER days and overwrites their notes, which would silently undo an explicit
+             request. Only within-day duplicates are removed; the diff reports whatever differs (supersedes the apply step in CM-G/D5 wording).
+         (b) The allowed-exercise list always includes exercises the athlete names (this and earlier user messages) and the plan's own, bypassing the per-muscle
+             cap and the equipment filter (`exercise_catalog(include=)`): live eval 9/12 -> the model substituted Bulgarian Split Squat for the requested Goblet Squat.
+         (c) Pain the athlete reports in the conversation (not only profile flags) is restated in the task line with the area's off-limits movements.
+         (d) Final paths: GET/POST /coach/plans/{id}/chat, POST /coach/plans/{id}/undo, GET/POST/DELETE /coach/notes, POST /coach/chat/ack, GET /coach/usage.
+             The model's `propose_note` / `feedback` use "" / "none" for nothing. Errors are {detail, kind}; WriteConflict carries a kind (stale / replaced /
+             exercise_deleted). A missing or foreign plan is 404 on GET and 409 `replaced` on writes.
+         (e) `confirm` takes {base_rev, title} (server half of ER-12): stale rev 409, the typed title is saved, a deleted exercise is 409 `exercise_deleted`.
+         (f) Generation passes `on_request`, stops at the daily cap, keeps a usable plan if the cap hits during its refinement retry, and no longer retries permanent
+             Gemini errors (quota, auth, blocked, bad_request, not_configured). Notes also reach the generation prompt.
+         (g) Eval: 12 chat scenarios run through `ask_coach` + the real patch logic; baseline 22/24 (chat 11/12), all 6 safety clean. The generation check for invented
+             names tolerates <= 10% (the library has no "Standing Calf Raise"; the model keeps asking for it).
 

@@ -115,17 +115,19 @@ recorded as applied and never retried by `init_db`, hence the migration test bel
 
 ## API
 
-All under `/coach`, authenticated, user-scoped (other users' plans 404). Paths for
-the chat, undo and swap endpoints are proposals that PR2 and PR3 finalise; the
-behaviour is the contract.
+All under `/coach`, authenticated, user-scoped. The paths below are final for chat,
+undo, notes, ack and usage (PR #50); the swap endpoint arrives with PR3. Errors are
+`{detail, kind}`. Another user's plan is a 404 on `GET .../chat` and a 409 "replaced"
+on the writes (a missing plan and someone else's are indistinguishable by design).
 
 | Endpoint | Purpose |
 |---|---|
-| `GET /plans/{id}/chat` | `{plan, rev, can_edit, messages, notes}` (last 100 messages). Also how a saved plan opens read-only. |
-| `POST /plans/{id}/chat` | `{message, base_rev}` -> `{reply, plan, rev, changed_days, changes, propose_note, feedback}`. |
+| `GET /plans/{id}/chat` | `{plan, rev, status, can_edit, messages, notes, note_cap, feedback, enabled, at_cap, acked, max_message_chars, has_undo, undo_label}` (last 100 messages). Also how a saved plan opens read-only. |
+| `POST /plans/{id}/chat` | `{message, base_rev}` -> `{reply, plan, rev, changed_days, changes, propose_note, notes_full, feedback: {value, current} \| null, message_ids, has_undo, undo_label}`. `base_rev` is required for drafts and ignored for saved plans. |
 | `POST /plans/{id}/undo` | `{base_rev}` -> restored plan and new rev. |
 | `GET/POST /plans/{id}/swap` | Up to 6 ranked alternatives; apply one (`{base_rev, day, idx, exercise_id}`). |
-| `GET /notes`, `POST /notes`, `DELETE /notes/{id}` | List; confirm a proposed note; delete. |
+| `GET /notes`, `POST /notes`, `DELETE /notes/{id}` | List; confirm a proposed note (`{text, source_plan_id?}`: trimmed to one line of <= 120 chars, duplicates quietly accepted as 200, 409 `notes_full` at 20, 503 with the kill switch); delete. |
+| `POST /chat/ack` | The athlete accepted the privacy note (stored per user; chat returns 403 `ack_required` until then). |
 | `POST /plans/{id}/confirm` | Existing; now `{base_rev, title}`: 409 on a stale rev, and the posted title is saved (today the title box is cosmetic server-side). |
 | `GET /usage` | Admin only: today's count against the cap, per-kind counters since boot. |
 
@@ -147,10 +149,15 @@ working on your last message").
    exercise catalog, athlete context (the same renderer generation uses, via
    `coach_plan.athlete_context`), durable notes as quoted data, then the **current
    plan JSON** and the history (last 20 messages **and** <= 6,000 characters; a
-   message whose edit was undone is suffixed `[the athlete undid this edit]`).
+   message whose edit was undone is suffixed `[the athlete undid this edit]`). The
+   allowed list always includes the exercises the athlete names (this message or
+   earlier ones) and the plan's own: the per-muscle cap would otherwise leave real
+   library exercises off it and the model, told to use only listed names, would
+   quietly substitute others (found by the live eval).
 3. **Final user turn:** the new message, then a short task line restating this
-   week's hard constraints (flagged pain and the area's off-limits movements, the
-   fixed day count). A small model honours the end of the message better than the
+   week's hard constraints (pain, from the profile's flags or from what the athlete
+   said in this message or earlier in the thread, with the area's off-limits
+   movements; the fixed day count). A small model honours the end of the message better than the
    middle: the generation eval showed a flagged knee ignored 3 of 3 times until it
    was restated there.
 4. **One model request** through `chat_turn_json`. A turn issues at most 2 requests
@@ -164,9 +171,11 @@ working on your last message").
 6. **Apply (server, deterministic):** ignore `days` on a saved plan; reject an index
    outside `1..len`; resolve names with `normalise_plan` (tag strip, unknown names
    dropped); a day left with no valid exercise is not applied and the reply says
-   which name was not found; merge into a copy; run `repair_plan` and
-   `plan_quality_issues`; **diff old vs new to produce `changed_days` and
-   `changes`**, never trusting the model's own account.
+   which name was not found; merge into a copy; remove within-day duplicates
+   (generation's weekly-repeat repair is deliberately NOT run here: it would silently
+   swap exercises on days the athlete never mentioned and overwrite their notes);
+   **diff old vs new to produce `changed_days` and `changes`**, never trusting the
+   model's own account.
 7. **Final write, one `write_tx`:** compare-and-set on `rev` first (rowcount 0 ->
    commit, 409, nothing written), then both messages, the new plan, the undo entry
    and `rev + 1`. The user message is persisted only together with the reply, so a
@@ -251,9 +260,9 @@ A corrupt entry is 409 "Can't restore this edit", logged, row untouched.
   `{0, 10, 38, 48, 49, 51}`; no error at any new index; new tables, columns and
   indexes exist on a fresh DB **and** on one built from the pre-chat schema.
 - **Live eval (manual, never CI):** `scripts/coach_eval.py`. Generation scenarios and
-  the recorded baseline exist (PR #49); PR2 adds the chat scenarios (swap, shorten a
-  day, pain report, question only, fewer days, propose a note, message and
-  hostile-name injection, undo awareness, very long message, blocked request).
+  chat turns (12 scenarios each; PR #49 and #50). Recorded baseline on
+  `gemini-3.5-flash-lite`: 22/24, all 6 safety scenarios clean; known weak spots:
+  a fatigued muscle on Day 1 and a noise-prone "make it 2 days" decline.
   Gate: >= 80% overall and no safety regression against the baseline.
 - **Browser (`/qa`) and a real iPhone:** DOM behaviour, the sheet and keyboard. The
   iPhone check gates PR4a, because headless Chrome cannot reproduce iOS keyboard
@@ -267,8 +276,8 @@ A corrupt entry is 409 "Can't restore this edit", logged, row untouched.
 | R (#46) | Plan logic moved to `app/utils/coach_plan.py` | merged |
 | W (#47) | `write_tx`, no-op commit, coach writers atomic | merged |
 | UI (#48) | `PlanView`/`PlanState`, `sheet.js`, `showActionToast`, `.pill`, `.seg-toggle` | merged |
-| PR1 (#49) | Generation prompt rewrite + live eval + baseline (11/12) | open |
-| PR2 | Chat backend: migrations, `kind` errors, `chat_turn_json`, turn pipeline, undo, notes, daily cap, limiter, kill switch, `/coach/usage`, name allowlist, chat eval scenarios | **gate: you check the real daily quota** |
+| PR1 (#49) | Generation prompt rewrite + live eval + baseline (11/12) | merged |
+| PR2 (#50) | Chat backend: migrations, `kind` errors, `chat_turn_json`, turn pipeline, undo, notes, daily cap, limiter, kill switch, `/coach/usage`, name allowlist, chat eval scenarios | open; eval gate met; **before deploy: you set `COACH_AI_MAX_PER_DAY` from the real quota** |
 | PR3 | Swap endpoint | |
 | PR4a | Chat UI core: panel, transcript, privacy card, Undo, notes, saved-plan read-only | **gates: real-iPhone check, final privacy copy** |
 | PR4b | Swap sheet, chips, summaries, feedback chip, Why-tap | cuttable |
