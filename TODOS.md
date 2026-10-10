@@ -428,3 +428,106 @@ Request to expand the achievements list beyond the current 24. Needs product dec
 **Depends on:** Approach A shipped and in real use; a second concrete use case that's naturally quantity-based, not tick-based (per that design doc's Open Questions — the first custom-challenge use case, a habit/practice streak, is fully tick-based and doesn't need this).
 
 **Effort:** M/L — bigger diff than Approach A, touches `attempt_rules()`/`rule_done()`/`day_complete()`/`evaluate_attempt()` plus the format migration above.
+
+---
+
+## TODO-CC-2: Coach progression suggestions (deterministic, lazy)
+
+**What:** After chat ships, add progression suggestions to the Plan page: computed lazily when the page opens (a separate endpoint called after render), with NO hook in the workout-save path and NO LLM call. One-tap Apply bumps the prescribed load; Dismiss is remembered.
+
+**Why:** It is the most coach-like behaviour ("you owned all three sets, want 62.5 kg?") and costs zero API quota. It was fully designed in the 2026-10-04 Coach Chat CEO review (decisions 3 and 24) and then moved out of that effort (CM5) because lean v1 removed its apply path on saved plans and it shares no code with chat.
+
+**Design (so it can be picked up cold):**
+- Rule: double progression. Fire when, in the athlete's last 2 sessions containing that plan exercise (match by `exercise_id`), every working set reached the top of the prescribed rep range at RPE <= 8 (or no RPE logged).
+- Bump: barbell +2.5 kg, dumbbell +1 kg per hand, machine/cable +2.5 kg, bodyweight and timed holds suggest +reps or +5 s instead; shown in the athlete's unit.
+- Cooldown: not again for 7 days after Apply or 14 after Dismiss; never if any set in the last 2 sessions had RPE 10 or a pain note.
+- Storage: `coach_suggestions(plan_id, exercise_id, until)` (new migration; migrations are append-only).
+- Failure isolation: malformed `plan_json` or missing logs must yield no suggestions and never break the Plan page.
+
+**Pros:** retention, zero API cost, deterministic and unit-testable. **Cons:** constants need tuning with real use; unit conversions and timed exercises are easy to get wrong; needs an apply path on SAVED plans (see TODO-CC-3).
+
+**Context:** you log workouts against saved plans, which are read-only in chat under lean v1. Routines store only `(routine_id, exercise_id, order_idx)`, so changing sets/reps/loads never touches routines; the numbers live only in `coach_plans.plan_json`.
+
+**Effort:** L human / ~2.5 CC hrs. **Priority:** P2. **Depends on:** Coach Chat v1 shipped; TODO-CC-3 (or an equivalent apply path).
+
+---
+
+## TODO-CC-3: Let the coach edit SAVED plans (numeric in place, structural forks)
+
+**What:** Extend chat so a saved plan can be changed: edits that change only sets/reps/notes apply in place; edits that add, remove or swap exercises or days fork into a new draft. The server classifies from the diff.
+
+**Why:** Lean v1 (2026-10-04 Coach Chat CEO review, CM3) makes chat draft-only, so changing a saved plan means regenerating it. The fuller design was already worked out and verified against the code before it was cut, and TODO-CC-2 needs it.
+
+**Design:**
+- `coach_plans.rev INTEGER NOT NULL DEFAULT 0`, bumped on every write to `plan_json` or `status`; chat, undo and swap send `base_rev`; re-checked inside the write transaction.
+- `coach_messages.role` extended with `event` for non-LLM edits (swap, undo marker); per-message `plan_before` snapshots (keep last 20, prune on write) replace the lean last-3 `undo_json`.
+- Fork: new draft from a saved plan (strip `routine_ids`, copy recent history); it replaces the user's single draft, so the UI must confirm first.
+- NOTE: the `role` CHECK in `coach_messages` is part of an append-only migration; adding `event` later needs a table rebuild, so decide this before PR2 if there is any chance of doing it.
+
+**Pros:** edit the plan you actually train from. **Cons:** reintroduces the fork/classifier/concurrency machinery lean v1 removed; the riskiest interaction is fork + undo.
+
+**Effort:** L human / ~2 CC hrs. **Priority:** P3. **Depends on:** Coach Chat v1 shipped and real usage showing demand.
+
+---
+
+## TODO-CC-4: Adopt `write_tx` at the other BEGIN IMMEDIATE sites
+
+**What:** Once the shared `write_tx(conn)` helper exists in `app/db.py` (shipped for the coach routes in Coach Chat PR2), move the four older hand-rolled blocks onto it: `app/routes/workouts.py:323` (PR detection), `app/routes/import_.py:84` (bulk import), `app/routes/auth.py:485` (invite accept), `app/routes/routines.py:156`.
+
+**Why:** Each site re-implements lock + `BEGIN IMMEDIATE` + COMMIT/ROLLBACK. One helper removes the duplication and the chance of forgetting the lock (TODO-EL-5 was exactly that bug).
+
+**Pros:** DRY, one place to fix transaction bugs. **Cons:** touches working, tested code for no new behaviour.
+
+**Effort:** S human / ~15 CC min. **Priority:** P3. **Depends on:** Coach Chat PR2 merged.
+
+---
+
+## TODO-CC-5: Fix stale training profile for plan generation (dead `invalidate_profile` hook)
+
+**What:** `invalidate_profile(uid)` in `app/utils/training_profile.py:28` has no callers, so plan GENERATION reads a profile that can be up to 30 minutes stale (`_PROFILE_TTL = 1800`). Pick one fix: (a) bypass the cache in generation too, (b) shorten the TTL, or (c) call `invalidate_profile` from the workout, set and journal save routes.
+
+**Why:** Found while reviewing Coach Chat freshness (2026-10-04 eng review). Someone logs a workout and immediately generates a plan; the coach ignores that workout. Chat avoids this by building a fresh profile each turn (decision D14); generation does not.
+
+**Context:** Measured on the real DB (39 workouts, 442 sets): a fresh `build_profile` takes about 2 ms and `_exercise_catalog` 0.2 ms, so (a) or (b) is nearly free; (c) touches several unrelated routes and silently reintroduces staleness if one path is missed.
+
+**Pros:** closes a freshness bug. **Cons:** (c) spreads edits across workout/journal routes; (a)/(b) change shipped generation behaviour.
+
+**Effort:** S human / ~15 CC min. **Priority:** P3. **Depends on:** nothing.
+
+---
+
+## TODO-CC-6: Remove the pinch-zoom lock from the viewport meta (accessibility debt)
+
+**What:** `app/templates/base.html` line 5 sets `maximum-scale=1.0, user-scalable=no`, which stops people pinch-zooming any page in the app. Remove both after confirming every input is at least 16px (iOS zooms the page on focus into smaller inputs).
+
+**Why:** Low-vision users cannot enlarge text (WCAG 1.4.4 resize failure). Found in the 2026-10-04 Coach Chat design review; the chat adds more small mono text, so it gets slightly worse. Pre-existing and outside that feature.
+
+**Context:** The comment near `base.html:742` ("belt-and-suspenders" 16px inputs) suggests iOS input zoom is partly handled; audit all inputs first.
+
+**Pros:** removes an app-wide accessibility barrier. **Cons:** iOS focus-zoom risk until inputs are audited.
+
+**Effort:** S human / ~15 CC min. **Priority:** P2. **Depends on:** nothing.
+
+---
+
+## TODO-CC-7: Drag-to-dismiss for the mobile chat sheet
+
+**What:** Let people drag the Coach chat sheet down by its grab handle to dismiss it, in addition to Close, Escape and tap-outside.
+
+**Why:** It is the expected phone gesture; v1 ships without it on purpose (design decision DS-7 in `docs/designs/coach-chat.md`) to avoid a gesture system, but the handle in `mobile-sheet-v2.png` invites it. If this is never built, remove the handle visual.
+
+**Pros:** native feel. **Cons:** touch-event handling, scroll-versus-drag conflicts with the transcript, an accessible alternative, and tests; easy to ship janky.
+
+**Effort:** M human / ~30 CC min. **Priority:** P3. **Depends on:** Coach Chat PR4a shipped.
+
+---
+
+## TODO-CC-8: Migrate `showConfirm` onto the shared `sheet.js` dialog primitive
+
+**What:** After `sheet.js` ships (Coach Chat UI-primitives PR), move `app/templates/base.html`'s `showConfirm` (the delete-confirm bottom sheet, lines ~1530-1578) onto it.
+
+**Why:** Today's confirm sheet has no `role="dialog"`, `aria-modal`, focus trap or `inert`, so keyboard and screen-reader users can tab out of a delete confirmation into the dimmed page; it also leaks its Escape listener. The shared primitive fixes both and removes the duplicated overlay/slide/Escape code. It was deliberately left untouched in the chat PR to avoid regressions in every delete flow.
+
+**Pros:** one accessible sheet implementation. **Cons:** touches every delete confirmation (`htmx:confirm` routes through it) and the app has no automated tests for them, so it needs a careful `/qa` pass.
+
+**Effort:** S human / ~20 CC min. **Priority:** P3. **Depends on:** `sheet.js` shipped.
