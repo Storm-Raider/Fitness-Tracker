@@ -383,4 +383,11 @@ persistent pain (chat prompt rule); the existing `maximum-scale=1, user-scalable
          (a note needs a pain word to count). (c) Applying keeps sets/reps, CLEARS the note (it described the old lift), pushes an undo entry with message_id null,
          bumps rev, writes no message, spends no model request, needs no ack, and works at the cap and with the kill switch. Any library exercise with a safe name may be
          swapped in, not only a listed alternative (the list is UX, not a security boundary). (d) A day/idx that no longer exists is 409 `stale`, a saved plan 409 `saved`.
+- ER-20  PRIVACY GATE CLOSED (2026-10-09, user decision A): Google's Gemini API terms were read for the unpaid tier: content is used to improve Google's products;
+         "human reviewers may read, annotate, and process your API input and output" (disconnected from the account first); "Do not submit sensitive, confidential,
+         or personal information to the Unpaid Services"; the unpaid tier may not be offered to users in the EEA, Switzerland or the UK; users must be 18+. The
+         approved mockup copy omitted the human review. Decision: stay on the free tier with an honest first-use card ("...On Google's free tier, Google may use
+         this text to improve its products, and human reviewers may read it. Google asks that free-tier users don't send sensitive personal information, so keep
+         health details brief. Deleting a plan or a note removes it from Zenkai, not from Google.") and a README section stating the region and age rules and the
+         paid-tier / COACH_CHAT_ENABLED=false alternatives. Revisit (enable billing) if any user is in the EEA, UK or Switzerland.
 
