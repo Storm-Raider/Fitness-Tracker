@@ -480,6 +480,8 @@ Request to expand the achievements list beyond the current 24. Needs product dec
 
 **Effort:** S human / ~15 CC min. **Priority:** P3. **Depends on:** Coach Chat PR2 merged.
 
+**SHIPPED 2026-10-10** — all four sites use `write_tx`, as part of the write-isolation fix (every write outside `write_tx` now takes `write_lock`). `tests/test_write_isolation.py` fails if a hand-rolled `BEGIN` or `write_lock` appears outside `app/db.py`.
+
 ---
 
 ## TODO-CC-5: Fix stale training profile for plan generation (dead `invalidate_profile` hook)

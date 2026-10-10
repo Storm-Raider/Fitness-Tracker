@@ -8,8 +8,7 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request,
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
-import app.db
-from app.db import get_db
+from app.db import get_db, write_tx
 from app.routes.auth import get_current_user
 from app.utils import trash
 from app.utils.db_utils import require_owns
@@ -318,38 +317,29 @@ async def add_set(
         if not await cur.fetchone():
             raise HTTPException(status_code=404, detail="Exercise not found")
 
-    # PR detection + INSERT wrapped in BEGIN IMMEDIATE (prevents async interleaving race)
-    # and in write_lock (prevents two requests both reaching BEGIN IMMEDIATE
-    # on the shared connection before either commits).
-    async with app.db.write_lock:
-        async with conn.execute("BEGIN IMMEDIATE"):
-            pass
-        try:
-            async with conn.execute(
-                "SELECT MAX(weight_kg) AS max_kg FROM sets WHERE exercise_id = ? AND user_id = ?",
-                (body.exercise_id, uid),
-            ) as cur:
-                prior_row = await cur.fetchone()
-            prior_max = prior_row["max_kg"] if prior_row and prior_row["max_kg"] else None
+    # PR detection + INSERT in one transaction, so two sets logged at once
+    # can't both read the same prior max.
+    async with write_tx(conn):
+        async with conn.execute(
+            "SELECT MAX(weight_kg) AS max_kg FROM sets WHERE exercise_id = ? AND user_id = ?",
+            (body.exercise_id, uid),
+        ) as cur:
+            prior_row = await cur.fetchone()
+        prior_max = prior_row["max_kg"] if prior_row and prior_row["max_kg"] else None
 
-            # A timed hold stores reps=0 so it's excluded from the kg-volume sum
-            # (weight × reps); its progression metric is duration, not volume.
-            is_time = body.duration_seconds is not None
-            reps_to_store = 0 if is_time else body.reps
+        # A timed hold stores reps=0 so it's excluded from the kg-volume sum
+        # (weight × reps); its progression metric is duration, not volume.
+        is_time = body.duration_seconds is not None
+        reps_to_store = 0 if is_time else body.reps
 
-            async with conn.execute(
-                "INSERT INTO sets(workout_id, exercise_id, reps, weight_kg, added_weight_kg, "
-                "duration_seconds, notes, rpe, user_id) "
-                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                (workout_id, body.exercise_id, reps_to_store, body.weight_kg, body.added_weight_kg,
-                 body.duration_seconds, body.notes, body.rpe, uid),
-            ) as cur:
-                set_id = cur.lastrowid
-
-            await conn.execute("COMMIT")
-        except Exception:
-            await conn.execute("ROLLBACK")
-            raise
+        async with conn.execute(
+            "INSERT INTO sets(workout_id, exercise_id, reps, weight_kg, added_weight_kg, "
+            "duration_seconds, notes, rpe, user_id) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (workout_id, body.exercise_id, reps_to_store, body.weight_kg, body.added_weight_kg,
+             body.duration_seconds, body.notes, body.rpe, uid),
+        ) as cur:
+            set_id = cur.lastrowid
 
     # No weight-PR for timed holds — their progression is duration, not load.
     is_pr = (not is_time) and (prior_max is None or body.weight_kg > prior_max)

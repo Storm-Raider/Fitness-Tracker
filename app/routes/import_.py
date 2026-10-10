@@ -7,8 +7,7 @@ from datetime import datetime
 import aiosqlite
 from fastapi import APIRouter, Depends, HTTPException, UploadFile
 
-import app.db
-from app.db import get_db
+from app.db import get_db, write_tx
 from app.routes.auth import get_current_user
 from app.utils.coach_plan import invalidate_exercise_caches
 from app.utils.csv_utils import get_or_create_exercise
@@ -84,9 +83,8 @@ async def import_csv(
     imported = 0
     skipped = 0
 
-    async with app.db.write_lock:
-        await conn.execute("BEGIN IMMEDIATE")
-        try:
+    try:
+        async with write_tx(conn):
             # Snapshot how many sets already exist for this user, grouped by
             # (workout date, exercise, weight, reps). This is a *multiset* count
             # (not a plain existence check) so re-importing the same file skips
@@ -186,15 +184,11 @@ async def import_csv(
                     (current_workout_id, exercise_id, reps, weight, set_notes, uid),
                 )
                 imported += 1
-
-            await conn.execute("COMMIT")
-            invalidate_exercise_caches()   # the import may have created exercises the coach hasn't seen
-        except HTTPException:
-            await conn.execute("ROLLBACK")
-            raise
-        except Exception as exc:
-            await conn.execute("ROLLBACK")
-            logger.exception("CSV import failed: %s", exc)
-            raise HTTPException(status_code=500, detail="Import failed — transaction rolled back")
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.exception("CSV import failed: %s", exc)
+        raise HTTPException(status_code=500, detail="Import failed — transaction rolled back")
+    invalidate_exercise_caches()   # the import may have created exercises the coach hasn't seen
 
     return {"imported": imported, "skipped": skipped}
