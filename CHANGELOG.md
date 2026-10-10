@@ -5,7 +5,7 @@ All notable changes to Zenkai are documented here.
 ## [Unreleased]
 
 ### Accessibility
-- **Zero WCAG 2.1 AA violations on the 12 main pages, down from 76** (axe-core; `scripts/e2e/a11y.mjs` re-runs the check). Muted text `#5a6a82` → `#72849e` (3.6:1 → 5.2:1; DESIGN.md had claimed 5.4:1), and blue buttons, the selected RPE chip and the Plan mode toggle use near-black text (white on that blue was 2.8:1). Pinch-zoom is no longer blocked (TODO-CC-6); every field was already 16px, which is what stops iOS focus zoom.
+- **Zero WCAG 2.1 AA violations on the 12 main pages, down from 76** (axe-core; `scripts/e2e/a11y.mjs` re-runs the check). Muted text `#5a6a82` → `#72849e` (3.6:1 → 5.2:1; DESIGN.md had claimed 5.4:1), and blue buttons, the selected RPE chip and the Plan mode toggle use near-black text (white on that blue was 2.8:1). Pinch-zoom is no longer blocked (TODO-CC-6), including on the sign-in, forgot-password, reset and invite pages, which carry their own copy of the styles; every field was already 16px, which is what stops iOS focus zoom.
 - **Screen readers.** Every icon-only button names its action ("Delete set", "Edit set", "Decrease weight", "Stop rest timer"), inputs are tied to their labels, RPE chips report `aria-pressed`, PR badges read "Personal record", errors are announced, and a logged set is announced ("Set logged: Bench Press, 60 kg × 5. Personal record!") along with every undo toast, through one persistent live region (`window.announce`).
 - **Touch targets** on the logging screen meet DESIGN.md: Finish 56px (was 32), set edit/delete 44×44 (was 24; icons unchanged), the header delete and kg toggle 44px.
 
