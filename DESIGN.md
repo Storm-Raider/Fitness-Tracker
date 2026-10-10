@@ -332,8 +332,13 @@ onClose})` returns `{close()}`.
   ancestor chain is `inert`; focus moves to `initialFocus` synchronously
   (iOS raises the keyboard only for a `focus()` inside the tap), is trapped
   with Tab, and returns on close.
-- Dismiss with Escape, a tap on the dimmed page, or a 44px Close button the
-  caller provides. No drag gesture in v1.
+- Dismiss with Escape, a tap on the dimmed page, a 44px Close button the
+  caller provides, or by dragging the grab handle down: past a quarter of the
+  sheet's height, or a flick (release speed over the last 100 ms ≥ 0.4 px/ms,
+  at least 20 px). Shorter drags snap back. The handle (`.sheet-handle`) is
+  20px in the layout with a 44×160px touch area over the header's middle (clear
+  of Close), `aria-hidden` because Close and Escape are the accessible paths,
+  and only it starts a drag, so the transcript scrolls normally.
 - The page is scroll-locked with `position: fixed` (not `overflow: hidden`,
   which does not lock iOS) and the scroll position is restored.
 - Reduced motion: no slide. Top corners 8px.

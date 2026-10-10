@@ -529,6 +529,8 @@ Request to expand the achievements list beyond the current 24. Needs product dec
 
 **Effort:** M human / ~30 CC min. **Priority:** P3. **Depends on:** Coach Chat PR4a shipped.
 
+**SHIPPED 2026-10-10** — `sheet.js` adds an `aria-hidden` grab handle (20px, 44×160 touch area); drag past 25% of the height or flick (≥ 0.4 px/ms over the last 100 ms) dismisses with reason `"drag"`, otherwise it snaps back; only the handle starts a drag. `scripts/e2e/sheet_drag.test.mjs` (9 checks, stable over 10 runs). Still worth a check on a real iPhone.
+
 ---
 
 ## TODO-CC-8: Migrate `showConfirm` onto the shared `sheet.js` dialog primitive

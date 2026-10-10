@@ -1056,6 +1056,18 @@
       transition: transform 0.22s ease;
     }
     .is-sheet.show { transform: translateY(0); }
+    /* Grab handle (sheet.js): 20px in the layout, a 44px x 160px touch area
+       over the middle of the sheet's header, clear of its Close button. */
+    .sheet-handle {
+      position: relative; flex-shrink: 0; height: 20px;
+      display: flex; align-items: center; justify-content: center;
+      touch-action: none; cursor: grab;
+    }
+    .sheet-handle::after {
+      content: ''; position: absolute; top: 0; left: 50%;
+      width: 160px; height: 44px; transform: translateX(-50%);
+    }
+    .sheet-handle-bar { width: 36px; height: 4px; border-radius: 2px; background: var(--border-mid); }
     @media (prefers-reduced-motion: reduce) {
       .sheet-dim, .is-sheet { transition: none; }
     }

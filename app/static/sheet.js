@@ -17,7 +17,11 @@
  *  - the page is scroll-locked with position:fixed (overflow:hidden does not
  *    lock iOS) and the scroll position is restored on close;
  *  - visualViewport resize/scroll keep the sheet on the visible area; the
- *    listeners are removed on close. No drag gesture in v1.
+ *    listeners are removed on close;
+ *  - a grab handle (.sheet-handle, aria-hidden: Close and Escape remain) is
+ *    added at the top: dragging it down past a quarter of the sheet's height,
+ *    or flicking it, dismisses (reason "drag"); a shorter drag snaps back.
+ *    Only the handle starts a drag, so the sheet's content scrolls normally.
  *
  * Overlays that open on top (the confirm sheet, toasts) stay usable: inert is
  * applied only to what exists at open time, never to .undo-toast, the
@@ -32,6 +36,8 @@
   var KEEP = '.undo-toast, #ach-toast-rack, [data-sheet-keep]';
   var FOCUSABLE = 'a[href], button, input, select, textarea, [tabindex]';
   var KEYBOARD_PX = 150; // innerHeight - visualViewport.height above this = keyboard open
+  var DRAG_CLOSE_FRACTION = 0.25; // drag past this share of the sheet's height to dismiss
+  var FLICK_PX_PER_MS = 0.4;      // or release this fast (and at least 20px down); vaul uses 0.4
 
   var active = null;
   var finishPending = null; // completes a close animation that is still running
@@ -104,6 +110,14 @@
     dim.className = 'sheet-dim';
     document.body.appendChild(dim);
 
+    var grab = document.createElement('div');
+    grab.className = 'sheet-handle';
+    grab.setAttribute('aria-hidden', 'true');
+    var bar = document.createElement('span');
+    bar.className = 'sheet-handle-bar';
+    grab.appendChild(bar);
+    root.insertBefore(grab, root.firstChild);
+
     root.setAttribute('role', 'dialog');
     root.setAttribute('aria-modal', 'true');
     if (opts.label) root.setAttribute('aria-label', opts.label);
@@ -154,6 +168,53 @@
     document.addEventListener('keydown', onKey, true);
     dim.addEventListener('click', function () { close('dim'); });
 
+    // Drag to dismiss, from the handle only.
+    var drag = null;
+    function onGrabDown(e) {
+      if (e.button > 0 || confirmOpen()) return;
+      drag = { startY: e.clientY, dy: 0, samples: [{ y: e.clientY, t: e.timeStamp }] };
+      root.style.transition = 'none';
+      if (grab.setPointerCapture) grab.setPointerCapture(e.pointerId);
+      e.preventDefault();
+    }
+    function onGrabMove(e) {
+      if (!drag) return;
+      drag.samples.push({ y: e.clientY, t: e.timeStamp });
+      if (drag.samples.length > 20) drag.samples.shift();
+      drag.dy = Math.max(0, e.clientY - drag.startY);
+      root.style.transform = 'translateY(' + drag.dy + 'px)';
+      dim.style.opacity = String(Math.max(0, 1 - drag.dy / root.offsetHeight));
+    }
+    // Release speed over the last 100 ms: one move-to-move step is too noisy
+    // (browsers batch pointer moves per frame).
+    function releaseSpeed(samples) {
+      var last = samples[samples.length - 1];
+      for (var i = 0; i < samples.length; i++) {
+        if (last.t - samples[i].t <= 100) {
+          var dt = last.t - samples[i].t;
+          return dt > 0 ? (last.y - samples[i].y) / dt : 0;
+        }
+      }
+      return 0;
+    }
+    function onGrabUp() {
+      if (!drag) return;
+      var d = drag;
+      d.v = releaseSpeed(d.samples);
+      drag = null;
+      root.style.transition = '';
+      dim.style.opacity = '';
+      if (d.dy > root.offsetHeight * DRAG_CLOSE_FRACTION || (d.v > FLICK_PX_PER_MS && d.dy > 20)) {
+        close('drag');
+      } else {
+        root.style.transform = '';   // snap back
+      }
+    }
+    grab.addEventListener('pointerdown', onGrabDown);
+    grab.addEventListener('pointermove', onGrabMove);
+    grab.addEventListener('pointerup', onGrabUp);
+    grab.addEventListener('pointercancel', onGrabUp);
+
     function restoreAttr(name, value) {
       if (value == null) root.removeAttribute(name); else root.setAttribute(name, value);
     }
@@ -180,6 +241,9 @@
       restoreAttr('aria-modal', prevModal);
       restoreAttr('aria-label', prevLabel);
 
+      drag = null;
+      root.style.transition = '';
+      root.style.transform = '';   // a drag's offset: let the slide-out continue from it
       root.classList.remove('show');
       dim.classList.remove('show');
       var finished = false;
@@ -188,6 +252,7 @@
         finished = true;
         finishPending = null;
         root.classList.remove('is-sheet');
+        grab.remove();
         root.style.top = prevTop;
         root.style.height = prevHeight;
         dim.remove();
