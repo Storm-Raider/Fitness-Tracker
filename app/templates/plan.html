@@ -528,7 +528,7 @@
         <i data-lucide="clipboard-list" style="width:34px;height:34px;opacity:0.5;"></i>
         <div style="margin-top:0.75rem;font-size:0.9rem;">Pick a goal and days, then generate.<br>Your coach reads your history and writes a plan.</div>
       </div>
-      <div id="ai-result-error" class="flash flash-error" style="display:none;"></div>
+      <div id="ai-result-error" class="flash flash-error"{% if not failed_generation %} style="display:none;"{% endif %}>{% if failed_generation %}Your last plan request failed: {{ failed_generation }}{% endif %}</div>
       <div id="ai-plan-output"></div>
       {# Static on purpose: PlanView redraws only the header and days, so the typed
          title, the save spinner and the message below survive every re-render. #}

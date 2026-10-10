@@ -44,10 +44,10 @@ def _reset_coach_state():
     """Coach module state is process-global — clear it around every test so a
     job left over from one test can't leak into the next."""
     coach._JOBS.clear(); coach._QUEUE.clear()
-    coach._ACTIVE_BY_USER.clear()
+    coach._ACTIVE_BY_USER.clear(); coach._LAST_BY_USER.clear()
     yield
     coach._JOBS.clear(); coach._QUEUE.clear()
-    coach._ACTIVE_BY_USER.clear()
+    coach._ACTIVE_BY_USER.clear(); coach._LAST_BY_USER.clear()
 
 
 @pytest.mark.asyncio
@@ -432,7 +432,7 @@ async def test_processing_status_reported(client):
 @pytest.mark.asyncio
 async def test_single_flight_attaches_to_queued_job(client, monkeypatch):
     """A second request from the same user while one is queued reuses the job."""
-    coach._JOBS.clear(); coach._QUEUE.clear(); coach._ACTIVE_BY_USER.clear()
+    coach._JOBS.clear(); coach._QUEUE.clear(); coach._ACTIVE_BY_USER.clear(); coach._LAST_BY_USER.clear()
     coach._JOBS["existing"] = {"status": "queued", "user_id": 1}
     coach._ACTIVE_BY_USER[1] = "existing"
     coach._QUEUE.append("existing")
@@ -440,7 +440,7 @@ async def test_single_flight_attaches_to_queued_job(client, monkeypatch):
     r = await client.post("/coach/generate", json={"goal": "general", "days_per_week": 2})
     assert r.status_code == 202
     assert r.json()["job_id"] == "existing"  # attached, not a new job
-    coach._JOBS.clear(); coach._QUEUE.clear(); coach._ACTIVE_BY_USER.clear()
+    coach._JOBS.clear(); coach._QUEUE.clear(); coach._ACTIVE_BY_USER.clear(); coach._LAST_BY_USER.clear()
 
 
 # ── Plan diversity: detection + deterministic repair ─────────────────
@@ -537,7 +537,7 @@ async def test_generation_repairs_copy_paste_days(client, db, monkeypatch):
     }
     fake = {"title": "Copy Paste", "summary": "", "days": [same_day, dict(same_day)]}
     monkeypatch.setattr(coach.gemini, "chat_json", _fake_chat(fake))
-    coach._JOBS.clear(); coach._QUEUE.clear(); coach._ACTIVE_BY_USER.clear()
+    coach._JOBS.clear(); coach._QUEUE.clear(); coach._ACTIVE_BY_USER.clear(); coach._LAST_BY_USER.clear()
 
     pd = await _generate(client, "general", 2)
     assert pd["status"] == "done"
