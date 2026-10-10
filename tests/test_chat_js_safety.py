@@ -14,7 +14,7 @@ import pytest
 
 STATIC = Path(__file__).parent.parent / "app" / "static"
 GUARDED = ["plan_view.js", "sheet.js", "coach_chat.js"]
-REQUIRED = {"plan_view.js", "sheet.js"}  # coach_chat.js arrives with the chat itself
+REQUIRED = set(GUARDED)
 
 FORBIDDEN = re.compile(
     r"\.innerHTML\b|\.outerHTML\b|insertAdjacentHTML|document\.write(ln)?\s*\(|"

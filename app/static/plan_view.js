@@ -149,7 +149,8 @@
 
   /* ── PlanState ────────────────────────────────────── */
 
-  var DEFAULTS = { plan: null, draftId: null, rev: null, readonly: false, busy: false };
+  // planId: the coach_plans row on screen (a draft or a saved plan); draftId only for drafts.
+  var DEFAULTS = { plan: null, planId: null, draftId: null, rev: null, readonly: false, busy: false };
   var state = Object.assign({}, DEFAULTS);
 
   function snapshot() { return Object.assign({}, state); }
