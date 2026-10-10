@@ -225,7 +225,8 @@
       return box;
     }
     box.appendChild(document.createTextNode('Remember: '));
-    box.appendChild(el('q', null, chip.text));
+    // The model often ends the note with a full stop; drop it before the question mark.
+    box.appendChild(el('q', null, chip.text.replace(/[\s.!?]+$/, '')));
     box.appendChild(document.createTextNode('?'));
     var actions = el('div', 'cp-chip-actions');
     var yes = button(chip.saving ? 'Saving…' : 'Yes, remember', 'btn btn-ghost', function () { confirmNote(chip); });

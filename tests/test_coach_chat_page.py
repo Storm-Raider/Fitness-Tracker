@@ -1,5 +1,7 @@
 """What the Plan page renders for the coach chat in each state (the behaviour of the panel
 itself is verified in a browser; see the PR4a test plan)."""
+from pathlib import Path
+
 import pytest
 
 from app.utils.static_url import static_url
@@ -71,3 +73,10 @@ async def test_the_draft_hands_its_id_to_plan_state_as_plan_id(client, db):
 async def test_the_stale_on_device_wording_is_gone(client):
     html = await page(client)
     assert "Runs on-device" not in html and "Written by Google Gemini" in html
+
+
+def test_a_proposed_note_does_not_end_in_a_doubled_full_stop():
+    # Live run: the model proposed "Lower back gets tight with Romanian deadlifts."
+    # and the chip read "Remember: …deadlifts.?"
+    js = (Path(__file__).resolve().parent.parent / "app/static/coach_chat.js").read_text()
+    assert "chip.text.replace(/[\\s.!?]+$/, '')" in js
