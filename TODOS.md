@@ -510,6 +510,8 @@ Request to expand the achievements list beyond the current 24. Needs product dec
 
 **Effort:** S human / ~15 CC min. **Priority:** P2. **Depends on:** nothing.
 
+**SHIPPED 2026-10-10** — `maximum-scale`/`user-scalable=no` removed from the viewport meta; all fields were already forced to 16px (`base.html`), so iOS focus zoom stays off. Verified with axe-core (`meta-viewport` clean on all 12 pages).
+
 ---
 
 ## TODO-CC-7: Drag-to-dismiss for the mobile chat sheet

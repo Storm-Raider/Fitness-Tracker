@@ -4,6 +4,14 @@ All notable changes to Zenkai are documented here.
 
 ## [Unreleased]
 
+### Accessibility
+- **Zero WCAG 2.1 AA violations on the 12 main pages, down from 76** (axe-core; `scripts/e2e/a11y.mjs` re-runs the check). Muted text `#5a6a82` → `#72849e` (3.6:1 → 5.2:1; DESIGN.md had claimed 5.4:1), and blue buttons, the selected RPE chip and the Plan mode toggle use near-black text (white on that blue was 2.8:1). Pinch-zoom is no longer blocked (TODO-CC-6); every field was already 16px, which is what stops iOS focus zoom.
+- **Screen readers.** Every icon-only button names its action ("Delete set", "Edit set", "Decrease weight", "Stop rest timer"), inputs are tied to their labels, RPE chips report `aria-pressed`, PR badges read "Personal record", errors are announced, and a logged set is announced ("Set logged: Bench Press, 60 kg × 5. Personal record!") along with every undo toast, through one persistent live region (`window.announce`).
+- **Touch targets** on the logging screen meet DESIGN.md: Finish 56px (was 32), set edit/delete 44×44 (was 24; icons unchanged), the header delete and kg toggle 44px.
+
+### Changed
+- **Gold now means a PR or an achievement, and nothing else** (DESIGN.md's rule). RPE 8 is peach. Estimated 1RM and "top set" text are plain text. The goal bar is neutral until it's met. The exercise colour palette and the Abs muscle colour no longer use gold. The dashboard challenge card is cyan (it's running) and best streak is green. Challenge partial/grace days and the plan's "peak" and draft notices are orange ("at risk", not "earned").
+
 ### Operations
 - **Backups get a second copy off the SD card.** `scripts/backup.py` takes `MIRROR_DIR` (a folder on a USB drive) and copies each backup there too, keeping `MIRROR_KEEP` (default 30). An unplugged drive fails loudly instead of quietly creating the folder on the SD card; the local backup is still made. Every copy, local and mirrored, now passes `PRAGMA integrity_check` (it was only opened before), and the log line includes row counts.
 - **Restore drill: `scripts/restore_check.py`.** Opens the newest backup in each folder with the key, checks it, prints users/workouts/sets counts, and fails when a backup is damaged, unreadable or older than `MAX_AGE_DAYS` (default 3). README has the restore steps.
