@@ -122,7 +122,7 @@ async def _compute_earned(conn: aiosqlite.Connection, uid: int) -> dict[str, str
     async with conn.execute(
         """
         SELECT DISTINCT day FROM (
-            SELECT DATE(started_at,'localtime') AS day FROM workouts WHERE user_id=?
+            SELECT DATE(started_at) AS day FROM workouts WHERE user_id=?
             UNION
             SELECT logged_date AS day FROM cardio_logs WHERE user_id=?
         ) ORDER BY day DESC
@@ -140,9 +140,9 @@ async def _compute_earned(conn: aiosqlite.Connection, uid: int) -> dict[str, str
     async with conn.execute(
         """
         WITH sm AS (
-            SELECT s.exercise_id, DATE(w.started_at,'localtime') AS d, MAX(s.weight_kg) AS mk
+            SELECT s.exercise_id, DATE(w.started_at) AS d, MAX(s.weight_kg) AS mk
             FROM sets s JOIN workouts w ON w.id=s.workout_id
-            WHERE s.user_id=? GROUP BY s.exercise_id, DATE(w.started_at,'localtime')
+            WHERE s.user_id=? GROUP BY s.exercise_id, DATE(w.started_at)
         ), rm AS (
             SELECT *, MAX(mk) OVER (PARTITION BY exercise_id ORDER BY d
                 ROWS BETWEEN UNBOUNDED PRECEDING AND 1 PRECEDING) AS pm FROM sm

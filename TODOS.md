@@ -548,6 +548,8 @@ Request to expand the achievements list beyond the current 24. Needs product dec
 
 **Found:** 2026-10-10, while merging the two stalled-lifts queries. **Effort:** S–M. **Priority:** P2 (wrong data, silently).
 
+**SHIPPED 2026-10-10** — all 32 double conversions and 15 UTC "now" comparisons fixed; `tests/test_local_dates.py` pins the process to America/Chicago and checks a 01:30 workout counts for today (challenges, PR date), plus a guard against both patterns.
+
 ---
 
 ## TODO-EL-8: Five routes 500 on an HTMX request

@@ -66,7 +66,7 @@ async def dashboard(
     async with conn.execute(
         """
         SELECT DISTINCT day FROM (
-            SELECT DATE(started_at,'localtime') AS day
+            SELECT DATE(started_at) AS day
             FROM workouts
             WHERE user_id = ? AND started_at >= date('now', '-364 days', 'localtime')
             UNION
@@ -84,7 +84,7 @@ async def dashboard(
     async with conn.execute(
         """
         SELECT DISTINCT day FROM (
-            SELECT DATE(started_at,'localtime') AS day FROM workouts WHERE user_id = ?
+            SELECT DATE(started_at) AS day FROM workouts WHERE user_id = ?
             UNION
             SELECT logged_date AS day FROM cardio_logs WHERE user_id = ?
         ) ORDER BY day DESC
@@ -103,7 +103,7 @@ async def dashboard(
         FROM sets s
         JOIN workouts w ON w.id = s.workout_id
         WHERE s.user_id = ?
-          AND DATE(w.started_at,'localtime') >= DATE('now', '-6 days', 'localtime')
+          AND DATE(w.started_at) >= DATE('now', '-6 days', 'localtime')
         """,
         (uid,),
     ) as cur:
@@ -112,9 +112,9 @@ async def dashboard(
     async with conn.execute(
         """
         SELECT COUNT(*) AS weekly_sessions FROM (
-            SELECT DISTINCT DATE(started_at,'localtime') AS day
+            SELECT DISTINCT DATE(started_at) AS day
             FROM workouts WHERE user_id = ?
-            AND DATE(started_at,'localtime') >= DATE('now', '-6 days', 'localtime')
+            AND DATE(started_at) >= DATE('now', '-6 days', 'localtime')
             UNION
             SELECT DISTINCT logged_date AS day FROM cardio_logs WHERE user_id = ?
             AND logged_date >= DATE('now', '-6 days', 'localtime')
@@ -167,13 +167,13 @@ async def dashboard(
     window = [(today - timedelta(days=6 - i)).isoformat() for i in range(7)]
     async with conn.execute(
         """
-        SELECT DATE(w.started_at, 'localtime') AS day,
+        SELECT DATE(w.started_at) AS day,
                ROUND(SUM(s.weight_kg * s.reps), 1) AS volume_kg
         FROM sets s
         JOIN workouts w ON w.id = s.workout_id
         WHERE s.user_id = ?
-          AND DATE(w.started_at, 'localtime') >= DATE('now', '-6 days', 'localtime')
-        GROUP BY DATE(w.started_at, 'localtime')
+          AND DATE(w.started_at) >= DATE('now', '-6 days', 'localtime')
+        GROUP BY DATE(w.started_at)
         """,
         (uid,),
     ) as cur:
@@ -188,8 +188,8 @@ async def dashboard(
         FROM sets s
         JOIN workouts w ON w.id = s.workout_id
         WHERE s.user_id = ?
-          AND DATE(w.started_at, 'localtime') >= DATE('now', '-13 days', 'localtime')
-          AND DATE(w.started_at, 'localtime') <  DATE('now', '-6 days',  'localtime')
+          AND DATE(w.started_at) >= DATE('now', '-13 days', 'localtime')
+          AND DATE(w.started_at) <  DATE('now', '-6 days',  'localtime')
         """,
         (uid,),
     ) as cur:
@@ -199,10 +199,10 @@ async def dashboard(
     async with conn.execute(
         """
         SELECT COUNT(*) AS sessions FROM (
-            SELECT DISTINCT DATE(started_at,'localtime') AS day
+            SELECT DISTINCT DATE(started_at) AS day
             FROM workouts WHERE user_id = ?
-            AND DATE(started_at,'localtime') >= DATE('now', '-13 days', 'localtime')
-            AND DATE(started_at,'localtime') <  DATE('now', '-6 days',  'localtime')
+            AND DATE(started_at) >= DATE('now', '-13 days', 'localtime')
+            AND DATE(started_at) <  DATE('now', '-6 days',  'localtime')
             UNION
             SELECT DISTINCT logged_date AS day FROM cardio_logs WHERE user_id = ?
             AND logged_date >= DATE('now', '-13 days', 'localtime')
@@ -229,7 +229,7 @@ async def dashboard(
         JOIN workouts w  ON w.id  = s.workout_id
         JOIN exercise_muscles em ON em.exercise_id = s.exercise_id AND em.is_primary = 1
         WHERE s.user_id = ?
-          AND DATE(w.started_at, 'localtime') >= DATE('now', '-6 days', 'localtime')
+          AND DATE(w.started_at) >= DATE('now', '-6 days', 'localtime')
         GROUP BY em.muscle
         ORDER BY volume_kg DESC
         LIMIT 8

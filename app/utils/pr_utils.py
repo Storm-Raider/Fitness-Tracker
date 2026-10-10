@@ -25,12 +25,12 @@ async def stalled_lifts(conn: aiosqlite.Connection, uid: int, limit: int) -> lis
     async with conn.execute(
         """
         SELECT e.id, e.name,
-               MAX(CASE WHEN DATE(w.started_at,'localtime') >= DATE('now','-28 days')
+               MAX(CASE WHEN DATE(w.started_at) >= DATE('now','localtime','-28 days')
                         THEN ROUND(e1rm(s.weight_kg, s.reps), 1) END) AS recent_1rm,
-               MAX(CASE WHEN DATE(w.started_at,'localtime') <  DATE('now','-28 days')
-                        AND  DATE(w.started_at,'localtime') >= DATE('now','-84 days')
+               MAX(CASE WHEN DATE(w.started_at) <  DATE('now','localtime','-28 days')
+                        AND  DATE(w.started_at) >= DATE('now','localtime','-84 days')
                         THEN ROUND(e1rm(s.weight_kg, s.reps), 1) END) AS prior_1rm,
-               COUNT(DISTINCT DATE(w.started_at,'localtime')) AS session_count
+               COUNT(DISTINCT DATE(w.started_at)) AS session_count
         FROM sets s
         JOIN exercises e ON e.id = s.exercise_id
         JOIN workouts w  ON w.id = s.workout_id AND w.ended_at IS NOT NULL
@@ -68,13 +68,13 @@ async def fetch_prs(conn: aiosqlite.Connection, uid: int) -> list[dict]:
                      AND s2.weight_kg = mx.pr_kg
                    ORDER BY w2.started_at DESC LIMIT 1
                )), 1) AS est_1rm,
-               (SELECT DATE(w2.started_at, 'localtime')
+               (SELECT DATE(w2.started_at)
                 FROM sets s2 JOIN workouts w2 ON w2.id = s2.workout_id
                 WHERE s2.exercise_id = e.id AND s2.user_id = ?
                   AND s2.weight_kg = mx.pr_kg
                 ORDER BY w2.started_at DESC LIMIT 1
                ) AS pr_date,
-               COUNT(DISTINCT DATE(w.started_at, 'localtime')) AS sessions,
+               COUNT(DISTINCT DATE(w.started_at)) AS sessions,
                COUNT(s.id) AS total_sets
         FROM mx
         JOIN exercises e ON e.id = mx.exercise_id

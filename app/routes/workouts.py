@@ -128,7 +128,7 @@ async def list_workouts(
         LEFT JOIN sets s ON s.workout_id = w.id AND s.user_id = ?
         WHERE w.user_id = ?
           AND (? IS NULL
-               OR DATE(w.started_at, 'localtime') LIKE ?
+               OR DATE(w.started_at) LIKE ?
                OR LOWER(COALESCE(w.notes, '')) LIKE LOWER(?)
                OR EXISTS (
                    SELECT 1 FROM sets sq
