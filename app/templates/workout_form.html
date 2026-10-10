@@ -2785,7 +2785,6 @@ async function deleteWorkout() {
   }
   document.addEventListener('DOMContentLoaded', attachAll);
   // Re-attach after dynamic rows are added (logSet, logCardio)
-  const _orig = Element.prototype.appendChild;
   document.getElementById('sets-container') && new MutationObserver(function(mutations) {
     mutations.forEach(function(m) {
       m.addedNodes.forEach(function(n) {

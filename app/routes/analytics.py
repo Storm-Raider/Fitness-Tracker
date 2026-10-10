@@ -7,7 +7,7 @@ from fastapi.responses import HTMLResponse
 
 from app.db import get_db
 from app.routes.auth import get_current_user
-from app.utils.pr_utils import fetch_prs
+from app.utils.pr_utils import fetch_prs, stalled_lifts
 from app.utils.render import render
 
 router = APIRouter()
@@ -75,7 +75,7 @@ async def analytics(
         """
         SELECT s.exercise_id,
                strftime('%Y-%W', w.started_at) AS week,
-               ROUND(MAX(s.weight_kg * (1 + s.reps / 30.0)), 1) AS e1rm
+               ROUND(MAX(e1rm(s.weight_kg, s.reps)), 1) AS e1rm
         FROM sets s
         JOIN workouts w ON w.id = s.workout_id
         WHERE s.user_id = ?
@@ -102,9 +102,9 @@ async def analytics(
         GROUP BY s.exercise_id
         HAVING COUNT(DISTINCT DATE(w.started_at,'localtime')) >= 4
            AND MAX(CASE WHEN DATE(w.started_at,'localtime') >= DATE('now','-21 days')
-                        THEN s.weight_kg * (1 + s.reps/30.0) END)
+                        THEN e1rm(s.weight_kg, s.reps) END)
              <= MAX(CASE WHEN DATE(w.started_at,'localtime') < DATE('now','-21 days')
-                        THEN s.weight_kg * (1 + s.reps/30.0) END) * 1.02
+                        THEN e1rm(s.weight_kg, s.reps) END) * 1.02
         """,
         (uid,),
     ) as cur:
@@ -178,30 +178,7 @@ async def analytics(
         muscle_recovery = [dict(r) for r in await cur.fetchall()]
 
     # ── Stalled exercises (dedicated section) ────────────────────────
-    async with conn.execute(
-        """
-        SELECT e.id, e.name,
-               MAX(CASE WHEN DATE(w.started_at,'localtime') >= DATE('now','-28 days')
-                        THEN ROUND(s.weight_kg * (1.0 + s.reps / 30.0), 1) END) AS recent_1rm,
-               MAX(CASE WHEN DATE(w.started_at,'localtime') <  DATE('now','-28 days')
-                        AND  DATE(w.started_at,'localtime') >= DATE('now','-84 days')
-                        THEN ROUND(s.weight_kg * (1.0 + s.reps / 30.0), 1) END) AS prior_1rm,
-               COUNT(DISTINCT DATE(w.started_at,'localtime')) AS session_count
-        FROM sets s
-        JOIN exercises e ON e.id = s.exercise_id
-        JOIN workouts w  ON w.id = s.workout_id AND w.ended_at IS NOT NULL
-        WHERE s.user_id = ?
-        GROUP BY s.exercise_id
-        HAVING recent_1rm IS NOT NULL
-           AND prior_1rm IS NOT NULL
-           AND session_count >= 4
-           AND recent_1rm <= prior_1rm * 1.02
-        ORDER BY (prior_1rm - recent_1rm) DESC
-        LIMIT 8
-        """,
-        (uid,),
-    ) as cur:
-        stalled = [dict(r) for r in await cur.fetchall()]
+    stalled = await stalled_lifts(conn, uid, limit=8)
 
     # ── Muscle heatmap ────────────────────────────────────────────────
     async with conn.execute(

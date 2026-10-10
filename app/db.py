@@ -29,6 +29,7 @@ from pathlib import Path
 
 from app.data.exercises import EXERCISES, RETIRED_EXERCISES, infer_muscle_and_category
 from app.data.routines import ROUTINES
+from app.utils.pr_utils import epley
 
 _conn: aiosqlite.Connection | None = None
 
@@ -553,6 +554,7 @@ async def open_db(path: str) -> aiosqlite.Connection:
     # made a no-op; outside a transaction each statement already autocommits.
     conn.commit = _commit_is_a_noop
     _gate_writes(conn)
+    await conn.create_function("e1rm", 2, epley, deterministic=True)
     if _DB_ENCRYPTION_KEY:
         # SQLCipher: must precede every other query, including PRAGMAs.
         # Hex-blob format avoids injection: x'<64 lowercase hex chars>'

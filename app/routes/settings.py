@@ -1,5 +1,3 @@
-import re
-
 import aiosqlite
 from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import JSONResponse, RedirectResponse

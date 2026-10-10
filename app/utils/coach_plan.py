@@ -446,12 +446,12 @@ def athlete_context(profile: dict, goal: str) -> list[str]:
             flag = " ⬇" if m in ut else ""
             vol_parts.append(f"{m}: {v}{flag}")
         lines.append(
-            f"- Weekly sets per muscle (target ≥10 for primary movers; ⬇ = under-trained): "
+            "- Weekly sets per muscle (target ≥10 for primary movers; ⬇ = under-trained): "
             + ", ".join(vol_parts) + "."
         )
     if profile.get("undertrained"):
         lines.append(
-            f"- PRIORITY — under-trained muscles that MUST receive direct work every week: "
+            "- PRIORITY — under-trained muscles that MUST receive direct work every week: "
             + ", ".join(profile["undertrained"]) + "."
         )
 
@@ -471,7 +471,7 @@ def athlete_context(profile: dict, goal: str) -> list[str]:
     # Stalled lifts
     if profile.get("stalled"):
         lines.append(
-            f"- Strength stalled (no e1RM gain in 4 weeks) — vary rep range or swap variation: "
+            "- Strength stalled (no e1RM gain in 4 weeks) — vary rep range or swap variation: "
             + ", ".join(profile["stalled"]) + "."
         )
 

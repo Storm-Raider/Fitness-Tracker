@@ -9,7 +9,7 @@ from app.data.exercises import infer_muscle_and_category
 from app.db import get_db, write_tx
 from app.routes.auth import get_current_user
 from app.utils.coach_plan import invalidate_exercise_caches, validate_exercise_name
-from app.utils.render import render, templates
+from app.utils.render import templates
 
 router = APIRouter()
 

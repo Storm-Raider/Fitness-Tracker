@@ -10,7 +10,7 @@ from app.utils import challenges as ch
 from app.utils.charts import generate_muscle_bars, generate_weekly_bar_chart
 from app.utils.heatmap import generate_heatmap_svg
 from app.utils.pr_utils import fetch_prs
-from app.utils.render import render, templates
+from app.utils.render import render
 from app.utils.streak import compute_streak, max_streak
 
 router = APIRouter()
