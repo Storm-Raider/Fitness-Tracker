@@ -661,3 +661,29 @@ async def test_deleting_a_plan_deletes_its_conversation(client, db, monkeypatch)
     assert await scalar(db, "SELECT COUNT(*) FROM coach_messages") == 0
     r = await say(client, pid)
     assert r.status_code == 409 and r.json()["kind"] == "replaced"
+
+
+@pytest.mark.asyncio
+async def test_exercises_the_athlete_names_are_offered_to_the_model(client, db, monkeypatch):
+    pid, _ = await seed_plan(db)
+    await ack(client)
+    f = use(monkeypatch, result=reply("Done."))
+    assert (await say(client, pid, "swap squats for hack squats and add push ups")).status_code == 200
+    assert (await say(client, pid, "thanks, and the goblet squat idea?")).status_code == 200
+    ctx = f.calls[0]["contents"][0]["parts"][0]["text"]
+    assert "Hack Squat" in ctx and "Push-up" in ctx                      # not in the capped catalog, but asked for
+    assert "Back Squat" in ctx and "Romanian Deadlift" in ctx            # the plan's own exercises stay available
+    ctx2 = f.calls[1]["contents"][0]["parts"][0]["text"]
+    assert "Hack Squat" in ctx2 and "Goblet Squat" in ctx2               # earlier requests in the thread still count
+
+
+@pytest.mark.asyncio
+async def test_pain_reported_in_the_message_is_restated_as_a_constraint(client, db, monkeypatch):
+    pid, _ = await seed_plan(db)
+    await ack(client)
+    f = use(monkeypatch, result=reply("Done."))
+    await say(client, pid, "my left knee really hurts on squats")
+    assert "for the knee: no squats, lunges, leg presses" in f.calls[0]["contents"][-1]["parts"][0]["text"]
+    await say(client, pid, "make day 2 shorter")                         # the next message still carries it
+    assert "for the knee: no squats" in f.calls[1]["contents"][-1]["parts"][0]["text"]
+

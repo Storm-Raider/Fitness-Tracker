@@ -15,6 +15,8 @@ import re
 
 import aiosqlite
 
+from app.utils.training_profile import has_pain_words
+
 
 # Equipment ranked by how "staple" it is — biases the catalog toward
 # compound barbell/dumbbell work over isolation machines within each category.
@@ -58,6 +60,7 @@ _NAME_MAP_CACHE: tuple[dict, dict] | None = None  # (name_map, norm_map)
 async def exercise_catalog(
     conn: aiosqlite.Connection, uid: int,
     preferred_equipment: list[str] | None = None,
+    include: set[str] | None = None,
 ) -> dict[str, dict[str, list[str]]]:
     """
     Library grouped as {category: {primary_muscle: ['Name [Equipment]', ...]}}
@@ -90,6 +93,10 @@ async def exercise_catalog(
                 logging.warning("coach: leaving exercise %r out of prompts (name not allowed)", r["name"])
 
     rows = list(_EXERCISE_BASE_ROWS)
+    # `include`: lower-case names that must be offered whatever the filters and caps say,
+    # e.g. an exercise the athlete just asked for in the chat. Without this the model, told
+    # to use only listed names, quietly substitutes a different exercise.
+    forced = {n.lower() for n in (include or ())}
 
     # Filter to preferred equipment while always preserving conventional staples.
     # New users with no equipment history get the full library.
@@ -99,6 +106,7 @@ async def exercise_catalog(
         rows = [
             r for r in rows
             if r["equipment"] in preferred_set or r["name"].lower() in priority_names
+            or r["name"].lower() in forced
         ]
 
     rows.sort(key=lambda r: (
@@ -113,7 +121,9 @@ async def exercise_catalog(
     capped = []
     for r in rows:
         key = (r["category"], r["primary_muscle"] or r["category"])
-        if _seen.get(key, 0) < 8:
+        if r["name"].lower() in forced:
+            capped.append(r)                      # never counts against the bucket's 8
+        elif _seen.get(key, 0) < 8:
             _seen[key] = _seen.get(key, 0) + 1
             capped.append(r)
     rows = capped
@@ -548,14 +558,17 @@ _PAIN_AVOID = [
 ]
 
 
-def pain_constraint(profile: dict) -> str:
-    """One sentence for the end of the prompt restating flagged pain as a hard
-    constraint, with the movements each recognised area rules out. Empty when
-    nothing is flagged."""
-    flags = profile.get("injury_flags") or []
+def pain_constraint(profile: dict, said: str = "") -> str:
+    """One sentence for the end of the prompt restating pain as a hard constraint, with the
+    movements each recognised area rules out. Pain comes from the profile's flags and, in
+    the chat, from what the athlete just said (`said`, only when it contains a pain word).
+    Empty when there is none."""
+    flags = [f.get("text", "") for f in (profile.get("injury_flags") or [])]
+    if said and has_pain_words(said):
+        flags.append(said)
     if not flags:
         return ""
-    text = " ".join(f.get("text", "") for f in flags).lower()
+    text = " ".join(flags).lower()
     avoid = [f"for the {area}: no {movements}"
              for words, area, movements in _PAIN_AVOID if any(w in text for w in words)]
     out = ("The athlete flagged pain: no exercise on any day may load the painful area, "

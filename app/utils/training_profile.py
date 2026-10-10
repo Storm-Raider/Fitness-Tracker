@@ -34,6 +34,9 @@ def _has_pain_flag(text: str) -> bool:
     return any(k in t for k in _PAIN_KEYWORDS)
 
 
+has_pain_words = _has_pain_flag   # public name for callers outside this module (the coach chat)
+
+
 async def build_profile(conn: aiosqlite.Connection, uid: int, *, fresh: bool = False) -> dict:
     """Summarise the user's recent training for the coach prompt.
 

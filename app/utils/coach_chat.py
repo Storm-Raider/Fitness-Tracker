@@ -391,7 +391,20 @@ CHAT_SYSTEM_PROMPT = (
 )
 
 
-def task_line(profile: dict, num_days: int) -> str:
+def mentioned_exercises(text: str, name_map: dict, norm_map: dict | None = None) -> set[str]:
+    """Lower-case names of library exercises that `text` mentions, tolerating case, hyphens
+    ("push ups" for Push-up) and plurals ("goblet squats"): whatever normalise_plan would
+    resolve. Used so a requested exercise is always on the allowed list."""
+    spaced = " " + re.sub(r"[^a-z0-9]+", " ", text.lower()) + " "
+    found: set[str] = set()
+    for key, val in {**(norm_map or {}), **name_map}.items():
+        k = re.sub(r"[^a-z0-9]+", " ", key.lower()).strip()
+        if k and f" {k} " in spaced:
+            found.add(val["name"].lower())
+    return found
+
+
+def task_line(profile: dict, num_days: int, said: str = "") -> str:
     """This turn's hard constraints, restated at the very end of the message: a small model
     honours the tail of a prompt far better than the middle (generation eval: a flagged knee
     was ignored 3 of 3 times until it was restated there)."""
@@ -400,7 +413,7 @@ def task_line(profile: dict, num_days: int) -> str:
         f"never add or remove a day, and keep every exercise on at most {max_weekly_repeats(num_days)} "
         "day(s) unless the athlete asks otherwise."
     ]
-    pain = pain_constraint(profile)
+    pain = pain_constraint(profile, said)
     if pain:
         parts.append(pain)
     return " ".join(parts)
@@ -423,6 +436,8 @@ def build_contents(*, context_text: str, history: list[dict], plan: dict, messag
     """The turns sent to the model, stable first and volatile last so Gemini's implicit prefix
     caching helps: [context (catalog, athlete, notes)] [ack] [history...] [plan + message + task].
     Turns alternate user/model, which the API requires."""
+    # Pain the athlete mentioned now or earlier in this conversation stays a hard constraint.
+    pain_text = " ".join([message] + [m["content"] for m in window_history(history) if m["role"] == "user"])
     plan_view = {
         "title": plan.get("title"),
         "days": [
@@ -435,7 +450,7 @@ def build_contents(*, context_text: str, history: list[dict], plan: dict, messag
     final = (
         "CURRENT PLAN (JSON):\n" + json.dumps(plan_view, ensure_ascii=False) +
         f'\n\nATHLETE MESSAGE (written by the athlete): "{quote_for_prompt(message)}"' +
-        "\n\nTASK: " + task_line(profile, len(plan["days"]))
+        "\n\nTASK: " + task_line(profile, len(plan["days"]), pain_text)
     )
     return [
         gemini.user_turn(context_text),

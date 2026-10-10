@@ -368,3 +368,42 @@ def test_chat_system_prompt_states_the_rules_and_carries_no_example():
                    "copied exactly, without the [equipment] tag", "at most 600 characters"):
         assert needle in sp, needle
     assert "Exercise A" not in sp and '"name":' not in sp and len(sp) < 2800
+
+
+# ── Mentioned exercises and pain said in the conversation ────────────
+
+@pytest.mark.asyncio
+async def test_mentioned_exercises_match_the_way_the_name_matcher_does(maps):
+    m = lambda text: cc.mentioned_exercises(text, *maps)
+    assert m("swap the back squat for goblet squats please") >= {"back squat", "goblet squat"}
+    assert m("add push ups, and Pull-Ups too") >= {"push-up", "pull-up"}
+    assert m("HACK SQUAT!") == {"hack squat"}
+    assert m("leg press then leg curl") == {"leg press", "leg curl"}
+    assert m("make it shorter, I feel tired") == set() and m("") == set()
+    assert m("press") == set()                           # a fragment of a name is not a mention
+    assert m("barbell rowing is fun") == set()           # nor is a longer word containing one
+
+
+def test_pain_constraint_uses_what_the_athlete_just_said():
+    from app.utils.coach_plan import pain_constraint
+    assert pain_constraint({}, "my left knee really hurts") .count("for the knee: no squats") == 1
+    assert pain_constraint({}, "make day 2 shorter") == ""                  # no pain word: nothing to restate
+    assert pain_constraint({}, "knee day tomorrow!") == ""                  # an area alone is not a report
+    both = pain_constraint({"injury_flags": [{"text": "elbow pain"}]}, "and my shoulder is tweaked")
+    assert "for the elbow" in both and "for the shoulder" in both
+    assert pain_constraint({"injury_flags": [{"text": "sharp knee pain"}]}) .count("for the knee") == 1
+    unknown = pain_constraint({}, "something pinches somewhere")
+    assert "flagged pain" in unknown and "for the" not in unknown
+
+
+def test_the_task_line_restates_pain_from_this_message_and_from_earlier_user_messages(plan):
+    hurt = cc.task_line({}, 3, "my knee hurts")
+    assert "for the knee: no squats" in hurt and "3 day(s)" in hurt
+    earlier = [{"role": "user", "content": "my left knee hurts on squats", "undone": 0},
+               {"role": "model", "content": "Sorry to hear that. Done.", "undone": 0}]
+    turns = cc.build_contents(context_text="CTX", history=earlier, plan=plan, message="and make day 1 shorter", profile={})
+    assert "for the knee: no squats" in turns[-1]["parts"][0]["text"]       # pain reported earlier still applies
+    only_model = [{"role": "user", "content": "hi", "undone": 0}, {"role": "model", "content": "Does anything hurt?", "undone": 0}]
+    turns = cc.build_contents(context_text="CTX", history=only_model, plan=plan, message="no, all fine", profile={})
+    assert "flagged pain" not in turns[-1]["parts"][0]["text"]               # the coach's own words do not count
+

@@ -163,7 +163,11 @@ async def ask_coach(conn: aiosqlite.Connection, uid: int, plan: dict, message: s
         profile = await build_profile(conn, uid, fresh=True)
     if notes is None:
         notes = [n["text"] for n in await _notes(conn, uid)]
-    catalog = await exercise_catalog(conn, uid, profile.get("preferred_equipment"))
+    name_map, norm_map = await name_to_id_map(conn)
+    asked = message + " " + " ".join(m["content"] for m in history if m["role"] == "user")
+    wanted = coach_chat.mentioned_exercises(asked, name_map, norm_map)
+    wanted |= {e["name"].lower() for d in plan["days"] for e in d["exercises"]}   # the plan's own exercises
+    catalog = await exercise_catalog(conn, uid, profile.get("preferred_equipment"), wanted)
     contents = coach_chat.build_contents(
         context_text=coach_chat.context_text(
             profile, plan["goal"], GOAL_LABELS.get(plan["goal"], plan["goal"]), catalog, notes),
