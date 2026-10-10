@@ -563,3 +563,5 @@ Request to expand the achievements list beyond the current 24. Needs product dec
 
 **Found:** 2026-10-10 (cleanup audit). **Effort:** S. **Priority:** P3.
 
+**SHIPPED 2026-10-10** — `render()` falls back to the full page when `{name}_partial.html` doesn't exist. `tests/test_render_htmx.py` sends an HTMX request to all nine `render()` pages (the five without a partial failed before).
+

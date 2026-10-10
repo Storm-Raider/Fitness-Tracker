@@ -2,6 +2,7 @@ from datetime import date as _date
 from fastapi import Request
 from fastapi.responses import JSONResponse
 from fastapi.templating import Jinja2Templates
+from jinja2 import TemplateNotFound
 from pathlib import Path
 
 from app.utils.static_url import static_url
@@ -33,11 +34,20 @@ def _human_date(iso_str) -> str:
 templates.env.filters["human_date"] = _human_date
 
 
+def _has_template(name: str) -> bool:
+    try:
+        templates.env.get_template(name)
+        return True
+    except TemplateNotFound:
+        return False
+
+
 def render(request: Request, template_name: str, data: dict, json_only: bool = False):
     """
     Content negotiation:
       json_only=True  → always JSONResponse (flag wins)
-      HX-Request      → partial template ({template_name}_partial.html)
+      HX-Request      → partial template ({template_name}_partial.html), or the
+                        full page when the page has no partial
       Accept:text/html→ full page template ({template_name}.html)
       default         → JSONResponse
     """
@@ -45,7 +55,12 @@ def render(request: Request, template_name: str, data: dict, json_only: bool = F
         return JSONResponse(data)
     context = {**data}
     if request.headers.get("HX-Request"):
-        return templates.TemplateResponse(request, f"{template_name}_partial.html", context)
+        # Not every page has a partial; fall back to the full page rather than
+        # raising TemplateNotFound (a 500) on an hx-get or hx-boost.
+        partial = f"{template_name}_partial.html"
+        return templates.TemplateResponse(
+            request, partial if _has_template(partial) else f"{template_name}.html", context
+        )
     if "text/html" in request.headers.get("Accept", ""):
         return templates.TemplateResponse(request, f"{template_name}.html", context)
     return JSONResponse(data)
