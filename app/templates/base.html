@@ -1649,11 +1649,17 @@
       try { sessionStorage.setItem('zenkai_undo', JSON.stringify({token: token, label: label})); } catch (e) {}
     };
 
+    // A modal confirm (alertdialog) for destructive actions. Built here rather
+    // than on sheet.js: that one is a single, full-height sheet, and this has to
+    // open on top of it (the coach chat). opts: confirmLabel, onCancel.
     window.showConfirm = function(message, onConfirm, opts) {
+      opts = opts || {};
       var prev = document.getElementById('confirm-sheet');
       if (prev) prev.remove();
       var prevOvl = document.getElementById('confirm-overlay');
       if (prevOvl) prevOvl.remove();
+
+      var returnTo = document.activeElement;
 
       var overlay = document.createElement('div');
       overlay.id = 'confirm-overlay';
@@ -1662,8 +1668,12 @@
       var sheet = document.createElement('div');
       sheet.id = 'confirm-sheet';
       sheet.className = 'confirm-sheet';
+      sheet.setAttribute('role', 'alertdialog');
+      sheet.setAttribute('aria-modal', 'true');
+      sheet.setAttribute('aria-labelledby', 'confirm-sheet-msg');
 
       var msg = document.createElement('div');
+      msg.id = 'confirm-sheet-msg';
       msg.className = 'confirm-sheet-msg';
       msg.textContent = message;
 
@@ -1671,33 +1681,61 @@
       actions.className = 'confirm-sheet-actions';
 
       var cancelBtn = document.createElement('button');
+      cancelBtn.type = 'button';
       cancelBtn.className = 'confirm-sheet-cancel';
       cancelBtn.textContent = 'Cancel';
 
       var confirmBtn = document.createElement('button');
+      confirmBtn.type = 'button';
       confirmBtn.className = 'confirm-sheet-confirm';
-      confirmBtn.textContent = (opts && opts.confirmLabel) || 'Confirm';
+      confirmBtn.textContent = opts.confirmLabel || 'Confirm';
 
       actions.appendChild(cancelBtn);
       actions.appendChild(confirmBtn);
       sheet.appendChild(msg);
       sheet.appendChild(actions);
 
+      // Everything else becomes inert (toasts stay usable); restore only what we changed.
+      var inerted = [];
+      Array.prototype.forEach.call(document.body.children, function(el) {
+        if (el.hasAttribute('inert') || el.matches('script, style, .undo-toast, #ach-toast-rack, #sr-announcer')) return;
+        el.setAttribute('inert', '');
+        inerted.push(el);
+      });
+
       document.body.appendChild(overlay);
       document.body.appendChild(sheet);
       requestAnimationFrame(function() { sheet.classList.add('show'); });
+      cancelBtn.focus({ preventScroll: true });   // the safe choice first
 
+      var closed = false;
       function dismiss() {
+        if (closed) return;
+        closed = true;
+        document.removeEventListener('keydown', onKey, true);
+        inerted.forEach(function(el) { el.removeAttribute('inert'); });
         sheet.classList.remove('show');
         overlay.remove();
         setTimeout(function() { sheet.remove(); }, 230);
+        if (returnTo && document.contains(returnTo) && returnTo.focus) returnTo.focus({ preventScroll: true });
       }
-
-      cancelBtn.addEventListener('click', dismiss);
-      overlay.addEventListener('click', dismiss);
-      document.addEventListener('keydown', function esc(e) {
-        if (e.key === 'Escape') { dismiss(); document.removeEventListener('keydown', esc); }
-      });
+      function cancel() {
+        dismiss();
+        if (opts.onCancel) opts.onCancel();
+      }
+      function onKey(e) {
+        if (e.key === 'Escape') {
+          e.preventDefault();
+          e.stopPropagation();
+          cancel();
+        } else if (e.key === 'Tab') {   // two buttons: keep focus between them
+          e.preventDefault();
+          (document.activeElement === cancelBtn ? confirmBtn : cancelBtn).focus();
+        }
+      }
+      document.addEventListener('keydown', onKey, true);
+      cancelBtn.addEventListener('click', cancel);
+      overlay.addEventListener('click', cancel);
       confirmBtn.addEventListener('click', function() {
         dismiss();
         onConfirm();
