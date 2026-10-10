@@ -106,7 +106,15 @@
   padding: 1.1rem 1.25rem;
   margin-bottom: 1rem;
   box-shadow: var(--shadow-sm);
+  position: relative;
 }
+.day-card::before, .day-card::after {
+  content: ''; position: absolute; width: 16px; height: 16px; pointer-events: none;
+  transition: opacity 0.2s, filter 0.2s;
+}
+.day-card::before { top: -1px; left: -1px; border-top: 2px solid var(--accent); border-left: 2px solid var(--accent); opacity: 0.32; }
+.day-card::after  { bottom: -1px; right: -1px; border-bottom: 2px solid var(--accent); border-right: 2px solid var(--accent); opacity: 0.32; }
+.day-card:hover::before, .day-card:hover::after { opacity: 0.85; filter: drop-shadow(0 0 4px var(--accent-glow)); }
 .day-card h3 {
   font-size: 1rem;
   display: flex;
@@ -230,11 +238,13 @@
 .plan-phase-deload { color: var(--muted); background: rgba(90,106,130,0.1); border: 1px solid rgba(90,106,130,0.25); }
 
 /* ── Spinners ── */
+/* Cyan, not white — the coach is a live/running process while this spins,
+   same rule as the rest timer and PR toast. */
 .spinner {
   width: 16px;
   height: 16px;
-  border: 2px solid rgba(255,255,255,0.2);
-  border-top-color: #fff;
+  border: 2px solid rgba(34,229,201,0.25);
+  border-top-color: var(--live);
   border-radius: 50%;
   display: inline-block;
   animation: spin 0.7s linear infinite;
@@ -256,7 +266,13 @@
   transition: border-color 0.15s;
   margin-bottom: 0.5rem;
   flex-wrap: wrap;
+  position: relative;
 }
+.saved-plan-card::before, .saved-plan-card::after {
+  content: ''; position: absolute; width: 12px; height: 12px; pointer-events: none;
+}
+.saved-plan-card::before { top: -1px; left: -1px; border-top: 2px solid var(--accent); border-left: 2px solid var(--accent); opacity: 0.28; }
+.saved-plan-card::after  { bottom: -1px; right: -1px; border-bottom: 2px solid var(--accent); border-right: 2px solid var(--accent); opacity: 0.28; }
 .plan-day-chips {
   display: flex;
   flex-wrap: wrap;

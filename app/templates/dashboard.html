@@ -20,12 +20,13 @@
 </div>
 
 {% if active_workout %}
-<div class="card card-accent" style="margin-bottom:1.5rem;display:flex;align-items:center;justify-content:space-between;gap:1rem;padding:1rem 1.25rem;">
+<div class="card card-accent is-live" style="margin-bottom:1.5rem;display:flex;align-items:center;justify-content:space-between;gap:1rem;padding:1rem 1.25rem;overflow:hidden;">
+  <div class="scan-sweep"></div>
   <div style="display:flex;align-items:center;gap:0.75rem;">
-    <span class="session-dot" style="width:8px;height:8px;border-radius:50%;background:var(--accent);flex-shrink:0;"></span>
+    <span class="session-dot" style="width:8px;height:8px;border-radius:50%;background:var(--live);box-shadow:0 0 8px var(--live-glow);flex-shrink:0;"></span>
     <div>
       <div style="font-size:0.875rem;font-weight:600;">Session in progress</div>
-      <div style="font-size:0.8rem;color:var(--muted);margin-top:0.1rem;">{{ 'Ready to log' if active_workout.set_count == 0 else (active_workout.set_count ~ ' set' ~ ('s' if active_workout.set_count != 1 else '')) }} · {{ active_workout.elapsed_min }} min elapsed</div>
+      <div style="font-size:0.8rem;color:var(--muted);margin-top:0.1rem;">{{ 'Ready to log' if active_workout.set_count == 0 else (active_workout.set_count ~ ' set' ~ ('s' if active_workout.set_count != 1 else '')) }} · <span class="num">{{ active_workout.elapsed_min }} min</span> elapsed</div>
     </div>
   </div>
   <a href="/workouts/{{ active_workout.id }}" class="btn btn-ghost" style="flex-shrink:0;font-size:0.825rem;min-height:40px;">Continue →</a>

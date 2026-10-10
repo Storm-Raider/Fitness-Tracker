@@ -31,14 +31,14 @@
 .session-live-dot {
   width: 7px; height: 7px;
   border-radius: 50%;
-  background: var(--accent);
+  background: var(--live);
   flex-shrink: 0;
-  box-shadow: 0 0 0 3px rgba(79,156,249,0.2);
+  box-shadow: 0 0 0 3px rgba(34,229,201,0.2);
   animation: pulseDot 2s ease-in-out infinite;
 }
 @keyframes pulseDot {
-  0%,100% { box-shadow: 0 0 0 3px rgba(79,156,249,0.25); }
-  50%      { box-shadow: 0 0 0 6px rgba(79,156,249,0); }
+  0%,100% { box-shadow: 0 0 0 3px rgba(34,229,201,0.25); }
+  50%      { box-shadow: 0 0 0 6px rgba(34,229,201,0); }
 }
 .session-done-dot {
   width: 7px; height: 7px;
@@ -457,7 +457,25 @@
   from { opacity: 0; transform: translateY(-5px); }
   to   { opacity: 1; transform: translateY(0); }
 }
-.rest-ring-wrap { flex-shrink: 0; }
+.rest-ring-wrap { flex-shrink: 0; position: relative; }
+/* Radar-sweep ring around the live rest timer — a rotating conic-gradient arc
+   layered on top of the existing progress ring. Only ever visible while the
+   parent .rest-bar is displayed (running), so no separate on/off wiring is
+   needed for the animation itself — only for its color state below. */
+.rest-ring-wrap::after {
+  content: '';
+  position: absolute;
+  inset: -3px;
+  border-radius: 50%;
+  background: conic-gradient(var(--live) 0deg, transparent 55deg, transparent 360deg);
+  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 3px), #000 calc(100% - 3px) 100%);
+  mask: radial-gradient(farthest-side, transparent calc(100% - 3px), #000 calc(100% - 3px) 100%);
+  animation: spin 2.4s linear infinite;
+  opacity: 0.55;
+  pointer-events: none;
+}
+.rest-ring-wrap.is-done::after { opacity: 0; }
+@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
 .rest-info { flex: 0 0 auto; }
 .rest-lbl { font-size: 0.6rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted); margin-bottom: 0.1rem; }
 .rest-count {
@@ -467,7 +485,12 @@
   color: var(--text);
   line-height: 1;
   letter-spacing: -0.02em;
+  transition: color 0.2s, text-shadow 0.2s;
 }
+/* Currently running = live (cyan) per the app-wide rule; success (green) only
+   at the moment it completes. See DESIGN.md § Color Tokens. */
+.rest-count.is-live { color: var(--live); text-shadow: 0 0 10px var(--live-glow); }
+.rest-count.is-done { color: var(--success); text-shadow: none; }
 .rest-btns { display: flex; gap: 0.3rem; margin-left: auto; align-items: center; }
 
 /* ── Cardio section ──────────────────────────────────────────── */
@@ -728,7 +751,7 @@
   font-weight: 700;
   z-index: 200;
   white-space: nowrap;
-  box-shadow: 0 4px 20px rgba(245,158,11,0.25);
+  box-shadow: 0 4px 20px rgba(245,158,11,0.25), 0 0 24px var(--pr-glow);
   animation: prPop 0.28s cubic-bezier(0.16, 1, 0.3, 1);
 }
 @keyframes prPop {
@@ -1185,7 +1208,7 @@ document.getElementById('tpl-name-input')?.addEventListener('keydown', e => { if
     <div id="notes-save-indicator" style="font-size:0.72rem;color:var(--muted);margin-top:0.2rem;display:none;">Saved</div>
   </div>
   <div id="rest-timer" class="rest-bar">
-    <div class="rest-ring-wrap">
+    <div class="rest-ring-wrap" id="rest-ring-wrap">
       <svg width="56" height="56" viewBox="0 0 56 56">
         <circle cx="28" cy="28" r="22" fill="none" stroke="var(--border)" stroke-width="4"/>
         <circle id="timer-ring" cx="28" cy="28" r="22" fill="none"
@@ -1565,7 +1588,10 @@ function _restoreTimerState() {
       timerRemaining = remaining;
       const bar = document.getElementById('rest-timer');
       bar.style.display = 'flex';
-      document.getElementById('timer-ring').style.stroke = 'var(--accent)';
+      document.getElementById('timer-ring').style.stroke = 'var(--live)';
+      document.getElementById('timer-display').classList.remove('is-done');
+      document.getElementById('timer-display').classList.add('is-live');
+      document.getElementById('rest-ring-wrap').classList.remove('is-done');
       updateTimerDisplay();
       timerInterval = setInterval(() => {
         timerRemaining = Math.max(0, timerRemaining - 1);
@@ -1577,6 +1603,9 @@ function _restoreTimerState() {
           _beep();
           document.getElementById('timer-ring').style.stroke = 'var(--success)';
           document.getElementById('timer-display').textContent = 'Done!';
+          document.getElementById('timer-display').classList.remove('is-live');
+          document.getElementById('timer-display').classList.add('is-done');
+          document.getElementById('rest-ring-wrap').classList.add('is-done');
           setTimeout(stopTimer, 2500);
         }
       }, 1000);
@@ -1606,7 +1635,10 @@ function startTimer() {
   timerTotal = timerRemaining = _timerDefault();
   const bar = document.getElementById('rest-timer');
   bar.style.display = 'flex';
-  document.getElementById('timer-ring').style.stroke = 'var(--accent)';
+  document.getElementById('timer-ring').style.stroke = 'var(--live)';
+  document.getElementById('timer-display').classList.remove('is-done');
+  document.getElementById('timer-display').classList.add('is-live');
+  document.getElementById('rest-ring-wrap').classList.remove('is-done');
   updateTimerDisplay();
   clearInterval(timerInterval);
   _saveTimerState();
@@ -1620,6 +1652,9 @@ function startTimer() {
       _beep();
       document.getElementById('timer-ring').style.stroke = 'var(--success)';
       document.getElementById('timer-display').textContent = 'Done!';
+      document.getElementById('timer-display').classList.remove('is-live');
+      document.getElementById('timer-display').classList.add('is-done');
+      document.getElementById('rest-ring-wrap').classList.add('is-done');
       setTimeout(stopTimer, 2500);
     }
   }, 1000);
@@ -1629,13 +1664,18 @@ function stopTimer() {
   clearInterval(timerInterval); timerInterval = null;
   sessionStorage.removeItem(TIMER_STATE_KEY);
   document.getElementById('rest-timer').style.display = 'none';
+  document.getElementById('timer-display').classList.remove('is-live', 'is-done');
+  document.getElementById('rest-ring-wrap').classList.remove('is-done');
 }
 
 function adjustTimer(delta) {
   timerRemaining = Math.min(TIMER_MAX, Math.max(10, timerRemaining + delta));
   timerTotal     = timerRemaining;
   localStorage.setItem(TIMER_KEY, timerRemaining);
-  document.getElementById('timer-ring').style.stroke = 'var(--accent)';
+  document.getElementById('timer-ring').style.stroke = 'var(--live)';
+  document.getElementById('timer-display').classList.remove('is-done');
+  document.getElementById('timer-display').classList.add('is-live');
+  document.getElementById('rest-ring-wrap').classList.remove('is-done');
   updateTimerDisplay();
 }
 
