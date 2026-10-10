@@ -146,18 +146,24 @@ temporary Gemini errors are retried automatically.
 if a retry is needed); nothing is generated in the background. Quotas are per model — set `GEMINI_MODEL` to a different one, or
 enable billing, for more headroom.
 
-**Coach chat (backend):** each plan can have a conversation with the coach: ask a
+**Coach chat:** each plan can have a conversation with the coach: ask a
 question, or ask for a change ("swap squats for leg press", "day 2 is too long",
 "my knee hurts") and the draft updates at once, with Undo (last 3 edits) and a change
 summary the server computes itself. It only edits **drafts**; a saved plan answers
 questions but is never changed. The coach can propose a short note to remember
 ("left knee clicks on squats"); it is saved only when you confirm, and notes (up to 20)
-shape later chats and plans. You can also swap a single exercise without chatting: the
-coach lists up to six alternatives (the same muscle, similar movements first, avoiding
-anything that loads an area you flagged as painful), and picking one replaces it, keeping
-the sets and reps; it is undoable and needs no AI request, so it works even when the daily
-cap is reached. The Plan-page panel for this arrives in a follow-up; the endpoints
-(`/coach/plans/{id}/chat`, `/undo`, `/swap`, `/coach/notes`) are in place.
+shape later chats and plans. On the Plan page the conversation sits behind a **Coach**
+tab next to Generate (it opens by itself once a plan is on screen); on a phone a message
+bar above the tab bar opens it as a sheet. Saved plans have a **Coach** button that opens
+their conversation read-only, with "Regenerate from this chat" to start a new plan from
+what you asked for.
+
+The coach can also swap a single exercise without a chat message: it lists up to six
+alternatives (the same muscle, similar movements first, avoiding anything that loads an
+area you flagged as painful), and picking one replaces it, keeping the sets and reps; it is
+undoable and needs no AI request, so it works even when the daily cap is reached. The
+per-exercise picker for this arrives in a follow-up; the endpoint
+(`/coach/plans/{id}/swap`) is in place.
 
 Limits worth knowing: every Gemini request counts toward `COACH_AI_MAX_PER_DAY`
 (retries and failed requests included; the count is also stored in `coach_usage`, and
@@ -169,10 +175,16 @@ working. `scripts/coach_eval.py` is a manual live evaluation of generation and c
 
 **Privacy:** the prompt — your training history, set notes, RPE trend, journal
 wellness entries and injury flags — is sent to Google. Chat messages and your coach
-notes are sent too, which is why the chat asks you to acknowledge that once. On the free AI Studio tier
-Google may use submitted content to improve its products; the paid tier does
-not. If that's not acceptable, leave `GEMINI_API_KEY` unset and the Coach stays
-disabled (everything else in the app is unaffected).
+notes are sent too, which is why the chat asks each person to acknowledge that once.
+Google's [Gemini API terms](https://ai.google.dev/gemini-api/terms) (checked 2026-10-09)
+say that on the **free (unpaid) tier** Google uses what you send to improve its products,
+**human reviewers may read it** (disconnected from your account first), and you should
+not send sensitive or personal information; on the paid tier prompts are not used to
+improve products and are kept only briefly to detect abuse. The same terms say the unpaid
+tier may not be offered to users in the **EEA, Switzerland or the UK** (use a paid key
+there) and require users to be **18 or older**. If that's not acceptable, enable billing on
+the key, set `COACH_CHAT_ENABLED=false` to keep generation but turn the chat off, or leave
+`GEMINI_API_KEY` unset and the Coach stays disabled (everything else is unaffected).
 
 ---
 
