@@ -541,6 +541,8 @@ Request to expand the achievements list beyond the current 24. Needs product dec
 
 **Effort:** S human / ~20 CC min. **Priority:** P3. **Depends on:** `sheet.js` shipped.
 
+**SHIPPED 2026-10-10** — fixed in place rather than moved onto `sheet.js`: that primitive is a single full-height sheet, and the confirm must open on top of it (the coach chat's "Forget this note?"). `showConfirm` is now `role="alertdialog"` + `aria-modal`, labelled by its message, focuses Cancel, traps Tab, inerts the page, Escape closes, focus returns, the keydown listener is removed on every close path, and it takes `onCancel`. `scripts/e2e/confirm_sheet.test.mjs` (15 checks, incl. hx-confirm and stacking over a sheet; 7 failed before).
+
 ---
 
 ## TODO-EL-7: Dates are converted to local time twice

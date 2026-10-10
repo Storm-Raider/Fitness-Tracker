@@ -481,6 +481,7 @@ Lucide **v0.378.0** via CDN. Pinned — do not use `@latest`.
 - Timer: `aria-live="off"` (suppress per-second announcements)
 - Announcements: one persistent `#sr-announcer` (`aria-live="polite"`) in `base.html`; call `window.announce(text)`. A logged set is announced ("Set logged: Bench Press, 60 kg × 5. Personal record!"), and so is every action toast. Inline errors (`#log-error`, `#cardio-error`) are `role="alert"`.
 - PR badge: `role="img" aria-label="Personal record"` (a bare span can't carry `aria-label`)
+- Confirmations (`window.showConfirm`, also behind `hx-confirm`): `role="alertdialog"`, `aria-modal`, labelled by the question, focus on Cancel, Tab trapped, page inert, Escape cancels, focus returns to the opener
 - Icon-only buttons always get an `aria-label` naming the action ("Delete set", "Decrease weight"), not the glyph
 - No zoom lock: the viewport allows pinch-zoom (WCAG 1.4.4). Focus zoom on iOS is prevented by every field being 16px, not by `maximum-scale`
 
