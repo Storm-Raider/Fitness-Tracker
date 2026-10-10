@@ -99,6 +99,32 @@
 .cp-composer textarea { flex: 1; min-height: 56px; max-height: 140px; resize: none; font-size: 16px; line-height: 1.4; padding: .9rem .8rem; }
 .cp-composer .btn { min-height: 56px; min-width: 84px; justify-content: center; }
 
+/* Prompt chips on an empty conversation (44px: touch targets) */
+.cp-chips { display: flex; flex-wrap: wrap; justify-content: center; gap: .5rem; }
+.cp-chips .pill { min-height: 44px; }
+.cp-chips .pill:disabled { opacity: .5; cursor: default; }
+
+/* Per-exercise menu (Swap exercise / Why this exercise?) — above the tab bar (100), below More (140) */
+.cp-menu { position: fixed; z-index: 120; min-width: 200px; padding: .25rem 0;
+  background: var(--surface-2); border: 1px solid var(--border-mid); border-radius: var(--radius-xs); box-shadow: var(--shadow); }
+.cp-menu-item { display: flex; align-items: center; width: 100%; min-height: 48px; padding: 0 .9rem;
+  background: none; border: 0; color: var(--text); font: inherit; font-size: .88rem; text-align: left; cursor: pointer; }
+.cp-menu-item + .cp-menu-item { border-top: 1px solid var(--border); }
+.cp-menu-item:hover, .cp-menu-item:focus-visible { background: var(--surface-hover); outline: none; }
+
+/* Inline swap list under an exercise row (DS-9) */
+.swap-list { margin: .25rem 0 .6rem; border: 1px solid var(--border); border-radius: var(--radius-xs); background: var(--surface-2); overflow: hidden; }
+.swap-head { display: flex; align-items: center; justify-content: space-between; padding-left: .8rem; }
+.swap-item { display: flex; align-items: center; justify-content: space-between; gap: .75rem; width: 100%; min-height: 48px;
+  padding: 0 .8rem; background: none; border: 0; border-top: 1px solid var(--border); color: var(--text);
+  font: inherit; font-size: .88rem; text-align: left; cursor: pointer; }
+.swap-item:hover, .swap-item:focus-visible { background: var(--surface-hover); outline: none; }
+.swap-item:disabled { opacity: .6; cursor: default; }
+.swap-meta { font-family: 'JetBrains Mono', monospace; font-size: .66rem; letter-spacing: .06em; text-transform: uppercase;
+  color: var(--muted); white-space: nowrap; }
+.swap-skel { height: 48px; border-top: 1px solid var(--border); background: linear-gradient(90deg, transparent, var(--surface-hover), transparent); opacity: .5; }
+.swap-note { padding: .75rem .8rem; border-top: 1px solid var(--border); font-size: .84rem; color: var(--muted); display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; }
+
 /* Saved-plan "Coach" action on the Saved Plans list */
 .plan-coach-btn { min-height: 40px; padding: 0 .8rem; font-size: .78rem; }
 

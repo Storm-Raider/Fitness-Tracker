@@ -9,6 +9,9 @@
  * database, so the DOM is built with createElement + textContent only. Never use
  * HTML-string APIs in this file; tests/test_chat_js_safety.py fails the build if one appears.
  *
+ * It also owns the per-exercise row menu (Swap exercise / Why this exercise?), the inline
+ * swap list, the prompt chips on an empty conversation and the note / feedback chips.
+ *
  * Layout: >= 768px the panel sits in the left column behind a Generate | Coach toggle;
  * below that it is a fixed one-row composer that opens as a bottom sheet (sheet.js). The
  * panel element is never moved, so the textarea keeps focus and text.
@@ -32,8 +35,13 @@
     messages: [], notes: [], noteCap: 20, hasUndo: false, undoLabel: null,
     notesOpen: false, loading: false, loadFailed: false, sending: false,
     sheet: null, tab: 'generate', generating: false, lastChanged: [], bannerKind: null,
-    chips: [],          // pending note proposals shown after the last reply: [{text}]
+    chips: [],          // proposals shown after the last reply: [{kind: 'note'|'feedback', ...}]
+    feedback: null,     // the plan's current feedback value
   };
+
+  var FEEDBACK_LABELS = { too_easy: 'Too easy', just_right: 'Just right', too_hard: 'Too hard', skipped_often: 'Skipped often' };
+  var DRAFT_PROMPTS = ['Why this split?', 'Make the longest day shorter', 'How should I progress week to week?'];
+  var SAVED_PROMPTS = ['Why this split?', 'How should I progress week to week?'];
 
   /* ── tiny DOM helpers (text only) ─────────────────────────────── */
 
@@ -177,6 +185,13 @@
     if (st.messages.length >= HISTORY_LIMIT) log.appendChild(el('div', 'cp-partial', 'Showing the latest 100 messages.'));
     if (!st.messages.length) {
       log.appendChild(el('p', 'cp-empty', 'Ask for a change or a reason. I use your training log.'));
+      var prompts = el('div', 'cp-chips');
+      (st.canEdit ? DRAFT_PROMPTS : SAVED_PROMPTS).forEach(function (text) {
+        var b = button(text, 'pill', function () { input.value = text; send(); });
+        b.disabled = st.sending || st.atCap || PlanState.get().busy;
+        prompts.appendChild(b);
+      });
+      log.appendChild(prompts);
     }
     var lastDay = null;
     st.messages.forEach(function (m) {
@@ -187,7 +202,7 @@
       }
       log.appendChild(entry(m));
     });
-    st.chips.forEach(function (chip) { log.appendChild(noteChip(chip)); });
+    st.chips.forEach(function (chip) { log.appendChild(chip.kind === 'feedback' ? feedbackChip(chip) : noteChip(chip)); });
     if (st.hasUndo && st.canEdit) {
       var row = el('div', 'cp-undo-row');
       var u = button('Undo', 'btn btn-ghost', function () { undo(false); });
@@ -221,6 +236,31 @@
     });
     actions.appendChild(yes);
     actions.appendChild(no);
+    if (chip.error) box.appendChild(el('div', 'cp-label', "Couldn't save. Try again."));
+    box.appendChild(actions);
+    return box;
+  }
+
+  function feedbackChip(chip) {
+    var box = el('div', 'cp-chip' + (chip.saved ? ' saved' : ''));
+    if (chip.saved) {
+      box.appendChild(el('span', null, 'Saved'));
+      return box;
+    }
+    var label = FEEDBACK_LABELS[chip.value] || chip.value;
+    if (chip.current && chip.current !== chip.value) {
+      box.appendChild(el('span', null, 'Replace "' + (FEEDBACK_LABELS[chip.current] || chip.current) + '" with "' + label + '" for this plan?'));
+    } else {
+      box.appendChild(el('span', null, 'Mark this plan as "' + label + '"?'));
+    }
+    var actions = el('div', 'cp-chip-actions');
+    var yes = button(chip.saving ? 'Saving…' : 'Yes', 'btn btn-ghost', function () { saveFeedback(chip); });
+    yes.disabled = !!chip.saving;
+    actions.appendChild(yes);
+    actions.appendChild(button('No', 'btn btn-ghost', function () {
+      st.chips = st.chips.filter(function (c) { return c !== chip; });
+      renderLog();
+    }));
     if (chip.error) box.appendChild(el('div', 'cp-label', "Couldn't save. Try again."));
     box.appendChild(actions);
     return box;
@@ -309,6 +349,7 @@
     st.noteCap = d.note_cap || 20;
     st.hasUndo = !!d.has_undo;
     st.undoLabel = d.undo_label || null;
+    st.feedback = d.feedback || null;
     st.loadFailed = false;
   }
 
@@ -407,7 +448,10 @@
       changed_days: d.changed_days, changes: d.changes, undone: false });
     st.hasUndo = !!d.has_undo;
     st.undoLabel = d.undo_label || null;
-    if (d.propose_note) st.chips.push(d.notes_full ? { text: d.propose_note, full: true } : { text: d.propose_note });
+    if (d.propose_note) st.chips.push({ kind: 'note', text: d.propose_note, full: !!d.notes_full });
+    if (d.feedback && d.feedback.value && d.feedback.value !== d.feedback.current) {
+      st.chips.push({ kind: 'feedback', value: d.feedback.value, current: d.feedback.current });
+    }
 
     if (d.changed_days && d.changed_days.length) {
       st.lastChanged = d.changed_days;
@@ -494,6 +538,180 @@
     else go();
   }
 
+  async function saveFeedback(chip) {
+    chip.saving = true;
+    chip.error = false;
+    renderLog();
+    var planId = st.planId;
+    var r = await api('POST', '/coach/plans/' + planId + '/feedback', { feedback: chip.value });
+    chip.saving = false;
+    if (!r.ok) { chip.error = true; renderLog(); return; }
+    st.feedback = chip.value;
+    chip.saved = true;
+    renderLog();
+    // Keep the Saved Plans card in step when it is on the page.
+    var colors = { too_easy: 'fb-easy', just_right: 'fb-ok', too_hard: 'fb-hard', skipped_often: 'fb-skip' };
+    var row = document.querySelector('.plan-feedback-row[data-plan-id="' + Number(planId) + '"]');
+    if (row) {
+      row.querySelectorAll('.plan-fb-btn').forEach(function (b) {
+        b.classList.remove('fb-selected', 'fb-easy', 'fb-ok', 'fb-hard', 'fb-skip');
+        if (b.getAttribute('data-value') === chip.value) b.classList.add('fb-selected', colors[chip.value]);
+      });
+    }
+    setTimeout(function () {
+      st.chips = st.chips.filter(function (c) { return c !== chip; });
+      renderLog();
+    }, 3000);
+  }
+
+  /* ── per-exercise menu: Swap exercise / Why this exercise? ────── */
+
+  var menu = null;
+  var swapList = null;
+
+  function closeMenu(returnFocus) {
+    if (!menu) return;
+    var opener = menu._opener;
+    menu.remove();
+    menu = null;
+    document.removeEventListener('pointerdown', onOutside, true);
+    document.removeEventListener('keydown', onMenuKey, true);
+    global.removeEventListener('scroll', onScrollClose, true);
+    if (returnFocus && opener && document.contains(opener)) opener.focus();
+  }
+  function onOutside(e) { if (menu && !menu.contains(e.target) && e.target !== menu._opener) closeMenu(false); }
+  function onScrollClose(e) { if (menu && !menu.contains(e.target)) closeMenu(false); }
+  function onMenuKey(e) {
+    if (!menu) return;
+    var items = [].slice.call(menu.querySelectorAll('button'));
+    var i = items.indexOf(document.activeElement);
+    if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); closeMenu(true); }
+    else if (e.key === 'ArrowDown') { e.preventDefault(); items[(i + 1) % items.length].focus(); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); items[(i - 1 + items.length) % items.length].focus(); }
+    else if (e.key === 'Tab') { closeMenu(false); }
+  }
+
+  function exerciseAt(day, idx) {
+    var plan = PlanState.get().plan;
+    var d = plan && plan.days && plan.days[day - 1];
+    return d && d.exercises[idx];
+  }
+
+  function onRowAction(day, idx, opener) {
+    var reopen = menu && menu._opener === opener;
+    closeMenu(false);
+    if (reopen) return;                                  // the same button toggles the menu shut
+    var ex = exerciseAt(day, idx);
+    if (!ex) return;
+    var s = PlanState.get();
+    menu = el('div', 'cp-menu');
+    menu.setAttribute('role', 'menu');
+    menu.setAttribute('aria-label', ex.name);
+    menu._opener = opener;
+    if (!s.readonly && st.canEdit) {
+      var swap = button('Swap exercise', 'cp-menu-item', function () { closeMenu(false); openSwapList(day, idx); });
+      swap.setAttribute('role', 'menuitem');
+      menu.appendChild(swap);
+    }
+    var why = button('Why this exercise?', 'cp-menu-item', function () { closeMenu(false); askWhy(day, idx); });
+    why.setAttribute('role', 'menuitem');
+    menu.appendChild(why);
+    document.body.appendChild(menu);
+    var b = opener.getBoundingClientRect();
+    var w = Math.max(menu.offsetWidth, 200);
+    var top = b.bottom + 4;
+    if (top + menu.offsetHeight > global.innerHeight - 8) top = Math.max(8, b.top - menu.offsetHeight - 4);
+    menu.style.top = top + 'px';
+    menu.style.left = Math.max(8, Math.min(b.right - w, global.innerWidth - w - 8)) + 'px';
+    menu.querySelector('button').focus();
+    document.addEventListener('pointerdown', onOutside, true);
+    document.addEventListener('keydown', onMenuKey, true);
+    global.addEventListener('scroll', onScrollClose, true);
+  }
+
+  function askWhy(day, idx) {
+    var ex = exerciseAt(day, idx);
+    if (!ex) return;
+    var text = 'Why is ' + ex.name + ' on day ' + day + '?';
+    if (MOBILE.matches) openSheet(); else showTab('coach');
+    input.value = text;
+    autosize();
+    if (st.acked) send();                                // otherwise it waits in the box until the card is accepted
+  }
+
+  function closeSwapList() {
+    if (swapList) { swapList.remove(); swapList = null; }
+  }
+
+  async function openSwapList(day, idx) {
+    closeSwapList();
+    var out = document.getElementById('ai-plan-output');
+    var dayNode = PlanView.dayNode(out, day);
+    var row = dayNode && dayNode.querySelector('.ex-row[data-idx="' + idx + '"]');
+    var ex = exerciseAt(day, idx);
+    if (!row || !ex) return;
+    var list = el('div', 'swap-list');
+    list.setAttribute('role', 'group');
+    list.setAttribute('aria-label', 'Swap ' + ex.name);
+    var head = el('div', 'swap-head');
+    head.appendChild(el('span', 'cp-label', 'Swap ' + ex.name + ' for'));
+    var close = button('×', 'cp-icon-btn', closeSwapList);
+    close.setAttribute('aria-label', 'Close the swap list');
+    head.appendChild(close);
+    list.appendChild(head);
+    for (var i = 0; i < 6; i++) list.appendChild(el('div', 'swap-skel'));
+    row.parentNode.insertBefore(list, row.nextSibling);
+    swapList = list;
+
+    var s = PlanState.get();
+    var r = await api('GET', '/coach/plans/' + st.planId + '/swap?day=' + day + '&idx=' + idx + '&base_rev=' + s.rev);
+    if (swapList !== list) return;                       // closed or replaced meanwhile
+    [].slice.call(list.querySelectorAll('.swap-skel')).forEach(function (n) { n.remove(); });
+    if (!r.ok) {
+      if (r.data.kind === 'stale' || r.data.kind === 'replaced') { st.bannerKind = r.data.kind; closeSwapList(); renderAll(); return; }
+      var err = el('div', 'swap-note', "Couldn't load alternatives. ");
+      err.appendChild(button('Retry', 'btn btn-ghost', function () { openSwapList(day, idx); }));
+      list.appendChild(err);
+      return;
+    }
+    var alts = r.data.alternatives || [];
+    if (!alts.length) { list.appendChild(el('div', 'swap-note', 'No alternatives found for this exercise.')); return; }
+    alts.forEach(function (a) {
+      var item = button(null, 'swap-item', function () { applySwap(day, idx, a, list); });
+      item.appendChild(el('span', null, a.name));
+      item.appendChild(el('span', 'swap-meta', [a.equipment, a.muscle].filter(Boolean).join(' · ')));
+      list.appendChild(item);
+    });
+    list.querySelector('.swap-item').focus({ preventScroll: true });
+  }
+
+  async function applySwap(day, idx, alt, list) {
+    var s = PlanState.get();
+    if (s.busy) return;
+    [].slice.call(list.querySelectorAll('button')).forEach(function (b) { b.disabled = true; });
+    PlanState.setBusy(true);
+    var r = await api('POST', '/coach/plans/' + st.planId + '/swap',
+      { base_rev: s.rev, day: day, idx: idx, exercise_id: alt.exercise_id });
+    PlanState.setBusy(false);
+    if (!r.ok) {
+      var kind = r.data.kind;
+      if (kind === 'stale' || kind === 'replaced') { st.bannerKind = kind; closeSwapList(); renderAll(); return; }
+      [].slice.call(list.querySelectorAll('button')).forEach(function (b) { b.disabled = false; });
+      var old = list.querySelector('.swap-note');
+      if (old) old.remove();
+      list.appendChild(el('div', 'swap-note', r.data.detail || "Couldn't swap. Try again."));
+      return;
+    }
+    var d = r.data;
+    closeSwapList();
+    st.hasUndo = !!d.has_undo;
+    st.undoLabel = d.undo_label || null;
+    PlanState.set({ plan: d.plan, rev: d.rev });
+    PlanView.render(document.getElementById('ai-plan-output'), d.plan, { changedDays: d.changed_days });
+    renderAll();
+    global.showActionToast('Swapped ' + d.swapped.from + ' for ' + d.swapped.to, function () { return undo(true); });
+  }
+
   /* ── privacy acknowledgement ──────────────────────────────────── */
 
   async function acknowledge() {
@@ -557,6 +775,8 @@
   }
 
   function onPlanChanged(e) {
+    closeMenu(false);
+    closeSwapList();
     var s = (e && e.detail && e.detail.state) || PlanState.get();
     var prev = e && e.detail && e.detail.prev;
     if (s.planId && s.planId !== st.planId) {
@@ -571,6 +791,8 @@
   }
 
   function onPlanCleared() {
+    closeMenu(false);
+    closeSwapList();
     st.planId = null;
     st.messages = [];
     st.chips = [];
@@ -625,6 +847,7 @@
     if (tabGenerate) tabGenerate.addEventListener('click', function () { showTab('generate'); });
     if (tabCoach) tabCoach.addEventListener('click', function () { showTab('coach'); });
 
+    PlanView.setRowAction(onRowAction);
     document.addEventListener('plan:changed', onPlanChanged);
     document.addEventListener('plan:cleared', onPlanCleared);
     document.addEventListener('plan:busy', function () { renderComposer(); if (st.hasUndo) renderLog(); });
@@ -651,6 +874,8 @@
     _state: st,                           // for tests
   };
 
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
-  else init();
+  // The panel markup sits above this script, so init can run now; it must, because the
+  // row-menu hook has to be registered before the page script renders a draft.
+  if (document.getElementById('coach-panel')) init();
+  else document.addEventListener('DOMContentLoaded', init);
 })(window);
