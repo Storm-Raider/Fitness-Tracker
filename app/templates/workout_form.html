@@ -876,9 +876,9 @@
           {{ set_metric(s) }}{% if s.rpe %} · RPE {{ s.rpe }}{% endif %}{% if s.notes %} · {{ s.notes }}{% endif %}
         </div>
         <div class="set-edit-row" id="edit-{{ s.id }}">
-          <input type="number" class="edit-w" step="0.5" min="0">
+          <input type="number" class="edit-w" step="0.5" min="0" inputmode="decimal">
           <span style="color:var(--muted);font-size:0.85rem;">×</span>
-          <input type="number" class="edit-r" step="1" min="1">
+          <input type="number" class="edit-r" step="1" min="1" inputmode="numeric">
           <button onclick="saveEdit({{ s.id }})" class="btn btn-ghost" style="font-size:0.72rem;padding:0.1rem 0.5rem;min-height:24px;">Save</button>
           <button onclick="cancelEdit({{ s.id }})" class="btn btn-ghost" style="font-size:0.72rem;padding:0.1rem 0.4rem;min-height:24px;">✕</button>
         </div>
@@ -1113,7 +1113,7 @@ document.getElementById('tpl-name-input')?.addEventListener('keydown', e => { if
       <label id="weight-label">Weight (kg)</label>
       <div class="stepper-xl">
         <button type="button" class="sx-btn" onclick="stepWeight(-1)">−</button>
-        <input type="number" id="weight-input" class="sx-val" value="60" step="0.5" min="0">
+        <input type="number" id="weight-input" class="sx-val" value="60" step="0.5" min="0" inputmode="decimal">
         <button type="button" class="sx-btn" onclick="stepWeight(1)">+</button>
       </div>
     </div>
@@ -1121,7 +1121,7 @@ document.getElementById('tpl-name-input')?.addEventListener('keydown', e => { if
       <label id="reps-label">Reps</label>
       <div class="stepper-xl">
         <button type="button" class="sx-btn" onclick="step('reps', -1)">−</button>
-        <input type="number" id="reps-input" class="sx-val" value="8" step="1" min="1">
+        <input type="number" id="reps-input" class="sx-val" value="8" step="1" min="1" inputmode="numeric">
         <button type="button" class="sx-btn" onclick="step('reps', 1)">+</button>
       </div>
     </div>
@@ -1178,13 +1178,13 @@ document.getElementById('tpl-name-input')?.addEventListener('keydown', e => { if
           <label>Duration (min)</label>
           <div class="stepper-group">
             <button type="button" class="stepper-btn" onclick="stepCardio('duration', -5)">−</button>
-            <input type="number" id="cardio-duration" class="num" value="20" min="1" step="1">
+            <input type="number" id="cardio-duration" class="num" value="20" min="1" step="1" inputmode="decimal">
             <button type="button" class="stepper-btn" onclick="stepCardio('duration', 5)">+</button>
           </div>
         </div>
         <div class="form-group">
           <label id="cardio-distance-label">Distance (km)</label>
-          <input type="number" id="cardio-distance" class="num" placeholder="optional" min="0" step="0.01">
+          <input type="number" id="cardio-distance" class="num" placeholder="optional" min="0" step="0.01" inputmode="decimal">
         </div>
       </div>
       <div class="form-group">
@@ -1254,9 +1254,9 @@ document.getElementById('tpl-name-input')?.addEventListener('keydown', e => { if
             {{ set_metric(s) }}{% if s.rpe %} · RPE {{ s.rpe }}{% endif %}{% if s.notes %} · {{ s.notes }}{% endif %}
           </div>
           <div class="set-edit-row" id="edit-{{ s.id }}">
-            <input type="number" class="edit-w" step="0.5" min="0">
+            <input type="number" class="edit-w" step="0.5" min="0" inputmode="decimal">
             <span style="color:var(--muted);font-size:0.85rem;">×</span>
-            <input type="number" class="edit-r" step="1" min="1">
+            <input type="number" class="edit-r" step="1" min="1" inputmode="numeric">
             <button onclick="saveEdit({{ s.id }})" class="btn btn-ghost" style="font-size:0.72rem;padding:0.1rem 0.5rem;min-height:24px;">Save</button>
             <button onclick="cancelEdit({{ s.id }})" class="btn btn-ghost" style="font-size:0.72rem;padding:0.1rem 0.4rem;min-height:24px;">✕</button>
           </div>
@@ -1560,6 +1560,7 @@ const TIMER_MAX = 600;
 const RING_C    = 2 * Math.PI * 22; // r=22 → ≈138.23
 let timerTotal     = 120;
 let timerRemaining = 120;
+let timerEndsAt    = 0;     // wall-clock ms; the countdown is derived from it
 let timerInterval  = null;
 
 function _timerDefault() {
@@ -1570,7 +1571,7 @@ function _saveTimerState() {
   if (timerInterval) {
     sessionStorage.setItem(TIMER_STATE_KEY, JSON.stringify({
       wid: WORKOUT_ID,
-      endsAt: Date.now() + timerRemaining * 1000,
+      endsAt: timerEndsAt,
       total: timerTotal,
     }));
   } else {
@@ -1582,40 +1583,24 @@ function _restoreTimerState() {
   try {
     const s = JSON.parse(sessionStorage.getItem(TIMER_STATE_KEY) || 'null');
     if (!s || s.wid !== WORKOUT_ID) return;
-    const remaining = Math.round((s.endsAt - Date.now()) / 1000);
-    if (remaining > 0) {
-      timerTotal = s.total;
-      timerRemaining = remaining;
-      const bar = document.getElementById('rest-timer');
-      bar.style.display = 'flex';
-      document.getElementById('timer-ring').style.stroke = 'var(--live)';
-      document.getElementById('timer-display').classList.remove('is-done');
-      document.getElementById('timer-display').classList.add('is-live');
-      document.getElementById('rest-ring-wrap').classList.remove('is-done');
-      updateTimerDisplay();
-      timerInterval = setInterval(() => {
-        timerRemaining = Math.max(0, timerRemaining - 1);
-        _saveTimerState();
-        updateTimerDisplay();
-        if (timerRemaining === 0) {
-          clearInterval(timerInterval); timerInterval = null;
-          sessionStorage.removeItem(TIMER_STATE_KEY);
-          _beep();
-          document.getElementById('timer-ring').style.stroke = 'var(--success)';
-          document.getElementById('timer-display').textContent = 'Done!';
-          document.getElementById('timer-display').classList.remove('is-live');
-          document.getElementById('timer-display').classList.add('is-done');
-          document.getElementById('rest-ring-wrap').classList.add('is-done');
-          setTimeout(stopTimer, 2500);
-        }
-      }, 1000);
-    }
+    if (s.endsAt > Date.now()) _runTimer(s.endsAt, s.total);
+  } catch {}
+}
+
+// iOS only plays Web Audio from a context created or resumed inside a tap, so
+// Log Set unlocks one shared context and the beep reuses it.
+let _audioCtx = null;
+function _unlockAudio() {
+  try {
+    if (!_audioCtx) _audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if (_audioCtx.state === 'suspended') _audioCtx.resume();
   } catch {}
 }
 
 function _beep() {
   try {
-    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const ctx = _audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+    if (ctx.state === 'suspended') ctx.resume();
     [0, 0.22, 0.44].forEach(t => {
       const osc  = ctx.createOscillator();
       const gain = ctx.createGain();
@@ -1632,33 +1617,44 @@ function _beep() {
 }
 
 function startTimer() {
-  timerTotal = timerRemaining = _timerDefault();
+  const total = _timerDefault();
+  _runTimer(Date.now() + total * 1000, total);
+}
+
+// Remaining time comes from the wall clock on every tick, not from counting
+// ticks: a locked iPhone pauses timers, and the countdown must catch up.
+function _runTimer(endsAt, total) {
+  timerEndsAt = endsAt;
+  timerTotal  = total;
   const bar = document.getElementById('rest-timer');
   bar.style.display = 'flex';
   document.getElementById('timer-ring').style.stroke = 'var(--live)';
   document.getElementById('timer-display').classList.remove('is-done');
   document.getElementById('timer-display').classList.add('is-live');
   document.getElementById('rest-ring-wrap').classList.remove('is-done');
-  updateTimerDisplay();
   clearInterval(timerInterval);
+  timerInterval = setInterval(_timerTick, 1000);
   _saveTimerState();
-  timerInterval = setInterval(() => {
-    timerRemaining = Math.max(0, timerRemaining - 1);
-    _saveTimerState();
-    updateTimerDisplay();
-    if (timerRemaining === 0) {
-      clearInterval(timerInterval); timerInterval = null;
-      sessionStorage.removeItem(TIMER_STATE_KEY);
-      _beep();
-      document.getElementById('timer-ring').style.stroke = 'var(--success)';
-      document.getElementById('timer-display').textContent = 'Done!';
-      document.getElementById('timer-display').classList.remove('is-live');
-      document.getElementById('timer-display').classList.add('is-done');
-      document.getElementById('rest-ring-wrap').classList.add('is-done');
-      setTimeout(stopTimer, 2500);
-    }
-  }, 1000);
+  _timerTick();
 }
+
+function _timerTick() {
+  if (!timerInterval) return;
+  timerRemaining = Math.max(0, Math.ceil((timerEndsAt - Date.now()) / 1000));
+  updateTimerDisplay();
+  if (timerRemaining === 0) {
+    clearInterval(timerInterval); timerInterval = null;
+    sessionStorage.removeItem(TIMER_STATE_KEY);
+    _beep();
+    document.getElementById('timer-ring').style.stroke = 'var(--success)';
+    document.getElementById('timer-display').textContent = 'Done!';
+    document.getElementById('timer-display').classList.remove('is-live');
+    document.getElementById('timer-display').classList.add('is-done');
+    document.getElementById('rest-ring-wrap').classList.add('is-done');
+    setTimeout(stopTimer, 2500);
+  }
+}
+document.addEventListener('visibilitychange', () => { if (!document.hidden) _timerTick(); });
 
 function stopTimer() {
   clearInterval(timerInterval); timerInterval = null;
@@ -1671,7 +1667,9 @@ function stopTimer() {
 function adjustTimer(delta) {
   timerRemaining = Math.min(TIMER_MAX, Math.max(10, timerRemaining + delta));
   timerTotal     = timerRemaining;
+  timerEndsAt    = Date.now() + timerRemaining * 1000;
   localStorage.setItem(TIMER_KEY, timerRemaining);
+  _saveTimerState();
   document.getElementById('timer-ring').style.stroke = 'var(--live)';
   document.getElementById('timer-display').classList.remove('is-done');
   document.getElementById('timer-display').classList.add('is-live');
@@ -1699,17 +1697,31 @@ async function saveNotes() {
   const el = document.getElementById('session-notes-input');
   if (!el) return;
   const notes = el.value || null;
-  await fetch(`/workouts/${WORKOUT_ID}`, {
-    method: 'PATCH',
-    headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({notes}),
-  });
+  let ok = false, offline = false;
+  try {
+    const resp = await fetch(`/workouts/${WORKOUT_ID}`, {
+      method: 'PATCH',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({notes}),
+    });
+    ok = resp.ok;
+  } catch (e) { offline = true; }
   const ind = document.getElementById('notes-save-indicator');
   if (ind) {
+    // A failure stays on screen (and the next keystroke retries); "Saved" fades.
+    clearTimeout(ind._hideTimer);
+    ind.textContent = ok ? 'Saved'
+      : offline ? 'Not saved: no connection. Retrying when you are back online.'
+      : 'Not saved. Edit the notes to try again.';
+    ind.style.color = ok ? 'var(--muted)' : 'var(--danger)';
     ind.style.display = 'block';
-    setTimeout(() => { ind.style.display = 'none'; }, 1500);
+    if (ok) ind._hideTimer = setTimeout(() => { ind.style.display = 'none'; }, 1500);
   }
+  _notesUnsaved = offline;
+  return ok;
 }
+let _notesUnsaved = false;
+window.addEventListener('online', () => { if (_notesUnsaved) saveNotes(); });
 
 // ── Muscle / routine filters ──────────────────────────────────
 function _musclesForExercise(ex) { return (ex.muscles || []).map(m => m.name); }
@@ -1897,11 +1909,18 @@ async function logCardio() {
   const distRaw = parseFloat(document.getElementById('cardio-distance').value) || null;
   const distKm  = distRaw ? (getDistanceUnit() === 'mi' ? distRaw * 1.60934 : distRaw) : null;
   const notes   = document.getElementById('cardio-notes').value.trim() || null;
-  const resp = await fetch(`/workouts/${WORKOUT_ID}/cardio`, {
-    method: 'POST',
-    headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({exercise_id: exerciseId, duration_minutes: duration, distance_km: distKm, notes}),
-  });
+  let resp;
+  try {
+    resp = await fetch(`/workouts/${WORKOUT_ID}/cardio`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({exercise_id: exerciseId, duration_minutes: duration, distance_km: distKm, notes}),
+    });
+  } catch (e) {
+    errEl.textContent = _offlineMsg("the cardio wasn't saved");
+    errEl.style.display = 'block';
+    return;
+  }
   if (!resp.ok) { errEl.textContent = 'Failed to log cardio.'; errEl.style.display = 'block'; return; }
   const data    = await resp.json();
   const exName  = cardioExercises.find(e => e.id === exerciseId)?.name || 'Cardio';
@@ -2243,7 +2262,27 @@ async function logSet() {
 
   const logBtn = document.querySelector('.log-btn');
   if (logBtn) { if (logBtn.dataset.busy) return; logBtn.dataset.busy = '1'; logBtn.style.opacity = '0.6'; }
+  _unlockAudio();  // inside the tap, so iOS lets the rest-timer beep play later
 
+  try {
+    await _logSet(exerciseName, exerciseId);
+  } catch (e) {
+    // fetch() rejects only when no answer came back (offline, Pi unreachable).
+    // The steppers keep their values, so tapping Log Set again retries.
+    if (e instanceof TypeError && !_setSaved) {
+      showErr(_offlineMsg("the set wasn't saved"));
+    } else {
+      console.error(e);
+    }
+  } finally {
+    if (logBtn) { delete logBtn.dataset.busy; logBtn.style.opacity = ''; }
+  }
+}
+
+let _setSaved = false;  // true once the server accepted the set, so a later UI error isn't reported as "not saved"
+
+async function _logSet(exerciseName, exerciseId) {
+  _setSaved = false;
   if (!exerciseId) {
     const cr = await fetch('/exercises', {
       method: 'POST',
@@ -2255,8 +2294,8 @@ async function logSet() {
     } else if (cr.status === 409) {
       const match = exercises.find(e => e.name.toLowerCase() === exerciseName.toLowerCase());
       if (match) { exerciseId = match.id; }
-      else { showErr('Exercise name conflict.'); if (logBtn) { delete logBtn.dataset.busy; logBtn.style.opacity = ''; } return; }
-    } else { showErr('Could not create exercise.'); if (logBtn) { delete logBtn.dataset.busy; logBtn.style.opacity = ''; } return; }
+      else { showErr('Exercise name conflict.'); return; }
+    } else { showErr('Could not create exercise.'); return; }
   }
 
   const unit          = getAppUnit();
@@ -2285,8 +2324,9 @@ async function logSet() {
     body: JSON.stringify({exercise_id: exerciseId, reps, weight_kg: weightKg,
                           added_weight_kg: addedKg, duration_seconds: durationSeconds, notes, rpe}),
   });
-  if (!resp.ok) { showErr('Failed to log set.'); if (logBtn) { delete logBtn.dataset.busy; logBtn.style.opacity = ''; } return; }
+  if (!resp.ok) { showErr('Failed to log set.'); return; }
   const data = await resp.json();
+  _setSaved = true;
 
   startTimer();
 
@@ -2327,9 +2367,9 @@ async function logSet() {
         }${rpe ? ' · RPE ' + rpe : ''}${notes ? ' · ' + escHtml(notes) : ''}
       </div>
       <div class="set-edit-row" id="edit-${data.id}">
-        <input type="number" class="edit-w" step="0.5" min="0">
+        <input type="number" class="edit-w" step="0.5" min="0" inputmode="decimal">
         <span style="color:var(--muted);font-size:0.85rem;">×</span>
-        <input type="number" class="edit-r" step="1" min="1">
+        <input type="number" class="edit-r" step="1" min="1" inputmode="numeric">
         <button onclick="saveEdit(${data.id})" class="btn btn-ghost" style="font-size:0.72rem;padding:0.1rem 0.5rem;min-height:24px;">Save</button>
         <button onclick="cancelEdit(${data.id})" class="btn btn-ghost" style="font-size:0.72rem;padding:0.1rem 0.4rem;min-height:24px;">✕</button>
       </div>
@@ -2354,7 +2394,6 @@ async function logSet() {
   _lastLoggedExId = exerciseId;
   _showSameBtn(exerciseName, fieldVal, reps, unit);
   if (window._mmapRefresh) window._mmapRefresh();
-  if (logBtn) { delete logBtn.dataset.busy; logBtn.style.opacity = ''; }
 }
 
 // ── Exercise group helpers ─────────────────────────────────────
@@ -2537,7 +2576,13 @@ async function saveEdit(id) {
 
 async function deleteSet(id, btn) {
   window.showConfirm('Remove this set?', async function() {
-    const resp = await fetch(`/workouts/${WORKOUT_ID}/sets/${id}`, {method: 'DELETE'});
+    let resp;
+    try {
+      resp = await fetch(`/workouts/${WORKOUT_ID}/sets/${id}`, {method: 'DELETE'});
+    } catch (e) {
+      showErr(_offlineMsg("the set wasn't removed"));
+      return;
+    }
     if (resp.ok || resp.status === 204) {
       window.showUndoToast(resp.headers.get('X-Undo-Token'), decodeURIComponent(resp.headers.get('X-Undo-Label') || ''));
       const row   = document.getElementById('set-' + id);
@@ -2581,14 +2626,25 @@ async function deleteSet(id, btn) {
 async function finishWorkout() {
   if (Object.keys(setVolumes).length === 0) {
     window.showConfirm('No sets logged — discard this session?', async function() {
-      await fetch(`/workouts/${WORKOUT_ID}`, {method: 'DELETE'});
+      try {
+        await fetch(`/workouts/${WORKOUT_ID}`, {method: 'DELETE'});
+      } catch (e) {
+        showErr(_offlineMsg("the session wasn't discarded"));
+        return;
+      }
       window.location.href = '/workouts';
     });
     return;
   }
   // Flush any unsaved session notes before finishing
   await saveNotes();
-  const resp = await fetch(`/workouts/${WORKOUT_ID}/finish`, {method: 'POST'});
+  let resp;
+  try {
+    resp = await fetch(`/workouts/${WORKOUT_ID}/finish`, {method: 'POST'});
+  } catch (e) {
+    showErr(_offlineMsg("the session isn't finished yet"));
+    return;
+  }
   if (!resp.ok) { window.location.href = '/workouts'; return; }
   const data = await resp.json();
   const unit   = getAppUnit();
@@ -2607,9 +2663,19 @@ function showErr(msg) {
   el.textContent = msg; el.style.display = 'block';
 }
 
+function _offlineMsg(what) {
+  return `No connection: ${what}. Check your signal and try again.`;
+}
+
 async function deleteCardio(id, btn) {
   window.showConfirm('Remove this cardio entry?', async function() {
-    const resp = await fetch(`/workouts/${WORKOUT_ID}/cardio/${id}`, {method: 'DELETE'});
+    let resp;
+    try {
+      resp = await fetch(`/workouts/${WORKOUT_ID}/cardio/${id}`, {method: 'DELETE'});
+    } catch (e) {
+      showErr(_offlineMsg("the cardio entry wasn't removed"));
+      return;
+    }
     if (resp.ok || resp.status === 204) {
       window.showUndoToast(resp.headers.get('X-Undo-Token'), decodeURIComponent(resp.headers.get('X-Undo-Label') || ''));
       document.getElementById('cardio-' + id)?.remove();
@@ -2623,7 +2689,13 @@ async function deleteWorkout() {
     ? `Delete this workout and its ${setCount} set${setCount !== 1 ? 's' : ''}?`
     : 'Delete this empty workout?';
   window.showConfirm(msg, async function() {
-    const resp = await fetch(`/workouts/${WORKOUT_ID}`, {method: 'DELETE'});
+    let resp;
+    try {
+      resp = await fetch(`/workouts/${WORKOUT_ID}`, {method: 'DELETE'});
+    } catch (e) {
+      showErr(_offlineMsg("the workout wasn't deleted"));
+      return;
+    }
     if (resp.ok) {
       // Navigating away — relay the undo toast to the workouts page.
       window.stashUndoToast(resp.headers.get('X-Undo-Token'), decodeURIComponent(resp.headers.get('X-Undo-Label') || ''));
@@ -2680,14 +2752,13 @@ async function deleteWorkout() {
     row.addEventListener('touchend', function() {
       if (!dragging || locked) return;
       if (-dx >= THRESHOLD) {
-        // trigger delete
-        row.style.transition = 'transform 0.2s,opacity 0.2s';
-        row.style.transform = 'translateX(-100%)';
-        row.style.opacity = '0';
-        setTimeout(function() {
-          const delBtn = row.querySelector('.set-del');
-          if (delBtn) delBtn.click();
-        }, 200);
+        // Snap back and ask: the row leaves only once the delete succeeds
+        // (deleteSet animates it out), so Cancel or a failed delete keeps it.
+        row.style.transition = 'transform 0.2s';
+        if (bg) { bg.style.transition = 'opacity 0.2s'; bg.style.opacity = '0'; }
+        row.style.transform = '';
+        const delBtn = row.querySelector('.set-del');
+        if (delBtn) delBtn.click();
       } else {
         row.style.transition = 'transform 0.25s';
         if (bg) { bg.style.transition = 'opacity 0.25s'; bg.style.opacity = '0'; }

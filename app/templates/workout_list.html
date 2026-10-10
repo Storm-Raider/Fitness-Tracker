@@ -53,11 +53,18 @@ const _activeWorkoutId = null;
 
 async function repeatWorkout(sourceId, btn) {
   btn.disabled = true;
-  const resp = await fetch('/workouts', {
-    method: 'POST',
-    headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({notes: null})
-  });
+  let resp;
+  try {
+    resp = await fetch('/workouts', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({notes: null})
+    });
+  } catch (e) {
+    btn.disabled = false;
+    alert('No connection: the session was not started. Check your signal and try again.');
+    return;
+  }
   if (resp.ok) {
     const data = await resp.json();
     window.location.href = `/workouts/${data.id}?repeat=${sourceId}`;
@@ -119,11 +126,19 @@ async function startSession(btn) {
 async function _doStartSession(btn) {
   btn.disabled = true;
   btn.textContent = 'Starting…';
-  const resp = await fetch('/workouts', {
-    method: 'POST',
-    headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({notes: null})
-  });
+  let resp;
+  try {
+    resp = await fetch('/workouts', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({notes: null})
+    });
+  } catch (e) {
+    btn.disabled = false;
+    btn.textContent = 'Start Session';
+    alert('No connection: the session was not started. Check your signal and try again.');
+    return;
+  }
   if (resp.ok) {
     const data = await resp.json();
     window.location.href = '/workouts/' + data.id;
