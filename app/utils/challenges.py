@@ -36,7 +36,7 @@ async def training_dates(conn: aiosqlite.Connection, uid: int) -> set[str]:
     count — its eventual duration isn't known."""
     dates: set[str] = set()
     async with conn.execute(
-        "SELECT DISTINCT DATE(started_at,'localtime') AS d FROM workouts "
+        "SELECT DISTINCT DATE(started_at) AS d FROM workouts "
         "WHERE user_id=? AND ended_at IS NOT NULL "
         "AND (JULIANDAY(ended_at) - JULIANDAY(started_at)) * 1440 >= ?",
         (uid, WORKOUT_MIN_MINUTES),

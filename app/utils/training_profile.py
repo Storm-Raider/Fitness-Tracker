@@ -69,7 +69,7 @@ async def build_profile(conn: aiosqlite.Connection, uid: int, *, fresh: bool = F
         JOIN exercises e ON e.id = s.exercise_id
         JOIN workouts w ON w.id = s.workout_id
         WHERE s.user_id = ?
-          AND DATE(w.started_at) >= DATE('now', '-90 days')
+          AND DATE(w.started_at) >= DATE('now','localtime','-90 days')
         GROUP BY e.id
         ORDER BY sets DESC
         LIMIT 15
@@ -86,7 +86,7 @@ async def build_profile(conn: aiosqlite.Connection, uid: int, *, fresh: bool = F
         JOIN exercise_muscles em ON em.exercise_id = s.exercise_id AND em.is_primary = 1
         JOIN workouts w ON w.id = s.workout_id
         WHERE s.user_id = ?
-          AND DATE(w.started_at) >= DATE('now', '-90 days')
+          AND DATE(w.started_at) >= DATE('now','localtime','-90 days')
         GROUP BY em.muscle
         ORDER BY sets DESC
         """,
@@ -147,7 +147,7 @@ async def build_profile(conn: aiosqlite.Connection, uid: int, *, fresh: bool = F
         JOIN exercises e ON e.id = s.exercise_id
         JOIN workouts w ON w.id = s.workout_id
         WHERE s.user_id = ?
-          AND DATE(w.started_at) >= DATE('now', '-90 days')
+          AND DATE(w.started_at) >= DATE('now','localtime','-90 days')
         GROUP BY equipment
         ORDER BY n DESC
         LIMIT 3
@@ -161,7 +161,7 @@ async def build_profile(conn: aiosqlite.Connection, uid: int, *, fresh: bool = F
         """
         SELECT em.muscle,
                CAST(julianday('now','localtime') -
-                    julianday(MAX(DATE(w.started_at,'localtime'))) AS INTEGER) AS days_ago
+                    julianday(MAX(DATE(w.started_at))) AS INTEGER) AS days_ago
         FROM sets s
         JOIN workouts w ON w.id = s.workout_id
         JOIN exercise_muscles em ON em.exercise_id = s.exercise_id AND em.is_primary = 1
@@ -191,7 +191,7 @@ async def build_profile(conn: aiosqlite.Connection, uid: int, *, fresh: bool = F
         FROM workouts
         WHERE user_id = ? AND ended_at IS NOT NULL
           AND (julianday(ended_at) - julianday(started_at)) BETWEEN 0.01 AND 0.25
-          AND DATE(started_at) >= DATE('now', '-90 days')
+          AND DATE(started_at) >= DATE('now','localtime','-90 days')
         """,
         (uid,),
     ) as cur:
@@ -242,12 +242,12 @@ async def build_profile(conn: aiosqlite.Connection, uid: int, *, fresh: bool = F
         """
         SELECT e.name, s.notes,
                CAST(julianday('now','localtime') -
-                    julianday(DATE(w.started_at,'localtime')) AS INTEGER) AS days_ago
+                    julianday(DATE(w.started_at)) AS INTEGER) AS days_ago
         FROM sets s
         JOIN exercises e ON e.id = s.exercise_id
         JOIN workouts w ON w.id = s.workout_id
         WHERE s.user_id = ? AND s.notes IS NOT NULL AND TRIM(s.notes) != ''
-          AND DATE(w.started_at) >= DATE('now', '-30 days')
+          AND DATE(w.started_at) >= DATE('now','localtime','-30 days')
         ORDER BY w.started_at DESC
         LIMIT 10
         """,
@@ -264,7 +264,7 @@ async def build_profile(conn: aiosqlite.Connection, uid: int, *, fresh: bool = F
         JOIN exercises e ON e.id = s.exercise_id
         JOIN workouts w ON w.id = s.workout_id
         WHERE s.user_id = ? AND s.rpe IS NOT NULL
-          AND DATE(w.started_at) >= DATE('now', '-14 days')
+          AND DATE(w.started_at) >= DATE('now','localtime','-14 days')
         GROUP BY s.exercise_id
         HAVING COUNT(*) >= 2
         ORDER BY avg_rpe DESC
@@ -281,7 +281,7 @@ async def build_profile(conn: aiosqlite.Connection, uid: int, *, fresh: bool = F
         """
         SELECT log_date, energy, motivation, sleep_hrs, notes
         FROM daily_logs
-        WHERE user_id = ? AND log_date >= DATE('now', '-14 days')
+        WHERE user_id = ? AND log_date >= DATE('now','localtime','-14 days')
         ORDER BY log_date DESC
         """,
         (uid,),

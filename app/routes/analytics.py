@@ -79,7 +79,7 @@ async def analytics(
         FROM sets s
         JOIN workouts w ON w.id = s.workout_id
         WHERE s.user_id = ?
-          AND DATE(w.started_at) >= DATE('now', '-83 days')
+          AND DATE(w.started_at) >= DATE('now','localtime','-83 days')
         GROUP BY s.exercise_id, week
         ORDER BY s.exercise_id, week
         """,
@@ -100,10 +100,10 @@ async def analytics(
         JOIN workouts w ON w.id = s.workout_id AND w.ended_at IS NOT NULL
         WHERE s.user_id = ?
         GROUP BY s.exercise_id
-        HAVING COUNT(DISTINCT DATE(w.started_at,'localtime')) >= 4
-           AND MAX(CASE WHEN DATE(w.started_at,'localtime') >= DATE('now','-21 days')
+        HAVING COUNT(DISTINCT DATE(w.started_at)) >= 4
+           AND MAX(CASE WHEN DATE(w.started_at) >= DATE('now','localtime','-21 days')
                         THEN e1rm(s.weight_kg, s.reps) END)
-             <= MAX(CASE WHEN DATE(w.started_at,'localtime') < DATE('now','-21 days')
+             <= MAX(CASE WHEN DATE(w.started_at) < DATE('now','localtime','-21 days')
                         THEN e1rm(s.weight_kg, s.reps) END) * 1.02
         """,
         (uid,),
@@ -121,7 +121,7 @@ async def analytics(
         FROM workouts w
         LEFT JOIN sets s ON s.workout_id = w.id AND s.user_id = ?
         WHERE w.user_id = ?
-          AND DATE(w.started_at) >= DATE('now', '-83 days')
+          AND DATE(w.started_at) >= DATE('now','localtime','-83 days')
         GROUP BY week ORDER BY week ASC
         """,
         (uid, uid),
@@ -135,7 +135,7 @@ async def analytics(
         FROM cardio_logs c
         JOIN workouts w ON w.id = c.workout_id
         WHERE c.user_id = ?
-          AND DATE(w.started_at) >= DATE('now', '-83 days')
+          AND DATE(w.started_at) >= DATE('now','localtime','-83 days')
         GROUP BY week
         """,
         (uid,),
@@ -163,9 +163,9 @@ async def analytics(
     async with conn.execute(
         """
         SELECT em.muscle,
-               MAX(DATE(w.started_at, 'localtime')) AS last_date,
+               MAX(DATE(w.started_at)) AS last_date,
                CAST(julianday('now','localtime') -
-                    julianday(MAX(DATE(w.started_at,'localtime'))) AS INTEGER) AS days_ago
+                    julianday(MAX(DATE(w.started_at))) AS INTEGER) AS days_ago
         FROM sets s
         JOIN workouts w  ON w.id  = s.workout_id
         JOIN exercise_muscles em ON em.exercise_id = s.exercise_id AND em.is_primary = 1
