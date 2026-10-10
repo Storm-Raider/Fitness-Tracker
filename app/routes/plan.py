@@ -14,6 +14,7 @@ from fastapi import APIRouter, Depends, Request
 from fastapi.responses import HTMLResponse
 
 from app.db import get_db, write_tx
+from app.routes import coach
 from app.routes.auth import get_current_user
 from app.utils import coach_budget, gemini
 from app.utils.render import render
@@ -148,5 +149,6 @@ async def plan_page(
             # or when there is no key to talk to.
             "coach_chat_enabled": coach_budget.chat_enabled() and gemini.is_configured(),
             "llm_model": gemini.model(),
+            "active_job_id": coach.active_job_id(uid),
         },
     )
