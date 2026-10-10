@@ -9,6 +9,7 @@ everything in one compare-and-set transaction.
 Every error is {"detail": <copy to show>, "kind": <machine-readable>} so the UI can pick
 its wording by kind.
 """
+import copy
 import json
 import logging
 import time
@@ -21,7 +22,9 @@ from pydantic import BaseModel
 from app.db import WriteConflict, get_db, write_tx
 from app.routes.auth import get_current_user, require_admin
 from app.utils import coach_budget, coach_chat, gemini
-from app.utils.coach_plan import exercise_catalog, name_to_id_map
+from app.utils.coach_plan import (
+    exercise_catalog, exercise_rows, is_safe_exercise_name, name_to_id_map, pain_avoid_pattern,
+)
 from app.utils.training_profile import build_profile
 
 router = APIRouter()
@@ -87,6 +90,13 @@ class ChatIn(BaseModel):
 
 class UndoIn(BaseModel):
     base_rev: int
+
+
+class SwapIn(BaseModel):
+    base_rev: int
+    day: int          # 1-based, as in the plan
+    idx: int          # 0-based position within the day
+    exercise_id: int
 
 
 class NoteIn(BaseModel):
@@ -394,6 +404,88 @@ async def undo_edit(plan_id: int, body: UndoIn, conn: aiosqlite.Connection = Dep
     notice = ("Dropped exercises that no longer exist: " + ", ".join(dict.fromkeys(missing)) + ".") if missing else ""
     return {"plan": restored, "rev": row["rev"] + 1, "notice": notice, "undone_message_id": entry.get("message_id"),
             **_undo_info(rest)}
+
+
+# ── Swap an exercise ─────────────────────────────────────────────────
+
+async def _swap_target(conn: aiosqlite.Connection, plan_id: int, uid: int, day: int, idx: int,
+                       base_rev: int | None):
+    """Shared checks for listing and applying a swap: a plan that exists, is a draft, is at
+    the revision the client saw, and has an exercise at that spot. Returns (row, plan)."""
+    row = await _plan_row(conn, plan_id, uid)
+    if not row:
+        raise ChatError(409, "replaced", COPY["replaced"])
+    if row["status"] != "draft":
+        raise ChatError(409, "saved", "Chat and swap edit drafts; use Regenerate.")
+    if base_rev is not None and base_rev != row["rev"]:
+        raise ChatError(409, "stale", COPY["stale"])
+    plan = _plan_of(row)
+    if not (1 <= day <= len(plan["days"])) or not (0 <= idx < len(plan["days"][day - 1]["exercises"])):
+        raise ChatError(409, "stale", COPY["stale"])          # the plan no longer has that exercise
+    return row, plan
+
+
+@router.get("/coach/plans/{plan_id}/swap")
+async def swap_alternatives(plan_id: int, day: int, idx: int, base_rev: int | None = None,
+                            conn: aiosqlite.Connection = Depends(get_db),
+                            current_user=Depends(get_current_user)):
+    """Up to six ranked replacements for one exercise of a draft. Read-only; needs no model
+    call, so it works at the daily cap and with the chat kill switch on."""
+    uid = current_user["id"]
+    row, plan = await _swap_target(conn, plan_id, uid, day, idx, base_rev)
+    current = plan["days"][day - 1]["exercises"][idx]
+    profile = await build_profile(conn, uid, fresh=True)
+    # Pain the athlete flagged, said in this conversation, or keeps as a note is respected.
+    said = " ".join([m["content"] for m in await _messages(conn, plan_id, uid, coach_chat.HISTORY_MESSAGES)
+                     if m["role"] == "user"] + [n["text"] for n in await _notes(conn, uid)])
+    name_map, _ = await name_to_id_map(conn)
+    here = {e["name"] for e in plan["days"][day - 1]["exercises"]}
+    elsewhere = {e["name"] for i, d in enumerate(plan["days"], 1) if i != day for e in d["exercises"]}
+    return {
+        "current": {"day": day, "idx": idx, "exercise_id": current["exercise_id"], "name": current["name"]},
+        "alternatives": coach_chat.rank_alternatives(
+            await exercise_rows(conn), name_map, current["name"], day_names=here, used_elsewhere=elsewhere,
+            preferred_equipment=profile.get("preferred_equipment"), avoid=pain_avoid_pattern(profile, said)),
+        "rev": row["rev"],
+    }
+
+
+@router.post("/coach/plans/{plan_id}/swap")
+async def swap_exercise(plan_id: int, body: SwapIn, conn: aiosqlite.Connection = Depends(get_db),
+                        current_user=Depends(get_current_user)):
+    """Replace one exercise of a draft with another from the library, keeping its sets and
+    reps. Undoable (an undo entry with no message), writes no chat message and needs no model
+    call. Compare-and-set on rev, like every other edit."""
+    uid = current_user["id"]
+    row, plan = await _swap_target(conn, plan_id, uid, body.day, body.idx, body.base_rev)
+    async with conn.execute("SELECT id, name FROM exercises WHERE id = ?", (body.exercise_id,)) as cur:
+        new = await cur.fetchone()
+    if not new or not is_safe_exercise_name(new["name"]):
+        raise ChatError(422, "invalid", "That exercise isn't available.")
+    day = plan["days"][body.day - 1]
+    if any(e["exercise_id"] == new["id"] for e in day["exercises"]):
+        raise ChatError(422, "duplicate", "That exercise is already on this day.")
+    old = day["exercises"][body.idx]
+    swapped = copy.deepcopy(plan)
+    target = swapped["days"][body.day - 1]["exercises"][body.idx]
+    # Sets and reps carry over; the note described the old exercise's load, so it goes.
+    target.update({"exercise_id": new["id"], "name": new["name"], "note": ""})
+    changed, changes = coach_chat.diff_plans(plan, swapped)
+    undo_json = coach_chat.push_undo(row["undo_json"], plan, f"Swapped {old['name']} for {new['name']}")
+    async with write_tx(conn):
+        async with conn.execute(
+            "UPDATE coach_plans SET plan_json = ?, undo_json = ?, rev = rev + 1, "
+            "updated_at = datetime('now','localtime') "
+            "WHERE id = ? AND user_id = ? AND status = 'draft' AND rev = ?",
+            (json.dumps(swapped), undo_json, plan_id, uid, body.base_rev),
+        ) as cur:
+            if cur.rowcount == 0:
+                raise WriteConflict(COPY["stale"], kind="stale")
+    coach_budget.record("swap")
+    logging.info("coach_swap plan=%s uid=%s day=%s idx=%s", plan_id, uid, body.day, body.idx)
+    return {"plan": swapped, "rev": row["rev"] + 1, "changed_days": changed, "changes": changes,
+            "swapped": {"day": body.day, "idx": body.idx, "from": old["name"], "to": new["name"]},
+            **_undo_info(undo_json)}
 
 
 # ── Durable notes ────────────────────────────────────────────────────
