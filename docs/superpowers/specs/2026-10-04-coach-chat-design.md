@@ -279,9 +279,9 @@ A corrupt entry is 409 "Can't restore this edit", logged, row untouched.
 | UI (#48) | `PlanView`/`PlanState`, `sheet.js`, `showActionToast`, `.pill`, `.seg-toggle` | merged |
 | PR1 (#49) | Generation prompt rewrite + live eval + baseline (11/12) | merged |
 | PR2 (#50) | Chat backend: migrations, `kind` errors, `chat_turn_json`, turn pipeline, undo, notes, daily cap, limiter, kill switch, `/coach/usage`, name allowlist, chat eval scenarios | merged; eval gate met; **before deploy: you set `COACH_AI_MAX_PER_DAY` from the real quota** |
-| PR3 (#51) | Swap endpoint (list ranked alternatives, apply, undoable) | open |
-| PR4a | Chat UI core: panel, transcript, privacy card, Undo, notes, saved-plan read-only | **gates: real-iPhone check, final privacy copy** |
-| PR4b | Swap sheet, chips, summaries, feedback chip, Why-tap | cuttable |
+| PR3 (#51) | Swap endpoint (list ranked alternatives, apply, undoable) | merged |
+| PR4a (#52) | Chat UI core: panel, transcript, change summaries, privacy card, Undo, notes, saved-plan read-only | merged; privacy copy final (ER-20); **before go-live: real-iPhone check** |
+| PR4b | Swap picker, prompt chips, feedback chip, Why-tap | not started; cuttable |
 
 **Deploy checklist for every PR with migrations or transaction changes:** check
 `systemctl list-timers` and pause the auto-deploy timer if installed, run
