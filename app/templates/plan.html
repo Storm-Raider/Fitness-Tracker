@@ -808,10 +808,8 @@ function selectAiGoal(btn) {
 }
 
 async function generateAiRoutine() {
-  const btn = document.getElementById('ai-generate-btn');
   const days = parseInt(document.getElementById('ai-days-slider').value);
   const note = document.getElementById('ai-focus-note').value;
-  const errBox = document.getElementById('ai-result-error');
 
   // Silently delete the pending draft — a new generation will create a fresh one.
   const pendingDraftId = PlanState.get().draftId;
@@ -819,6 +817,24 @@ async function generateAiRoutine() {
     fetch('/coach/plans/' + pendingDraftId, {method: 'DELETE'}).catch(() => {});
   }
   PlanState.clear();
+  await _followJob(async () => {
+    const start = await fetch('/coach/generate', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({goal: _aiGoal, days_per_week: days, focus_note: note}),
+    });
+    const sd = await start.json();
+    if (!start.ok) throw new Error(sd.detail || sd.error || 'Could not start generation.');
+    return sd.job_id;
+  });
+}
+
+// Show a generation's progress and its plan. `getJobId` starts a job and
+// returns its id, or hands back one that is already running (issue #28: the
+// page re-attaches after a reload or a visit to another page).
+async function _followJob(getJobId) {
+  const btn = document.getElementById('ai-generate-btn');
+  const errBox = document.getElementById('ai-result-error');
   PlanState.setBusy(true);
   if (window.CoachChat) CoachChat.generating(true);   // progress shows on the Generate side (ER-9)
 
@@ -828,16 +844,10 @@ async function generateAiRoutine() {
   btn.innerHTML = '<span class="spinner"></span> Coaching…';
 
   try {
-    const start = await fetch('/coach/generate', {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({goal: _aiGoal, days_per_week: days, focus_note: note}),
-    });
-    const sd = await start.json();
-    if (!start.ok) throw new Error(sd.detail || sd.error || 'Could not start generation.');
+    const jobId = await getJobId();
 
-    // Normal async path: open SSE stream for live progress, hard-deadline 40 min.
-    const jobId = sd.job_id;
+    // Open the SSE stream for live progress, hard deadline 40 min. A job that
+    // already finished answers at once with its plan.
     const { plan, dropped, draft_id } = await new Promise((resolve, reject) => {
       const es = new EventSource('/coach/stream/' + jobId);
       let settled = false;
@@ -899,6 +909,16 @@ async function generateAiRoutine() {
     btn.innerHTML = '<i data-lucide="sparkles" style="width:15px;height:15px;pointer-events:none;"></i> Generate my routine';
     lucide.createIcons();
   }
+}
+
+// A generation started before this page loaded (another tab, or before
+// navigating away) is still running on the server: pick it back up.
+const _activeJobId = {{ active_job_id | tojson }};
+if (_activeJobId) {
+  document.addEventListener('DOMContentLoaded', () => {
+    setMode('ai');
+    _followJob(async () => _activeJobId);
+  });
 }
 
 function renderAiPlan(plan, dropped) {

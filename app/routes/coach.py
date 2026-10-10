@@ -70,6 +70,17 @@ def _active_count() -> int:
     return sum(1 for j in _JOBS.values() if j.get("status") in _ACTIVE_STATES)
 
 
+def active_job_id(uid: int) -> str | None:
+    """The user's queued or running generation job, if any. The Plan page
+    renders it so a reload or a return from another page re-attaches to the
+    job instead of showing the empty state (issue #28)."""
+    job_id = _ACTIVE_BY_USER.get(uid)
+    job = _JOBS.get(job_id) if job_id else None
+    if job and job.get("user_id") == uid and job.get("status") in _ACTIVE_STATES:
+        return job_id
+    return None
+
+
 def _prune_jobs() -> None:
     # Never prune a job that is still queued or running — only trim finished
     # (done/error) history once it grows past the cap.
