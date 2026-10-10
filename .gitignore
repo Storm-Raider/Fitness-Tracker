@@ -32,8 +32,8 @@ build/
 # OS
 .DS_Store
 Thumbs.db
-FitStorm-Icon.png
-cron/fitstorm-enrich
+Zenkai-Icon.png
+cron/zenkai-enrich
 
 # Runtime logs (keep the dir via logs/.gitkeep, ignore the log files)
 logs/*.log

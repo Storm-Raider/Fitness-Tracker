@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to FitStorm are documented here.
+All notable changes to Zenkai are documented here.
 
 ## [Unreleased]
 
@@ -27,7 +27,7 @@ All notable changes to FitStorm are documented here.
 
 ### Added
 - **Challenges** — fixed-length daily-adherence programs (75 Hard, 75 Medium) at `/challenges`. Tick daily rules; the workout rule auto-ticks when you log a workout/cardio that day; the run resets to Day 1 if a locked day is left incomplete (strict, with a 1-day grace so a forgotten tap doesn't nuke a streak). Reset/completion is computed lazily on load — no background job. **Progress photos stay on your device** (browser IndexedDB) and are never uploaded; the server only records done/not-done. Multiple challenges can run at once; a dashboard card surfaces active ones, and completing a program unlocks an achievement. New `challenge_attempts` + `challenge_checkins` tables and `app/data/challenges.py` rule definitions.
-- **Auto-deploy on merge** — `deploy/fitstorm-deploy.{service,timer}` + `scripts/auto-deploy.sh`: a systemd timer polls `origin/main` every ~2 min and, on new commits, fast-forwards, installs changed dependencies, and restarts the service. Safe on a dev+deploy host (only deploys when the tree is clean and can fast-forward). See README "Auto-deploy on merge".
+- **Auto-deploy on merge** — `deploy/zenkai-deploy.{service,timer}` + `scripts/auto-deploy.sh`: a systemd timer polls `origin/main` every ~2 min and, on new commits, fast-forwards, installs changed dependencies, and restarts the service. Safe on a dev+deploy host (only deploys when the tree is clean and can fast-forward). See README "Auto-deploy on merge".
 - **Undo for deletes** — deleting a workout, set, or cardio session is now recoverable. An "Undo" toast appears after every delete; deleted items are captured into a recycle bin (`deleted_items`) and restored on undo via `POST /undo/{token}`. Tokens are single-use and user-scoped; the bin auto-purges after 7 days. Deleting a workout now also correctly removes its in-workout cardio (previously orphaned).
 - **Standalone cardio page** — `/cardio` (in the More menu) for logging cardio outside a workout: pick an activity, date, duration, optional distance, and notes, with a live min/km pace readout. History table shows pace per session with inline delete. Form-based (`POST /cardio` → redirect), cardio-category validated server-side. Complements the existing in-workout cardio logging.
 - **AI Coach** — a local Ollama LLM builds a personalised multi-day routine from your training history. New `Coach` page (`/coach`): pick a goal (strength / hypertrophy / balance / general) and days per week; the coach analyses your top movements, per-muscle set coverage, neglected muscle groups, and estimated 1RMs, then returns a structured plan with sets/reps and coaching notes. Review and save — each day is persisted as a user-owned routine usable in the workout logger. Runs fully on-device via [Ollama](https://ollama.com); no data leaves the host. New `coach_plans` table, `app/utils/ollama.py` async client, and `OLLAMA_URL` / `OLLAMA_MODEL` config (default `qwen2.5:3b`). Generated exercise names are validated against the exercise library at save time.
@@ -135,4 +135,4 @@ All notable changes to FitStorm are documented here.
 ## [0.1.0] — 2026-04-xx
 
 ### Added
-- Initial FitStorm release — workout logging, exercise tracking, and basic dashboard
+- Initial Zenkai release — workout logging, exercise tracking, and basic dashboard

@@ -1,4 +1,4 @@
-# FitStorm
+# Zenkai
 
 A self-hosted fitness tracker for your Raspberry Pi. Log workouts, track PRs, own your data.
 
@@ -90,7 +90,7 @@ docker compose up -d
 
 ## Adding more users
 
-FitStorm uses invite-only registration. As admin:
+Zenkai uses invite-only registration. As admin:
 
 1. Go to **Account → Invite** (or `/invite`)
 2. Generate an invite link (valid for 48 hours)
@@ -203,21 +203,21 @@ diverged history → it skips and logs, never clobbers.
 **Install:**
 ```bash
 chmod +x scripts/auto-deploy.sh
-sudo cp deploy/fitstorm-deploy.service /etc/systemd/system/
-sudo cp deploy/fitstorm-deploy.timer   /etc/systemd/system/
+sudo cp deploy/zenkai-deploy.service /etc/systemd/system/
+sudo cp deploy/zenkai-deploy.timer   /etc/systemd/system/
 sudo systemctl daemon-reload
-sudo systemctl enable --now fitstorm-deploy.timer
+sudo systemctl enable --now zenkai-deploy.timer
 ```
 
 **Watch it:**
 ```bash
-systemctl list-timers fitstorm-deploy     # next run
-journalctl -u fitstorm-deploy -f          # deploy log
+systemctl list-timers zenkai-deploy     # next run
+journalctl -u zenkai-deploy -f          # deploy log
 ```
 
 DB migrations run on startup, so the restart applies schema changes
 automatically. To deploy on demand without waiting for the timer:
-`sudo systemctl start fitstorm-deploy`.
+`sudo systemctl start zenkai-deploy`.
 
 ---
 
@@ -269,7 +269,7 @@ POST /invite                        → generate invite link (admin only)
 
 ## Webhooks
 
-Set `WEBHOOK_URL` in `.env`. FitStorm will POST JSON to that URL on two events.
+Set `WEBHOOK_URL` in `.env`. Zenkai will POST JSON to that URL on two events.
 
 ### `pr_achieved` — new personal record on a set
 
@@ -313,7 +313,7 @@ In `configuration.yaml` (or via the UI — Settings → Automations → New → 
 
 ```yaml
 automation:
-  - alias: FitStorm PR notification
+  - alias: Zenkai PR notification
     trigger:
       platform: webhook
       webhook_id: fittrack
@@ -331,7 +331,7 @@ automation:
           {{ trigger.json.weight_kg }} kg
           (was {{ trigger.json.previous_pr_kg }} kg)
 
-  - alias: FitStorm session complete
+  - alias: Zenkai session complete
     trigger:
       platform: webhook
       webhook_id: fittrack
@@ -410,7 +410,7 @@ Then `docker compose restart`.
 ## Importing from Strong
 
 1. In Strong: Profile → Export Data → email yourself the CSV
-2. In FitStorm: go to the import page and upload the file
+2. In Zenkai: go to the import page and upload the file
 3. Exercises are created from CSV names. Cardio rows are skipped. Weights in lbs are converted to kg automatically.
 
 ---
@@ -430,7 +430,7 @@ DATABASE_PATH=./fittrack.db python3 scripts/backup.py
 ```bash
 crontab -e
 # add:
-0 3 * * * cd /home/pi/Fitness-Tracker && DATABASE_PATH=./fittrack.db python3 scripts/backup.py >> /var/log/fitstorm-backup.log 2>&1
+0 3 * * * cd /home/pi/Fitness-Tracker && DATABASE_PATH=./fittrack.db python3 scripts/backup.py >> /var/log/zenkai-backup.log 2>&1
 ```
 
 **Restore:**
@@ -444,13 +444,13 @@ cp backups/fittrack-20260521-114000.db fittrack.db
 docker run --rm \
   -v fitness-tracker_fitness_data:/data \
   -v $(pwd):/backup \
-  alpine tar czf /backup/fitstorm-$(date +%Y%m%d).tar.gz /data
+  alpine tar czf /backup/zenkai-$(date +%Y%m%d).tar.gz /data
 
 # Restore
 docker run --rm \
   -v fitness-tracker_fitness_data:/data \
   -v $(pwd):/backup \
-  alpine tar xzf /backup/fitstorm-20260502.tar.gz -C /
+  alpine tar xzf /backup/zenkai-20260502.tar.gz -C /
 ```
 
 ---
@@ -460,7 +460,7 @@ docker run --rm \
 ```bash
 pip install -r requirements.txt
 cp .env.example .env   # fill in test values
-DATABASE_PATH=/tmp/fitstorm.db uvicorn app.main:app --reload
+DATABASE_PATH=/tmp/zenkai.db uvicorn app.main:app --reload
 ```
 
 Tests:

@@ -2,7 +2,7 @@
 """
 Enrich finished workouts with exercise form cues and references via Claude.
 
-Runs nightly at 3 AM via system cron (see cron/fitstorm-enrich):
+Runs nightly at 3 AM via system cron (see cron/zenkai-enrich):
   0 3 * * * /home/stormraider/Desktop/Git/Fitness-Tracker/scripts/enrich_workouts.py
 
 Processes BATCH_SIZE (default 2) unenriched workouts per run.

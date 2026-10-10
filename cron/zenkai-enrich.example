@@ -1,13 +1,13 @@
-# FitStorm — nightly workout enrichment
+# Zenkai — nightly workout enrichment
 # Enriches 2 finished workouts per night with exercise form cues and references.
 #
 # Install:
-#   cp cron/fitstorm-enrich.example cron/fitstorm-enrich
-#   # Edit cron/fitstorm-enrich (the copy, not this file) and set ANTHROPIC_API_KEY
-#   sudo cp cron/fitstorm-enrich /etc/cron.d/fitstorm-enrich
-#   sudo chmod 644 /etc/cron.d/fitstorm-enrich
+#   cp cron/zenkai-enrich.example cron/zenkai-enrich
+#   # Edit cron/zenkai-enrich (the copy, not this file) and set ANTHROPIC_API_KEY
+#   sudo cp cron/zenkai-enrich /etc/cron.d/zenkai-enrich
+#   sudo chmod 644 /etc/cron.d/zenkai-enrich
 #
-# cron/fitstorm-enrich is gitignored — your API key stays off git history.
+# cron/zenkai-enrich is gitignored — your API key stays off git history.
 
 SHELL=/bin/bash
 ANTHROPIC_API_KEY=your_api_key_here

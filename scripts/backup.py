@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Hot backup of the FitStorm SQLite database.
+"""Hot backup of the Zenkai SQLite database.
 
 sqlite3.Connection.backup() is WAL-safe and works while the app is live —
 it checkpoints WAL and copies atomically so the backup is always consistent.

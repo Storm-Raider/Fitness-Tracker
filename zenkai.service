@@ -1,5 +1,5 @@
 [Unit]
-Description=FitStorm Fitness Tracker
+Description=Zenkai Fitness Tracker
 After=network.target
 
 [Service]

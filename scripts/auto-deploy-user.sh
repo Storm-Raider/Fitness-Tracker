@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Auto-deploy FitStorm — no-root, restart-aware, health-verified.
+# Auto-deploy Zenkai — no-root, restart-aware, health-verified.
 #
 # Runs from crontab (every 2 min) as stormraider. Three jobs:
 #
@@ -18,7 +18,7 @@
 # commit the running server actually booted on (tracked in logs/deployed-commit)
 # so local commits deploy too.
 #
-# fitstorm.service runs as this user with Restart=always / RestartSec=5, so
+# zenkai.service runs as this user with Restart=always / RestartSec=5, so
 # killing uvicorn is enough — systemd respawns it on the working-tree code,
 # running DB migrations via init_db() in the app lifespan.
 #
@@ -38,7 +38,7 @@ set -uo pipefail
 REPO="/home/stormraider/Desktop/Git/Fitness-Tracker"
 BRANCH="main"
 MARKER="$REPO/logs/deployed-commit"
-LOCK="/tmp/fitstorm-auto-deploy.lock"
+LOCK="/tmp/zenkai-auto-deploy.lock"
 HEALTH_URL="http://127.0.0.1:8000/health"
 FETCH_TIMEOUT=30        # seconds — don't let a hung network pile up cron ticks
 HEALTH_RETRIES=12       # poll /health up to 12 times...
@@ -151,6 +151,6 @@ write_marker "$HEAD"
 if health_ok; then
     log "deployed ${HEAD:0:8} — health OK"
 else
-    log "ALERT: ${HEAD:0:8} deployed but /health did not come up in $((HEALTH_RETRIES * HEALTH_INTERVAL))s — inspect: journalctl -u fitstorm -n 50"
+    log "ALERT: ${HEAD:0:8} deployed but /health did not come up in $((HEALTH_RETRIES * HEALTH_INTERVAL))s — inspect: journalctl -u zenkai -n 50"
     exit 1
 fi

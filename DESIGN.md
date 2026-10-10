@@ -1,4 +1,4 @@
-# FitStorm Design System
+# Zenkai Design System
 
 Source of truth: `app/templates/base.html`. This file is a human-readable extract — if there's a conflict, the CSS wins.
 
@@ -47,7 +47,7 @@ Not a product someone signed up for — something someone runs. The visual langu
 
 ---
 
-## Deliberate Risks (Where FitStorm Gets Its Own Face)
+## Deliberate Risks (Where Zenkai Gets Its Own Face)
 
 These are intentional departures from the fitness app category. They are policy, not accidents.
 
@@ -103,7 +103,7 @@ These are intentional departures from the fitness app category. They are policy,
 
 | Date | Decision | Rationale |
 |------|----------|-----------|
-| 2026-05-30 | Aesthetic direction: Pi-grade Industrial | Competitive research (Hevy, Strong) showed the entire category looks like consumer apps. FitStorm's users chose self-hosting deliberately — the visual language should reinforce that identity. |
+| 2026-05-30 | Aesthetic direction: Pi-grade Industrial | Competitive research (Hevy, Strong) showed the entire category looks like consumer apps. Zenkai's users chose self-hosting deliberately — the visual language should reinforce that identity. |
 | 2026-05-30 | Gold (#f59e0b) named as primary identity color, not accent | Gold appears only on earned PR moments. Making it the identity color turns rarity into brand. Blue is plumbing. Gold is achievement. |
 | 2026-05-30 | No light mode — documented as explicit position | Not an oversight. Pi builders use dark environments. Documenting this ends recurring discussion. |
 | 2026-05-30 | Syne (geometric, slightly cold) retained as display font | Unusual in fitness apps. Signals technical software over lifestyle brand. Intentional departure from category convention. |

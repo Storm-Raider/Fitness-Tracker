@@ -50,15 +50,15 @@ Key routing rules:
 ## Deploy Configuration (configured by /setup-deploy)
 - Platform: Local Raspberry Pi (systemd)
 - Production URL: http://localhost:8000
-- Deploy workflow: `sudo systemctl restart fitstorm`
-- Deploy status command: `systemctl is-active fitstorm`
+- Deploy workflow: `sudo systemctl restart zenkai`
+- Deploy status command: `systemctl is-active zenkai`
 - Project type: Web app (FastAPI/uvicorn)
 - Post-deploy health check: http://localhost:8000
 
 ### Custom deploy hooks
 - Pre-merge: none
-- Deploy trigger: `sudo systemctl restart fitstorm`
-- Deploy status: `systemctl is-active fitstorm`
+- Deploy trigger: `sudo systemctl restart zenkai`
+- Deploy status: `systemctl is-active zenkai`
 - Health check: `curl -sf http://localhost:8000 -o /dev/null`
 
 ## Design System
