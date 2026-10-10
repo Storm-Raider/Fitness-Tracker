@@ -109,6 +109,7 @@ All settings go in `.env` (copied from `.env.example`):
 | `ADMIN_USERNAME` | Yes | — | Username for the admin account (created on first start) |
 | `ADMIN_PASSWORD` | Yes | — | Admin password. Recommend ≥16 random chars. |
 | `APP_SECRET` | Yes | — | Signing key for session cookies (≥32 chars, never commit) |
+| `PUBLIC_URL` | Recommended | request host | Address people open Zenkai at, used for password-reset and invite links. Set it: without it the links come from the request's Host header, which can be forged |
 | `SESSION_DAYS` | No | `30` | How long a login session lasts (1–365) |
 | `DATABASE_PATH` | No | `/data/fitness.db` | SQLite file path inside container |
 | `WEBHOOK_URL` | No | *(empty)* | HTTP endpoint to notify on events |

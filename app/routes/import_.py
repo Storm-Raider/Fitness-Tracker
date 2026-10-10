@@ -1,6 +1,7 @@
 import csv
 import io
 import logging
+import math
 from datetime import datetime
 
 import aiosqlite
@@ -17,6 +18,8 @@ router = APIRouter()
 
 MAX_UPLOAD_BYTES = 10 * 1024 * 1024  # 10MB
 MAX_ROWS = 50_000
+MAX_WEIGHT_KG = 1000.0  # mirrors SetIn.weight_kg
+MAX_REPS = 999          # mirrors SetIn.reps
 
 # Distinguishing columns for each supported format.
 # Exercise Name / Weight / Reps are common to both.
@@ -118,16 +121,33 @@ async def import_csv(
 
                 try:
                     weight = float(weight_raw)
-                    reps = int(float(reps_raw))
+                    reps_f = float(reps_raw)
                 except ValueError:
                     raise HTTPException(
                         status_code=422,
                         detail=f"Non-numeric weight or reps in row: {dict(row)}",
                     )
+                if not (math.isfinite(weight) and math.isfinite(reps_f)):
+                    raise HTTPException(
+                        status_code=422,
+                        detail=f"Weight or reps is not a finite number in row: {dict(row)}",
+                    )
+                reps = int(reps_f)
 
                 weight_unit = (row.get("Weight Unit") or "kg").strip().lower()
                 if weight_unit == "lbs":
                     weight = _lbs_to_kg(weight)
+
+                # Same ceilings as SetIn. Reps of 0 stay allowed: Strong exports
+                # timed holds that way and they have always imported.
+                if not (0 <= weight <= MAX_WEIGHT_KG and 0 <= reps <= MAX_REPS):
+                    raise HTTPException(
+                        status_code=422,
+                        detail=(
+                            f"Weight must be 0-{MAX_WEIGHT_KG:g} kg and reps 0-{MAX_REPS} "
+                            f"in row: {dict(row)}"
+                        ),
+                    )
 
                 workout_date, workout_name = _workout_key(row, fmt)
                 row_key = f"{workout_date}:{workout_name}"

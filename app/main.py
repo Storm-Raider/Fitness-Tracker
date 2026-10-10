@@ -201,14 +201,14 @@ async def _chat_error(_req: Request, exc: ChatError):
 @app.exception_handler(404)
 async def _not_found(_req: Request, _exc):
     if _wants_html(_req):
-        return _templates.TemplateResponse("errors/404.html", {"request": _req}, status_code=404)
+        return _templates.TemplateResponse(_req, "errors/404.html", status_code=404)
     detail = getattr(_exc, "detail", None) or "Not Found"
     return JSONResponse({"detail": detail}, status_code=404)
 
 
 @app.exception_handler(500)
 async def _server_error(_req: Request, _exc):
-    return _templates.TemplateResponse("errors/500.html", {"request": _req}, status_code=500)
+    return _templates.TemplateResponse(_req, "errors/500.html", status_code=500)
 
 _static = Path(__file__).parent / "static"
 if _static.exists():
