@@ -1419,7 +1419,7 @@ document.getElementById('tpl-name-input')?.addEventListener('keydown', e => { if
         <div style="font-size:0.6rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em;margin-top:0.35rem;">sets</div>
       </div>
       <div>
-        <div id="modal-volume" style="font-family:'JetBrains Mono',monospace;font-size:1.75rem;font-weight:700;line-height:1;color:var(--accent);"></div>
+        <div id="modal-volume" style="font-family:'JetBrains Mono',monospace;font-size:1.75rem;font-weight:700;line-height:1;color:var(--text);"></div>
         <div id="modal-vol-unit" style="font-size:0.6rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em;margin-top:0.35rem;">kg</div>
       </div>
     </div>
@@ -1456,7 +1456,9 @@ function _bwBadge(addedKg, unit) {
 }
 
 // Exercise color palette — cycles per unique exercise ID
-const EX_COLORS = ['#4f9cf9','#a3e635','#34d399','#f472b6','#a78bfa','#fb923c'];  // no gold: --pr means a PR
+// Validated with the dataviz checks against --surface (adjacent bars: worst CVD ΔE 10.5,
+// normal-vision 25.2). No blue (chrome), gold (PR) or live cyan; slot 1 is --data.
+const EX_COLORS = ['#9085e9','#fb923c','#34d399','#d55181','#a3e635','#f472b6'];
 const _exColorMap = {};
 let _exColorIdx = 0;
 function exColor(exerciseId) {

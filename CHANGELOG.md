@@ -4,6 +4,9 @@ All notable changes to Zenkai are documented here.
 
 ## [Unreleased]
 
+### Design
+- **Charts no longer use blue, which is reserved for buttons and links.** Single-series charts (dashboard weekly volume, Analytics volume and trend lines, the exercise volume trend) use a new `--data` violet `#9085e9`. Exercise colours on the workout page were re-picked and pass colour-blind separation checks for neighbouring bars. On the dashboard, muscle bars now keep each muscle's colour (they were coloured by rank, so a muscle changed colour when its rank did, and second place was PR gold); the dashboard and the workout page's muscle map share one muscle palette: Chest is magenta, and Triceps and Forearms moved off green (Biceps, Triceps and Forearms were three near-identical greens, and Triceps' teal looked like the cyan used for things that are running). Strength levels on Analytics use one violet scale, brightest at Advanced, with Elite still gold. Plain numbers that were blue (session duration, finish-screen volume, plan sliders) are now text-coloured; the running session's side bar and a challenge's "today" counter are cyan, the colour for things that are running.
+
 ### Fixed
 - **A coach request that fails while you're on another page is reported.** Coming back to the Plan page used to show only the empty state; it now says "Your last plan request failed: …" once. A failure the page already showed you live isn't repeated.
 - **No server error on an HTMX request to a page without a partial.** `render()` answers HTMX requests with `{page}_partial.html`, which Achievements, Analytics, Cardio, Export and Plan don't have, so an `hx-get` or `hx-boost` to them would have failed with a 500. It now falls back to the full page. Nothing sent such a request yet; this closes the trap before something does.

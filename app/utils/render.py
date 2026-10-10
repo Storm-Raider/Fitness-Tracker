@@ -5,10 +5,12 @@ from fastapi.templating import Jinja2Templates
 from jinja2 import TemplateNotFound
 from pathlib import Path
 
+from app.utils.charts import MUSCLE_COLORS
 from app.utils.static_url import static_url
 
 templates = Jinja2Templates(directory=Path(__file__).parent.parent / "templates")
 templates.env.globals["static_url"] = static_url
+templates.env.globals["MUSCLE_COLORS"] = MUSCLE_COLORS
 
 
 def _human_date(iso_str) -> str:

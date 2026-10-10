@@ -26,7 +26,7 @@
 .sort-btn:hover { color: var(--text); border-color: var(--border-mid); }
 .sort-btn.active { background: var(--accent-dim); border-color: rgba(79,156,249,0.4); color: var(--accent); }
 .pr-age-fresh { color: var(--success); }
-.pr-age-mid   { color: var(--accent); }
+.pr-age-mid   { color: var(--muted-hi); }
 .pr-age-old   { color: var(--muted); }
 .badge-plateau {
   display: inline-flex; align-items: center; gap: 0.2rem;
@@ -126,11 +126,13 @@
     'Incline Bench Press':[0.40, 0.60, 0.85, 1.10, 1.35],
   };
   const LEVELS = ['Untrained','Novice','Intermediate','Advanced','Elite'];
+  // Ordered levels: one violet ramp, brighter as the level rises (validated as
+  // an ordinal ramp on --surface). Elite is earned, so it keeps PR gold.
   const LEVEL_COLORS = {
-    'Untrained':    '#5a6a82',
-    'Novice':       '#34d399',
-    'Intermediate': '#4f9cf9',
-    'Advanced':     '#a78bfa',
+    'Untrained':    '#72849e',
+    'Novice':       '#6a60cc',
+    'Intermediate': '#9085e9',
+    'Advanced':     '#bdb6f4',
     'Elite':        '#f59e0b',
   };
 
@@ -170,7 +172,7 @@
     const rec = records.find(r => r.name.toLowerCase() === liftName.toLowerCase());
     if (!rec) continue;
     const { level, pct } = getLevel(rec.e1rm, norms);
-    const color = LEVEL_COLORS[level] || '#4f9cf9';
+    const color = LEVEL_COLORS[level] || '#9085e9';
     const ratio = (rec.e1rm / BW_KG).toFixed(2);
     const display = window.fmtWeight ? window.fmtWeight(rec.e1rm, unit) : rec.e1rm.toFixed(1) + ' kg';
 
@@ -321,7 +323,7 @@ document.getElementById('pr-search').addEventListener('keydown', e => {
         canvas.width = 52 * dpr; canvas.height = 24 * dpr;
         canvas.style.width = '52px'; canvas.style.height = '24px';
         ctx.setTransform(dpr,0,0,dpr,0,0);
-        ctx.fillStyle = '#4f9cf9';
+        ctx.fillStyle = '#9085e9';   // --data
         ctx.beginPath(); ctx.arc(26, 12, 2.5, 0, Math.PI*2); ctx.fill();
       }
       return;
@@ -339,7 +341,7 @@ document.getElementById('pr-search').addEventListener('keydown', e => {
     const y = v => H - PAD - ((v - mn) / range) * (H - PAD*2);
 
     const grad = ctx.createLinearGradient(0, PAD, 0, H);
-    const col = stalled ? '#fb923c' : '#4f9cf9';
+    const col = stalled ? '#fb923c' : '#9085e9';   // --data; orange = stalled
     grad.addColorStop(0, col + '44');
     grad.addColorStop(1, col + '00');
     ctx.beginPath();
@@ -402,7 +404,7 @@ document.getElementById('pr-search').addEventListener('keydown', e => {
     </div>
     {% if has_cardio %}
     <div style="display:flex;gap:1rem;margin-top:0.5rem;font-size:0.7rem;color:var(--muted);">
-      <span style="display:flex;align-items:center;gap:0.35rem;"><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:#4f9cf9;"></span>Strength volume</span>
+      <span style="display:flex;align-items:center;gap:0.35rem;"><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:#9085e9;"></span>Strength volume</span>
       <span style="display:flex;align-items:center;gap:0.35rem;"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#34d399;"></span>Cardio session</span>
     </div>
     {% endif %}
@@ -512,11 +514,11 @@ document.getElementById('pr-search').addEventListener('keydown', e => {
       ctx.beginPath(); ctx.moveTo(gx(0), gy(vs[0]));
       for (let i = 1; i < n; i++) ctx.lineTo(gx(i), gy(vs[i]));
       ctx.lineTo(gx(n-1), PT+cH); ctx.lineTo(gx(0), PT+cH);
-      ctx.closePath(); ctx.fillStyle = '#4f9cf912'; ctx.fill();
+      ctx.closePath(); ctx.fillStyle = '#9085e912'; ctx.fill();
     }
 
     if (hoverIdx >= 0) {
-      ctx.strokeStyle = '#4f9cf938'; ctx.lineWidth = 1; ctx.setLineDash([3,3]);
+      ctx.strokeStyle = '#9085e938'; ctx.lineWidth = 1; ctx.setLineDash([3,3]);
       ctx.beginPath(); ctx.moveTo(gx(hoverIdx), PT); ctx.lineTo(gx(hoverIdx), PT+cH); ctx.stroke();
       ctx.setLineDash([]);
     }
@@ -528,7 +530,7 @@ document.getElementById('pr-search').addEventListener('keydown', e => {
       if (v) {
         const bH = Math.max(3, gy(0) - gy(v));
         const y  = gy(v);
-        ctx.fillStyle = isH ? '#4f9cf9' : '#4f9cf988';
+        ctx.fillStyle = isH ? '#9085e9' : '#9085e988';   // --data
         ctx.beginPath();
         ctx.roundRect(x, y, barW, bH, [3, 3, 0, 0]);
         ctx.fill();
@@ -562,7 +564,7 @@ document.getElementById('pr-search').addEventListener('keydown', e => {
       : '';
     tip.innerHTML =
       `<div style="font-size:0.7rem;color:var(--muted);margin-bottom:0.2rem;font-family:'JetBrains Mono',monospace;">${d.label}</div>` +
-      (v ? `<span style="color:#4f9cf9;font-size:0.82rem;font-weight:700;">${disp} ${u}</span>` : '') +
+      (v ? `<span style="color:var(--text);font-size:0.82rem;font-weight:700;">${disp} ${u}</span>` : '') +
       cardioLine;
     tip.style.display = 'block';
     const W = canvas.offsetWidth, tw = tip.offsetWidth;
