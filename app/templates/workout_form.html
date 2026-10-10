@@ -64,6 +64,9 @@
   color: var(--muted);
   cursor: pointer;
   padding: 0.28rem 0.5rem;
+  min-width: 44px;
+  min-height: 44px;   /* touch target */
+  justify-content: center;
   border-radius: 7px;
   display: inline-flex;
   align-items: center;
@@ -227,7 +230,7 @@
 .ex-hero-hint .orm-val {
   font-family: 'JetBrains Mono', monospace;
   font-size: 0.74rem;
-  color: var(--pr);
+  color: var(--text);   /* an estimate, not a PR: gold is reserved for PRs */
 }
 .overload-chips { display: none; gap: 0.3rem; flex-wrap: wrap; margin-top: 0.45rem; }
 .overload-chip {
@@ -372,11 +375,12 @@
 .rpe-chip.selected {
   background: var(--accent);
   border-color: var(--accent);
-  color: #fff;
+  color: #090b10;   /* dark text on every shade below (white was 2.8:1 on blue) */
   box-shadow: 0 2px 8px rgba(79,156,249,0.4);
 }
 /* High RPE shades */
-.rpe-chip[data-rpe="8"].selected  { background: #f59e0b; border-color: #f59e0b; box-shadow: 0 2px 8px rgba(245,158,11,0.4); }
+/* 8 is peach, not gold: gold (--pr) means a personal record and nothing else. */
+.rpe-chip[data-rpe="8"].selected  { background: #fdba74; border-color: #fdba74; box-shadow: 0 2px 8px rgba(253,186,116,0.4); }
 .rpe-chip[data-rpe="9"].selected  { background: #f97316; border-color: #f97316; box-shadow: 0 2px 8px rgba(249,115,22,0.4); }
 .rpe-chip[data-rpe="10"].selected { background: #f87171; border-color: #f87171; box-shadow: 0 2px 8px rgba(248,113,113,0.4); }
 
@@ -387,7 +391,7 @@
   border: none;
   border-radius: 12px;
   background: linear-gradient(135deg, #4f9cf9 0%, #3b82f6 100%);
-  color: #fff;
+  color: #090b10;   /* 7.0:1 → 5.4:1; white was 2.8:1 */
   font-family: 'Syne', system-ui, sans-serif;
   font-size: 0.95rem;
   font-weight: 700;
@@ -604,6 +608,9 @@
   border-radius: 6px;
   display: flex;
   align-items: center;
+  justify-content: center;
+  min-width: 44px;   /* DESIGN.md touch target; the icon stays small */
+  min-height: 44px;
   flex-shrink: 0;
   transition: all 0.13s;
 }
@@ -617,6 +624,9 @@
   border-radius: 6px;
   display: flex;
   align-items: center;
+  justify-content: center;
+  min-width: 44px;   /* DESIGN.md touch target; the icon stays small */
+  min-height: 44px;
   flex-shrink: 0;
   transition: all 0.13s;
 }
@@ -815,7 +825,7 @@
     {% endif %}
   </div>
   <div class="session-hdr-actions">
-    <button class="hdr-delete-btn" onclick="deleteWorkout()" title="Delete workout">
+    <button class="hdr-delete-btn" onclick="deleteWorkout()" title="Delete workout" aria-label="Delete workout">
       <i data-lucide="trash-2" style="width:12px;height:12px;pointer-events:none;"></i>
     </button>
     {% if not is_finished %}
@@ -824,9 +834,9 @@
             style="background:transparent;border:1px solid var(--border);color:var(--muted);
                    cursor:pointer;padding:0.2rem 0.6rem;border-radius:var(--radius-xs);
                    font-size:0.72rem;font-family:'JetBrains Mono',monospace;letter-spacing:0.04em;
-                   min-height:28px;transition:color 0.15s,border-color 0.15s;">kg</button>
+                   min-height:44px;transition:color 0.15s,border-color 0.15s;">kg</button>
     <button class="btn btn-primary" onclick="finishWorkout()"
-            style="min-height:32px;padding:0.3rem 0.85rem;font-size:0.8rem;font-weight:700;letter-spacing:0.02em;">
+            style="min-height:56px;padding:0.3rem 1.2rem;font-size:0.9rem;font-weight:700;letter-spacing:0.02em;">
       Finish
     </button>
     {% endif %}
@@ -883,10 +893,10 @@
           <button onclick="cancelEdit({{ s.id }})" class="btn btn-ghost" style="font-size:0.72rem;padding:0.1rem 0.4rem;min-height:24px;">✕</button>
         </div>
       </div>
-      <button class="set-edit-btn" onclick="startEdit({{ s.id }})">
+      <button class="set-edit-btn" onclick="startEdit({{ s.id }})" aria-label="Edit set">
         <i data-lucide="pencil" style="width:12px;height:12px;pointer-events:none;"></i>
       </button>
-      <button class="set-del" onclick="deleteSet({{ s.id }}, this)">
+      <button class="set-del" onclick="deleteSet({{ s.id }}, this)" aria-label="Delete set">
         <i data-lucide="x" style="width:13px;height:13px;pointer-events:none;"></i>
       </button>
       <div class="set-row-swipe-bg"><i data-lucide="trash-2" style="width:16px;height:16px;pointer-events:none;"></i></div>
@@ -904,7 +914,7 @@
           {{ c.duration_minutes | int }} min{% if c.distance_km %} · <span class="distance-display" data-km="{{ c.distance_km }}">{{ c.distance_km }}</span> km{% endif %}{% if c.notes %} · {{ c.notes }}{% endif %}
         </div>
       </div>
-      <button class="set-del" onclick="deleteCardio({{ c.id }}, this)">
+      <button class="set-del" onclick="deleteCardio({{ c.id }}, this)" aria-label="Delete cardio entry">
         <i data-lucide="x" style="width:13px;height:13px;pointer-events:none;"></i>
       </button>
       <div class="set-row-swipe-bg"><i data-lucide="trash-2" style="width:16px;height:16px;pointer-events:none;"></i></div>
@@ -1039,14 +1049,14 @@ document.getElementById('tpl-name-input')?.addEventListener('keydown', e => { if
 
     {# Routine + muscle filters #}
     <div class="filter-row">
-      <select id="routine-select" onchange="onRoutineSelect(this.value)">
+      <select id="routine-select" onchange="onRoutineSelect(this.value)" aria-label="Routine">
         <option value="">— routine —</option>
       </select>
-      <button type="button" class="filter-clear" onclick="clearRoutine()" title="Clear routine">×</button>
-      <select id="muscle-group-select" onchange="onMuscleGroupSelect(this.value)">
+      <button type="button" class="filter-clear" onclick="clearRoutine()" title="Clear routine" aria-label="Clear routine">×</button>
+      <select id="muscle-group-select" onchange="onMuscleGroupSelect(this.value)" aria-label="Muscle group">
         <option value="">— muscle —</option>
       </select>
-      <button type="button" class="filter-clear" onclick="clearMuscleGroup()" title="Clear muscle">×</button>
+      <button type="button" class="filter-clear" onclick="clearMuscleGroup()" title="Clear muscle" aria-label="Clear muscle">×</button>
     </div>
 
     {# Template exercise chips #}
@@ -1076,7 +1086,7 @@ document.getElementById('tpl-name-input')?.addEventListener('keydown', e => { if
     {# Search #}
     <div class="ex-search-wrap">
       <i data-lucide="search" class="ex-search-icon"></i>
-      <input id="exercise-input" placeholder="Search exercise…" autocomplete="off" autocorrect="off" autocapitalize="words" spellcheck="false">
+      <input id="exercise-input" aria-label="Exercise" placeholder="Search exercise…" autocomplete="off" autocorrect="off" autocapitalize="words" spellcheck="false">
       <input type="hidden" id="exercise-id" value="">
       <div id="exercise-dropdown"></div>
     </div>
@@ -1110,19 +1120,19 @@ document.getElementById('tpl-name-input')?.addEventListener('keydown', e => { if
   {# Weight + Reps steppers #}
   <div class="steppers-row">
     <div class="stepper-field">
-      <label id="weight-label">Weight (kg)</label>
+      <label id="weight-label" for="weight-input">Weight (kg)</label>
       <div class="stepper-xl">
-        <button type="button" class="sx-btn" onclick="stepWeight(-1)">−</button>
+        <button type="button" class="sx-btn" onclick="stepWeight(-1)" aria-label="Decrease weight">−</button>
         <input type="number" id="weight-input" class="sx-val" value="60" step="0.5" min="0" inputmode="decimal">
-        <button type="button" class="sx-btn" onclick="stepWeight(1)">+</button>
+        <button type="button" class="sx-btn" onclick="stepWeight(1)" aria-label="Increase weight">+</button>
       </div>
     </div>
     <div class="stepper-field">
-      <label id="reps-label">Reps</label>
+      <label id="reps-label" for="reps-input">Reps</label>
       <div class="stepper-xl">
-        <button type="button" class="sx-btn" onclick="step('reps', -1)">−</button>
+        <button type="button" class="sx-btn" onclick="step('reps', -1)" aria-label="Decrease reps">−</button>
         <input type="number" id="reps-input" class="sx-val" value="8" step="1" min="1" inputmode="numeric">
-        <button type="button" class="sx-btn" onclick="step('reps', 1)">+</button>
+        <button type="button" class="sx-btn" onclick="step('reps', 1)" aria-label="Increase reps">+</button>
       </div>
     </div>
   </div>
@@ -1132,9 +1142,9 @@ document.getElementById('tpl-name-input')?.addEventListener('keydown', e => { if
     <div class="rpe-lbl">
       RPE <span class="rpe-opt">(optional)</span>
     </div>
-    <div class="rpe-chips" id="rpe-chips-row">
+    <div class="rpe-chips" id="rpe-chips-row" role="group" aria-label="RPE">
       {% for n in range(1, 11) %}
-      <button type="button" class="rpe-chip" data-rpe="{{ n }}" onclick="selectRpe({{ n }})">{{ n }}</button>
+      <button type="button" class="rpe-chip" data-rpe="{{ n }}" aria-pressed="false" onclick="selectRpe({{ n }})">{{ n }}</button>
       {% endfor %}
     </div>
     <select id="rpe-select" style="display:none;">
@@ -1160,7 +1170,7 @@ document.getElementById('tpl-name-input')?.addEventListener('keydown', e => { if
     <i data-lucide="repeat-2" style="width:14px;height:14px;pointer-events:none;flex-shrink:0;"></i>
     <span id="same-btn-label">Same set</span>
   </button>
-  <div id="log-error" style="color:var(--danger);font-size:0.8rem;margin-top:0.35rem;display:none;"></div>
+  <div id="log-error" role="alert" style="color:var(--danger);font-size:0.8rem;margin-top:0.35rem;display:none;"></div>
 
   {# Cardio — colocated with log actions so it's always visible #}
   <div style="margin-top:0.6rem;">
@@ -1175,15 +1185,15 @@ document.getElementById('tpl-name-input')?.addEventListener('keydown', e => { if
       </div>
       <div class="grid-2">
         <div class="form-group">
-          <label>Duration (min)</label>
+          <label for="cardio-duration">Duration (min)</label>
           <div class="stepper-group">
-            <button type="button" class="stepper-btn" onclick="stepCardio('duration', -5)">−</button>
+            <button type="button" class="stepper-btn" onclick="stepCardio('duration', -5)" aria-label="Decrease duration">−</button>
             <input type="number" id="cardio-duration" class="num" value="20" min="1" step="1" inputmode="decimal">
-            <button type="button" class="stepper-btn" onclick="stepCardio('duration', 5)">+</button>
+            <button type="button" class="stepper-btn" onclick="stepCardio('duration', 5)" aria-label="Increase duration">+</button>
           </div>
         </div>
         <div class="form-group">
-          <label id="cardio-distance-label">Distance (km)</label>
+          <label id="cardio-distance-label" for="cardio-distance">Distance (km)</label>
           <input type="number" id="cardio-distance" class="num" placeholder="optional" min="0" step="0.01" inputmode="decimal">
         </div>
       </div>
@@ -1192,7 +1202,7 @@ document.getElementById('tpl-name-input')?.addEventListener('keydown', e => { if
         <input type="text" id="cardio-notes" placeholder="e.g. treadmill, easy pace">
       </div>
       <button class="btn btn-ghost" style="width:100%;font-size:0.85rem;" onclick="logCardio()">Log Cardio</button>
-      <div id="cardio-error" style="color:var(--danger);font-size:0.8rem;margin-top:0.4rem;display:none;"></div>
+      <div id="cardio-error" role="alert" style="color:var(--danger);font-size:0.8rem;margin-top:0.4rem;display:none;"></div>
     </div>
   </div>
 
@@ -1226,7 +1236,7 @@ document.getElementById('tpl-name-input')?.addEventListener('keydown', e => { if
     <div class="rest-btns">
       <button class="btn btn-ghost" style="padding:0.2rem 0.55rem;min-height:30px;font-size:0.75rem;" onclick="adjustTimer(-30)">−30s</button>
       <button class="btn btn-ghost" style="padding:0.2rem 0.55rem;min-height:30px;font-size:0.75rem;" onclick="adjustTimer(30)">+30s</button>
-      <button class="btn btn-ghost" style="padding:0.2rem 0.4rem;min-height:30px;" onclick="stopTimer()">
+      <button class="btn btn-ghost" style="padding:0.2rem 0.4rem;min-height:30px;" onclick="stopTimer()" aria-label="Stop rest timer">
         <i data-lucide="x" style="width:13px;height:13px;pointer-events:none;"></i>
       </button>
     </div>
@@ -1261,10 +1271,10 @@ document.getElementById('tpl-name-input')?.addEventListener('keydown', e => { if
             <button onclick="cancelEdit({{ s.id }})" class="btn btn-ghost" style="font-size:0.72rem;padding:0.1rem 0.4rem;min-height:24px;">✕</button>
           </div>
         </div>
-        <button class="set-edit-btn" onclick="startEdit({{ s.id }})">
+        <button class="set-edit-btn" onclick="startEdit({{ s.id }})" aria-label="Edit set">
           <i data-lucide="pencil" style="width:12px;height:12px;pointer-events:none;"></i>
         </button>
-        <button class="set-del" onclick="deleteSet({{ s.id }}, this)">
+        <button class="set-del" onclick="deleteSet({{ s.id }}, this)" aria-label="Delete set">
           <i data-lucide="x" style="width:13px;height:13px;pointer-events:none;"></i>
         </button>
         <div class="set-row-swipe-bg"><i data-lucide="trash-2" style="width:16px;height:16px;pointer-events:none;"></i></div>
@@ -1282,7 +1292,7 @@ document.getElementById('tpl-name-input')?.addEventListener('keydown', e => { if
             {{ c.duration_minutes | int }} min{% if c.distance_km %} · <span class="distance-display" data-km="{{ c.distance_km }}">{{ c.distance_km }}</span> km{% endif %}{% if c.notes %} · {{ c.notes }}{% endif %}
           </div>
         </div>
-        <button class="set-del" onclick="deleteCardio({{ c.id }}, this)">
+        <button class="set-del" onclick="deleteCardio({{ c.id }}, this)" aria-label="Delete cardio entry">
           <i data-lucide="x" style="width:13px;height:13px;pointer-events:none;"></i>
         </button>
         <div class="set-row-swipe-bg"><i data-lucide="trash-2" style="width:16px;height:16px;pointer-events:none;"></i></div>
@@ -1446,7 +1456,7 @@ function _bwBadge(addedKg, unit) {
 }
 
 // Exercise color palette — cycles per unique exercise ID
-const EX_COLORS = ['#4f9cf9','#f59e0b','#34d399','#f472b6','#a78bfa','#fb923c'];
+const EX_COLORS = ['#4f9cf9','#a3e635','#34d399','#f472b6','#a78bfa','#fb923c'];  // no gold: --pr means a PR
 const _exColorMap = {};
 let _exColorIdx = 0;
 function exColor(exerciseId) {
@@ -1511,13 +1521,15 @@ function updateExerciseHero(ex) {
 // ── RPE chips ─────────────────────────────────────────────────
 function selectRpe(n) {
   document.querySelectorAll('.rpe-chip').forEach(c => {
-    c.classList.toggle('selected', parseInt(c.dataset.rpe) === n);
+    const on = parseInt(c.dataset.rpe) === n;
+    c.classList.toggle('selected', on);
+    c.setAttribute('aria-pressed', on ? 'true' : 'false');
   });
   const sel = document.getElementById('rpe-select');
   if (sel) sel.value = n;
 }
 function clearRpe() {
-  document.querySelectorAll('.rpe-chip').forEach(c => c.classList.remove('selected'));
+  document.querySelectorAll('.rpe-chip').forEach(c => { c.classList.remove('selected'); c.setAttribute('aria-pressed', 'false'); });
   const sel = document.getElementById('rpe-select');
   if (sel) sel.value = '';
 }
@@ -1939,7 +1951,7 @@ async function logCardio() {
       </div>
       <div class="set-detail">${duration} min${distDisplay}${notes ? ' · ' + escHtml(notes) : ''}</div>
     </div>
-    <button class="set-del" onclick="deleteCardio(${data.id},this)">
+    <button class="set-del" onclick="deleteCardio(${data.id},this)" aria-label="Delete cardio entry">
       <i data-lucide="x" style="width:13px;height:13px;pointer-events:none;"></i>
     </button>
     <div class="set-row-swipe-bg"><i data-lucide="trash-2" style="width:16px;height:16px;pointer-events:none;"></i></div>`;
@@ -2357,7 +2369,7 @@ async function _logSet(exerciseName, exerciseId) {
   row.innerHTML = `
     <div class="set-bar" style="background:${color};"></div>
     <div class="set-body">
-      <div class="set-name">${escHtml(exerciseName)}${data.is_pr ? ' <span class="badge badge-pr">PR</span>' : ''}</div>
+      <div class="set-name">${escHtml(exerciseName)}${data.is_pr ? ' <span class="badge badge-pr" role="img" aria-label="Personal record">PR</span>' : ''}</div>
       <div class="set-detail" id="detail-${data.id}">
         ${_timeMode
           ? `<span>${_bwMode ? _bwBadge(addedKg, unit) : fmtWeight(weightKg, unit)}</span> · ${_fmtDuration(durationSeconds)}`
@@ -2374,10 +2386,10 @@ async function _logSet(exerciseName, exerciseId) {
         <button onclick="cancelEdit(${data.id})" class="btn btn-ghost" style="font-size:0.72rem;padding:0.1rem 0.4rem;min-height:24px;">✕</button>
       </div>
     </div>
-    <button class="set-edit-btn" onclick="startEdit(${data.id})">
+    <button class="set-edit-btn" onclick="startEdit(${data.id})" aria-label="Edit set">
       <i data-lucide="pencil" style="width:12px;height:12px;pointer-events:none;"></i>
     </button>
-    <button class="set-del" onclick="deleteSet(${data.id},this)">
+    <button class="set-del" onclick="deleteSet(${data.id},this)" aria-label="Delete set">
       <i data-lucide="x" style="width:13px;height:13px;pointer-events:none;"></i>
     </button>
     <div class="set-row-swipe-bg"><i data-lucide="trash-2" style="width:16px;height:16px;pointer-events:none;"></i></div>`;
@@ -2390,6 +2402,7 @@ async function _logSet(exerciseName, exerciseId) {
   document.getElementById('notes-input').value = '';
   clearRpe();
   lastSets[String(exerciseId)] = {weight_kg: weightKg, reps};
+  window.announce(`Set logged: ${exerciseName}, ${_timeMode ? _fmtDuration(durationSeconds) : `${fieldVal} ${unit} × ${reps}`}${data.is_pr ? '. Personal record!' : ''}`);
   updateSetsCountBadge();
   _lastLoggedExId = exerciseId;
   _showSameBtn(exerciseName, fieldVal, reps, unit);
@@ -2489,7 +2502,7 @@ function startEdit(id) {
     `<input type="number" class="edit-w" value="${displayW}" step="0.5" min="0" style="width:4.2rem;">` +
     `<span style="color:var(--muted);font-size:0.85rem;flex-shrink:0;">×</span>` +
     `<input type="number" class="edit-r" value="${reps}" step="1" min="1" style="width:3.2rem;">` +
-    `<select class="edit-rpe" title="RPE" style="font-size:0.72rem;padding:0.1rem 0.25rem;border-radius:4px;border:1px solid var(--border);background:var(--surface-2);color:var(--muted);height:26px;min-width:54px;">` +
+    `<select class="edit-rpe" title="RPE" aria-label="RPE" style="font-size:0.72rem;padding:0.1rem 0.25rem;border-radius:4px;border:1px solid var(--border);background:var(--surface-2);color:var(--muted);height:26px;min-width:54px;">` +
       `<option value="">RPE</option>${rpeOpts}` +
     `</select>` +
     `<input type="text" class="edit-notes" value="${escHtml(notes)}" placeholder="notes…" autocorrect="off" spellcheck="false"` +

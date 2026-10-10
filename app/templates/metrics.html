@@ -189,14 +189,14 @@
     <div class="card">
       <div class="section-title">Log entry</div>
       <div class="form-group">
-        <label id="weight-label">Weight (kg)</label>
+        <label id="weight-label" for="weight-input">Weight (kg)</label>
         <div class="stepper-group">
-          <button type="button" class="stepper-btn" onclick="stepMetric(-0.5)">−</button>
+          <button type="button" class="stepper-btn" onclick="stepMetric(-0.5)" aria-label="Decrease weight">−</button>
           <input type="number" id="weight-input" class="num"
                  value="{{ latest_weight if latest_weight is not none else 75 }}"
                  data-kg="{{ latest_weight if latest_weight is not none else 75 }}"
                  step="0.1" min="0" oninput="onWeightInput()" style="text-align:center;">
-          <button type="button" class="stepper-btn" onclick="stepMetric(0.5)">+</button>
+          <button type="button" class="stepper-btn" onclick="stepMetric(0.5)" aria-label="Increase weight">+</button>
         </div>
       </div>
       <div class="form-group">
@@ -215,11 +215,11 @@
     <div class="card">
       <div class="section-title">BMI calculator</div>
       <div class="form-group" style="margin-bottom:1rem;">
-        <label id="height-label">Height (cm)</label>
+        <label id="height-label" for="height-input">Height (cm)</label>
         <div class="stepper-group">
-          <button type="button" class="stepper-btn" onclick="stepHeight(-1)">−</button>
+          <button type="button" class="stepper-btn" onclick="stepHeight(-1)" aria-label="Decrease height">−</button>
           <input type="number" id="height-input" class="num" value="170" step="1" min="100" max="250" oninput="saveAndCalcBmi()" style="text-align:center;">
-          <button type="button" class="stepper-btn" onclick="stepHeight(1)">+</button>
+          <button type="button" class="stepper-btn" onclick="stepHeight(1)" aria-label="Increase height">+</button>
         </div>
       </div>
 

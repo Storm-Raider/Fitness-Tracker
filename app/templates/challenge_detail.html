@@ -15,18 +15,19 @@
 .grid { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 0.5rem; }
 .cell { width: 16px; height: 16px; border-radius: 3px; background: var(--surface-2); border: 1px solid var(--border); }
 .cell.done { background: var(--success); border-color: var(--success); }
-.cell.partial { background: rgba(245,158,11,0.45); border-color: var(--pr); }
+/* Partial and grace are "at risk": orange, never PR gold. */
+.cell.partial { background: rgba(251,146,60,0.45); border-color: #fb923c; }
 .cell.missed { background: var(--danger); border-color: var(--danger); opacity: 0.8; }
 .cell.today { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-dim); }
-.cell.grace { background: var(--pr-dim); border-color: var(--pr); }
+.cell.grace { background: rgba(251,146,60,0.12); border-color: #fb923c; }
 .cell.future { background: var(--surface-2); }
 .partial-notice { display:flex; align-items:center; gap:0.5rem; padding:0.6rem 0.75rem; margin:0.6rem 0 0.25rem;
-  background:rgba(245,158,11,0.08); border:1px solid rgba(245,158,11,0.25); border-radius:var(--radius-xs);
-  color:var(--pr); font-size:0.875rem; font-weight:600; }
-.btn-partial { background:transparent; border:1px solid var(--pr); color:var(--pr); border-radius:var(--radius-xs);
+  background:rgba(251,146,60,0.08); border:1px solid rgba(251,146,60,0.25); border-radius:var(--radius-xs);
+  color:#fb923c; font-size:0.875rem; font-weight:600; }
+.btn-partial { background:transparent; border:1px solid #fb923c; color:#fb923c; border-radius:var(--radius-xs);
   padding:0.5rem 1rem; font-family:inherit; font-size:0.82rem; cursor:pointer; transition:all 0.15s;
   min-height:40px; margin-top:0.6rem; }
-.btn-partial:hover { background:rgba(245,158,11,0.08); }
+.btn-partial:hover { background:rgba(251,146,60,0.08); }
 
 .ch-banner { padding: 0.9rem 1.1rem; border-radius: var(--radius-sm); margin-bottom: 1.25rem; font-size: 0.9rem; line-height: 1.5; }
 .ch-banner.failed { background: var(--danger-dim); border: 1px solid rgba(248,113,113,0.3); color: var(--danger); }
@@ -104,8 +105,8 @@
 {% endif %}
 
 {% if show_yesterday %}
-<div class="card" style="margin-bottom:1.25rem;border-left:3px solid var(--pr);">
-  <div class="section-title" style="color:var(--pr);">Yesterday — still savable today (grace)</div>
+<div class="card" style="margin-bottom:1.25rem;border-left:3px solid #fb923c;">
+  <div class="section-title" style="color:#fb923c;">Yesterday — still savable today (grace)</div>
   <div>
     {% for r in yesterday_rules %}
     <div class="rule {% if r.done %}done{% endif %} {% if r.optional %}optional{% endif %}"

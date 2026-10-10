@@ -125,6 +125,8 @@ These are intentional departures from the fitness app category. They are policy,
 | 2026-09-09 | Evolved to Redline Console — bracket-corner HUD framing, `--live` cyan, radar-sweep + flash-bloom motion, oversized glowing hero numbers | User asked for a "futuristic" redesign via `/design-consultation`. First pass (additive, one new color + one chamfered corner) was explicitly rejected as too safe — see 2026-09-09 (rejected) below. This pass escalates decoration to "intentional" and motion to purposeful one-shot/loop animation while keeping every hard rule (dark-only, gold-earned, blue-chrome, touch targets, Syne/Barlow/JetBrains Mono families) unchanged. |
 | 2026-09-09 | *(rejected)* Instrument Console — chamfered live-card corners, single `--live` color, mono-expanded labels, no other surface changes | Too incremental — read as "the app got a skin," not a genuine futuristic departure. Superseded same day by Redline Console above. |
 | 2026-09-09 | Extended Redline Console (bracket framing, `--live` cyan) to `challenges.html`, `achievements.html`, `coach.html`, `plan.html`, `planner.html` | Those five templates defined their own bespoke card classes instead of the shared `.card`, so they'd silently missed the redesign. Challenges' "in progress" day-counter/bar and the AI coach's generating spinner also moved from `--accent` blue to `--live` cyan — both are genuinely running things, same rule as the session timer. |
+| 2026-10-10 | Accessibility pass: `--muted` #5a6a82 → #72849e, dark text on blue buttons, no zoom lock, labelled icon buttons, 44px set actions, 56px Finish | axe-core (WCAG 2.1 AA) found 76 problems across 12 pages; the contrast table here claimed ~5.4:1 for `--muted` but it measured 3.6:1. User chose dark text on the same blue over a deeper blue with white text, to keep the Redline glow. |
+| 2026-10-10 | Gold removed from everything that isn't a PR or an achievement | RPE 8 chip → peach, exercise colour palette and Abs muscle colour → non-gold, estimated 1RM and top-set text → `--text`, goal bar → `--muted-hi`, dashboard challenge card → `--live` (per 2026-09-09), best streak → `--success`, challenge partial/grace and plan "peak"/draft notices → orange `#fb923c` ("at risk", not "earned"). |
 | 2026-09-09 | Reversed the in-flight "FitStorm" rename — Zenkai retained as the product name everywhere (docs, infra, deploy) | TODOS.md referenced a planned Zenkai→FitStorm rename that README/DESIGN.md/CHANGELOG had already adopted in prose, but the running app (nav, PWA manifest, localStorage keys) never actually shipped it. User decided to keep Zenkai and retire FitStorm for good rather than finish that rename. |
 
 ---
@@ -141,7 +143,7 @@ These are intentional departures from the fitness app category. They are policy,
 
 /* Text */
 --text:         #e4eaf2   /* primary text */
---muted:        #5a6a82   /* labels, timestamps, placeholders */
+--muted:        #72849e   /* labels, timestamps, placeholders (≥4.5:1 on every surface but --surface-hover) */
 
 /* Interactive (chrome only — never data, never decoration) */
 --accent:       #4f9cf9   /* links, primary buttons, focus rings */
@@ -245,7 +247,7 @@ Diagonal bracket corners only (top-left + bottom-right) — deliberately not all
 
 | Class | Background | Text | Use |
 |-------|-----------|------|-----|
-| `.btn-primary` | Blue gradient (#4f9cf9 → #3b82f6), `box-shadow: 0 0 16px rgba(79,156,249,.35)` | `#fff` | Primary actions (Log Set) |
+| `.btn-primary` | Blue gradient (#4f9cf9 → #3b82f6), `box-shadow: 0 0 16px rgba(79,156,249,.35)` | `#090b10` (near-black; white was 2.8:1) | Primary actions (Log Set); also selected RPE chips, the Plan mode toggle |
 | `.btn-ghost` | Transparent | `--muted` | Secondary actions (Clear, Cancel) |
 | `.btn-danger` | `--danger` | `#fff` | Destructive (Delete) |
 
@@ -429,7 +431,7 @@ Lucide **v0.378.0** via CDN. Pinned — do not use `@latest`.
 | Stepper buttons (−/+) | 52×52px | CSS currently 40×40px — padding expansion planned |
 | Log Set button | 56px height | Primary action, frequent tap |
 | Finish Workout button | 56px height | Primary action |
-| Set row delete (×) | 44×44px | Visually smaller; padding expands tap target |
+| Set row delete (×) and edit (✎) | 44×44px | Icon stays 12–13px; the button box is `min-width/min-height: 44px` |
 | Exercise search results | 48px per result | datalist — browser-controlled |
 
 ---
@@ -471,8 +473,10 @@ Lucide **v0.378.0** via CDN. Pinned — do not use `@latest`.
 - `<main>` on every page
 - `<nav aria-label="Main navigation">` in base template
 - Timer: `aria-live="off"` (suppress per-second announcements)
-- Set list region: `aria-live="polite"` (announce new set after logging)
-- PR badge: `aria-label="Personal record"`
+- Announcements: one persistent `#sr-announcer` (`aria-live="polite"`) in `base.html`; call `window.announce(text)`. A logged set is announced ("Set logged: Bench Press, 60 kg × 5. Personal record!"), and so is every action toast. Inline errors (`#log-error`, `#cardio-error`) are `role="alert"`.
+- PR badge: `role="img" aria-label="Personal record"` (a bare span can't carry `aria-label`)
+- Icon-only buttons always get an `aria-label` naming the action ("Delete set", "Decrease weight"), not the glyph
+- No zoom lock: the viewport allows pinch-zoom (WCAG 1.4.4). Focus zoom on iOS is prevented by every field being 16px, not by `maximum-scale`
 
 **Autofocus:**
 - Workout form: exercise search input gets `autofocus` on load
@@ -483,11 +487,11 @@ Lucide **v0.378.0** via CDN. Pinned — do not use `@latest`.
 | Foreground | Background | Ratio | Grade |
 |-----------|-----------|-------|-------|
 | `--text` #e4eaf2 | `--bg` #090b10 | ~15:1 | AAA |
-| `--muted` #5a6a82 | `--bg` #090b10 | ~5.4:1 | AA |
+| `--muted` #72849e | `--bg` #090b10 | 5.2:1 (4.5:1 on `--surface-2`) | AA |
 | `--accent` #4f9cf9 | `--bg` #090b10 | ~7.5:1 | AA |
 | `--live` #22e5c9 | `--bg` #090b10 | ~11.8:1 | AAA |
 | `--pr` #f59e0b | `--surface` #0f1219 | ~8.2:1 | AAA |
-| `#fff` | `--accent` #4f9cf9 | ~3.8:1 | AA (large text) |
+| `#090b10` | `--accent` #4f9cf9 → #3b82f6 | 7.0:1 → 5.4:1 | AA (button text; white was 2.8:1, which fails) |
 | `#000` | `--pr` #f59e0b | ~10.5:1 | AAA |
 
 **Motion:** `radar-spin`, `scan-sweep`, `flashbloom`, and the live-dot `pulse` are all disabled under `prefers-reduced-motion: reduce`. State (color, text, the permanent PR badge) must remain fully legible with every animation removed.

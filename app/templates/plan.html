@@ -27,7 +27,7 @@
 .mode-btn.active {
   background: var(--accent);
   border-color: var(--accent);
-  color: #fff;
+  color: #090b10;   /* dark on blue, like .btn-primary (white was 2.8:1) */
 }
 
 /* ── Plan grid (shared by both modes) ── */
@@ -234,7 +234,7 @@
 }
 .plan-phase-acc   { color: #34d399; background: rgba(52,211,153,0.1); border: 1px solid rgba(52,211,153,0.25); }
 .plan-phase-int   { color: #4f9cf9; background: var(--accent-dim); border: 1px solid rgba(79,156,249,0.25); }
-.plan-phase-peak  { color: #f59e0b; background: var(--pr-dim); border: 1px solid rgba(245,158,11,0.25); }
+.plan-phase-peak  { color: #fb923c; background: rgba(251,146,60,0.1); border: 1px solid rgba(251,146,60,0.25); }  /* not gold: gold means a PR */
 .plan-phase-deload { color: var(--muted); background: rgba(90,106,130,0.1); border: 1px solid rgba(90,106,130,0.25); }
 
 /* ── Spinners ── */
@@ -463,7 +463,7 @@
       <div class="section-title">Training days / week</div>
       <div class="card" style="padding:1rem 1.25rem;margin-bottom:1.25rem;">
         <div style="display:flex;align-items:center;gap:1rem;">
-          <input type="range" id="ai-days-slider" min="1" max="7" value="4"
+          <input type="range" id="ai-days-slider" aria-label="Training days per week" min="1" max="7" value="4"
                  oninput="document.getElementById('ai-days-val').textContent=this.value;"
                  style="flex:1;accent-color:var(--accent);cursor:pointer;">
           <div class="num" style="font-size:1.5rem;font-weight:700;color:var(--accent);min-width:1.5rem;text-align:right;line-height:1;">
@@ -518,8 +518,8 @@
     {# ── Right: AI result ── #}
     <div>
       {% if draft_plan %}
-      <div id="ai-draft-notice" style="background:var(--surface);border:1px solid rgba(245,158,11,0.4);border-radius:var(--radius);padding:0.7rem 1rem;margin-bottom:0.75rem;display:flex;align-items:center;gap:0.6rem;font-size:0.82rem;">
-        <i data-lucide="clock" style="width:15px;height:15px;color:var(--pr);flex-shrink:0;"></i>
+      <div id="ai-draft-notice" style="background:var(--surface);border:1px solid rgba(251,146,60,0.4);border-radius:var(--radius);padding:0.7rem 1rem;margin-bottom:0.75rem;display:flex;align-items:center;gap:0.6rem;font-size:0.82rem;">
+        <i data-lucide="clock" style="width:15px;height:15px;color:#fb923c;flex-shrink:0;"></i>
         <span style="flex:1;color:var(--muted);">Unsaved plan from <b style="color:var(--text);">{{ draft_plan.created_at[:10] }}</b> — review it below.</span>
         <button onclick="dismissDraft()" class="btn btn-ghost" style="min-height:28px;padding:0.2rem 0.6rem;font-size:0.72rem;">Dismiss</button>
       </div>
