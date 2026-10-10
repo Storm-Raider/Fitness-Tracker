@@ -88,8 +88,14 @@
   align-items: center;
   gap: 0.75rem;
   transition: border-color 0.15s;
+  position: relative;
 }
 .saved-plan-card:hover { border-color: var(--border-mid); }
+.saved-plan-card::before, .saved-plan-card::after {
+  content: ''; position: absolute; width: 12px; height: 12px; pointer-events: none;
+}
+.saved-plan-card::before { top: -1px; left: -1px; border-top: 2px solid var(--accent); border-left: 2px solid var(--accent); opacity: 0.28; }
+.saved-plan-card::after  { bottom: -1px; right: -1px; border-bottom: 2px solid var(--accent); border-right: 2px solid var(--accent); opacity: 0.28; }
 </style>
 
 <div class="page-hd">

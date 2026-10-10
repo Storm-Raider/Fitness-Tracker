@@ -37,6 +37,11 @@
       --success-dim:  rgba(52,211,153,0.08);
       --pr:           #f59e0b;
       --pr-dim:       rgba(245,158,11,0.1);
+      --pr-glow:      rgba(245,158,11,0.65);
+      --live:         #22e5c9;
+      --live-dim:     rgba(34,229,201,0.12);
+      --live-glow:    rgba(34,229,201,0.65);
+      --accent-glow:  rgba(79,156,249,0.6);
       --shadow-sm:    0 1px 3px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,255,255,0.035);
       --shadow:       0 6px 24px rgba(0,0,0,0.65);
       --shadow-lg:    0 12px 40px rgba(0,0,0,0.7);
@@ -63,11 +68,16 @@
     html { font-family: 'Barlow', system-ui, sans-serif; -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
     body {
       background: var(--bg);
+      /* Blueprint-grid texture (Redline Console): fine hairline grid + faint glowing
+         intersection nodes, replacing the plain dot-grid. Kept low-opacity so it
+         never competes with foreground text — see DESIGN.md § Background Texture. */
       background-image:
         radial-gradient(ellipse 110% 42% at 50% 0%, rgba(79,156,249,0.07) 0%, transparent 55%),
         radial-gradient(ellipse 45% 28% at 92% 95%, rgba(245,158,11,0.03) 0%, transparent 55%),
-        radial-gradient(circle at 1px 1px, rgba(255,255,255,0.038) 1px, transparent 0);
-      background-size: auto, auto, 28px 28px;
+        radial-gradient(rgba(79,156,249,0.16) 1px, transparent 1.4px),
+        linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px);
+      background-size: auto, auto, 96px 96px, 32px 32px, 32px 32px;
       color: var(--text);
       font-family: 'Barlow', system-ui, sans-serif;
       font-size: 15px;
@@ -505,9 +515,11 @@
       from { opacity: 0; transform: translateY(8px); }
       to   { opacity: 1; transform: translateY(0); }
     }
+    /* .session-dot marks an active/live session — live is cyan, never blue
+       (blue is interactive chrome only). See DESIGN.md § Design Principles. */
     @keyframes pulse {
-      0%, 100% { box-shadow: 0 0 0 3px rgba(79,156,249,0.25); }
-      50%       { box-shadow: 0 0 0 7px rgba(79,156,249,0); }
+      0%, 100% { box-shadow: 0 0 0 3px rgba(34,229,201,0.28); }
+      50%       { box-shadow: 0 0 0 7px rgba(34,229,201,0); }
     }
     .session-dot { animation: pulse 2s ease-in-out infinite; }
     @keyframes setSlideIn {
@@ -515,34 +527,102 @@
       to   { opacity: 1; transform: translateY(0); }
     }
     .set-enter { animation: setSlideIn 0.18s ease-out both; }
-    @keyframes prPulse {
-      0%, 100% { box-shadow: none; }
-      40%      { box-shadow: 0 0 0 2px var(--pr); }
+    /* PR arrival is an event, not a quiet badge: one-shot flash + glow-bloom on
+       the set row, then it settles. Insets avoid clipping since .set-row has
+       overflow:hidden for its swipe-to-delete affordance. Fires once (2.4s) —
+       never on anything but a genuine PR. See DESIGN.md § Deliberate Risks. */
+    @keyframes flashBloom {
+      0%   { background: rgba(245,158,11,0);    box-shadow: inset 0 0 0 rgba(245,158,11,0); }
+      8%   { background: rgba(245,158,11,0.22); box-shadow: inset 0 0 26px rgba(245,158,11,0.5); }
+      40%  { background: rgba(245,158,11,0.08); box-shadow: inset 0 0 14px rgba(245,158,11,0.25); }
+      100% { background: rgba(245,158,11,0.05); box-shadow: inset 0 0 0 rgba(245,158,11,0); }
     }
-    .pr-flash { animation: prPulse 0.55s ease-out; }
+    .pr-flash { animation: flashBloom 2.4s ease-out 1; border-radius: var(--radius-xs); }
+    /* The PR value itself becomes the hero for that one moment — scales up
+       with a gold glow, then settles back to normal size. transform (not
+       font-size) to avoid a layout reflow mid-animation. */
+    @keyframes heroPop {
+      0%   { color: var(--text); text-shadow: none; transform: scale(1); }
+      10%  { color: var(--pr); text-shadow: 0 0 10px var(--pr-glow), 0 0 24px rgba(245,158,11,0.35); transform: scale(1.28); }
+      45%  { color: var(--pr); transform: scale(1.1); }
+      100% { color: var(--text); text-shadow: none; transform: scale(1); }
+    }
+    .pr-flash .weight-display {
+      display: inline-block;
+      transform-origin: left center;
+      animation: heroPop 2.4s ease-out 1;
+    }
     @keyframes setSlideOut {
       to { opacity: 0; transform: translateX(-8px); }
     }
     .set-exit { animation: setSlideOut 0.15s ease-in both; }
 
-    /* ── Cards ───────────────────────────────────────── */
+    /* ── Cards (Redline Console: bracket-corner HUD framing) ──────── */
     .card {
-      background: var(--surface);
+      background:
+        linear-gradient(145deg, rgba(255,255,255,0.028) 0%, transparent 52%),
+        var(--surface);
       border: 1px solid var(--border);
       border-radius: var(--radius);
       padding: 1.25rem;
       box-shadow: var(--shadow-sm);
       position: relative;
       transition: border-color 0.18s;
+      --bracket: var(--accent);
+      --bracket-op: 0.32;
     }
     .card:hover { border-color: var(--border-mid); }
-    .card::before {
+    /* Diagonal viewfinder brackets (top-left + bottom-right only — deliberately
+       not all four corners, so the frame reads as instrumentation rather than
+       a busy outline). Low-opacity at rest, brighten + glow on hover or when
+       the card carries .is-live (active session). See DESIGN.md § Components. */
+    .card::before, .card::after {
       content: '';
       position: absolute;
-      inset: 0;
-      background: linear-gradient(145deg, rgba(255,255,255,0.028) 0%, transparent 52%);
+      width: 16px;
+      height: 16px;
       pointer-events: none;
-      border-radius: inherit;
+      transition: opacity 0.2s, filter 0.2s;
+    }
+    .card::before {
+      top: -1px; left: -1px;
+      border-top: 2px solid var(--bracket);
+      border-left: 2px solid var(--bracket);
+      opacity: var(--bracket-op);
+    }
+    .card::after {
+      bottom: -1px; right: -1px;
+      border-bottom: 2px solid var(--bracket);
+      border-right: 2px solid var(--bracket);
+      opacity: var(--bracket-op);
+    }
+    .card:hover::before, .card:hover::after {
+      opacity: 0.85;
+      filter: drop-shadow(0 0 4px var(--accent-glow));
+    }
+    .card.is-live {
+      --bracket: var(--live);
+      --bracket-op: 0.8;
+    }
+    .card.is-live::before, .card.is-live::after {
+      filter: drop-shadow(0 0 5px var(--live-glow));
+    }
+    /* One-shot "the console just scanned this panel" sweep — added as a real
+       child element (not a pseudo-element, both of which are already spent on
+       the brackets above) on live/primary cards. Respects reduced-motion via
+       the global override below. */
+    .scan-sweep {
+      position: absolute;
+      left: 0; right: 0;
+      top: -40%;
+      height: 40%;
+      background: linear-gradient(180deg, transparent, rgba(79,156,249,0.16), transparent);
+      animation: sweep 2.2s ease-in 1;
+      pointer-events: none;
+    }
+    @keyframes sweep {
+      0%   { top: -40%; }
+      100% { top: 100%; }
     }
     /* Highlighted card with left accent edge */
     .card-accent {
@@ -620,6 +700,7 @@
     .btn-primary {
       background: linear-gradient(135deg, #4f9cf9 0%, #3278e4 100%);
       color: #fff;
+      box-shadow: 0 0 14px rgba(79,156,249,0.28);
     }
     .btn-primary:hover {
       background: linear-gradient(135deg, #72b4fb 0%, #4f9cf9 100%);
@@ -727,6 +808,7 @@
       color: var(--pr);
       border: 1px solid rgba(245,158,11,0.28);
       font-family: 'JetBrains Mono', monospace;
+      box-shadow: 0 0 10px rgba(245,158,11,0.22);
     }
     .badge-streak {
       background: rgba(52,211,153,0.1);

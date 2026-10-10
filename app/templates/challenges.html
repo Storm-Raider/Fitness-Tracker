@@ -2,13 +2,29 @@
 {% block title %}Challenges — Zenkai{% endblock %}
 {% block content %}
 <style>
-.ch-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
-  padding: 1.1rem 1.25rem; box-shadow: var(--shadow-sm); display: block; transition: border-color 0.15s; }
+.ch-card {
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 1.1rem 1.25rem; box-shadow: var(--shadow-sm); display: block; transition: border-color 0.15s;
+  position: relative; --bracket: var(--accent); --bracket-op: 0.32;
+}
 .ch-card:hover { border-color: var(--border-mid); }
+/* Bracket-corner HUD framing, same pattern as the shared .card in base.html.
+   Active/in-progress challenges (.is-live) get the cyan variant — a challenge
+   you're mid-way through is a genuinely running thing, same rule as the
+   session timer. Preset/template cards below stay the default blue. */
+.ch-card::before, .ch-card::after {
+  content: ''; position: absolute; width: 16px; height: 16px; pointer-events: none;
+  transition: opacity 0.2s, filter 0.2s;
+}
+.ch-card::before { top: -1px; left: -1px; border-top: 2px solid var(--bracket); border-left: 2px solid var(--bracket); opacity: var(--bracket-op); }
+.ch-card::after  { bottom: -1px; right: -1px; border-bottom: 2px solid var(--bracket); border-right: 2px solid var(--bracket); opacity: var(--bracket-op); }
+.ch-card:hover::before, .ch-card:hover::after { opacity: 0.85; filter: drop-shadow(0 0 4px var(--accent-glow)); }
+.ch-card.is-live { --bracket: var(--live); --bracket-op: 0.7; }
+.ch-card.is-live:hover::before, .ch-card.is-live:hover::after { filter: drop-shadow(0 0 5px var(--live-glow)); }
 .ch-row { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
-.ch-dayn { font-family: 'JetBrains Mono', monospace; font-size: 1.6rem; font-weight: 700; color: var(--accent); line-height: 1; }
+.ch-dayn { font-family: 'JetBrains Mono', monospace; font-size: 1.6rem; font-weight: 700; color: var(--live); text-shadow: 0 0 8px var(--live-glow); line-height: 1; }
 .ch-bar { height: 7px; background: var(--surface-2); border-radius: 4px; overflow: hidden; margin-top: 0.6rem; }
-.ch-bar > div { height: 100%; background: linear-gradient(90deg, var(--accent), rgba(79,156,249,0.55)); border-radius: 4px; }
+.ch-bar > div { height: 100%; background: linear-gradient(90deg, var(--live), rgba(34,229,201,0.55)); border-radius: 4px; }
 .ch-badge { font-size: 0.7rem; font-weight: 700; padding: 0.2rem 0.6rem; border-radius: 20px; }
 .ch-badge.done { color: var(--success); background: var(--success-dim); border: 1px solid rgba(52,211,153,0.28); }
 .ch-badge.failed { color: var(--danger); background: var(--danger-dim); border: 1px solid rgba(248,113,113,0.28); }
@@ -43,7 +59,7 @@
 <div class="section-title">In progress</div>
 <div style="display:flex;flex-direction:column;gap:0.75rem;margin-bottom:1.75rem;">
   {% for a in active %}
-  <a href="/challenges/{{ a.id }}" class="ch-card">
+  <a href="/challenges/{{ a.id }}" class="ch-card is-live">
     <div class="ch-row">
       <div style="min-width:0;">
         <div style="font-family:'Syne',sans-serif;font-weight:700;font-size:1.05rem;">{{ a.title }}</div>
