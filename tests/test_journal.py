@@ -194,3 +194,33 @@ async def test_history_row_onclick_survives_apostrophe(client):
     )
     for v in matches:
         assert "\\u0027" in v  # the apostrophe survived, escaped by tojson
+
+
+# ── A logged 0 is a value, not "nothing" (TODO-EL-6) ─────────────────────────
+
+def _field_value(html: str, field_id: str) -> str:
+    import re
+    m = re.search(rf'id="{field_id}"[^>]*?value="([^"]*)"', html, re.S)
+    assert m, f"{field_id} has no value attribute"
+    return m.group(1)
+
+
+@pytest.mark.asyncio
+async def test_todays_zero_values_render_as_zero(client):
+    """A rest day with 0 steps used to render blank; saving the form again then
+    turned the stored 0 into null."""
+    resp = await client.post("/journal", json={**LOG, "steps": 0, "water_l": 0, "sleep_hrs": 0})
+    assert resp.status_code in (200, 201)
+    html = (await client.get("/journal", headers={"Accept": "text/html"})).text
+    assert _field_value(html, "j-steps") == "0"
+    assert _field_value(html, "j-water") in ("0", "0.0")
+    assert _field_value(html, "j-sleep") in ("0", "0.0")
+
+
+@pytest.mark.asyncio
+async def test_missing_values_still_render_blank(client):
+    resp = await client.post("/journal", json={**LOG, "steps": None, "water_l": None, "sleep_hrs": None, "weight_kg": None})
+    assert resp.status_code in (200, 201)
+    html = (await client.get("/journal", headers={"Accept": "text/html"})).text
+    for field in ("j-steps", "j-water", "j-sleep", "j-weight"):
+        assert _field_value(html, field) == ""

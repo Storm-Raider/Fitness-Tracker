@@ -60,7 +60,7 @@
     <div class="jf-row">
       <label for="j-weight">Weight (kg)</label>
       <input type="number" id="j-weight" min="0" max="500" step="0.1" placeholder="e.g. 114"
-             value="{{ today_log.weight_kg if today_log and today_log.weight_kg else '' }}">
+             value="{{ today_log.weight_kg if today_log and today_log.weight_kg is not none else '' }}">
     </div>
 
   </div>
@@ -94,19 +94,19 @@
     <div class="jf-row">
       <label for="j-water">Water (L)</label>
       <input type="number" id="j-water" min="0" max="20" step="0.1" placeholder="e.g. 2"
-             value="{{ today_log.water_l if today_log and today_log.water_l else '' }}">
+             value="{{ today_log.water_l if today_log and today_log.water_l is not none else '' }}">
     </div>
 
     <div class="jf-row">
       <label for="j-sleep">Sleep (hrs)</label>
       <input type="number" id="j-sleep" min="0" max="24" step="0.5" placeholder="e.g. 8"
-             value="{{ today_log.sleep_hrs if today_log and today_log.sleep_hrs else '' }}">
+             value="{{ today_log.sleep_hrs if today_log and today_log.sleep_hrs is not none else '' }}">
     </div>
 
     <div class="jf-row">
       <label for="j-steps">Steps</label>
       <input type="number" id="j-steps" min="0" placeholder="e.g. 4000"
-             value="{{ today_log.steps if today_log and today_log.steps else '' }}">
+             value="{{ today_log.steps if today_log and today_log.steps is not none else '' }}">
     </div>
 
   </div>
@@ -245,14 +245,17 @@ function populateForm(dateStr, entry) {
     (entry && entry.day_number) ? entry.day_number
     : (dateStr === TODAY && ACTIVE_DAY) ? ACTIVE_DAY
     : '';
-  document.getElementById('j-weight').value = (entry && entry.weight_kg) || '';
+  // `??`, not `||`: a logged 0 (a rest day's 0 steps) is a value. Blanking it
+  // made the next Save overwrite the stored 0 with null.
+  const numOrBlank = k => (entry && entry[k] != null) ? entry[k] : '';
+  document.getElementById('j-weight').value = numOrBlank('weight_kg');
   document.getElementById('j-workout').value = (entry && entry.workout) || '';
   document.getElementById('j-meal1').value = (entry && entry.meal_1) || '';
   document.getElementById('j-meal2').value = (entry && entry.meal_2) || '';
   document.getElementById('j-meal3').value = (entry && entry.meal_3) || '';
-  document.getElementById('j-water').value = (entry && entry.water_l) || '';
-  document.getElementById('j-sleep').value = (entry && entry.sleep_hrs) || '';
-  document.getElementById('j-steps').value = (entry && entry.steps) || '';
+  document.getElementById('j-water').value = numOrBlank('water_l');
+  document.getElementById('j-sleep').value = numOrBlank('sleep_hrs');
+  document.getElementById('j-steps').value = numOrBlank('steps');
   document.getElementById('j-notes').value = (entry && entry.notes) || '';
   document.querySelectorAll('#seg-energy .seg-btn').forEach(b =>
     b.classList.toggle('active', !!entry && b.dataset.val === entry.energy));

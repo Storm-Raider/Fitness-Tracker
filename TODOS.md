@@ -416,6 +416,8 @@ Request to expand the achievements list beyond the current 24. Needs product dec
 
 **Effort:** S — mechanical find-and-replace of the falsy check for a handful of fields, plus a couple of regression tests asserting a saved `0` round-trips as `0` not blank.
 
+**SHIPPED 2026-10-10** — Jinja uses `is not none`, `populateForm()` uses a null check; `day_number` deliberately unchanged (day 0 isn't a valid challenge day and it falls back to the active day). Tests: `tests/test_journal.py` (server render), `scripts/e2e/journal_zero.test.mjs` (past date load + Save round trip; 4/4 failed before).
+
 ---
 
 ## TODO-CC-1: Full custom-challenge builder (numeric rule kind + per-attempt strict/forgiving toggle)
