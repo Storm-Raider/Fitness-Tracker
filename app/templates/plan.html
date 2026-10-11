@@ -31,12 +31,12 @@
 /* ── Plan grid (shared by both modes) ── */
 .plan-grid {
   display: grid;
-  grid-template-columns: 320px 1fr;
+  grid-template-columns: 320px minmax(0, 1fr);
   gap: 1.5rem;
   align-items: start;
 }
 @media (max-width: 767px) {
-  .plan-grid { grid-template-columns: 1fr; }
+  .plan-grid { grid-template-columns: minmax(0, 1fr); }
 }
 
 /* ── Goal buttons (choice cards: selected = 2px ink outline + ink tint) ── */
