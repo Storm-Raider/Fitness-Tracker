@@ -19,10 +19,6 @@
 (function (global) {
   'use strict';
 
-  var HEADER_STYLE = "font-family:'Syne',sans-serif;font-size:1.15rem;font-weight:700;letter-spacing:-0.02em;";
-  var SUMMARY_STYLE = 'color:var(--muted);font-size:0.85rem;margin-top:0.35rem;line-height:1.5;';
-  var DROPPED_STYLE = 'font-size:0.72rem;color:var(--muted);margin-bottom:0.75rem;';
-
   function el(tag, className, text) {
     var node = document.createElement(tag);
     if (className) node.className = className;
@@ -42,17 +38,14 @@
     // First render, or something cleared the container behind our back.
     while (container.firstChild) container.removeChild(container.firstChild);
     pv = {
-      header: el('div', 'card card-accent'),
-      title: el('div'),
-      summary: el('div'),
-      dropped: el('div'),
+      // Styles live in plan.html (.plan-out-*), not inline.
+      header: el('div', 'card card-accent plan-out-head'),
+      title: el('div', 'plan-out-title'),
+      summary: el('div', 'plan-out-summary'),
+      dropped: el('div', 'plan-out-dropped'),
       daysEl: el('div'),
       days: [],
     };
-    pv.header.style.marginBottom = '1rem';
-    pv.title.style.cssText = HEADER_STYLE;
-    pv.summary.style.cssText = SUMMARY_STYLE;
-    pv.dropped.style.cssText = DROPPED_STYLE;
     pv.header.appendChild(pv.title);
     pv.header.appendChild(pv.summary);
     container.appendChild(pv.header);
@@ -77,7 +70,7 @@
       var name = el('span', 'ex-name', fmt(ex.name));
       if (ex.note) name.appendChild(el('span', 'ex-note', fmt(ex.note)));
       row.appendChild(name);
-      row.appendChild(el('span', 'ex-scheme', fmt(ex.sets) + ' × ' + fmt(ex.reps)));
+      row.appendChild(el('span', 'ex-scheme num', fmt(ex.sets) + ' × ' + fmt(ex.reps)));
       if (opts.onRowAction) {
         var more = el('button', 'ex-more', '⋯');
         more.type = 'button';

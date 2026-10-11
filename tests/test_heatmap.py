@@ -9,16 +9,18 @@ def test_empty_dates_produces_svg():
     assert "</svg>" in svg
 
 
-def test_active_day_uses_accent_color():
+def test_active_day_uses_ink():
     today = date.today().isoformat()
     svg = generate_heatmap_svg([today])
-    # Active cells use #f59e0b (gold identity color)
-    assert "#f59e0b" in svg
+    # Daylight: activity is data, drawn in ink. Amber is reserved for records.
+    assert 'fill="#141414"' in svg
+    assert "#f59e0b" not in svg and "#8c5a00" not in svg
 
 
-def test_inactive_day_uses_dark_color():
+def test_inactive_day_uses_light_neutral():
     svg = generate_heatmap_svg([])
-    assert "#1a1e27" in svg
+    assert 'fill="#e7e6e1"' in svg
+    assert 'fill="#141414"' not in svg
 
 
 def test_svg_contains_rect_elements():

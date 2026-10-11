@@ -2,37 +2,58 @@
 {% block title %}{{ c.title }} — Zenkai{% endblock %}
 {% block content %}
 <style>
-.rule { display: flex; align-items: center; gap: 0.85rem; padding: 0.7rem 0; border-bottom: 1px solid rgba(30,35,52,0.6); cursor: pointer; }
+.rule { display: flex; align-items: center; gap: 0.85rem; padding: 0.6rem 0; min-height: 56px; border-bottom: 1px solid var(--border); cursor: pointer; }
 .rule:last-child { border-bottom: none; }
-.rule .box { width: 26px; height: 26px; border-radius: 7px; border: 2px solid var(--border-mid); flex-shrink: 0;
-  display: flex; align-items: center; justify-content: center; transition: all 0.15s; }
-.rule.done .box { background: var(--success); border-color: var(--success); }
-.rule.done .box i { color: #06231a; }
-.rule .lbl { flex: 1; min-width: 0; font-size: 0.9rem; }
+/* Same tick as a logged set: ring outline when empty, filled ink with a white check when done. */
+.rule .box { width: 30px; height: 30px; border-radius: 8px; border: 2px solid var(--ring); flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center; transition: background 0.15s, border-color 0.15s; }
+.rule.done .box { background: var(--text); border-color: var(--text); }
+.rule.done .box i, .rule.done .box svg { color: var(--surface); }
+.rule .lbl { flex: 1; min-width: 0; font-size: 1rem; }
 .rule.done .lbl { color: var(--muted); }
-.rule .hint { font-size: 0.68rem; color: var(--muted); display: block; margin-top: 0.1rem; }
+.rule .hint { font-size: 0.8125rem; color: var(--muted); display: block; margin-top: 0.1rem; }
+.today-count { font-size: 1.6rem; color: var(--text); line-height: 1; }
 
 .grid { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 0.5rem; }
-.cell { width: 16px; height: 16px; border-radius: 3px; background: var(--surface-2); border: 1px solid var(--border); }
-.cell.done { background: var(--success); border-color: var(--success); }
-/* Partial and grace are "at risk": orange, never PR gold. */
-.cell.partial { background: rgba(251,146,60,0.45); border-color: #fb923c; }
-.cell.missed { background: var(--danger); border-color: var(--danger); opacity: 0.8; }
-.cell.today { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-dim); }
-.cell.grace { background: rgba(251,146,60,0.12); border-color: #fb923c; }
+.cell { width: 16px; height: 16px; border-radius: 4px; background: var(--surface-2); border: 1px solid var(--border-mid); }
+.cell.done { background: var(--text); border-color: var(--text); }
+/* Partial and grace are "at risk": greys and outlines, never record amber or orange. */
+.cell.partial { background: var(--ring); border-color: var(--ring); }
+.cell.missed { background: var(--danger); border-color: var(--danger); }
+.cell.today { outline: 2px solid var(--text); outline-offset: 1px; }
+.cell.grace { background: var(--surface); border: 2px solid var(--muted); }
 .cell.future { background: var(--surface-2); }
-.partial-notice { display:flex; align-items:center; gap:0.5rem; padding:0.6rem 0.75rem; margin:0.6rem 0 0.25rem;
-  background:rgba(251,146,60,0.08); border:1px solid rgba(251,146,60,0.25); border-radius:var(--radius-xs);
-  color:#fb923c; font-size:0.875rem; font-weight:600; }
-.btn-partial { background:transparent; border:1px solid #fb923c; color:#fb923c; border-radius:var(--radius-xs);
-  padding:0.5rem 1rem; font-family:inherit; font-size:0.82rem; cursor:pointer; transition:all 0.15s;
-  min-height:40px; margin-top:0.6rem; }
-.btn-partial:hover { background:rgba(251,146,60,0.08); }
+.cell-legend { display: flex; gap: 1rem; flex-wrap: wrap; margin-top: 0.75rem; font-size: 0.8125rem; color: var(--muted); }
+.cell-legend .cell { display: inline-block; vertical-align: -3px; margin-right: 0.2rem; }
+.status-notice { display: flex; align-items: center; gap: 0.5rem; padding: 0.6rem 0.75rem; margin: 0.6rem 0 0.25rem;
+  border-radius: var(--radius-xs); font-size: 0.9375rem; font-weight: 600; }
+.status-notice.ok { background: var(--success-dim); color: var(--success); }
+.partial-notice { display: flex; align-items: center; gap: 0.5rem; padding: 0.6rem 0.75rem; margin: 0.6rem 0 0.25rem;
+  background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius-xs);
+  color: var(--text); font-size: 0.9375rem; font-weight: 600; }
+.btn-partial { background: var(--surface); border: 1px solid var(--border-mid); color: var(--text); border-radius: var(--radius-sm);
+  padding: 0.5rem 1rem; font-family: inherit; font-size: 0.9375rem; font-weight: 700; cursor: pointer;
+  transition: border-color 0.15s; min-height: 48px; margin-top: 0.6rem; }
+.btn-partial:hover { border-color: var(--text); }
+.btn-partial:disabled { opacity: 0.5; cursor: default; }
+.link-btn { background: transparent; border: none; color: var(--text); font-size: 0.9375rem; font-weight: 600;
+  font-family: inherit; cursor: pointer; min-height: 44px; padding: 0 0.5rem; margin-right: -0.5rem;
+  text-decoration: underline; text-underline-offset: 3px; }
+.backfill-day { margin-bottom: 0.85rem; padding-bottom: 0.85rem; border-bottom: 1px solid var(--border); }
+.backfill-day:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
+.backfill-day-hd { font-size: 0.875rem; font-weight: 600; color: var(--muted); margin-bottom: 0.25rem; font-variant-numeric: tabular-nums; }
+.ro-rule { display: flex; align-items: center; gap: 0.6rem; padding: 0.55rem 0; border-bottom: 1px solid var(--border); }
+.ro-rule:last-child { border-bottom: none; }
+.ro-rule-lbl { font-size: 0.9375rem; flex: 1; }
+.ro-rule-opt { font-size: 0.8125rem; color: var(--muted); }
+.back-link { display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px;
+  margin-left: -12px; color: var(--text); border-radius: var(--radius-xs); flex-shrink: 0; }
+.back-link:hover { background: var(--surface-hover); color: var(--text); }
 
-.ch-banner { padding: 0.9rem 1.1rem; border-radius: var(--radius-sm); margin-bottom: 1.25rem; font-size: 0.9rem; line-height: 1.5; }
-.ch-banner.failed { background: var(--danger-dim); border: 1px solid rgba(248,113,113,0.3); color: var(--danger); }
-.ch-banner.completed { background: var(--success-dim); border: 1px solid rgba(52,211,153,0.3); color: var(--success); }
-.ch-banner.abandoned { background: rgba(90,106,130,0.1); border: 1px solid var(--border-mid); color: var(--muted-hi); }
+.ch-banner { padding: 0.9rem 1.1rem; border-radius: var(--radius-sm); margin-bottom: 1.25rem; font-size: 0.9375rem; line-height: 1.5; }
+.ch-banner.failed { background: var(--danger-dim); color: var(--danger); }
+.ch-banner.completed { background: var(--success-dim); color: var(--success); }
+.ch-banner.abandoned { background: var(--surface-2); border: 1px solid var(--border); color: var(--muted-hi); }
 .photo-thumb { width: 64px; height: 64px; object-fit: cover; border-radius: var(--radius-xs); border: 1px solid var(--border); }
 </style>
 
@@ -40,8 +61,8 @@
 
 <div class="page-hd">
   <div>
-    <h1 style="display:flex;align-items:center;gap:0.6rem;">
-      <a href="/challenges" style="color:var(--muted);" title="All challenges"><i data-lucide="chevron-left" style="width:20px;height:20px;vertical-align:-3px;"></i></a>
+    <h1 style="display:flex;align-items:center;gap:0.25rem;">
+      <a href="/challenges" class="back-link" title="All challenges" aria-label="All challenges"><i data-lucide="chevron-left" style="width:24px;height:24px;"></i></a>
       {{ c.title }}
     </h1>
     <div class="subtitle">
@@ -66,12 +87,9 @@
 <div class="card" style="margin-bottom:1.25rem;">
   <div class="section-title" style="display:flex;align-items:center;justify-content:space-between;">
     <span>Today</span>
-    <span class="num" id="today-count" style="color:var(--live);font-weight:700;">{{ today_done }}/{{ today_total }}</span>
+    <span class="num today-count" id="today-count">{{ today_done }}/{{ today_total }}</span>
   </div>
-  <div id="day-complete-notice" style="display:{% if today_done == today_total and today_total > 0 %}flex{% else %}none{% endif %};
-    align-items:center;gap:0.5rem;padding:0.6rem 0.75rem;margin:0.6rem 0 0.25rem;
-    background:var(--success-dim);border:1px solid rgba(52,211,153,0.25);border-radius:var(--radius-xs);
-    color:var(--success);font-size:0.875rem;font-weight:600;">
+  <div id="day-complete-notice" class="status-notice ok" style="display:{% if today_done == today_total and today_total > 0 %}flex{% else %}none{% endif %};">
     <i data-lucide="check-circle-2" style="width:16px;height:16px;flex-shrink:0;"></i>
     Day {{ c.day_n }} complete
   </div>
@@ -105,8 +123,8 @@
 {% endif %}
 
 {% if show_yesterday %}
-<div class="card" style="margin-bottom:1.25rem;border-left:3px solid #fb923c;">
-  <div class="section-title" style="color:#fb923c;">Yesterday — still savable today (grace)</div>
+<div class="card card-accent" style="margin-bottom:1.25rem;">
+  <div class="section-title">Yesterday — still savable today (grace)</div>
   <div>
     {% for r in yesterday_rules %}
     <div class="rule {% if r.done %}done{% endif %} {% if r.optional %}optional{% endif %}"
@@ -135,16 +153,16 @@
 {% endif %}
 
 {% if backfill_days %}
-<div class="card" style="margin-bottom:1.25rem;border-left:3px solid var(--border-mid);">
+<div class="card" style="margin-bottom:1.25rem;">
   <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.5rem;">
     <div class="section-title" style="margin:0;">Catch up — back-dated days</div>
     <button onclick="this.closest('.card').querySelector('.backfill-list').classList.toggle('hidden');this.textContent=this.textContent==='Hide'?'Show':'Hide';"
-      style="background:transparent;border:none;color:var(--muted);font-size:0.75rem;font-family:inherit;cursor:pointer;padding:0;">Hide</button>
+      class="link-btn">Hide</button>
   </div>
   <div class="backfill-list">
     {% for day in backfill_days %}
-    <div style="margin-bottom:0.85rem;padding-bottom:0.85rem;{% if not loop.last %}border-bottom:1px solid rgba(30,35,52,0.5);{% endif %}">
-      <div class="num" style="font-size:0.72rem;color:var(--muted);margin-bottom:0.35rem;">
+    <div class="backfill-day">
+      <div class="backfill-day-hd">
         Day {{ day.day_n }} — {{ day.date }}{% if day.complete %} <span style="color:var(--success);">✓ done</span>{% endif %}
       </div>
       {% for r in day.rules %}
@@ -169,12 +187,12 @@
   <div class="grid">
     {% for cell in cells %}<div class="cell {{ cell.state }}" title="Day {{ cell.day }} — {{ cell.date }} ({{ cell.state }})"></div>{% endfor %}
   </div>
-  <div style="display:flex;gap:1rem;flex-wrap:wrap;margin-top:0.75rem;font-size:0.68rem;color:var(--muted);">
-    <span><span class="cell done" style="display:inline-block;vertical-align:-2px;"></span> done</span>
-    {% if is_partial_allowed %}<span><span class="cell partial" style="display:inline-block;vertical-align:-2px;"></span> partial</span>{% endif %}
-    <span><span class="cell missed" style="display:inline-block;vertical-align:-2px;"></span> missed</span>
-    <span><span class="cell grace" style="display:inline-block;vertical-align:-2px;"></span> grace</span>
-    <span><span class="cell future" style="display:inline-block;vertical-align:-2px;"></span> upcoming</span>
+  <div class="cell-legend">
+    <span><span class="cell done"></span> done</span>
+    {% if is_partial_allowed %}<span><span class="cell partial"></span> partial</span>{% endif %}
+    <span><span class="cell missed"></span> missed</span>
+    <span><span class="cell grace"></span> grace</span>
+    <span><span class="cell future"></span> upcoming</span>
   </div>
 </div>
 
@@ -182,21 +200,15 @@
 <div class="card" style="margin-bottom:1.25rem;" id="rules-editor-card">
   <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.75rem;">
     <div class="section-title" style="margin:0;">Rules</div>
-    <button onclick="toggleRulesEditor()" id="rules-edit-btn"
-            style="background:transparent;border:1px solid var(--border);color:var(--muted);
-                   border-radius:var(--radius-xs);cursor:pointer;padding:0.25rem 0.65rem;
-                   font-size:0.75rem;font-family:inherit;transition:all 0.15s;"
-            onmouseover="this.style.color='var(--text)';this.style.borderColor='var(--border-mid)'"
-            onmouseout="this.style.color='var(--muted)';this.style.borderColor='var(--border)'">Edit</button>
+    <button onclick="toggleRulesEditor()" id="rules-edit-btn" class="btn btn-ghost">Edit</button>
   </div>
 
   {# Read-only rule list (default view) #}
   <div id="rules-readonly">
     {% for r in current_rules %}
-    <div style="display:flex;align-items:center;gap:0.6rem;padding:0.4rem 0;
-                border-bottom:1px solid rgba(30,35,52,0.5);" class="{% if loop.last %}style='border:none'{% endif %}">
-      <span style="font-size:0.85rem;flex:1;">{{ r.label }}</span>
-      {% if r.optional %}<span style="font-size:0.68rem;color:var(--muted);">optional</span>{% endif %}
+    <div class="ro-rule">
+      <span class="ro-rule-lbl">{{ r.label }}</span>
+      {% if r.optional %}<span class="ro-rule-opt">optional</span>{% endif %}
     </div>
     {% endfor %}
   </div>
@@ -210,16 +222,9 @@
          data-show-optional="{{ 'false' if is_freeform else 'true' }}"
          style="display:flex;flex-direction:column;gap:0.4rem;margin-bottom:0.6rem;"></div>
     <div style="display:flex;gap:0.5rem;flex-wrap:wrap;align-items:center;">
-      <button type="button" onclick="addEditRow()"
-              style="background:transparent;border:1px dashed var(--border);color:var(--muted);
-                     border-radius:var(--radius-xs);cursor:pointer;padding:0.25rem 0.7rem;
-                     font-size:0.78rem;font-family:inherit;transition:all 0.15s;"
-              onmouseover="this.style.borderColor='var(--border-mid)';this.style.color='var(--text)'"
-              onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">+ Add rule</button>
-      <button type="button" class="btn btn-primary" onclick="saveRules(this)"
-              style="min-height:36px;padding:0.3rem 0.9rem;font-size:0.82rem;">Save rules</button>
-      <button type="button" class="btn btn-ghost" onclick="cancelRulesEdit()"
-              style="min-height:36px;padding:0.3rem 0.7rem;font-size:0.82rem;">Cancel</button>
+      <button type="button" class="add-rule-btn" onclick="addEditRow()">+ Add rule</button>
+      <button type="button" class="btn btn-primary" onclick="saveRules(this)">Save rules</button>
+      <button type="button" class="btn btn-ghost" onclick="cancelRulesEdit()">Cancel</button>
     </div>
   </div>
 </div>
@@ -335,7 +340,8 @@ async function applyCheckin(row, dayDate, ruleKey, done) {
   if (!res) return;
   // Toggle row UI
   row.classList.toggle('done', done);
-  const icon = row.querySelector('.box i');
+  // Lucide swaps the <i> for an <svg> on load, so match either.
+  const icon = row.querySelector('.box i, .box svg');
   if (icon) icon.style.display = done ? '' : 'none';
   // Update today's counter and completion notice
   if (dayDate === '{{ today_iso }}') {

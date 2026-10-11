@@ -4,71 +4,136 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Not Found — Zenkai</title>
+  <meta name="theme-color" content="#f4f4f1">
+  <meta name="color-scheme" content="light">
   <link rel="stylesheet" href="/static/fonts/fonts.css">
   <style>
+    /* Daylight (DESIGN.md). Standalone page (no base.html), so the tokens are
+       copied from base.html's :root; keep the two in step. */
+    :root {
+      color-scheme: light;
+      --bg:           #f4f4f1;   /* paper */
+      --surface:      #ffffff;   /* card */
+      --surface-2:    #f7f7f4;   /* done sets, nested panels */
+      --surface-hover:#efefea;
+      --border:       #dddcd6;   /* hairlines (decorative) */
+      --border-mid:   #c9c8c2;   /* secondary-button borders */
+      --ring:         #8f8e88;   /* input and empty-tick outlines, 3.3:1 */
+      --text:         #141414;   /* ink */
+      --muted:        #5d5d58;   /* pencil, 6.0:1 on paper */
+      --muted-hi:     #4a4a46;
+      --accent:       #141414;   /* interactive text and active states: ink */
+      --accent-hover: #3a3a37;
+      --accent-dim:   rgba(20,20,20,0.06);
+      --primary:      #ff5a1f;   /* signal orange: always a fill with ink text */
+      --primary-hover:#f04e14;
+      --on-primary:   #141414;
+      --primary-edge: #e04a12;   /* orange outlines, 3.7:1; never text */
+      --primary-tint: #fff4ee;
+      --danger:       #c8372d;
+      --danger-dim:   #fdecea;
+      --success:      #1f7a4d;
+      --success-dim:  #e8f4ee;
+      --pr:           #8c5a00;   /* records only */
+      --pr-dim:       #fff3d6;
+      --pr-glow:      rgba(227,179,65,0.45);
+      --live:         #e04a12;   /* live-session marks (dots, outlines); never text */
+      --live-dim:     #fff4ee;
+      --live-glow:    rgba(224,74,18,0.3);
+      --data:         #141414;   /* single-series charts */
+      --accent-glow:  rgba(20,20,20,0.2);
+      --shadow-sm:    0 1px 2px rgba(20,20,20,0.06), 0 4px 14px rgba(20,20,20,0.06);
+      --shadow:       0 6px 20px rgba(20,20,20,0.10);
+      --shadow-lg:    0 12px 36px rgba(20,20,20,0.16);
+      --glow:         0 0 0 3px rgba(20,20,20,0.12);
+      --glow-pr:      0 0 0 3px rgba(140,90,0,0.18);
+      --radius:       18px;
+      --radius-sm:    14px;
+      --radius-xs:    10px;
+      --f-display: 'Archivo', 'Arial', system-ui, sans-serif;
+      --f-ui: 'Atkinson Hyperlegible Next', 'Atkinson Hyperlegible', system-ui, sans-serif;
+      /* Spacing scale — 8px base */
+      --sp-2xs:  2px;
+      --sp-xs:   4px;
+      --sp-sm:   8px;
+      --sp-md:   16px;
+      --sp-lg:   24px;
+      --sp-xl:   32px;
+      --sp-2xl:  48px;
+      --sp-3xl:  64px;
+    }
     * { box-sizing: border-box; margin: 0; padding: 0; }
+    a, button, input, label { touch-action: manipulation; }
+    html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
     body {
-      background: #090b10;
-      background-image: radial-gradient(circle at 1px 1px, rgba(255,255,255,0.05) 1px, transparent 0);
-      background-size: 28px 28px;
-      color: #e4eaf2;
-      font-family: 'Barlow', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--f-ui);
+      font-size: 16px;
+      line-height: 1.5;
       min-height: 100vh;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+    *:focus-visible { outline: 2px solid var(--text); outline-offset: 2px; }
+    body {
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      padding: 2rem;
-      -webkit-font-smoothing: antialiased;
+      text-align: center;
+      padding: 48px 16px;
     }
+    main { display: flex; flex-direction: column; align-items: center; }
     .code {
-      font-family: 'Syne', system-ui, sans-serif;
-      font-size: 5rem;
+      font-family: var(--f-display);
+      font-stretch: 72%;
       font-weight: 800;
-      letter-spacing: -0.04em;
-      color: #1c2230;
-      line-height: 1;
+      font-variant-numeric: tabular-nums;
+      font-size: clamp(6rem, 30vw, 9rem);
+      letter-spacing: -0.02em;
+      line-height: 0.9;
+      color: var(--text);
       margin-bottom: 1rem;
     }
     .msg {
-      font-family: 'Syne', system-ui, sans-serif;
-      font-size: 1.1rem;
+      font-family: var(--f-display);
+      font-size: 1.5rem;
       font-weight: 700;
-      letter-spacing: -0.01em;
-      margin-bottom: 0.5rem;
+      letter-spacing: -0.005em;
+      line-height: 1.2;
+      margin-bottom: 0.4rem;
     }
     .sub {
-      font-size: 0.875rem;
-      color: #5a6a82;
+      font-size: 1rem;
+      color: var(--muted);
+      max-width: 22rem;
       margin-bottom: 2rem;
     }
     .btn {
       display: inline-flex;
       align-items: center;
-      padding: 0.5rem 1.25rem;
-      min-height: 40px;
-      background: linear-gradient(135deg, #4f9cf9, #3b82f6);
-      color: #fff;
-      border: none;
-      border-radius: 8px;
-      font-size: 0.875rem;
-      font-weight: 600;
-      font-family: 'Barlow', system-ui, sans-serif;
-      cursor: pointer;
+      justify-content: center;
+      min-height: 56px;
+      min-width: 220px;
+      padding: 0 1.75rem;
+      background: var(--primary);
+      color: var(--on-primary);
+      border-radius: var(--radius);
+      font-size: 1.0625rem;
+      font-weight: 700;
       text-decoration: none;
-      transition: all 0.15s;
+      transition: background 0.15s;
     }
-    .btn:hover {
-      background: linear-gradient(135deg, #7ab8fc, #4f9cf9);
-      box-shadow: 0 4px 16px rgba(79,156,249,0.35);
-      transform: translateY(-1px);
-    }
+    .btn:hover { background: var(--primary-hover); }
   </style>
 </head>
 <body>
-  <div class="code">404</div>
-  <div class="msg">Page not found</div>
-  <div class="sub">This page doesn't exist or was moved.</div>
-  <a href="/" class="btn">Go to dashboard</a>
+  <main>
+    <div class="code">404</div>
+    <h1 class="msg">Page not found</h1>
+    <div class="sub">This page doesn't exist or was moved.</div>
+    <a href="/" class="btn">Go to dashboard</a>
+  </main>
 </body>
 </html>

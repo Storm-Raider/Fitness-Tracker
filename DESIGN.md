@@ -136,7 +136,7 @@ Scale (phone): active-set numbers 2.6rem; logged-set numbers 1.55rem; screen tit
 - **Session screen:** a header with the session name, "N of M sets" and an orange Finish button, plus a segmented progress bar. Exercises are stacked; finished ones collapse to one line with a summary. The current exercise shows "Last time" and a set list.
   - Set rows: set number, kg, reps and a round tick (44px; 50px on the active set), each row at least 54px tall.
   - Upcoming sets are pre-filled from last time.
-  - The active set is outlined in orange and shows big numbers. Tapping a number opens a number pad; ticking completes the set and moves to the next.
+  - The next set is outlined in orange and shows big numbers, prefilled from the last set. Tapping a number opens the phone's number keypad; the round orange tick logs the set and moves to the next. RPE and set notes sit behind a one-line "RPE and set notes" disclosure.
   - The rest timer appears inline, directly under the set just ticked: countdown, −30, +30, Skip, and a draining line. It never covers the screen or dims it.
 
 ## Elevation & Depth
@@ -160,7 +160,7 @@ Radii: sm 10px (small buttons, keys), md 14px (inputs, messages), lg 18px (cards
   - active: orange tint, orange outline, big numbers as buttons
   - record: amber tint, amber numbers and tick, "Best ever" label, and one amber light sweep (0.9s) when ticked
 - **Tick:** round. 2px `ring` outline when empty, filled ink (or amber for a record) with a white check when done. Accessible name "Complete set N".
-- **Number pad:** a bottom sheet inside the session with digits, a decimal point (weight only), backspace and an orange Done button. The value being edited shows an ink outline.
+- **Number entry:** the weight and reps on the next set are big number fields (`inputmode="decimal"` / `"numeric"`), so a tap opens the phone's own number keypad; the field being edited shows a 2px ink outline. A custom in-page pad was prototyped and dropped in favour of the native keypad (less code, works with every assistive tech).
 - **Rest row:** ink background, orange countdown, ghost buttons for −30, +30 and Skip, and a 3px orange draining line.
 - **Messages:** a white card with a bold lead word in the status color, for example "No connection." in red or "Saved." in green.
 - Every component has defined empty, loading and error states. Icon-only buttons have an `aria-label`. Errors use `role="alert"`, and logged sets are announced through `#sr-announcer`.
@@ -199,5 +199,6 @@ Radii: sm 10px (small buttons, keys), md 14px (inputs, messages), lg 18px (cards
 | 2026-10-10 | Light mode, replacing "dark-only" | The user's explicit choice after seeing dark and light side by side. |
 | 2026-10-10 | Archivo + Atkinson Hyperlegible Next, self-hosted | OFL and verified from the font files (tabular figures present). Fontshare Satoshi and Cabinet Grotesk were rejected because their licence forbids self-hosting. |
 | 2026-10-10 | Set list with tap-to-type numbers and an inline rest timer | The user's adjustments: no −/+ steppers, round ticks, rest timer under the last set, softer done state. |
+| 2026-10-10 | Native number keypad instead of a custom pad; activity heatmap in ink | Built the rebuild: the native keypad is the same tap-to-type flow with less to break. Activity is data (ink); amber stays for records. |
 
 The previous system (Redline Console) is preserved in `docs/design-history/DESIGN-redline-console.md`.

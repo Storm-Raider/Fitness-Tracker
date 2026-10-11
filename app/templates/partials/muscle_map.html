@@ -9,16 +9,9 @@
 
   {# ─── FRONT SVG ─── #}
   <div style="display:flex;flex-direction:column;align-items:center;gap:0.3rem;">
-    <div style="font-size:0.58rem;text-transform:uppercase;letter-spacing:0.12em;color:var(--muted);">Front</div>
+    <div style="font-size:0.8125rem;font-weight:600;color:var(--muted);">Front</div>
     <svg id="{{ mid }}-front" viewBox="0 0 120 340" width="110" height="318"
          style="overflow:visible;" xmlns="http://www.w3.org/2000/svg">
-      <defs>
-        <filter id="{{ mid }}-glow">
-          <feGaussianBlur stdDeviation="3" result="blur"/>
-          <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
-        </filter>
-      </defs>
-
       {# Body silhouette #}
       <path d="M60 46 C38 46 24 58 22 72 L18 100 C16 112 20 124 26 128
                L24 178 C22 196 22 210 28 228
@@ -30,13 +23,13 @@
                C112 210 112 196 110 178 L108 128
                C114 124 118 112 116 100 L112 72
                C108 58 94 46 60 46 Z"
-            fill="#10131c" stroke="var(--border)" stroke-width="1"/>
+            class="mmap-body" stroke-width="1"/>
 
       {# Head #}
-      <ellipse cx="60" cy="26" rx="20" ry="24" fill="#10131c" stroke="var(--border)" stroke-width="1"/>
+      <ellipse cx="60" cy="26" rx="20" ry="24" class="mmap-body" stroke-width="1"/>
 
       {# Neck #}
-      <rect x="54" y="46" width="12" height="18" rx="4" fill="#10131c" stroke="var(--border)" stroke-width="0.5"/>
+      <rect x="54" y="46" width="12" height="18" rx="4" class="mmap-body" stroke-width="0.5"/>
 
       {# Traps — upper shoulder bridge #}
       <path id="{{ mid }}-f-shoulders"
@@ -108,13 +101,13 @@
             class="mmap-muscle" data-muscle="Legs" style="opacity:0.7;"/>
 
       {# Centre line divider #}
-      <line x1="60" y1="78" x2="60" y2="188" stroke="var(--border)" stroke-width="0.5" stroke-dasharray="3,3"/>
+      <line x1="60" y1="78" x2="60" y2="188" style="stroke:var(--border-mid);" stroke-width="0.5" stroke-dasharray="3,3"/>
     </svg>
   </div>
 
   {# ─── BACK SVG ─── #}
   <div style="display:flex;flex-direction:column;align-items:center;gap:0.3rem;">
-    <div style="font-size:0.58rem;text-transform:uppercase;letter-spacing:0.12em;color:var(--muted);">Back</div>
+    <div style="font-size:0.8125rem;font-weight:600;color:var(--muted);">Back</div>
     <svg id="{{ mid }}-back" viewBox="0 0 120 340" width="110" height="318"
          style="overflow:visible;" xmlns="http://www.w3.org/2000/svg">
 
@@ -128,10 +121,10 @@
                C112 210 112 196 110 178 L108 128
                C114 124 118 112 116 100 L112 72
                C108 58 94 46 60 46 Z"
-            fill="#10131c" stroke="var(--border)" stroke-width="1"/>
+            class="mmap-body" stroke-width="1"/>
 
       {# Head (back of head) #}
-      <ellipse cx="60" cy="26" rx="20" ry="24" fill="#10131c" stroke="var(--border)" stroke-width="1"/>
+      <ellipse cx="60" cy="26" rx="20" ry="24" class="mmap-body" stroke-width="1"/>
 
       {# Rear delts / shoulder caps #}
       <ellipse id="{{ mid }}-b-rdl" cx="28" cy="82" rx="16" ry="14"
@@ -208,16 +201,23 @@
   </div>{# /flex row #}
 
   {# Legend #}
-  <div id="{{ mid }}-legend" style="display:flex;flex-wrap:wrap;gap:0.5rem;justify-content:center;margin-top:0.2rem;font-size:0.68rem;color:var(--muted);"></div>
+  <div id="{{ mid }}-legend" style="display:flex;flex-wrap:wrap;gap:0.5rem 0.9rem;justify-content:center;margin-top:0.2rem;font-size:0.8125rem;color:var(--text);"></div>
 </div>
 
 <style>
+/* Daylight: light neutral figure on the white card; muscles fill with their
+   MUSCLE_COLORS hue (app/utils/charts.py), deeper with more volume. */
+.mmap-body   { fill: #e7e6e1; stroke: var(--border-mid); }
 .mmap-muscle {
-  fill: rgba(255,255,255,0.04);
-  stroke: rgba(255,255,255,0.08);
+  fill: #dad9d3;
+  stroke: var(--border-mid);
   stroke-width: 0.5;
-  transition: fill 0.4s ease, stroke 0.4s ease, filter 0.4s ease;
+  transition: fill 0.4s ease, stroke 0.4s ease;
 }
+@media (prefers-reduced-motion: reduce) { .mmap-muscle { transition: none; } }
+.mmap-legend-item { display:inline-flex; align-items:center; gap:0.35rem; color:var(--text); font-weight:600; }
+.mmap-legend-dot  { width:10px; height:10px; border-radius:50%; display:inline-block; flex-shrink:0; }
+.mmap-legend-vol  { color:var(--muted); font-weight:400; font-variant-numeric:tabular-nums; }
 </style>
 
 <script>
@@ -255,31 +255,30 @@
 
     // Reset all muscles
     document.querySelectorAll('#'+MID+'-wrap .mmap-muscle').forEach(el => {
-      el.style.fill = 'rgba(255,255,255,0.04)';
-      el.style.stroke = 'rgba(255,255,255,0.08)';
-      el.style.filter = '';
+      el.style.fill = '';      // back to .mmap-muscle neutral
+      el.style.stroke = '';
     });
 
     // Apply heat per muscle
     Object.entries(data).forEach(([muscle, vol]) => {
       if (!vol || !MUSCLE_ELS[muscle]) return;
       const intensity = Math.min(1, Math.pow(Number(vol) / maxVal, 0.55)); // gamma compress
-      const color = MUSCLE_COLORS[muscle] || '#94a3b8';
-      const fillAlpha  = 0.12 + intensity * 0.72;
-      const strokeAlpha = 0.2  + intensity * 0.55;
+      const color = MUSCLE_COLORS[muscle] || '#8f8e88';
+      // On white even the lightest worked muscle must read as a mark; the
+      // stroke stays at full hue so the shape is clear at any volume.
+      const fillAlpha  = 0.35 + intensity * 0.65;
       const fill   = hexToRgba(color, fillAlpha);
-      const stroke = hexToRgba(color, strokeAlpha);
-      const glow   = intensity > 0.3 ? `drop-shadow(0 0 ${3 + intensity*5}px ${hexToRgba(color, intensity*0.7)})` : '';
+      const stroke = color;
 
       MUSCLE_ELS[muscle].forEach(id => {
         const el = document.getElementById(id);
-        if (el) { el.style.fill = fill; el.style.stroke = stroke; el.style.filter = glow; }
+        if (el) { el.style.fill = fill; el.style.stroke = stroke; }
       });
       // Extra abs
       if (muscle === 'Abs') {
         ABS_EXTRA_CLASSES.forEach(cls => {
           document.querySelectorAll('#'+MID+'-wrap .'+cls).forEach(el => {
-            el.style.fill = fill; el.style.stroke = stroke; el.style.filter = glow;
+            el.style.fill = fill; el.style.stroke = stroke;
           });
         });
       }
@@ -291,11 +290,11 @@
       const active = Object.entries(data).filter(([,v]) => v > 0);
       if (active.length === 0) { legendEl.innerHTML = ''; return; }
       legendEl.innerHTML = active.sort((a,b)=>b[1]-a[1]).map(([muscle, vol]) => {
-        const color = MUSCLE_COLORS[muscle] || '#94a3b8';
+        const color = MUSCLE_COLORS[muscle] || '#8f8e88';
         const fmtVol = vol >= 1000 ? (vol/1000).toFixed(1)+'k' : Math.round(vol);
-        return `<span style="display:inline-flex;align-items:center;gap:0.25rem;color:${color};">
-          <span style="width:8px;height:8px;border-radius:50%;background:${color};display:inline-block;flex-shrink:0;"></span>
-          ${muscle} <span style="color:var(--muted);font-size:0.62rem;">${fmtVol}</span>
+        return `<span class="mmap-legend-item">
+          <span class="mmap-legend-dot" style="background:${color};"></span>
+          ${muscle} <span class="mmap-legend-vol">${fmtVol}</span>
         </span>`;
       }).join('');
     }

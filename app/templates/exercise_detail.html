@@ -2,24 +2,24 @@
 {% block title %}{{ exercise.name }} — Zenkai{% endblock %}
 {% block content %}
 <div style="margin-bottom:1rem;padding-top:0.5rem;">
-  <a href="/exercises" style="color:var(--muted);font-size:0.825rem;display:inline-flex;align-items:center;gap:0.35rem;transition:color 0.15s;"
+  <a href="/exercises" style="color:var(--muted);font-size:0.875rem;font-weight:600;display:inline-flex;align-items:center;gap:0.35rem;min-height:44px;transition:color 0.15s;"
      onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='var(--muted)'">
-    <i data-lucide="chevron-left" style="width:14px;height:14px;"></i>
+    <i data-lucide="chevron-left" style="width:16px;height:16px;"></i>
     Exercises
   </a>
 </div>
 
 <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:1.5rem;margin-bottom:1.5rem;flex-wrap:wrap;">
   <div>
-    <h1 style="font-size:1.7rem;font-weight:700;letter-spacing:-0.025em;margin-bottom:0.3rem;">{{ exercise.name }}</h1>
+    <h1 style="font-family:var(--f-display);font-size:1.7rem;font-weight:800;margin-bottom:0.3rem;">{{ exercise.name }}</h1>
     {% if pr_kg %}
-    <span class="badge badge-pr" style="font-size:0.8rem;">PR: <span class="weight-display" data-kg="{{ pr_kg }}">{{ pr_kg }} kg</span></span>
+    <span class="badge badge-pr" style="font-size:0.875rem;">PR: <span class="weight-display" data-kg="{{ pr_kg }}">{{ pr_kg }} kg</span></span>
     {% endif %}
     {% if exercise.category or exercise.equipment or exercise.muscles %}
     <div style="display:flex;gap:0.4rem;flex-wrap:wrap;margin-top:0.6rem;">
-      {% if exercise.category %}<span style="background:var(--surface-2);color:var(--muted-hi);border:1px solid var(--border);border-radius:var(--radius-xs);padding:0.2rem 0.55rem;font-size:0.75rem;font-weight:500;">{{ exercise.category }}</span>{% endif %}
-      {% if exercise.equipment %}<span style="background:var(--surface-2);color:var(--muted-hi);border:1px solid var(--border);border-radius:var(--radius-xs);padding:0.2rem 0.55rem;font-size:0.75rem;font-weight:500;">{{ exercise.equipment }}</span>{% endif %}
-      {% for m in exercise.muscles %}<span style="background:var(--surface-2);color:var(--muted-hi);border:1px solid var(--border);border-radius:var(--radius-xs);padding:0.2rem 0.55rem;font-size:0.75rem;font-weight:500;">{{ m.name }}</span>{% endfor %}
+      {% if exercise.category %}<span style="background:var(--surface-2);color:var(--muted-hi);border:1px solid var(--border);border-radius:var(--radius-xs);padding:0.2rem 0.6rem;font-size:0.8125rem;font-weight:600;">{{ exercise.category }}</span>{% endif %}
+      {% if exercise.equipment %}<span style="background:var(--surface-2);color:var(--muted-hi);border:1px solid var(--border);border-radius:var(--radius-xs);padding:0.2rem 0.6rem;font-size:0.8125rem;font-weight:600;">{{ exercise.equipment }}</span>{% endif %}
+      {% for m in exercise.muscles %}<span style="background:var(--surface-2);color:var(--muted-hi);border:1px solid var(--border);border-radius:var(--radius-xs);padding:0.2rem 0.6rem;font-size:0.8125rem;font-weight:600;">{{ m.name }}</span>{% endfor %}
     </div>
     {% endif %}
     {% if exercise.cue %}
@@ -29,18 +29,18 @@
   {% if sessions %}
   <div style="display:flex;gap:1.25rem;flex-shrink:0;">
     <div style="text-align:center;">
-      <div class="num" style="font-size:1.7rem;font-weight:700;letter-spacing:-0.025em;line-height:1;">{{ total_sets }}</div>
-      <div style="font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted);margin-top:0.2rem;">Sets</div>
+      <div class="num" style="font-size:1.9rem;line-height:1;">{{ total_sets }}</div>
+      <div style="font-size:0.8125rem;font-weight:600;color:var(--muted);margin-top:0.25rem;">Sets</div>
     </div>
     <div style="width:1px;background:var(--border);"></div>
     <div style="text-align:center;">
-      <div class="num" style="font-size:1.7rem;font-weight:700;letter-spacing:-0.025em;line-height:1;"><span class="weight-display" data-kg="{{ total_volume }}">{{ "{:,.0f}".format(total_volume) }} kg</span></div>
-      <div style="font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted);margin-top:0.2rem;">Volume</div>
+      <div class="num" style="font-size:1.9rem;line-height:1;"><span class="weight-display" data-kg="{{ total_volume }}">{{ "{:,.0f}".format(total_volume) }} kg</span></div>
+      <div style="font-size:0.8125rem;font-weight:600;color:var(--muted);margin-top:0.25rem;">Volume</div>
     </div>
     <div style="width:1px;background:var(--border);"></div>
     <div style="text-align:center;">
-      <div class="num" style="font-size:1.7rem;font-weight:700;letter-spacing:-0.025em;line-height:1;">{{ sessions|length }}</div>
-      <div style="font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted);margin-top:0.2rem;">Sessions</div>
+      <div class="num" style="font-size:1.9rem;line-height:1;">{{ sessions|length }}</div>
+      <div style="font-size:0.8125rem;font-weight:600;color:var(--muted);margin-top:0.25rem;">Sessions</div>
     </div>
   </div>
   {% endif %}
@@ -51,41 +51,41 @@
 <div class="card" style="padding:0.85rem 1.25rem;margin-bottom:1rem;" id="goal-card">
   <div style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap;">
     <div style="flex:1;min-width:160px;">
-      <div style="font-size:0.62rem;font-weight:700;letter-spacing:0.09em;text-transform:uppercase;color:var(--muted);margin-bottom:0.45rem;">Weight goal</div>
+      <div style="font-size:0.8125rem;font-weight:600;color:var(--muted);margin-bottom:0.45rem;">Weight goal</div>
       <div style="display:flex;align-items:center;gap:0.75rem;">
-        <div style="flex:1;height:6px;background:var(--surface-2);border-radius:3px;overflow:hidden;">
-          <div style="height:100%;width:{{ [goal_pct, 100]|min }}%;background:{% if goal_pct >= 100 %}var(--success){% else %}var(--muted-hi){% endif %};border-radius:3px;"></div>
+        <div style="flex:1;height:8px;background:var(--surface-hover);border-radius:4px;overflow:hidden;">
+          <div style="height:100%;width:{{ [goal_pct, 100]|min }}%;background:{% if goal_pct >= 100 %}var(--success){% else %}var(--text){% endif %};border-radius:4px;"></div>
         </div>
-        <span class="num" style="font-size:0.9rem;font-weight:700;white-space:nowrap;color:{% if goal_pct >= 100 %}var(--success){% else %}var(--text){% endif %};">
+        <span class="num" style="font-size:1.05rem;white-space:nowrap;color:{% if goal_pct >= 100 %}var(--success){% else %}var(--text){% endif %};">
           <span class="weight-display" data-kg="{{ pr_kg or 0 }}">{{ pr_kg or 0 }} kg</span>
           / <span class="weight-display" data-kg="{{ exercise_goal_kg }}">{{ exercise_goal_kg }} kg</span>
-          <span style="color:var(--muted);font-size:0.78rem;">({{ goal_pct }}%)</span>
+          <span style="color:var(--muted);">({{ goal_pct }}%)</span>
         </span>
       </div>
     </div>
     <div style="display:flex;gap:0.4rem;align-items:center;flex-shrink:0;" id="goal-actions">
       <div id="goal-edit-form" style="display:none;align-items:center;gap:0.4rem;">
-        <input id="goal-input" type="number" min="0.5" max="1000" step="0.5" value="{{ exercise_goal_kg }}" class="num" style="width:72px;text-align:center;padding:0.25rem 0.4rem;font-size:0.9rem;border-radius:var(--radius-xs);border:1px solid var(--border);background:var(--surface-2);color:var(--text);">
-        <span style="font-size:0.78rem;color:var(--muted);" id="goal-unit-lbl">kg</span>
-        <button onclick="saveExGoal()" class="btn btn-ghost" style="font-size:0.75rem;min-height:30px;padding:0.2rem 0.55rem;">Save</button>
+        <input id="goal-input" type="number" min="0.5" max="1000" step="0.5" value="{{ exercise_goal_kg }}" class="num" style="width:84px;text-align:center;padding:0.25rem 0.4rem;">
+        <span style="font-size:0.875rem;color:var(--muted);" id="goal-unit-lbl">kg</span>
+        <button onclick="saveExGoal()" class="btn btn-ghost" style="font-size:0.875rem;min-height:44px;padding:0.2rem 0.85rem;">Save</button>
       </div>
-      <button id="goal-edit-btn" onclick="toggleExGoal()" style="background:transparent;border:1px solid var(--border);color:var(--muted);border-radius:var(--radius-xs);cursor:pointer;padding:0.25rem 0.55rem;font-size:0.72rem;font-family:inherit;transition:all 0.13s;" onmouseover="this.style.color='var(--text)'" onmouseout="this.style.color='var(--muted)'">Edit</button>
-      <button onclick="deleteExGoal()" style="background:transparent;border:none;color:var(--muted);cursor:pointer;font-size:0.72rem;font-family:inherit;padding:0.25rem 0.3rem;transition:color 0.13s;" onmouseover="this.style.color='var(--danger)'" onmouseout="this.style.color='var(--muted)'" title="Remove goal">✕</button>
+      <button id="goal-edit-btn" onclick="toggleExGoal()" style="background:var(--surface);border:1px solid var(--border-mid);color:var(--text);border-radius:var(--radius-xs);cursor:pointer;padding:0.25rem 0.85rem;min-height:44px;font-size:0.875rem;font-weight:600;font-family:inherit;transition:border-color 0.13s;" onmouseover="this.style.borderColor='var(--text)'" onmouseout="this.style.borderColor='var(--border-mid)'">Edit</button>
+      <button onclick="deleteExGoal()" style="background:transparent;border:none;color:var(--muted);cursor:pointer;font-size:1rem;font-family:inherit;min-width:44px;min-height:44px;border-radius:var(--radius-xs);transition:color 0.13s;" onmouseover="this.style.color='var(--danger)'" onmouseout="this.style.color='var(--muted)'" title="Remove goal" aria-label="Remove goal">✕</button>
     </div>
   </div>
 </div>
 {% else %}
 <div style="margin-bottom:1rem;">
-  <button onclick="toggleExGoal()" id="goal-set-trigger" style="display:flex;align-items:center;gap:0.5rem;background:transparent;border:1px dashed var(--border);color:var(--muted);border-radius:var(--radius);cursor:pointer;padding:0.55rem 1rem;font-family:inherit;font-size:0.8rem;width:100%;transition:all 0.15s;" onmouseover="this.style.borderColor='var(--border-mid)';this.style.color='var(--text)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">
-    <i data-lucide="target" style="width:14px;height:14px;flex-shrink:0;pointer-events:none;"></i>
+  <button onclick="toggleExGoal()" id="goal-set-trigger" style="display:flex;align-items:center;gap:0.5rem;background:transparent;border:1px dashed var(--border-mid);color:var(--muted);border-radius:var(--radius);cursor:pointer;padding:0.55rem 1rem;min-height:48px;font-family:inherit;font-size:0.875rem;font-weight:600;width:100%;transition:border-color 0.15s, color 0.15s;" onmouseover="this.style.borderColor='var(--text)';this.style.color='var(--text)'" onmouseout="this.style.borderColor='var(--border-mid)';this.style.color='var(--muted)'">
+    <i data-lucide="target" style="width:16px;height:16px;flex-shrink:0;pointer-events:none;"></i>
     Set a weight goal for this exercise
   </button>
-  <div id="goal-edit-form" style="display:none;margin-top:0.5rem;align-items:center;gap:0.5rem;flex-wrap:wrap;" class="card" style="padding:0.75rem 1rem;">
-    <span style="font-size:0.82rem;color:var(--muted);">Target:</span>
-    <input id="goal-input" type="number" min="0.5" max="1000" step="0.5" value="{{ pr_kg or 100 }}" class="num" style="width:80px;text-align:center;padding:0.3rem 0.4rem;font-size:0.9rem;border-radius:var(--radius-xs);border:1px solid var(--border);background:var(--surface-2);color:var(--text);">
-    <span style="font-size:0.78rem;color:var(--muted);" id="goal-unit-lbl">kg</span>
-    <button onclick="saveExGoal()" class="btn btn-primary" style="font-size:0.8rem;min-height:34px;padding:0.25rem 0.75rem;">Set goal</button>
-    <button onclick="toggleExGoal()" class="btn btn-ghost" style="font-size:0.8rem;min-height:34px;">Cancel</button>
+  <div id="goal-edit-form" style="display:none;margin-top:0.5rem;align-items:center;gap:0.5rem;flex-wrap:wrap;padding:0.75rem 1rem;" class="card">
+    <span style="font-size:0.875rem;color:var(--muted);">Target:</span>
+    <input id="goal-input" type="number" min="0.5" max="1000" step="0.5" value="{{ pr_kg or 100 }}" class="num" style="width:96px;text-align:center;padding:0.3rem 0.4rem;">
+    <span style="font-size:0.875rem;color:var(--muted);" id="goal-unit-lbl">kg</span>
+    <button onclick="saveExGoal()" class="btn btn-primary" style="font-size:0.875rem;min-height:44px;padding:0.25rem 0.9rem;">Set goal</button>
+    <button onclick="toggleExGoal()" class="btn btn-ghost" style="font-size:0.875rem;min-height:44px;">Cancel</button>
   </div>
 </div>
 {% endif %}
@@ -130,11 +130,11 @@ document.getElementById('goal-input')?.addEventListener('keydown', e => { if(e.k
 .metric-btn {
   background: var(--surface); border: 1px solid var(--border); color: var(--muted);
   border-radius: var(--radius-xs); cursor: pointer; font-family: inherit;
-  font-size: 0.72rem; font-weight: 600; letter-spacing: 0.02em;
-  padding: 0.2rem 0.65rem; min-height: 30px; transition: all 0.13s;
+  font-size: 0.8125rem; font-weight: 600;
+  padding: 0 0.85rem; min-height: 44px; transition: background 0.13s, border-color 0.13s, color 0.13s;
 }
-.metric-btn:hover { color: var(--text); border-color: var(--border-mid); }
-.metric-btn.active { background: var(--accent-dim); border-color: rgba(79,156,249,0.4); color: var(--accent); }
+.metric-btn:hover { color: var(--text); border-color: var(--text); }
+.metric-btn.active { background: var(--text); border-color: var(--text); color: var(--surface); }
 </style>
 <div style="margin-bottom:1.5rem;">
   <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.6rem;flex-wrap:wrap;gap:0.5rem;">
@@ -148,7 +148,7 @@ document.getElementById('goal-input')?.addEventListener('keydown', e => { if(e.k
   <div class="card" style="padding:0.85rem 1.25rem 0.65rem;">
     <div id="ex-chart-inner" style="position:relative;">
       <canvas id="ex-chart" style="display:block;width:100%;cursor:crosshair;"></canvas>
-      <div id="ex-chart-tip" style="display:none;position:absolute;top:4px;background:var(--surface-2);border:1px solid var(--border-mid);border-radius:var(--radius-xs);padding:0.4rem 0.6rem;pointer-events:none;z-index:10;white-space:nowrap;box-shadow:0 4px 16px rgba(0,0,0,0.4);"></div>
+      <div id="ex-chart-tip" style="display:none;position:absolute;top:4px;background:var(--surface);border:1px solid var(--border-mid);border-radius:var(--radius-xs);padding:0.45rem 0.7rem;pointer-events:none;z-index:10;white-space:nowrap;box-shadow:var(--shadow);"></div>
     </div>
   </div>
 </div>
@@ -157,7 +157,7 @@ document.getElementById('goal-input')?.addEventListener('keydown', e => { if(e.k
 
 {% if sessions %}
 <div class="section-title">Session history</div>
-<div class="card" style="padding:0;overflow:hidden;">
+<div class="card" style="padding:0;overflow-x:auto;" tabindex="0" role="region" aria-label="Session history">
   <table>
     <thead>
       <tr>
@@ -172,16 +172,16 @@ document.getElementById('goal-input')?.addEventListener('keydown', e => { if(e.k
       {% for s in sessions %}
       {% set one_rm = (s.max_kg * (1 + (s.max_reps or 1) / 30)) | round(1) %}
       <tr>
-        <td style="font-weight:500;">{{ s.date | human_date }}</td>
-        <td class="num">
+        <td style="font-weight:600;white-space:nowrap;">{{ s.date | human_date }}</td>
+        <td class="num" style="white-space:nowrap;">
           <span class="weight-display" data-kg="{{ s.max_kg }}">{{ s.max_kg }} kg</span>
           {% if s.max_kg == pr_kg %}
-          <span class="badge badge-pr" role="img" aria-label="Personal record" style="margin-left:0.35rem;font-size:0.65rem;vertical-align:middle;">PR</span>
+          <span class="badge badge-pr" role="img" aria-label="Personal record" style="margin-left:0.35rem;vertical-align:middle;">PR</span>
           {% endif %}
         </td>
-        <td class="num"><span class="weight-display" data-kg="{{ one_rm }}">{{ one_rm }} kg</span></td>
+        <td class="num" style="white-space:nowrap;"><span class="weight-display" data-kg="{{ one_rm }}">{{ one_rm }} kg</span></td>
         <td class="num">{{ s.set_count }}</td>
-        <td class="num" style="color:var(--muted);">
+        <td class="num" style="color:var(--muted);white-space:nowrap;">
           <span class="weight-display" data-kg="{{ s.volume_kg }}">{{ "{:,.0f}".format(s.volume_kg) }} kg</span>
         </td>
       </tr>
@@ -192,7 +192,7 @@ document.getElementById('goal-input')?.addEventListener('keydown', e => { if(e.k
 {% else %}
 <div class="card" style="text-align:center;padding:3rem 1.25rem;">
   <div style="display:flex;flex-direction:column;align-items:center;gap:0.75rem;">
-    <div style="width:52px;height:52px;border-radius:50%;background:rgba(255,255,255,0.04);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;">
+    <div style="width:52px;height:52px;border-radius:50%;background:var(--surface-2);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;">
       <i data-lucide="dumbbell" style="width:22px;height:22px;color:var(--muted-hi);pointer-events:none;"></i>
     </div>
     <p style="color:var(--muted);font-size:0.875rem;max-width:220px;line-height:1.5;">No sets logged for this exercise yet.</p>
@@ -208,11 +208,19 @@ document.getElementById('goal-input')?.addEventListener('keydown', e => { if(e.k
   const PR_KG  = {{ pr_kg if pr_kg is not none else 'null' }};
   if (!RAW.length) return;
 
-  const METRICS = {
-    weight: { color: '#f472b6' },
-    orm:    { color: '#a78bfa' },
-    volume: { color: '#9085e9' },   // --data
+  // One series at a time, so every metric is the ink --data series; the newest
+  // record session gets an amber --pr point (records only). Tokens are read
+  // from base.html; the fallbacks are the same Daylight literals.
+  const tok = (n, fb) => (getComputedStyle(document.documentElement).getPropertyValue(n).trim() || fb);
+  const C = {
+    data: tok('--data', '#141414'), pr: tok('--pr', '#8c5a00'), grid: tok('--border', '#dddcd6'),
+    axis: tok('--muted', '#5d5d58'), ring: tok('--ring', '#8f8e88'), surface: tok('--surface', '#ffffff'),
   };
+  const AXIS_FONT = "600 13px 'Atkinson Hyperlegible Next', system-ui, sans-serif";
+  const METRICS = { weight: {}, orm: {}, volume: {} };
+  // index of the newest session that set the current PR (top weight)
+  let prIdx = -1;
+  if (PR_KG !== null) RAW.forEach((s, i) => { if (s.max_kg >= PR_KG) prIdx = i; });
   let metric   = 'weight';
   let hoverIdx = -1;
 
@@ -248,7 +256,7 @@ document.getElementById('goal-input')?.addEventListener('keydown', e => { if(e.k
     canvas.style.height = H + 'px';
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
-    const color = METRICS[metric].color;
+    const color = C.data;
     const vs    = getVals(metric);
     const n     = vs.length;
     const cW    = W - PL - PR;
@@ -266,10 +274,10 @@ document.getElementById('goal-input')?.addEventListener('keydown', e => { if(e.k
     // Grid + y-labels
     [0, 0.5, 1].forEach(f => {
       const gv = vMin + f * (vMax - vMin), y = gy(gv);
-      ctx.strokeStyle = '#1f2535'; ctx.lineWidth = 1;
+      ctx.strokeStyle = C.grid; ctx.lineWidth = 1;
       ctx.beginPath(); ctx.moveTo(PL, y); ctx.lineTo(PL + cW, y); ctx.stroke();
-      ctx.fillStyle = '#4a5568';
-      ctx.font = "10px 'JetBrains Mono',monospace";
+      ctx.fillStyle = C.axis;
+      ctx.font = AXIS_FONT;
       ctx.textAlign = 'right';
       ctx.fillText(gv >= 100 ? Math.round(gv) : gv.toFixed(1), PL - 4, y + 4);
     });
@@ -280,12 +288,12 @@ document.getElementById('goal-input')?.addEventListener('keydown', e => { if(e.k
       ctx.moveTo(gx(0), gy(vs[0]));
       for (let i = 1; i < n; i++) ctx.lineTo(gx(i), gy(vs[i]));
       ctx.lineTo(gx(n - 1), PT + cH); ctx.lineTo(gx(0), PT + cH);
-      ctx.closePath(); ctx.fillStyle = color + '14'; ctx.fill();
+      ctx.closePath(); ctx.globalAlpha = 0.05; ctx.fillStyle = color; ctx.fill(); ctx.globalAlpha = 1;
     }
 
     // Hover crosshair
     if (hoverIdx >= 0) {
-      ctx.strokeStyle = color + '38'; ctx.lineWidth = 1;
+      ctx.strokeStyle = C.ring; ctx.lineWidth = 1;
       ctx.setLineDash([3, 3]);
       ctx.beginPath(); ctx.moveTo(gx(hoverIdx), PT); ctx.lineTo(gx(hoverIdx), PT + cH); ctx.stroke();
       ctx.setLineDash([]);
@@ -296,26 +304,25 @@ document.getElementById('goal-input')?.addEventListener('keydown', e => { if(e.k
       ctx.beginPath();
       ctx.moveTo(gx(0), gy(vs[0]));
       for (let i = 1; i < n; i++) ctx.lineTo(gx(i), gy(vs[i]));
-      ctx.strokeStyle = color; ctx.lineWidth = 2.2;
+      ctx.strokeStyle = color; ctx.lineWidth = 2;
       ctx.lineJoin = 'round'; ctx.lineCap = 'round'; ctx.stroke();
     }
 
     // Dots
     vs.forEach((v, i) => {
-      const isHov = i === hoverIdx;
-      const r = isHov ? 5 : n <= 30 ? 2.8 : 0;
+      const isHov = i === hoverIdx, isPR = i === prIdx && metric !== 'volume';
+      const r = isHov || isPR ? 5 : n <= 30 ? 2.8 : 0;
       if (!r) return;
       ctx.beginPath(); ctx.arc(gx(i), gy(v), r, 0, Math.PI * 2);
-      ctx.fillStyle = isHov ? color : color + 'b0'; ctx.fill();
-      if (isHov) { ctx.strokeStyle = '#0d1117'; ctx.lineWidth = 1.5; ctx.stroke(); }
+      ctx.fillStyle = isPR ? C.pr : color; ctx.fill();
+      if (isHov || isPR) { ctx.strokeStyle = C.surface; ctx.lineWidth = 2; ctx.stroke(); }
     });
 
     // X-axis date labels
     const dates = RAW.map(s => s.date.slice(5));
-    ctx.fillStyle = '#4a5568'; ctx.font = '9px JetBrains Mono,monospace';
-    const labelSet = n <= 8
-      ? dates.map((_, i) => i)
-      : [0, Math.round(n * 0.25), Math.round(n * 0.5), Math.round(n * 0.75), n - 1];
+    ctx.fillStyle = C.axis; ctx.font = AXIS_FONT;
+    // newest date always labelled; others only where a 13px label fits (70px apart)
+    const labelSet = (() => { const o = []; let last = Infinity; for (let i = n - 1; i >= 0; i--) { const x = gx(i); if (last - x >= 70) { o.push(i); last = x; } } return o; })();
     labelSet.forEach(i => {
       ctx.textAlign = i === 0 ? 'left' : i === n - 1 ? 'right' : 'center';
       ctx.fillText(dates[i], gx(i), H - 3);
@@ -331,11 +338,11 @@ document.getElementById('goal-input')?.addEventListener('keydown', e => { if(e.k
     const vl = Math.round(s.volume_kg * f);
     const isPR = PR_KG !== null && s.max_kg >= PR_KG;
     tip.innerHTML =
-      `<div style="font-size:0.7rem;color:var(--muted);margin-bottom:0.25rem;">${humanDate(s.date)}${isPR ? ' <span class="badge badge-pr" role="img" aria-label="Personal record" style="font-size:0.6rem;vertical-align:middle;padding:0.05rem 0.3rem;">PR</span>' : ''}</div>` +
+      `<div style="font-size:0.8125rem;color:var(--muted);margin-bottom:0.25rem;">${humanDate(s.date)}${isPR ? ' <span class="badge badge-pr" role="img" aria-label="Personal record" style="vertical-align:middle;">PR</span>' : ''}</div>` +
       `<div style="display:flex;flex-direction:column;gap:0.1rem;">` +
-      `<span style="color:var(--text);font-size:0.78rem;font-weight:600;">${wt} ${pu} top set</span>` +
-      `<span style="color:#a78bfa;font-size:0.78rem;font-weight:600;">${o} ${pu} est 1RM</span>` +
-      `<span style="color:var(--text);font-size:0.78rem;font-weight:600;">${vl} ${pu} volume</span>` +
+      `<span style="color:var(--text);font-size:0.875rem;font-weight:600;">${wt} ${pu} top set</span>` +
+      `<span style="color:var(--text);font-size:0.875rem;font-weight:600;">${o} ${pu} est 1RM</span>` +
+      `<span style="color:var(--muted-hi);font-size:0.875rem;font-weight:600;">${vl} ${pu} volume</span>` +
       `</div>`;
     tip.style.display = 'block';
 

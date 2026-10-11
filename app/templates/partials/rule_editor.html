@@ -18,26 +18,54 @@
   into — preserves the pre-existing special-casing for 75 Hard/75 Medium's
   auto-ticking workout rule across both editors.
 #}
+<style>
+/* Each rule: the description on its own line, its controls underneath. */
+.rule-row { display: flex; align-items: center; gap: 0.25rem 0.75rem; flex-wrap: wrap;
+  padding-bottom: 0.6rem; border-bottom: 1px solid var(--border); }
+.rule-row:last-child { border-bottom: none; padding-bottom: 0; }
+.rule-row .rule-input { flex: 1 1 100%; width: 100%; }
+.rule-row .kind-toggle { flex-shrink: 0; }
+.rule-row .rule-rm, .rule-row .rule-rm-spacer { margin-left: auto; }
+.rule-opt {
+  display: flex; align-items: center; gap: 0.4rem; min-height: 44px;
+  font-size: 0.875rem; font-weight: 600; color: var(--muted);
+  cursor: pointer; white-space: nowrap; margin: 0;
+}
+.rule-opt input { width: 20px; height: 20px; min-height: 0; padding: 0; }
+.rule-rm, .rule-rm-spacer { width: 44px; height: 44px; flex-shrink: 0; }
+.rule-rm {
+  display: inline-flex; align-items: center; justify-content: center;
+  background: transparent; border: none; border-radius: var(--radius-xs);
+  color: var(--muted); cursor: pointer; font-size: 1rem; line-height: 1;
+  transition: color 0.12s, background 0.12s;
+}
+.rule-rm:hover { color: var(--danger); background: var(--danger-dim); }
+/* "+ Add rule": a dashed secondary button (shared by both editors). */
+.add-rule-btn {
+  align-self: flex-start; min-height: 44px; padding: 0.4rem 0.9rem;
+  background: var(--surface); border: 1px dashed var(--ring); border-radius: var(--radius-xs);
+  color: var(--text); font-family: inherit; font-size: 0.9375rem; font-weight: 600;
+  cursor: pointer; transition: border-color 0.15s, background 0.15s;
+}
+.add-rule-btn:hover { border-color: var(--text); background: var(--surface-2); }
+</style>
 <script>
 const RuleEditor = (function () {
   function setToggleButtonState(btn, active) {
+    // Styled by .seg-toggle (base.html) from aria-pressed.
     btn.setAttribute('aria-pressed', active ? 'true' : 'false');
-    btn.style.background = active ? 'var(--accent-dim)' : 'transparent';
-    btn.style.color = active ? 'var(--accent)' : 'var(--muted)';
   }
 
   function buildKindToggle(row, activeKind) {
     const toggle = document.createElement('div');
-    toggle.className = 'kind-toggle';
-    toggle.style.cssText = 'display:inline-flex;border:1px solid var(--border);' +
-      'border-radius:var(--radius-xs);overflow:hidden;flex-shrink:0;';
+    toggle.className = 'kind-toggle seg-toggle';
+    toggle.setAttribute('role', 'group');
+    toggle.setAttribute('aria-label', 'Rule type');
     [['manual', 'Tick'], ['photo', 'Photo']].forEach(([kindValue, labelText]) => {
       const btn = document.createElement('button');
       btn.type = 'button';
       btn.textContent = labelText;
       btn.dataset.kindOption = kindValue;
-      btn.style.cssText = 'border:none;font-size:0.68rem;padding:0.3rem 0.5rem;' +
-        'cursor:pointer;font-family:inherit;transition:background 0.15s,color 0.15s;';
       setToggleButtonState(btn, kindValue === activeKind);
       btn.addEventListener('click', () => {
         row.dataset.kind = kindValue;
@@ -57,16 +85,14 @@ const RuleEditor = (function () {
     row.className = 'rule-row';
     row.dataset.key = rule.key;
     row.dataset.kind = kind;
-    // flex-wrap so the row wraps rather than overflows at narrow (mobile) widths.
-    row.style.cssText = 'display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;';
+    // .rule-row wraps rather than overflows at narrow (mobile) widths.
 
     const input = document.createElement('input');
     input.type = 'text';
     input.placeholder = 'Rule description';
     input.value = rule.label || '';
-    input.style.cssText = 'flex:1;min-width:140px;font-size:0.8rem;padding:0.3rem 0.5rem;' +
-      'background:var(--surface-2);border:1px solid ' + (opts.autofocus ? 'var(--accent)' : 'var(--border)') +
-      ';border-radius:var(--radius-xs);color:var(--text);font-family:inherit;';
+    input.className = 'rule-input';
+    input.setAttribute('aria-label', 'Rule description');
     row.appendChild(input);
 
     // Workout-lock invariant: never render the kind toggle on this row.
@@ -76,14 +102,12 @@ const RuleEditor = (function () {
 
     if (opts.showOptional) {
       const label = document.createElement('label');
-      label.style.cssText = 'display:flex;align-items:center;gap:0.25rem;font-size:0.72rem;' +
-        'color:var(--muted);cursor:pointer;white-space:nowrap;margin:0;';
+      label.className = 'rule-opt';
       const cb = document.createElement('input');
       cb.type = 'checkbox';
       cb.checked = !!rule.optional;
-      cb.style.cssText = 'accent-color:var(--accent);width:13px;height:13px;';
       label.appendChild(cb);
-      label.appendChild(document.createTextNode(' opt'));
+      label.appendChild(document.createTextNode('Optional'));
       row.appendChild(label);
     }
 
@@ -93,15 +117,12 @@ const RuleEditor = (function () {
       rm.type = 'button';
       rm.textContent = '✕';
       rm.setAttribute('aria-label', 'Remove rule');
-      rm.style.cssText = 'background:transparent;border:none;color:var(--muted);cursor:pointer;' +
-        'padding:0.2rem 0.3rem;font-size:0.85rem;line-height:1;border-radius:4px;flex-shrink:0;';
-      rm.addEventListener('mouseover', () => { rm.style.color = 'var(--danger)'; });
-      rm.addEventListener('mouseout', () => { rm.style.color = 'var(--muted)'; });
+      rm.className = 'rule-rm';
       rm.addEventListener('click', () => row.remove());
       row.appendChild(rm);
     } else {
       const spacer = document.createElement('span');
-      spacer.style.cssText = 'width:1.4rem;flex-shrink:0;';
+      spacer.className = 'rule-rm-spacer';
       row.appendChild(spacer);
     }
 

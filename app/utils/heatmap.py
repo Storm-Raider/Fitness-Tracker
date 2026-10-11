@@ -29,11 +29,11 @@ def generate_heatmap_svg(workout_dates: list[str]) -> str:
         x = col * STEP + 1
         y = row * STEP + 1
         filled = d.isoformat() in workout_set
-        color = "#f59e0b" if filled else "#1a1e27"
+        color = "#141414" if filled else "#e7e6e1"  # ink = trained (data); amber is records only
         title = d.isoformat()
         cells.append(
             f'<rect x="{x}" y="{y}" width="{CELL}" height="{CELL}" '
-            f'rx="2" fill="{color}" opacity="{"0.9" if filled else "1"}">'
+            f'rx="2" fill="{color}" opacity="1">'
             f'<title>{title}</title></rect>'
         )
         d += timedelta(days=1)

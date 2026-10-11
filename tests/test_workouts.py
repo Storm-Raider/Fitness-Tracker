@@ -219,16 +219,16 @@ async def test_dashboard_shows_active_session_card(client):
     await client.post("/workouts", json={"notes": None})
     resp = await client.get("/", headers={"Accept": "text/html"})
     assert resp.status_code == 200
-    assert b"Session in progress" in resp.content
-    assert b"Resume Session" in resp.content
+    assert b"Resume session" in resp.content
+    assert b"Start a session" not in resp.content
 
 
 @pytest.mark.asyncio
 async def test_dashboard_no_active_session_shows_start(client):
     resp = await client.get("/", headers={"Accept": "text/html"})
     assert resp.status_code == 200
-    assert b"Start Session" in resp.content
-    assert b"Session in progress" not in resp.content
+    assert b"Start a session" in resp.content
+    assert b"Resume session" not in resp.content
 
 
 @pytest.mark.asyncio

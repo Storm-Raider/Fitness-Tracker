@@ -247,10 +247,13 @@ async def _compute_earned(conn: aiosqlite.Connection, uid: int) -> dict[str, str
     return earned
 
 
+# Daylight: an achievement is earned, so every tier wears the record amber
+# (base.html --pr / --pr-dim). Gold gets the solid amber badge; bronze and
+# silver the amber tint. (icon colour, badge background, badge border)
 _TIER_COLORS = {
-    "bronze": ("#cd7f32", "rgba(205,127,50,0.15)",  "rgba(205,127,50,0.35)"),
-    "silver": ("#a0aec0", "rgba(160,174,192,0.15)", "rgba(160,174,192,0.35)"),
-    "gold":   ("#f59e0b", "rgba(245,158,11,0.15)",  "rgba(245,158,11,0.35)"),
+    "bronze": ("var(--pr)",      "var(--pr-dim)", "var(--pr)"),
+    "silver": ("var(--pr)",      "var(--pr-dim)", "var(--pr)"),
+    "gold":   ("var(--surface)", "var(--pr)",     "var(--pr)"),
 }
 
 
@@ -281,17 +284,17 @@ async def achievements_unseen(
         color, bg, border = _TIER_COLORS.get(ach["tier"], _TIER_COLORS["bronze"])
         delay = i * 0.2
         cards.append(
-            f'<div class="ach-toast" style="border:1px solid {border};animation-delay:{delay}s;">'
-            f'<div style="font-size:0.6rem;text-transform:uppercase;letter-spacing:0.1em;'
-            f'color:{color};margin-bottom:0.4rem;font-weight:700;">Achievement Unlocked</div>'
+            f'<div class="ach-toast" style="border:1px solid var(--pr);animation-delay:{delay}s;">'
+            f'<div style="font-size:0.8125rem;'
+            f'color:var(--pr);margin-bottom:0.4rem;font-weight:700;">Achievement unlocked</div>'
             f'<div style="display:flex;align-items:center;gap:0.65rem;">'
             f'<div style="width:36px;height:36px;border-radius:50%;background:{bg};'
             f'border:1.5px solid {border};display:flex;align-items:center;justify-content:center;flex-shrink:0;">'
             f'<i data-lucide="{ach["icon"]}" style="width:18px;height:18px;color:{color};"></i>'
             f'</div>'
             f'<div>'
-            f'<div style="font-family:\'Syne\',system-ui,sans-serif;font-size:0.85rem;font-weight:700;color:var(--text);">{ach["name"]}</div>'
-            f'<div style="font-size:0.7rem;color:var(--muted);margin-top:0.1rem;">{ach["desc"]}</div>'
+            f'<div style="font-family:var(--f-display);font-size:1rem;font-weight:700;color:var(--text);">{ach["name"]}</div>'
+            f'<div style="font-size:0.8125rem;color:var(--muted);margin-top:0.1rem;">{ach["desc"]}</div>'
             f'</div></div></div>'
         )
 

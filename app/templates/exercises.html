@@ -19,18 +19,19 @@
   .ex-search {
     width: 100%;
     background: var(--surface);
-    border: 1px solid var(--border);
+    border: 1px solid var(--ring);
     border-radius: var(--radius-sm);
     color: var(--text);
-    padding: 0.7rem 1rem 0.7rem 2.4rem;
-    font-size: 0.95rem;
+    min-height: 48px;
+    padding: 0.7rem 1rem 0.7rem 2.5rem;
+    font-size: 1rem;
     font-family: inherit;
-    transition: border-color 0.15s, box-shadow 0.15s;
+    transition: border-color 0.15s;
   }
   .ex-search:focus {
-    outline: none;
-    border-color: var(--accent);
-    box-shadow: var(--glow);
+    outline: 2px solid var(--text);
+    outline-offset: 0;
+    border-color: var(--text);
   }
 
   /* ── Muscle filter ───────────────────────────────── */
@@ -41,10 +42,12 @@
     margin-bottom: 1.5rem;
   }
   /* .muscle-pill extends the shared .pill (base.html); only the count is local. */
+  .muscle-pill { min-height: 44px; }
   .muscle-pill-count {
-    font-size: 0.72rem;
-    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.9375rem;
+    color: var(--muted);
   }
+  .muscle-pill.active .muscle-pill-count { color: inherit; }
 
   /* ── Exercise groups ─────────────────────────────── */
   .ex-group { margin-bottom: 1.75rem; }
@@ -55,12 +58,10 @@
     margin-bottom: 0.6rem;
   }
   .ex-group-label {
-    font-size: 0.72rem;
+    font-family: var(--f-display);
+    font-size: 1.1rem;
     font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.1em;
-    color: var(--muted);
-    font-family: 'JetBrains Mono', monospace;
+    color: var(--text);
   }
   .ex-group-line {
     flex: 1;
@@ -68,31 +69,73 @@
     background: var(--border);
   }
   .ex-group-ct {
-    font-size: 0.62rem;
-    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.9375rem;
     color: var(--muted);
   }
-  .ex-list { display: flex; flex-direction: column; gap: 3px; }
+  /* One white card per muscle group; rows are separated by hairlines. */
+  .ex-list {
+    display: flex;
+    flex-direction: column;
+    background: var(--surface);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-sm);
+    overflow: hidden;
+  }
   .ex-item {
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 0.5rem;
-    padding: 0.7rem 0.9rem;
-    border-radius: var(--radius-xs);
+    min-height: 52px;
+    padding: 0.75rem 1rem;
     background: var(--surface);
-    border: 1px solid var(--border);
+    border-top: 1px solid var(--border);
     text-decoration: none;
     color: var(--text);
-    font-size: 0.9rem;
-    font-weight: 500;
-    transition: background 0.12s, border-color 0.12s;
+    font-size: 1rem;
+    font-weight: 600;
+    transition: background 0.12s;
   }
+  .ex-item:first-child { border-top: none; }
   .ex-item:hover {
     background: var(--surface-hover);
-    border-color: var(--border-mid);
     color: var(--text);
   }
+  /* Recently used: horizontal strip of small cards. */
+  .ex-recent-row {
+    display: flex;
+    gap: 0.5rem;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    padding: 2px 2px 6px;
+    margin: 0 -2px;
+  }
+  .ex-recent {
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    min-width: 0;
+    min-height: 56px;
+    padding: 0.6rem 0.95rem;
+    background: var(--surface);
+    border-radius: var(--radius-sm);
+    box-shadow: var(--shadow-sm);
+    text-decoration: none;
+    color: var(--text);
+    transition: background 0.13s;
+  }
+  .ex-recent:hover { background: var(--surface-hover); color: var(--text); }
+  .ex-recent-name {
+    font-size: 0.9375rem;
+    font-weight: 600;
+    white-space: nowrap;
+    max-width: 160px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .ex-recent-sub { font-size: 0.8125rem; color: var(--muted); font-weight: 600; }
+  .ex-recent-sub.is-pr { color: var(--pr); }
   .no-results {
     color: var(--muted);
     font-size: 0.9rem;
@@ -102,9 +145,8 @@
 
   @media (max-width: 767px) {
     .muscle-filter-row { gap: 0.4rem; }
-    .ex-item { padding: 0.85rem 1rem; font-size: 0.95rem; }
+    .ex-item { padding: 0.85rem 1rem; }
     .ex-group { margin-bottom: 2rem; }
-    .ex-list { gap: 4px; }
   }
 </style>
 {% endblock %}
@@ -119,16 +161,14 @@
 {% if recent_exercises %}
 <div style="margin-bottom:1.5rem;">
   <div class="section-title" style="margin-bottom:0.5rem;">Recently used</div>
-  <div style="display:flex;gap:0.5rem;overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:2px;">
+  <div class="ex-recent-row">
     {% for ex in recent_exercises %}
-    <a href="/exercises/{{ ex.id }}" style="flex-shrink:0;display:flex;flex-direction:column;gap:0.2rem;padding:0.6rem 0.9rem;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-xs);text-decoration:none;color:var(--text);transition:border-color 0.13s,background 0.13s;min-width:0;"
-       onmouseover="this.style.borderColor='var(--border-mid)';this.style.background='var(--surface-hover)'"
-       onmouseout="this.style.borderColor='var(--border)';this.style.background='var(--surface)'">
-      <span style="font-size:0.875rem;font-weight:600;white-space:nowrap;max-width:150px;overflow:hidden;text-overflow:ellipsis;">{{ ex.name }}</span>
+    <a href="/exercises/{{ ex.id }}" class="ex-recent">
+      <span class="ex-recent-name">{{ ex.name }}</span>
       {% if ex.pr_kg is not none %}
-      <span style="font-size:0.72rem;color:var(--accent);font-weight:600;">PR <span class="weight-display" data-kg="{{ ex.pr_kg }}">{{ ex.pr_kg }} kg</span></span>
+      <span class="ex-recent-sub is-pr">PR <span class="weight-display num" data-kg="{{ ex.pr_kg }}">{{ ex.pr_kg }} kg</span></span>
       {% else %}
-      <span style="font-size:0.72rem;color:var(--muted);">{{ ex.category or '—' }}</span>
+      <span class="ex-recent-sub">{{ ex.category or '—' }}</span>
       {% endif %}
     </a>
     {% endfor %}
