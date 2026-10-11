@@ -185,7 +185,10 @@ function step(id, delta, decimals) {
 
 function updatePace() {
   const dur    = parseFloat(document.getElementById('cardio-duration').value) || 0;
-  const distKm = parseFloat(document.getElementById('cardio-distance').value) || 0;
+  // The field holds miles in mi mode (converted to km only on submit); fmtPace
+  // wants min/km, so convert here too or the preview reads 1.6x too slow.
+  const distRaw = parseFloat(document.getElementById('cardio-distance').value) || 0;
+  const distKm = window.getDistanceUnit && window.getDistanceUnit() === 'mi' ? distRaw * 1.60934 : distRaw;
   const wrap   = document.getElementById('pace-result-wrap');
   const val    = document.getElementById('pace-val');
   if (dur > 0 && distKm > 0) {
