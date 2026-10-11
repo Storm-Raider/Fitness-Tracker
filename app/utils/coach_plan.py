@@ -201,6 +201,20 @@ async def name_to_id_map(conn: aiosqlite.Connection) -> tuple[dict[str, dict], d
 _EQUIPMENT_TAG = re.compile(r"\s*\[[^\]]*\]\s*$")
 
 
+def resolve_name(name: str, name_map: dict, norm_map: dict | None = None) -> dict | None:
+    """The library entry {id, name} a model-written name means, or None. Strips a copied
+    [equipment] tag and recovers common model errors without risking false-positive fuzzy
+    matches: hyphen/en-dash vs space ("Pull Up" -> "Pull-up") and a trailing plural
+    ("Lateral Raises" -> "Lateral Raise")."""
+    key = _EQUIPMENT_TAG.sub("", str(name or "").strip()).strip().lower()
+    if not key:
+        return None
+    match = name_map.get(key)
+    if not match and norm_map:
+        match = norm_map.get(key) or norm_map.get(key.replace("-", " ").replace("–", " "))
+    return match or None
+
+
 def normalise_plan(raw: dict, goal: str, days: int, name_map: dict, norm_map: dict | None = None) -> tuple[dict, list[str]]:
     """
     Coerce the model's output into our shape, resolve exercise names to real
@@ -214,18 +228,11 @@ def normalise_plan(raw: dict, goal: str, days: int, name_map: dict, norm_map: di
         exercises = []
         for ex in (day.get("exercises") or []):
             name = _EQUIPMENT_TAG.sub("", str(ex.get("name", "")).strip()).strip()
-            match = name_map.get(name.lower())
-            if not match and name:
-                # Recover common model errors without risking false-positive fuzzy matches:
-                # 1) hyphen/en-dash ↔ space  ("Pull Up" → "Pull-up")
-                # 2) trailing plural 's'      ("Lateral Raises" → "Lateral Raise")
-                key = name.lower()
-                alt = norm_map and (norm_map.get(key) or norm_map.get(key.replace("-", " ").replace("–", " ")))
-                match = alt
-                if not match:
-                    dropped.append(name)
-                    continue
-            elif not match:
+            if not name:
+                continue
+            match = resolve_name(name, name_map, norm_map)
+            if not match:
+                dropped.append(name)
                 continue
             try:
                 sets = max(1, min(20, int(ex.get("sets") or 3)))
