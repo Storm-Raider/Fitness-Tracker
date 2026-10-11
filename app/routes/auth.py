@@ -495,6 +495,14 @@ async def invite_accept_post(
         errors["password"] = password_error
     elif password != password_confirm:
         errors["password_confirm"] = "Passwords do not match"
+    # Login matches usernames case-insensitively, so "TestUser" next to an
+    # existing "testuser" could never sign in (login finds the other row).
+    if "username" not in errors:
+        async with conn.execute(
+            "SELECT 1 FROM users WHERE LOWER(username) = LOWER(?)", (username,)
+        ) as cur:
+            if await cur.fetchone():
+                errors["username"] = "Username is already taken"
 
     if errors:
         return templates.TemplateResponse(

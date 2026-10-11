@@ -119,3 +119,19 @@ async def test_cardio_cannot_be_logged_in_the_future(client, db):
     r = await client.post("/cardio", data={"exercise_id": cid, "duration_minutes": 30,
                                            "logged_date": date.today().isoformat()}, follow_redirects=False)
     assert r.status_code == 303
+
+
+# Regression: ISSUE-006 — a username differing only in case locked one account out
+@pytest.mark.asyncio
+async def test_invite_rejects_a_username_that_differs_only_in_case(anon_client, db):
+    await db.execute("INSERT INTO invite_tokens(token, created_by, expires_at, max_uses) "
+                     "VALUES ('qa-tok', 1, datetime('now','localtime','+1 day'), 5)")
+    await db.commit()
+    async with db.execute("SELECT username FROM users WHERE id = 1") as c:
+        existing = (await c.fetchone())["username"]
+    r = await anon_client.post("/invite/accept/qa-tok", data={
+        "username": existing.swapcase(), "email": "qa-case@example.com",
+        "password": "another-pass-123", "password_confirm": "another-pass-123"}, follow_redirects=False)
+    assert r.status_code == 200 and "Username is already taken" in r.text
+    async with db.execute("SELECT COUNT(*) AS n FROM users WHERE LOWER(username) = LOWER(?)", (existing,)) as c:
+        assert (await c.fetchone())["n"] == 1
