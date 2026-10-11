@@ -45,13 +45,13 @@ CHECKS = [
     ("/",           "Dashboard",          "dashboard"),
     ("/workouts",   "Sessions",           "workouts"),
     ("/exercises",  "Exercises",          "exercises"),
-    ("/metrics",    "Body Metrics",       "metrics"),
+    ("/metrics",    "Body metrics",       "metrics"),
     ("/challenges", "Challenges",         "challenges"),
     ("/stats",      "Analytics",          "stats"),
     ("/cardio",     "Cardio",             "cardio"),
     ("/prs",        "Analytics",          "prs"),
     ("/settings",   "Settings",           "settings"),
-    ("/journal",    "Daily Log",          "journal"),
+    ("/journal",    "Daily log",          "journal"),
 ]
 
 # Match full HTML error patterns — not bare numbers (font-weight: 500 etc.)

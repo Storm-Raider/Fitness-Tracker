@@ -11,12 +11,12 @@ async def test_planner_page_redirects_to_plan(client):
 
 @pytest.mark.asyncio
 async def test_plan_page_renders(client, monkeypatch):
-    """GET /plan returns 200 with 'Training Plan' in the HTML."""
+    """GET /plan returns 200 with 'Training plan' in the HTML."""
     monkeypatch.delenv("GEMINI_API_KEY", raising=False)
 
     resp = await client.get("/plan", headers={"Accept": "text/html"})
     assert resp.status_code == 200
-    assert "Training Plan" in resp.text
+    assert "Training plan" in resp.text
 
 
 @pytest.mark.asyncio

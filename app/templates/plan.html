@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}Training Plan — Zenkai{% endblock %}
+{% block title %}Training plan — Zenkai{% endblock %}
 {% block content %}
 <style>
 /* ── Mode toggle ── */
@@ -487,7 +487,7 @@
 {# ── Page header ── #}
 <div class="page-hd">
   <div>
-    <h1>Training Plan</h1>
+    <h1>Training plan</h1>
     <div class="subtitle">Build a routine or a periodised block</div>
   </div>
   <span class="badge {% if llm_available %}badge-blue{% else %}badge-muted{% endif %}"
@@ -766,7 +766,7 @@
    UNIFIED SAVED PLANS (outside mode sections)
 ══════════════════════════════════════════════════════ #}
 <div class="saved-plans-section">
-  <div class="section-title">Saved Plans</div>
+  <div class="section-title">Saved plans</div>
   {% if saved_plans %}
     {% for p in saved_plans %}
     <div class="saved-plan-card" id="saved-plan-{{ p.id }}-{{ p.type }}">
@@ -1286,7 +1286,7 @@ async function saveMesoPlan() {
   });
 
   btn.disabled = false;
-  btn.innerHTML = '<i data-lucide="save" style="width:14px;height:14px;pointer-events:none;"></i> Save Plan';
+  btn.innerHTML = '<i data-lucide="save" style="width:14px;height:14px;pointer-events:none;"></i> Save plan';
   lucide.createIcons();
 
   if (resp.ok) {

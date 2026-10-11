@@ -9,7 +9,7 @@ import pytest
 async def test_settings_page_renders(client):
     resp = await client.get("/settings")
     assert resp.status_code == 200
-    assert b"Account Settings" in resp.content
+    assert b"Account settings" in resp.content
 
 
 @pytest.mark.asyncio
