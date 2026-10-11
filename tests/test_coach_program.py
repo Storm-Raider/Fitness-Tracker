@@ -281,3 +281,53 @@ def test_multi_pattern_slot_prefers_a_pattern_the_day_lacks():
 def test_pulls_in_a_main_slot_use_the_secondary_scheme():
     pull = next(d for d in cp.build_skeleton(ROWS, _profile(), "strength", 6) if d["template"] == "PULL_A")
     assert pull["slots"][0]["reps"] == "5-6"
+
+
+# ── Review findings (2026-10-11) ─────────────────────────────────────
+
+def test_a_fallback_never_brings_back_a_pain_flagged_lift_and_respects_the_weekly_cap():
+    prof = _profile(injury_flags=[{"text": "knee hurts", "exercise": None}])
+    sk = cp.build_skeleton(ROWS, prof, "strength", 4)
+    raw = {"days": [{"picks": [{"slot": 1, "name": "Hip Thrust", "cue": "x"}]} for _ in sk]}
+    plan, _ = cp.assemble_plan(sk, raw, "strength", 4, NAME_MAP, {}, ROWS, prof)
+    names = [e["name"] for d in plan["days"] for e in d["exercises"]]
+    assert not any(w in n.lower() for n in names for w in ("squat", "lunge", "leg press", "leg extension"))
+    assert max(names.count(n) for n in names) <= max_weekly_repeats(4)
+
+
+def test_picks_outside_the_candidates_need_the_athletes_words_and_must_fit_the_slot():
+    sk = cp.build_skeleton(ROWS, _profile(), "strength", 2)
+    core = next(i for i, s in enumerate(sk[0]["slots"], 1) if s["role"] == "core")
+    acc = next(i for i, s in enumerate(sk[0]["slots"], 1) if s["role"] == "accessory")
+    raw = {"days": [{"picks": [{"slot": core, "name": "Deadlift", "cue": "x"},
+                               {"slot": acc, "name": "Burpee", "cue": "y"}]}, {"picks": []}]}
+    closed, dropped = cp.assemble_plan(sk, raw, "strength", 2, NAME_MAP, {}, ROWS, _profile())
+    assert {"Deadlift", "Burpee"} <= set(dropped)
+    opened, dropped = cp.assemble_plan(sk, raw, "strength", 2, NAME_MAP, {}, ROWS, _profile(), allow_outside=True)
+    day = [e["name"] for e in opened["days"][0]["exercises"]]
+    assert day[acc - 1] == "Burpee"                    # asked for, fits an accessory slot
+    assert day[core - 1] != "Deadlift" and "Deadlift" in dropped   # never a 3×12 deadlift
+
+
+def test_lower_back_pain_rules_out_swings_and_pull_throughs():
+    prof = _profile(injury_flags=[{"text": "lower back pain", "exercise": None}])
+    for day in cp.build_skeleton(ROWS, prof, "strength", 4):
+        for s in day["slots"]:
+            assert not any(w in c.lower() for c in s["candidates"]
+                           for w in ("swing", "pull-through", "deadlift", "good morning"))
+
+
+@pytest.mark.parametrize("reps,top,timed", [("8-12 reps", 12, False), ("10 reps", 10, False), ("AMRAP", None, False),
+                                            ("30-45s", None, True), ("60 sec", None, True), ("1 min", None, True)])
+def test_rep_text_is_parsed_without_mistaking_reps_for_seconds(reps, top, timed):
+    assert cp.top_reps(reps) == top and cp.is_timed(reps) == timed
+
+
+def test_amrap_gets_a_rep_based_rule_not_a_hold_rule():
+    rule = cp.progression_for({"name": "Pull-up", "equipment": "Bodyweight"}, "v_pull", "AMRAP", 2, loaded=False)
+    assert "10 s" not in rule and "reps" in rule
+
+
+def test_the_recovery_day_stops_well_short_of_failure():
+    recovery = cp.build_skeleton(ROWS, _profile(), "hypertrophy", 7)[6]
+    assert recovery["template"] == "RECOVERY" and all(s["rir"] == 3 for s in recovery["slots"])

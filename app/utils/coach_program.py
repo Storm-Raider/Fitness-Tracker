@@ -253,12 +253,20 @@ def scheme(goal: str, role: str) -> dict:
     return {"sets": sets, "reps": reps, "rir": rir, "rest_sec": rest}
 
 
+_TIMED = re.compile(r"\d\s*(?:s|secs?|seconds?|min|mins|minutes?)\b")
+
+
+def is_timed(reps: str) -> bool:
+    """'30-45s', '60 sec', '1 min' are times; '8-12 reps' is not."""
+    return bool(_TIMED.search(str(reps or "").lower()))
+
+
 def top_reps(reps: str) -> int | None:
-    """Top of a rep range ('3-5' -> 5, '8' -> 8); None for a hold ('30-45s')."""
-    text = str(reps or "").strip().lower()
-    if not text or text.endswith("s") or "sec" in text:
+    """Top of a rep range ('3-5' -> 5, '8-12 reps' -> 12); None for a time ('30-45s') or
+    text without a number ('AMRAP')."""
+    if is_timed(reps):
         return None
-    nums = [int(n) for n in re.findall(r"\d+", text)]
+    nums = [int(n) for n in re.findall(r"\d+", str(reps or ""))]
     return max(nums) if nums else None
 
 
@@ -279,9 +287,11 @@ def load_for(e1rm: float | None, reps: str, rir: int | None, factor: float = 1.0
 
 def progression_for(row: dict, pattern: str, reps: str, rir: int, *, loaded: bool, stalled: bool = False) -> str:
     name = row.get("name", "")
-    if is_hold(name) or top_reps(reps) is None:
+    if is_hold(name) or is_timed(reps):
         return "All sets steady → add 10 s per set."
     top = top_reps(reps)
+    if top is None:
+        return "Beat last week's total reps at the same load, then add load."
     if stalled:
         return f"Stalled 4+ weeks — work at {reps} this week, then retest your top set."
     equipment = row.get("equipment") or ""
@@ -471,6 +481,8 @@ def build_skeleton(rows: list[dict], profile: dict, goal: str, days: int, focus_
                 continue
             pattern = pattern_of(default["name"])
             sch = scheme(goal, role)
+            if day["template"] == "RECOVERY":
+                sch = {**sch, "rir": 3}                 # an easy day: stop well short of failure
             if role == "main" and pattern in ("h_pull", "v_pull"):
                 sch = {**scheme(goal, "secondary")}    # rows and pulldowns are not 3-5 rep lifts
             sets = sch["sets"]
@@ -491,14 +503,28 @@ def build_skeleton(rows: list[dict], profile: dict, goal: str, days: int, focus_
 
 # ── Assembling the model's picks into a plan ─────────────────────────
 
+def _fits_slot(name: str, role: str) -> bool:
+    """Whether an exercise from outside a slot's candidates may fill it: heavy barbell
+    lifts only in heavy slots, and only compounds in main/secondary slots."""
+    if name.lower() in _HEAVY_ONLY and role not in ("main", "secondary"):
+        return False
+    return role not in ("main", "secondary") or pattern_of(name) in COMPOUND
+
+
 def assemble_plan(skeleton: list[dict], raw: dict, goal: str, days: int,
                   name_map: dict, norm_map: dict, rows: list[dict], profile: dict,
-                  focus_note: str = "") -> tuple[dict, list[str]]:
-    """Turn the model's picks into a plan. A pick is used when it resolves to a library
-    exercise, is not pain-flagged and is not already on that day; otherwise the slot's
-    default stands and the name is reported in `dropped`. Targets always come from code."""
+                  focus_note: str = "", *, allow_outside: bool = False) -> tuple[dict, list[str]]:
+    """Turn the model's picks into a plan. A pick is used when it is one of the slot's
+    candidates (or, with `allow_outside` — the athlete's request or notes may ask for
+    something else — any library exercise that fits the slot), is not pain-flagged, is not
+    already on that day and stays within the weekly repeat cap. Otherwise the first
+    candidate that satisfies the same rules stands and the name is reported in `dropped`.
+    Targets always come from code. Candidates were filtered for pain and slot fit when
+    the skeleton was built, so a fallback can never bring a flagged lift back."""
     row_of = {r["name"].lower(): r for r in rows}
     pain_rx = pain_avoid_pattern(profile, focus_note)
+    cap = max_weekly_repeats(days)
+    used: Counter = Counter()
     raw = raw if isinstance(raw, dict) else {}
     raw_days = [d for d in (raw.get("days") or []) if isinstance(d, dict)]
     dropped: list[str] = []
@@ -515,25 +541,30 @@ def assemble_plan(skeleton: list[dict], raw: dict, goal: str, days: int,
         exercises = []
         for si, slot in enumerate(day["slots"], start=1):
             pick = picks.get(si) or {}
+            if not isinstance(pick, dict):
+                pick = {}
+            candidates = set(slot["candidates"])
             chosen, from_pick = None, False
             name = str(pick.get("name") or "").strip()
             if name:
                 match = resolve_name(name, name_map, norm_map)
-                ok = (match and match["name"].lower() in row_of and match["name"] not in names_today
+                ok = (match and match["name"].lower() in row_of
+                      and (match["name"] in candidates or (allow_outside and _fits_slot(match["name"], slot["role"])))
+                      and match["name"] not in names_today and used[match["name"]] < cap
                       and not (pain_rx and pain_rx.search(match["name"])))
                 if ok:
                     chosen, from_pick = match, True
                 elif name.lower() != (slot["default"] or "").lower():
                     dropped.append(name)
             if not chosen:
-                default = slot["default"]
-                if default in names_today:   # the model took this slot's default elsewhere today
-                    default = next((c for c in slot["candidates"] if c not in names_today), None)
+                default = (next((c for c in slot["candidates"] if c not in names_today and used[c] < cap), None)
+                           or next((c for c in slot["candidates"] if c not in names_today), None))
                 if not default:
                     continue
                 chosen = name_map.get(default.lower())
                 if not chosen:
                     continue
+            used[chosen["name"]] += 1
             names_today.add(chosen["name"])
             row = row_of[chosen["name"].lower()]
             # The cue was written for the model's pick; it does not describe a default.

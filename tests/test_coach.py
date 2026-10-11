@@ -121,6 +121,19 @@ async def test_generate_applies_picks_and_falls_back_for_unknowns(client, db, mo
 
 
 @pytest.mark.asyncio
+async def test_nothing_to_choose_from_spends_no_request(client, monkeypatch):
+    calls = []
+
+    async def spy(*a, **k):
+        calls.append(1)
+        return {}
+    monkeypatch.setattr(coach.gemini, "chat_json", spy)
+    monkeypatch.setattr(coach, "build_skeleton", lambda *a, **k: [{"focus": "A", "template": "FULL_A", "slots": []}])
+    data = await _generate(client, "general", 1)
+    assert data["status"] == "error" and "usable exercises" in data["error"] and calls == []
+
+
+@pytest.mark.asyncio
 async def test_plan_uses_the_plan_model_with_a_thinking_budget(client, monkeypatch):
     seen = []
 
@@ -132,6 +145,7 @@ async def test_plan_uses_the_plan_model_with_a_thinking_budget(client, monkeypat
     data = await _generate(client, "general", 2)
     assert data["status"] == "done" and data["model"] == "gemini-3.8-flash"
     assert seen[0]["model"] == "gemini-3.8-flash" and seen[0]["thinking_budget"] == coach.PLAN_THINKING_BUDGET
+    assert seen[0]["max_requests"] == 2                       # transient retries are capped too
 
 
 @pytest.mark.asyncio
@@ -490,7 +504,7 @@ async def test_single_flight_attaches_to_queued_job(client, monkeypatch):
     coach._JOBS.clear(); coach._QUEUE.clear(); coach._ACTIVE_BY_USER.clear(); coach._LAST_BY_USER.clear()
 
 
-# ── Plan diversity: detection + deterministic repair ─────────────────
+# ── Plan diversity ───────────────────────────────────────────────────
 
 def _mk_plan(days_per_week, day_specs):
     """day_specs: list of [(exercise_id, name), ...] per day."""
@@ -546,52 +560,18 @@ def test_quality_issues_clean_plan_passes():
 
 
 @pytest.mark.asyncio
-async def test_repair_dedupes_within_day(db):
-    await coach_plan.exercise_catalog(db, 0)          # populate _EXERCISE_BASE_ROWS
-    name_map, _ = await coach_plan.name_to_id_map(db)
-    sq = name_map["back squat"]
-    plan = _mk_plan(1, [[(sq["id"], sq["name"]), (sq["id"], sq["name"])]])
-    repaired, _swaps = coach_plan.repair_plan(plan, name_map)
-    assert len(repaired["days"][0]["exercises"]) == 1
-
-
-@pytest.mark.asyncio
-async def test_repair_swaps_over_repeated_exercise(db):
-    await coach_plan.exercise_catalog(db, 0)
-    name_map, _ = await coach_plan.name_to_id_map(db)
-    sq = name_map["back squat"]
-    # 3-day plan (cap 2): Back Squat on all 3 days → day 3 must get a swap.
-    plan = _mk_plan(3, [
-        [(sq["id"], sq["name"])],
-        [(sq["id"], sq["name"])],
-        [(sq["id"], sq["name"])],
-    ])
-    repaired, swaps = coach_plan.repair_plan(plan, name_map)
-    day3 = repaired["days"][2]["exercises"]
-    assert day3[0]["exercise_id"] != sq["id"], "third occurrence should be swapped"
-    assert swaps and "Back Squat →" in swaps[0]
-    # Replacement must be a real library exercise.
-    assert day3[0]["name"].lower() in name_map
-
-
-@pytest.mark.asyncio
-async def test_generation_repairs_copy_paste_days(client, db, monkeypatch):
-    """A model that returns the same day twice still yields a diverse plan."""
-    names = await _real_exercise_names(db, 4)
-    same_day = {
-        "focus": "Full Body",
-        "exercises": [{"name": n, "sets": 3, "reps": "8-12", "note": ""} for n in names],
-    }
-    fake = {"title": "Copy Paste", "summary": "", "days": [same_day, dict(same_day)]}
-    monkeypatch.setattr(coach.gemini, "chat_json", _fake_chat(fake))
-    coach._JOBS.clear(); coach._QUEUE.clear(); coach._ACTIVE_BY_USER.clear(); coach._LAST_BY_USER.clear()
+async def test_a_model_that_picks_the_same_day_twice_still_gets_a_varied_week(client, db, monkeypatch):
+    """The weekly repeat cap holds whatever the model picks (2 days/week: cap 1)."""
+    async def copy_paste(system, user, schema, **kwargs):
+        day1 = [{"slot": i, "name": _candidates(user, 1, i)[0], "cue": ""} for i in range(1, 5)]
+        return {"title": "Copy Paste", "summary": "", "days": [{"picks": day1}, {"picks": day1}]}
+    monkeypatch.setattr(coach.gemini, "chat_json", copy_paste)
 
     pd = await _generate(client, "general", 2)
     assert pd["status"] == "done"
     d1 = {e["exercise_id"] for e in pd["plan"]["days"][0]["exercises"]}
     d2 = {e["exercise_id"] for e in pd["plan"]["days"][1]["exercises"]}
-    # cap for 2 days/week is 1 — repair must make the days fully disjoint.
-    assert d1.isdisjoint(d2), f"days still overlap after repair: {d1 & d2}"
+    assert d1.isdisjoint(d2), f"days overlap: {d1 & d2}"
 
 
 def test_system_prompt_has_no_worked_example():

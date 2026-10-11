@@ -35,9 +35,9 @@ from app.utils import coach_budget, gemini
 from app.utils.coach_chat import notes_block
 from app.utils.coach_plan import (
     athlete_context, catalog_lines, exercise_catalog, exercise_rows, name_to_id_map,
-    pain_constraint, repair_plan,
+    pain_constraint,
 )
-from app.utils.coach_program import annotate_targets, assemble_plan, build_skeleton
+from app.utils.coach_program import assemble_plan, build_skeleton
 from app.utils.training_profile import build_profile
 
 router = APIRouter()
@@ -154,7 +154,7 @@ def _plan_schema(days: int, max_picks: int) -> dict:
                     "type": "object",
                     "additionalProperties": False,
                     "properties": {
-                        "picks": {"type": "array", "minItems": 1, "maxItems": max_picks, "items": pick},
+                        "picks": {"type": "array", "minItems": 0, "maxItems": max_picks, "items": pick},
                     },
                     "required": ["picks"],
                 },
@@ -341,6 +341,9 @@ async def _ask_model(prompt: str, schema: dict, on_tokens=None) -> tuple[dict, s
             on_request=coach_budget.on_request,
             model=model_name,
             thinking_budget=budget,
+            # One transient retry per model: with the fallback that is at most four HTTP
+            # requests for a plan, however badly Gemini is doing.
+            max_requests=2,
         )
 
     first = (gemini.plan_model(), PLAN_THINKING_BUDGET)
@@ -383,6 +386,10 @@ async def _generate_plan(
 
     on_tokens(count) and on_phase(message) are optional async progress callbacks."""
     rows, skeleton, prompt = await _prepare(conn, profile, catalog, goal, days, focus_note, notes)
+    if not any(d["slots"] for d in skeleton):
+        # Nothing to choose from (an empty library, or pain ruling out everything):
+        # don't spend a request; the job reports that no usable exercises came back.
+        return {"title": "", "summary": "", "goal": goal, "days_per_week": days, "days": []}, [], ""
     schema = _plan_schema(days, max((len(d["slots"]) for d in skeleton), default=1))
 
     if on_phase:
@@ -390,17 +397,10 @@ async def _generate_plan(
     raw, model_used = await _ask_model(prompt, schema, on_tokens)
 
     name_map, norm_map = await name_to_id_map(conn)
-    plan, dropped = assemble_plan(skeleton, raw, goal, days, name_map, norm_map, rows, profile, focus_note)
+    plan, dropped = assemble_plan(skeleton, raw, goal, days, name_map, norm_map, rows, profile, focus_note,
+                                  allow_outside=bool(focus_note.strip() or notes))
     if dropped:
-        logging.info("coach: %d pick(s) replaced by the slot default: %s", len(dropped), ", ".join(dropped))
-
-    # Last line of defence against weekly over-repetition (e.g. the model picked the
-    # same accessory on every day); a swapped exercise gets fresh targets.
-    before = copy.deepcopy(plan)
-    plan, swaps = repair_plan(plan, name_map)
-    if swaps:
-        annotate_targets(plan, before, profile, rows)
-        logging.info("coach: repaired repetitive plan — %s", "; ".join(swaps))
+        logging.info("coach: %d pick(s) replaced by a candidate: %s", len(dropped), ", ".join(dropped))
     return plan, dropped, model_used
 
 

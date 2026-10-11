@@ -1739,6 +1739,12 @@ function onRoutineSelect(val) {
   if (val === '') { clearRoutine(); return; }
   _populateMuscleDropdown(_routines[parseInt(val)].exercises);
   _updateChipsAndDatalist();
+  _refreshTarget();
+}
+// The Target line belongs to the selected routine: redraw it when the routine changes.
+function _refreshTarget() {
+  const id = parseInt(document.getElementById('exercise-id').value);
+  _showTarget(id ? {id} : null);
 }
 function clearRoutine() {
   document.getElementById('routine-select').value = '';
@@ -1746,6 +1752,7 @@ function clearRoutine() {
   document.getElementById('muscle-group-select').value = '';
   _populateMuscleDropdown(exercises);
   _updateChipsAndDatalist();
+  _refreshTarget();
 }
 function onMuscleGroupSelect(val) { selectedMuscleGroup = val; _updateChipsAndDatalist(); }
 function clearMuscleGroup() {

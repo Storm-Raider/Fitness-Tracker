@@ -330,6 +330,7 @@ async def chat_json(
     model: str | None = None,
     on_request: "object | None" = None,
     thinking_budget: int | None = None,
+    max_requests: int | None = None,
 ) -> dict:
     """A single user message in, parsed JSON out: chat_turn_json() with the
     plan-generation retry policy (transient failures retried, long timeout)."""
@@ -337,6 +338,7 @@ async def chat_json(
         system, [user_turn(user)], schema,
         temperature=temperature, timeout=timeout, on_tokens=on_tokens,
         model=model, on_request=on_request, thinking_budget=thinking_budget,
+        max_requests=max_requests,
     )
 
 
@@ -351,6 +353,7 @@ async def generate_json(
     model: str | None = None,
     on_request: "object | None" = None,
     thinking_budget: int | None = None,
+    max_requests: int | None = None,
 ) -> tuple[dict, str]:
     """chat_json() plus the model name actually used — callers that record which
     model produced a result (e.g. coach_plans.model) store the returned name."""
@@ -359,5 +362,6 @@ async def generate_json(
         system, user, schema,
         temperature=temperature, timeout=timeout, on_tokens=on_tokens,
         model=model_name, on_request=on_request, thinking_budget=thinking_budget,
+        max_requests=max_requests,
     )
     return result, model_name

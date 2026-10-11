@@ -197,6 +197,23 @@ async def test_an_edit_recomputes_targets_of_changed_exercises_only(client, db, 
 
 
 @pytest.mark.asyncio
+async def test_a_day_the_model_resends_unchanged_keeps_its_targets(client, db, monkeypatch):
+    pid, plan = await seed_plan(db)
+    for d in plan["days"]:
+        for e in d["exercises"]:
+            e.update({"rir": 2, "rest_sec": 120, "load_kg": 50.0, "progression": "marker"})
+    await db.execute("UPDATE coach_plans SET plan_json = ? WHERE id = ?", (json.dumps(plan), pid))
+    await ack(client)
+    same_day1 = day(1, "Push", ("Bench Press", 4, "8", "a"), ("Overhead Press", 3, "10", "b"))
+    use(monkeypatch, result=reply("Done.", [same_day1, SWAP]))
+    d = (await say(client, pid)).json()
+    assert d["changed_days"] == [2]
+    assert d["plan"]["days"][0] == plan["days"][0]           # re-sent unchanged: targets intact
+    stored, *_ = await plan_state(db, pid)
+    assert stored["days"][0]["exercises"][0]["load_kg"] == 50.0
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize("result", [reply("Because Romanian deadlifts hit your hamstrings."),
                                     reply("Kept it.", [day(1, "Push", ("Bench Press", 4, "8", "a"), ("Overhead Press", 3, "10", "b"))])])
 async def test_a_question_or_a_no_op_patch_saves_the_conversation_but_not_the_plan(client, db, monkeypatch, result):

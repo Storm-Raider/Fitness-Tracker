@@ -161,9 +161,10 @@ Gemini errors are retried automatically.
 
 **Free-tier quota:** Gemini's free tier caps requests per model per day (it was
 20/day for `gemini-3.8-flash` when this was set up; see your limits at
-<https://ai.dev/rate-limit>). A routine normally uses 1 request and never more
-than 2. When the plan model's quota runs out, plans fall back to `GEMINI_MODEL`,
-which has its own quota. Nothing is generated in the background.
+<https://ai.dev/rate-limit>). A routine normally uses 1 request; when Gemini is
+struggling, retries and the fallback are capped at 4. When the plan model's quota
+runs out, plans fall back to `GEMINI_MODEL`, which has its own quota. Nothing is
+generated in the background.
 
 **Coach chat:** each plan can have a conversation with the coach: ask a
 question, or ask for a change ("swap squats for leg press", "day 2 is too long",

@@ -285,11 +285,12 @@ async def chat_turn(plan_id: int, body: ChatIn, conn: aiosqlite.Connection = Dep
         if editable and reply.days:
             name_map, norm_map = await name_to_id_map(conn)
             result = coach_chat.apply_patch(plan, reply.days, name_map, norm_map)
-            if result.changed_days:
-                # Sets, reps and names come from the model; the targets of anything it
-                # changed are recomputed in code (the cached profile ask_coach just built).
+            if result.applied_days:
+                # Every day the model sent was rebuilt from its names, sets and reps only, so
+                # targets are restored for all of them: kept where nothing changed,
+                # recomputed in code where it did (the cached profile ask_coach just built).
                 annotate_targets(result.plan, plan, await build_profile(conn, uid), await exercise_rows(conn),
-                                 only_days=result.changed_days)
+                                 only_days=result.applied_days)
             extra = coach_chat.unapplied_note(result)
             if extra:
                 reply_text = f"{reply_text} {extra}"[: coach_chat.MAX_REPLY_CHARS + 200]
