@@ -151,6 +151,19 @@ async def list_workouts(
         workouts = [dict(r) for r in await cur.fetchall()]
 
     active_workout = next((w for w in workouts if w["ended_at"] is None), None)
+    if active_workout is None and search:
+        # A search can filter the live session out of the list; it is still
+        # live, so the page keeps its Resume card and the start-anyway warning.
+        async with conn.execute(
+            """SELECT w.id, w.started_at, w.ended_at, w.notes,
+                      (SELECT COUNT(*) FROM sets s WHERE s.workout_id = w.id) AS set_count,
+                      CAST(ROUND((JULIANDAY('now','localtime') - JULIANDAY(w.started_at)) * 1440) AS INTEGER) AS elapsed_min
+               FROM workouts w WHERE w.user_id = ? AND w.ended_at IS NULL
+               ORDER BY w.started_at DESC LIMIT 1""",
+            (uid,),
+        ) as cur:
+            row = await cur.fetchone()
+        active_workout = dict(row) if row else None
     return render(request, "workout_list", {
         "workouts": workouts,
         "active_workout": active_workout,

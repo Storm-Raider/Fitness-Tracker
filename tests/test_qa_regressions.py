@@ -146,3 +146,17 @@ async def test_finished_cardio_only_session_is_listed(client, db):
     assert (await client.post(f"/workouts/{w}/finish")).status_code == 200
     page = (await client.get("/workouts", headers={"Accept": "text/html"})).text
     assert f'href="/workouts/{w}"' in page
+
+
+# Regression: ISSUE-008 — searching Sessions hid the live session (start without warning)
+@pytest.mark.asyncio
+async def test_search_keeps_the_live_session_resume_card(client):
+    ex = (await client.post("/exercises", json={"name": "Searchable Lift"})).json()["id"]
+    done = (await client.post("/workouts", json={})).json()["id"]
+    await client.post(f"/workouts/{done}/sets", json={"exercise_id": ex, "reps": 5, "weight_kg": 50})
+    await client.post(f"/workouts/{done}/finish")
+    live = (await client.post("/workouts", json={})).json()["id"]          # nothing logged yet
+    page = (await client.get("/workouts?q=searchable", headers={"Accept": "text/html"})).text
+    assert f'href="/workouts/{done}"' in page
+    assert "Resume session" in page and 'onclick="startSession(this)"' not in page
+    assert f"_activeWorkoutId = {live}" in page
