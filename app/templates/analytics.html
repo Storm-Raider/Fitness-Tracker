@@ -252,8 +252,8 @@
           <th>PR weight</th>
           <th>Est. 1RM</th>
           <th class="spark-cell" title="12-week e1RM trend">Trend</th>
-          <th>Sessions</th>
-          <th>Sets</th>
+          <th class="col-wide">Sessions</th>
+          <th class="col-wide">Sets</th>
           <th>PR set</th>
         </tr>
       </thead>
@@ -277,8 +277,8 @@
           <td class="spark-cell">
             <canvas class="spark" data-id="{{ r.id }}" width="52" height="24"></canvas>
           </td>
-          <td class="num">{{ r.sessions }}</td>
-          <td class="num" style="color:var(--muted);">{{ r.total_sets }}</td>
+          <td class="num col-wide">{{ r.sessions }}</td>
+          <td class="num col-wide" style="color:var(--muted);">{{ r.total_sets }}</td>
           <td style="white-space:nowrap;">
             <span class="{% if r.days_ago is not none and r.days_ago <= 30 %}pr-age-fresh{% elif r.days_ago is not none and r.days_ago <= 90 %}pr-age-mid{% else %}pr-age-old{% endif %}"
                   style="font-size:0.8125rem;font-weight:600;"

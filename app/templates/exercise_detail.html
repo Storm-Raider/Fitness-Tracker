@@ -163,8 +163,8 @@ document.getElementById('goal-input')?.addEventListener('keydown', e => { if(e.k
       <tr>
         <th>Date</th>
         <th>Top weight</th>
-        <th>Est. 1RM</th>
-        <th>Sets</th>
+        <th class="col-wide">Est. 1RM</th>
+        <th class="col-wide">Sets</th>
         <th>Volume</th>
       </tr>
     </thead>
@@ -179,8 +179,8 @@ document.getElementById('goal-input')?.addEventListener('keydown', e => { if(e.k
           <span class="badge badge-pr" role="img" aria-label="Personal record" style="margin-left:0.35rem;vertical-align:middle;">PR</span>
           {% endif %}
         </td>
-        <td class="num" style="white-space:nowrap;"><span class="weight-display" data-kg="{{ one_rm }}">{{ one_rm }} kg</span></td>
-        <td class="num">{{ s.set_count }}</td>
+        <td class="num col-wide" style="white-space:nowrap;"><span class="weight-display" data-kg="{{ one_rm }}">{{ one_rm }} kg</span></td>
+        <td class="num col-wide">{{ s.set_count }}</td>
         <td class="num" style="color:var(--muted);white-space:nowrap;">
           <span class="weight-display" data-kg="{{ s.volume_kg }}">{{ "{:,.0f}".format(s.volume_kg) }} kg</span>
         </td>

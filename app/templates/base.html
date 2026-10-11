@@ -621,6 +621,9 @@
     tbody tr:hover td { background: var(--surface-2); }
     /* PR cell highlight */
     td.cell-pr { color: var(--pr); }
+    /* Secondary columns drop out on a phone, so a table fits its card instead
+       of cutting a number in half at the edge. */
+    @media (max-width: 559px) { .col-wide { display: none; } }
 
     /* ── Badges ──────────────────────────────────────── */
     .badge {
