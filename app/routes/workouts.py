@@ -272,6 +272,17 @@ async def get_workout(
 
     started_at_ms = int(datetime.fromisoformat(row["started_at"]).timestamp() * 1000)
 
+    # A finished session offers "Repeat"; it asks first if another is still open.
+    active_workout_id = None
+    if is_finished:
+        async with conn.execute(
+            "SELECT id FROM workouts WHERE user_id = ? AND ended_at IS NULL "
+            "ORDER BY started_at DESC LIMIT 1",
+            (current_user["id"],),
+        ) as cur:
+            _active = await cur.fetchone()
+        active_workout_id = _active["id"] if _active else None
+
     return templates.TemplateResponse(request, "workout_form.html", {
         "workout": dict(row),
         "sets": sets,
@@ -284,6 +295,7 @@ async def get_workout(
         "enrichment": enrichment,
         "latest_bodyweight": latest_bodyweight,
         "started_at_ms": started_at_ms,
+        "active_workout_id": active_workout_id,
     })
 
 

@@ -31,22 +31,6 @@
   .wl-stat-lbl { font-size: 0.8125rem; font-weight: 600; color: var(--muted); }
   .wl-preview { color: var(--muted); font-size: 0.875rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .wl-chev { color: var(--muted); flex-shrink: 0; }
-  .wl-act {
-    flex-shrink: 0;
-    width: 48px;
-    background: transparent;
-    border: none;
-    border-left: 1px solid var(--border);
-    color: var(--muted);
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: color 0.15s, background 0.15s;
-  }
-  .wl-act:hover { color: var(--text); background: var(--accent-dim); }
-  .wl-act.wl-del:hover { color: var(--danger); background: var(--danger-dim); }
-  .wl-act:disabled { opacity: 0.5; cursor: default; }
   .wl-q { font-size: 0.875rem; color: var(--muted); margin-bottom: 0.75rem; }
   .wl-q a, .wl-empty a { color: var(--text); text-decoration: underline; text-underline-offset: 2px; font-weight: 600; }
   @media (max-width: 767px) {
@@ -96,21 +80,7 @@
       </div>
       {% endif %}
     </a>
-    {% if w.set_count > 0 and w.ended_at %}
-    <button onclick="repeatWorkout({{ w.id }}, this)" class="wl-act"
-      title="Repeat this workout" aria-label="Repeat this workout">
-      <i data-lucide="repeat-2" style="width:18px;height:18px;pointer-events:none;"></i>
-    </button>
-    {% endif %}
-    <button
-      hx-delete="/workouts/{{ w.id }}"
-      hx-target="#workout-{{ w.id }}"
-      hx-swap="outerHTML"
-      hx-confirm="Delete this workout{% if w.set_count > 0 %} and its {{ w.set_count }} set{{ 's' if w.set_count != 1 }}{% endif %}? You can undo this."
-      class="wl-act wl-del"
-      title="Delete workout" aria-label="Delete workout">
-      <i data-lucide="trash-2" style="width:18px;height:18px;pointer-events:none;"></i>
-    </button>
+    {# Repeat and delete live on the session's own page, not on every row. #}
   </div>
   {% endfor %}
 </div>

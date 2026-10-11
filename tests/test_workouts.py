@@ -462,3 +462,22 @@ async def test_api_exercises_flags_time(client):
     bench = next((e for e in data["exercises"] if e["name"] == "Bench Press"), None)
     assert plank is not None and plank["is_time"] is True
     assert bench is not None and bench["is_time"] is False
+
+
+@pytest.mark.asyncio
+async def test_repeat_and_delete_live_on_the_session_page_not_the_list(client):
+    """The session list rows carry no repeat/trash icons; the finished session
+    page offers Repeat (and already has Delete)."""
+    ex_id = (await client.post("/exercises", json={"name": "Row Icons Test"})).json()["id"]
+    w = (await client.post("/workouts", json={"notes": None})).json()["id"]
+    await client.post(f"/workouts/{w}/sets", json={"exercise_id": ex_id, "reps": 5, "weight_kg": 50.0})
+    await client.post(f"/workouts/{w}/finish")
+    page = (await client.get("/workouts", headers={"Accept": "text/html"})).text
+    assert f'hx-delete="/workouts/{w}"' not in page and "repeatWorkout(" not in page
+    detail = (await client.get(f"/workouts/{w}", headers={"Accept": "text/html"})).text
+    assert "Repeat this session" in detail and 'aria-label="Delete workout"' in detail
+    assert "showConfirm('You have a session in progress" not in detail   # nothing else open
+
+    await client.post("/workouts", json={"notes": None})                # now one is open
+    detail = (await client.get(f"/workouts/{w}", headers={"Accept": "text/html"})).text
+    assert "showConfirm('You have a session in progress" in detail

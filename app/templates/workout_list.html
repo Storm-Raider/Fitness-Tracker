@@ -48,28 +48,6 @@ const _activeWorkoutId = {{ active_workout.id }};
 const _activeWorkoutId = null;
 {% endif %}
 
-async function repeatWorkout(sourceId, btn) {
-  btn.disabled = true;
-  let resp;
-  try {
-    resp = await fetch('/workouts', {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({notes: null})
-    });
-  } catch (e) {
-    btn.disabled = false;
-    alert('No connection: the session was not started. Check your signal and try again.');
-    return;
-  }
-  if (resp.ok) {
-    const data = await resp.json();
-    window.location.href = `/workouts/${data.id}?repeat=${sourceId}`;
-  } else {
-    btn.disabled = false;
-  }
-}
-
 // Scroll to week when arriving from stats chart click
 (function() {
   var from = new URLSearchParams(window.location.search).get('from');
