@@ -252,3 +252,18 @@ async def test_analytics_week_across_new_year_keeps_all_its_days(client, db, mon
     weeks = json.loads(re.search(r"const DATA\s*=\s*(\[.*?\]);", page, re.S).group(1))
     by_start = {w["week_start"]: w["volume"] for w in weeks}
     assert by_start["2026-12-28"] == 1500.0 and weeks[-1]["week_start"] == "2027-01-04"
+
+
+# Regression: ISSUE-013 — changing the password left every other session signed in
+@pytest.mark.asyncio
+async def test_password_change_signs_out_other_devices_only(client, db):
+    from tests.conftest import _seed_session
+    await _seed_session(db, user_id=1, sid="other-device")
+    r = await client.post("/settings/password", data={
+        "current_password": "test-password", "new_password": "brand-new-pass-1",
+        "new_password_confirm": "brand-new-pass-1"}, follow_redirects=False)
+    assert r.status_code == 303
+    async with db.execute("SELECT id FROM sessions WHERE user_id = 1") as c:
+        left = {row["id"] for row in await c.fetchall()}
+    assert "other-device" not in left and left            # this device stays signed in
+    assert (await client.get("/settings", headers={"Accept": "text/html"})).status_code == 200

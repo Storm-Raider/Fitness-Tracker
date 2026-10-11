@@ -92,6 +92,7 @@ class _AuthMiddleware(BaseHTTPMiddleware):
                                     sid = None  # revoked or expired
                     if sid:
                         request.state.user_id = payload["user_id"]
+                        request.state.sid = sid   # a password change keeps only this session
                         return await call_next(request)
             except (BadSignature, SignatureExpired):
                 pass
