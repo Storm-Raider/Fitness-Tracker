@@ -475,7 +475,9 @@ async def _run(args) -> int:
         return 2
 
     requests = 0
-    real_generate, real_turn = gemini.generate_json, gemini.chat_turn_json
+    # Count at the request core only: generate_json() goes through chat_turn_json(), so
+    # wrapping both would count every plan request twice.
+    real_turn = gemini.chat_turn_json
 
     def _count():
         nonlocal requests
@@ -483,15 +485,11 @@ async def _run(args) -> int:
         if requests > args.max_requests:
             raise RuntimeError(f"request budget exhausted ({args.max_requests}); raise --max-requests to continue")
 
-    async def counting_generate(*a, **k):
-        _count()
-        return await real_generate(*a, **k)
-
     async def counting_turn(*a, **k):
         _count()
         return await real_turn(*a, **k)
 
-    gemini.generate_json, gemini.chat_turn_json = counting_generate, counting_turn
+    gemini.chat_turn_json = counting_turn
 
     async def no_budget():
         return None      # the eval has its own --max-requests guard; the app's daily counter is not touched
@@ -575,7 +573,7 @@ async def _run(args) -> int:
                   f"req={sum(r['requests'] for r in runs)}{('  -> ' + detail) if detail else ''}")
     finally:
         await conn.close()
-        gemini.generate_json, gemini.chat_turn_json = real_generate, real_turn
+        gemini.chat_turn_json = real_turn
 
     if args.dry_run:
         return 0
