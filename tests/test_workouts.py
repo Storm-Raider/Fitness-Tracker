@@ -203,15 +203,16 @@ async def test_workout_list_shows_resume_when_active(client):
     await client.post("/workouts", json={"notes": None})
     resp = await client.get("/workouts", headers={"Accept": "text/html"})
     assert resp.status_code == 200
-    assert b"Resume Session" in resp.content
+    assert b"Resume session" in resp.content
+    assert b"Start session" not in resp.content
 
 
 @pytest.mark.asyncio
 async def test_workout_list_shows_start_when_no_active(client):
     resp = await client.get("/workouts", headers={"Accept": "text/html"})
     assert resp.status_code == 200
-    assert b"Start Session" in resp.content
-    assert b"Resume Session" not in resp.content
+    assert b"Start session" in resp.content
+    assert b"Resume session" not in resp.content
 
 
 @pytest.mark.asyncio

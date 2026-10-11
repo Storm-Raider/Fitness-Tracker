@@ -9,13 +9,12 @@
     <div class="subtitle"><span class="num">{{ completed_count }}</span> session{{ 's' if completed_count != 1 }} logged</div>
     {% endif %}
   </div>
+  {# One way back into a live session: the card below, not a second header button. #}
+  {% if not active_workout %}
   <div>
-    {% if active_workout %}
-    <a href="/workouts/{{ active_workout.id }}" class="btn btn-primary" style="min-height:56px;padding:0 1.4rem;border-radius:var(--radius);font-size:1rem;">Resume Session →</a>
-    {% else %}
-    <button class="btn btn-primary" style="min-height:56px;padding:0 1.4rem;border-radius:var(--radius);font-size:1rem;" onclick="startSession(this)">Start Session</button>
-    {% endif %}
+    <button class="btn btn-primary" style="min-height:56px;padding:0 1.4rem;border-radius:var(--radius);font-size:1rem;" onclick="startSession(this)">Start session</button>
   </div>
+  {% endif %}
 </div>
 
 {% if active_workout %}
@@ -27,7 +26,7 @@
       <div style="font-size:0.875rem;color:var(--muted);margin-top:0.1rem;">{{ 'Ready to log' if active_workout.set_count == 0 else (active_workout.set_count ~ ' set' ~ ('s' if active_workout.set_count != 1 else '')) }} · <span class="num">{{ active_workout.elapsed_min }} min</span> elapsed</div>
     </div>
   </div>
-  <a href="/workouts/{{ active_workout.id }}" class="btn btn-ghost" style="flex-shrink:0;">Continue →</a>
+  <a href="/workouts/{{ active_workout.id }}" class="btn btn-primary" style="flex-shrink:0;min-height:56px;">Resume session</a>
 </div>
 {% endif %}
 
@@ -131,7 +130,7 @@ async function _doStartSession(btn) {
     });
   } catch (e) {
     btn.disabled = false;
-    btn.textContent = 'Start Session';
+    btn.textContent = 'Start session';
     alert('No connection: the session was not started. Check your signal and try again.');
     return;
   }
@@ -140,7 +139,7 @@ async function _doStartSession(btn) {
     window.location.href = '/workouts/' + data.id;
   } else {
     btn.disabled = false;
-    btn.textContent = 'Start Session';
+    btn.textContent = 'Start session';
     alert('Failed to start session');
   }
 }

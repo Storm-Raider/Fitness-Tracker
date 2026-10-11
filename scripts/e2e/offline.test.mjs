@@ -145,15 +145,15 @@ const modes = await page.evaluate(() => ['weight-input', 'reps-input', 'cardio-d
   .map(id => document.getElementById(id)?.getAttribute('inputmode')));
 check('Numeric fields set inputmode', modes[0] === 'decimal' && modes[1] === 'numeric' && modes[2] === 'decimal' && modes[3] === 'decimal', JSON.stringify(modes));
 
-// ── 8. Start Session while offline ───────────────────────────────────────
+// ── 8. Start session while offline ───────────────────────────────────────
 await page.goto(BASE + '/workouts', { waitUntil: 'networkidle' });
 await ctx.setOffline(true);
 const startBtn = await page.evaluate(async () => {
-  const b = document.createElement('button'); b.textContent = 'Start Session'; document.body.appendChild(b);
+  const b = document.createElement('button'); b.textContent = 'Start session'; document.body.appendChild(b);
   await _doStartSession(b).catch(() => {});
   return { disabled: b.disabled, text: b.textContent.trim() };
 });
-check('Start Session offline recovers the button', !startBtn.disabled && startBtn.text === 'Start Session', JSON.stringify(startBtn));
+check('Start session offline recovers the button', !startBtn.disabled && startBtn.text === 'Start session', JSON.stringify(startBtn));
 await ctx.setOffline(false);
 
 // ── 9a. The login page clears saved pages (next person can't see them) ───
