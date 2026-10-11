@@ -1,9 +1,9 @@
 {% extends "base.html" %}
-{% block title %}Body Metrics — Zenkai{% endblock %}
+{% block title %}Body metrics — Zenkai{% endblock %}
 {% block content %}
 <div class="page-hd">
   <div>
-    <h1>Body Metrics</h1>
+    <h1>Body metrics</h1>
     <div class="subtitle">Weight, measurements & BMI</div>
   </div>
   <button id="body-unit-toggle" onclick="window.toggleBodyUnit && window.toggleBodyUnit()"
@@ -13,22 +13,14 @@
 </div>
 
 <style>
-.tab-bar { display:flex; gap:0.25rem; margin-bottom:1.25rem; border-bottom:1px solid var(--border); }
-.tab-btn {
-  background:transparent; border:none; border-bottom:2px solid transparent;
-  color:var(--muted); font-family:inherit; font-size:0.875rem; font-weight:600;
-  padding:0.5rem 0.85rem 0.6rem; cursor:pointer; min-height:44px;
-  transition:color 0.15s, border-color 0.15s; margin-bottom:-1px;
-}
-.tab-btn:hover { color:var(--text); }
-.tab-btn.active { color:var(--text); border-bottom-color:var(--text); }
+.tab-bar { margin-bottom:1.25rem; }
 .tab-panel { display:none; }
 .tab-panel.active { display:block; }
 </style>
 
-<div class="tab-bar">
-  <button class="tab-btn active" onclick="switchTab('weight', this)">Weight</button>
-  <button class="tab-btn" onclick="switchTab('measurements', this)">Measurements</button>
+<div class="seg-toggle tab-bar" role="group" aria-label="Show">
+  <button type="button" class="tab-btn" aria-pressed="true" onclick="switchTab('weight', this)">Weight</button>
+  <button type="button" class="tab-btn" aria-pressed="false" onclick="switchTab('measurements', this)">Measurements</button>
 </div>
 
 {# ═══════════════════ TAB 1: WEIGHT ═══════════════════ #}
@@ -72,7 +64,7 @@
     data: tok('--data', '#141414'), avg: tok('--muted', '#5d5d58'), grid: tok('--border', '#dddcd6'),
     axis: tok('--muted', '#5d5d58'), ring: tok('--ring', '#8f8e88'), surface: tok('--surface', '#ffffff'),
   };
-  const AXIS_FONT = "600 13px 'Atkinson Hyperlegible Next', system-ui, sans-serif";
+  const AXIS_FONT = window.CHART_AXIS_FONT;
 
   function xAt(i, W, n) { return PL + (n <= 1 ? (W-PL-PR)/2 : (i/(n-1))*(W-PL-PR)); }
 
@@ -141,7 +133,7 @@
       if (isH) { ctx.strokeStyle=C.surface; ctx.lineWidth=2; ctx.stroke(); }
     });
 
-    const dates = RAW.map(r => r.date.slice(5));
+    const dates = RAW.map(r => window.fmtShortDate(r.date));
     ctx.fillStyle=C.axis; ctx.font=AXIS_FONT;
     // newest date always labelled; others only where a 13px label fits (70px apart)
     const lbls = (() => { const o = []; let last = Infinity; for (let i = n - 1; i >= 0; i--) { const x = gx(i); if (last - x >= 70) { o.push(i); last = x; } } return o; })();
@@ -218,7 +210,7 @@
       </div>
       <div id="metric-error" class="flash flash-error" style="display:none;"></div>
       <div id="metric-success" class="flash flash-success" style="display:none;">Entry logged.</div>
-      <button class="btn btn-primary" style="width:100%;min-height:56px;" onclick="logMetric()">Log Entry</button>
+      <button class="btn btn-primary" style="width:100%;min-height:56px;" onclick="logMetric()">Log entry</button>
     </div>
 
     <div class="card">
@@ -471,7 +463,7 @@ async function logMetric() {
       </div>
       <div id="meas-error" class="flash flash-error" style="display:none;"></div>
       <div id="meas-success" class="flash flash-success" style="display:none;">Measurement logged.</div>
-      <button class="btn btn-primary" style="width:100%;min-height:56px;" onclick="logMeasurement()">Log Measurement</button>
+      <button class="btn btn-primary" style="width:100%;min-height:56px;" onclick="logMeasurement()">Log measurement</button>
     </div>
   </div>
 
@@ -539,7 +531,7 @@ async function logMetric() {
     grid: tok('--border', '#dddcd6'), axis: tok('--muted', '#5d5d58'),
     ring: tok('--ring', '#8f8e88'), surface: tok('--surface', '#ffffff'), other: tok('--ring', '#8f8e88'),
   };
-  const AXIS_FONT = "600 13px 'Atkinson Hyperlegible Next', system-ui, sans-serif";
+  const AXIS_FONT = window.CHART_AXIS_FONT;
 
   const canvas = document.getElementById('meas-chart');
   if (!canvas) return;
@@ -644,7 +636,7 @@ async function logMetric() {
     const lblIdxs = (() => { const o = []; let last = Infinity; for (let i = n - 1; i >= 0; i--) { const x = xAt(i, W); if (last - x >= 70) { o.push(i); last = x; } } return o; })();
     lblIdxs.forEach(i => {
       ctx.textAlign = i===0?'left':i===n-1?'right':'center';
-      ctx.fillText(allDates[i].slice(5), xAt(i, W), H-3);
+      ctx.fillText(window.fmtShortDate(allDates[i]), xAt(i, W), H-3);
     });
   }
 
@@ -756,9 +748,8 @@ async function logMeasurement() {
 <script>
 function switchTab(name, btn) {
   document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
-  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.setAttribute('aria-pressed', String(b === btn)));
   document.getElementById('tab-' + name).classList.add('active');
-  btn.classList.add('active');
   // Re-trigger canvas draws after tab becomes visible
   window.dispatchEvent(new Event('resize'));
 }

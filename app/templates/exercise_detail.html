@@ -1,6 +1,10 @@
 {% extends "base.html" %}
 {% block title %}{{ exercise.name }} — Zenkai{% endblock %}
 {% block content %}
+{% from "partials/bw_best.html" import bw_best %}
+{# Bodyweight exercises rank sets by added load, hold and reps, never by the
+   lifter's bodyweight (pr_utils.bw_key); a timed one (plank) charts its hold. #}
+{% set bw_timed = is_bw and bw and bw.secs %}
 <div style="margin-bottom:1rem;padding-top:0.5rem;">
   <a href="/exercises" style="color:var(--muted);font-size:0.875rem;font-weight:600;display:inline-flex;align-items:center;gap:0.35rem;min-height:44px;transition:color 0.15s;"
      onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='var(--muted)'">
@@ -12,7 +16,9 @@
 <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:1.5rem;margin-bottom:1.5rem;flex-wrap:wrap;">
   <div>
     <h1 style="font-family:var(--f-display);font-size:1.7rem;font-weight:800;margin-bottom:0.3rem;">{{ exercise.name }}</h1>
-    {% if pr_kg %}
+    {% if is_bw and bw %}
+    <span class="badge badge-pr num" style="font-size:0.875rem;">Best: {{ bw_best(bw) }}</span>
+    {% elif pr_kg and not is_bw %}
     <span class="badge badge-pr" style="font-size:0.875rem;">PR: <span class="weight-display" data-kg="{{ pr_kg }}">{{ pr_kg }} kg</span></span>
     {% endif %}
     {% if exercise.category or exercise.equipment or exercise.muscles %}
@@ -33,11 +39,19 @@
       <div style="font-size:0.8125rem;font-weight:600;color:var(--muted);margin-top:0.25rem;">Sets</div>
     </div>
     <div style="width:1px;background:var(--border);"></div>
+    {% if not is_bw %}
     <div style="text-align:center;">
       <div class="num" style="font-size:1.9rem;line-height:1;"><span class="weight-display" data-kg="{{ total_volume }}">{{ "{:,.0f}".format(total_volume) }} kg</span></div>
       <div style="font-size:0.8125rem;font-weight:600;color:var(--muted);margin-top:0.25rem;">Volume</div>
     </div>
     <div style="width:1px;background:var(--border);"></div>
+    {% elif not bw_timed %}
+    <div style="text-align:center;">
+      <div class="num" style="font-size:1.9rem;line-height:1;">{{ "{:,}".format(sessions | sum(attribute='total_reps')) }}</div>
+      <div style="font-size:0.8125rem;font-weight:600;color:var(--muted);margin-top:0.25rem;">Reps</div>
+    </div>
+    <div style="width:1px;background:var(--border);"></div>
+    {% endif %}
     <div style="text-align:center;">
       <div class="num" style="font-size:1.9rem;line-height:1;">{{ sessions|length }}</div>
       <div style="font-size:0.8125rem;font-weight:600;color:var(--muted);margin-top:0.25rem;">Sessions</div>
@@ -46,6 +60,7 @@
   {% endif %}
 </div>
 
+{% if not is_bw %}{# a weight goal means nothing when the weight is your bodyweight #}
 {% set goal_pct = ((pr_kg / exercise_goal_kg * 100) | round | int) if exercise_goal_kg and pr_kg else 0 %}
 {% if exercise_goal_kg %}
 <div class="card" style="padding:0.85rem 1.25rem;margin-bottom:1rem;" id="goal-card">
@@ -89,6 +104,7 @@
   </div>
 </div>
 {% endif %}
+{% endif %}
 <script>
 const EX_ID = {{ exercise.id }};
 function toggleExGoal() {
@@ -126,24 +142,24 @@ document.getElementById('goal-input')?.addEventListener('keydown', e => { if(e.k
 </script>
 
 {% if sessions %}
-<style>
-.metric-btn {
-  background: var(--surface); border: 1px solid var(--border); color: var(--muted);
-  border-radius: var(--radius-xs); cursor: pointer; font-family: inherit;
-  font-size: 0.8125rem; font-weight: 600;
-  padding: 0 0.85rem; min-height: 44px; transition: background 0.13s, border-color 0.13s, color 0.13s;
-}
-.metric-btn:hover { color: var(--text); border-color: var(--text); }
-.metric-btn.active { background: var(--text); border-color: var(--text); color: var(--surface); }
-</style>
 <div style="margin-bottom:1.5rem;">
   <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.6rem;flex-wrap:wrap;gap:0.5rem;">
-    <div class="section-title" style="margin-bottom:0;">Weight progression</div>
-    <div style="display:flex;gap:0.25rem;">
-      <button class="metric-btn active" data-metric="weight">Weight</button>
-      <button class="metric-btn" data-metric="orm">Est. 1RM</button>
-      <button class="metric-btn" data-metric="volume">Volume</button>
+    {% if bw_timed %}
+    <div class="section-title" style="margin-bottom:0;">Longest hold</div>
+    {% elif is_bw %}
+    <div class="section-title" style="margin-bottom:0;">Rep progression</div>
+    <div class="seg-toggle" role="group" aria-label="Chart">
+      <button type="button" aria-pressed="true" data-metric="reps">Best set</button>
+      <button type="button" aria-pressed="false" data-metric="treps">Total reps</button>
     </div>
+    {% else %}
+    <div class="section-title" style="margin-bottom:0;">Weight progression</div>
+    <div class="seg-toggle" role="group" aria-label="Chart">
+      <button type="button" aria-pressed="true" data-metric="weight">Weight</button>
+      <button type="button" aria-pressed="false" data-metric="orm">Est. 1RM</button>
+      <button type="button" aria-pressed="false" data-metric="volume">Volume</button>
+    </div>
+    {% endif %}
   </div>
   <div class="card" style="padding:0.85rem 1.25rem 0.65rem;">
     <div id="ex-chart-inner" style="position:relative;">
@@ -162,10 +178,16 @@ document.getElementById('goal-input')?.addEventListener('keydown', e => { if(e.k
     <thead>
       <tr>
         <th>Date</th>
-        <th>Top weight</th>
-        <th>Est. 1RM</th>
+        {% if is_bw %}
+        <th>Best set</th>
         <th>Sets</th>
+        {% if not bw_timed %}<th>Reps</th>{% endif %}
+        {% else %}
+        <th>Top weight</th>
+        <th class="col-wide">Est. 1RM</th>
+        <th class="col-wide">Sets</th>
         <th>Volume</th>
+        {% endif %}
       </tr>
     </thead>
     <tbody>
@@ -173,17 +195,26 @@ document.getElementById('goal-input')?.addEventListener('keydown', e => { if(e.k
       {% set one_rm = (s.max_kg * (1 + (s.max_reps or 1) / 30)) | round(1) %}
       <tr>
         <td style="font-weight:600;white-space:nowrap;">{{ s.date | human_date }}</td>
+        {% if is_bw %}
+        <td class="num" style="white-space:nowrap;">
+          {{ bw_best({'added': s.bw_added, 'reps': s.bw_reps, 'secs': s.bw_secs}) }}
+          {% if s.is_best %}<span class="badge badge-pr" role="img" aria-label="Best set" style="margin-left:0.35rem;vertical-align:middle;">Best</span>{% endif %}
+        </td>
+        <td class="num">{{ s.set_count }}</td>
+        {% if not bw_timed %}<td class="num" style="color:var(--muted);">{{ s.total_reps }}</td>{% endif %}
+        {% else %}
         <td class="num" style="white-space:nowrap;">
           <span class="weight-display" data-kg="{{ s.max_kg }}">{{ s.max_kg }} kg</span>
           {% if s.max_kg == pr_kg %}
           <span class="badge badge-pr" role="img" aria-label="Personal record" style="margin-left:0.35rem;vertical-align:middle;">PR</span>
           {% endif %}
         </td>
-        <td class="num" style="white-space:nowrap;"><span class="weight-display" data-kg="{{ one_rm }}">{{ one_rm }} kg</span></td>
-        <td class="num">{{ s.set_count }}</td>
+        <td class="num col-wide" style="white-space:nowrap;"><span class="weight-display" data-kg="{{ one_rm }}">{{ one_rm }} kg</span></td>
+        <td class="num col-wide">{{ s.set_count }}</td>
         <td class="num" style="color:var(--muted);white-space:nowrap;">
           <span class="weight-display" data-kg="{{ s.volume_kg }}">{{ "{:,.0f}".format(s.volume_kg) }} kg</span>
         </td>
+        {% endif %}
       </tr>
       {% endfor %}
     </tbody>
@@ -205,7 +236,8 @@ document.getElementById('goal-input')?.addEventListener('keydown', e => { if(e.k
 <script>
 (function () {
   const RAW    = {{ sessions_json | safe }};
-  const PR_KG  = {{ pr_kg if pr_kg is not none else 'null' }};
+  const PR_KG  = {{ pr_kg if pr_kg is not none and not is_bw else 'null' }};
+  const IS_BW  = {{ 'true' if is_bw else 'false' }};
   if (!RAW.length) return;
 
   // One series at a time, so every metric is the ink --data series; the newest
@@ -216,12 +248,14 @@ document.getElementById('goal-input')?.addEventListener('keydown', e => { if(e.k
     data: tok('--data', '#141414'), pr: tok('--pr', '#8c5a00'), grid: tok('--border', '#dddcd6'),
     axis: tok('--muted', '#5d5d58'), ring: tok('--ring', '#8f8e88'), surface: tok('--surface', '#ffffff'),
   };
-  const AXIS_FONT = "600 13px 'Atkinson Hyperlegible Next', system-ui, sans-serif";
+  const AXIS_FONT = window.CHART_AXIS_FONT;
   const METRICS = { weight: {}, orm: {}, volume: {} };
   // index of the newest session that set the current PR (top weight)
   let prIdx = -1;
   if (PR_KG !== null) RAW.forEach((s, i) => { if (s.max_kg >= PR_KG) prIdx = i; });
-  let metric   = 'weight';
+  if (IS_BW) RAW.forEach((s, i) => { if (s.is_best) prIdx = i; });
+  let metric   = {{ ('hold' if bw_timed else ('reps' if is_bw else 'weight')) | tojson }};
+  const fmtHold = s => `${Math.floor(s / 60)}:${String(Math.round(s % 60)).padStart(2, '0')}`;
   let hoverIdx = -1;
 
   const canvas = document.getElementById('ex-chart');
@@ -234,6 +268,9 @@ document.getElementById('goal-input')?.addEventListener('keydown', e => { if(e.k
 
   function getVals(m) {
     return RAW.map(s => {
+      if (m === 'reps')   return s.bw_reps;
+      if (m === 'treps')  return s.total_reps;
+      if (m === 'hold')   return s.bw_secs || 0;
       if (m === 'weight') return +cvt(s.max_kg).toFixed(1);
       if (m === 'orm')    return +cvt(s.max_kg * (1 + ((s.max_reps || 1) / 30))).toFixed(1);
       return +cvt(s.volume_kg).toFixed(0);
@@ -279,7 +316,7 @@ document.getElementById('goal-input')?.addEventListener('keydown', e => { if(e.k
       ctx.fillStyle = C.axis;
       ctx.font = AXIS_FONT;
       ctx.textAlign = 'right';
-      ctx.fillText(gv >= 100 ? Math.round(gv) : gv.toFixed(1), PL - 4, y + 4);
+      ctx.fillText(metric === 'hold' ? fmtHold(gv) : IS_BW ? Math.round(gv) : gv >= 100 ? Math.round(gv) : gv.toFixed(1), PL - 4, y + 4);
     });
 
     // Area
@@ -310,7 +347,7 @@ document.getElementById('goal-input')?.addEventListener('keydown', e => { if(e.k
 
     // Dots
     vs.forEach((v, i) => {
-      const isHov = i === hoverIdx, isPR = i === prIdx && metric !== 'volume';
+      const isHov = i === hoverIdx, isPR = i === prIdx && metric !== 'volume' && metric !== 'treps';
       const r = isHov || isPR ? 5 : n <= 30 ? 2.8 : 0;
       if (!r) return;
       ctx.beginPath(); ctx.arc(gx(i), gy(v), r, 0, Math.PI * 2);
@@ -319,7 +356,7 @@ document.getElementById('goal-input')?.addEventListener('keydown', e => { if(e.k
     });
 
     // X-axis date labels
-    const dates = RAW.map(s => s.date.slice(5));
+    const dates = RAW.map(s => window.fmtShortDate(s.date));
     ctx.fillStyle = C.axis; ctx.font = AXIS_FONT;
     // newest date always labelled; others only where a 13px label fits (70px apart)
     const labelSet = (() => { const o = []; let last = Infinity; for (let i = n - 1; i >= 0; i--) { const x = gx(i); if (last - x >= 70) { o.push(i); last = x; } } return o; })();
@@ -331,6 +368,22 @@ document.getElementById('goal-input')?.addEventListener('keydown', e => { if(e.k
 
   function showTip(idx) {
     const s  = RAW[idx];
+    if (IS_BW) {
+      const pu = getUnit(), f = pu === 'lbs' ? 2.20462 : 1;
+      const load = s.bw_added ? `BW +${+(s.bw_added * f).toFixed(1)} ${pu}` : 'BW';
+      const best = s.bw_secs ? `${load} · ${fmtHold(s.bw_secs)}` : `${load} × ${s.bw_reps}`;
+      tip.innerHTML =
+        `<div style="font-size:0.8125rem;color:var(--muted);margin-bottom:0.25rem;">${humanDate(s.date)}${s.is_best ? ' <span class="badge badge-pr" role="img" aria-label="Best set" style="vertical-align:middle;">Best</span>' : ''}</div>` +
+        `<div style="display:flex;flex-direction:column;gap:0.1rem;">` +
+        `<span style="color:var(--text);font-size:0.875rem;font-weight:600;">${best} best set</span>` +
+        (s.bw_secs ? '' : `<span style="color:var(--muted-hi);font-size:0.875rem;font-weight:600;">${s.total_reps} reps total</span>`) +
+        `</div>`;
+      tip.style.display = 'block';
+      const W = canvas.offsetWidth, tw = tip.offsetWidth, x = xAt(idx, W, RAW.length);
+      tip.style.left = Math.max(0, Math.min(W - tw, x - tw / 2)) + 'px';
+      tip.style.top  = '4px';
+      return;
+    }
     const pu = getUnit();
     const f  = pu === 'lbs' ? 2.20462 : 1;
     const wt = (s.max_kg * f).toFixed(1);
@@ -378,8 +431,7 @@ document.getElementById('goal-input')?.addEventListener('keydown', e => { if(e.k
     btn.addEventListener('click', () => {
       metric = btn.dataset.metric;
       clearHover();
-      document.querySelectorAll('[data-metric]').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
+      document.querySelectorAll('[data-metric]').forEach(b => b.setAttribute('aria-pressed', String(b === btn)));
     });
   });
 

@@ -203,15 +203,37 @@ async def test_workout_list_shows_resume_when_active(client):
     await client.post("/workouts", json={"notes": None})
     resp = await client.get("/workouts", headers={"Accept": "text/html"})
     assert resp.status_code == 200
-    assert b"Resume Session" in resp.content
+    assert b"Resume session" in resp.content
+    assert b'onclick="startSession(this)"' not in resp.content  # one way in, not two
 
 
 @pytest.mark.asyncio
 async def test_workout_list_shows_start_when_no_active(client):
     resp = await client.get("/workouts", headers={"Accept": "text/html"})
     assert resp.status_code == 200
-    assert b"Start Session" in resp.content
-    assert b"Resume Session" not in resp.content
+    assert b"Start session" in resp.content
+    assert b"Resume session" not in resp.content
+
+
+@pytest.mark.asyncio
+async def test_workout_list_more_counts_exercises_not_sets(client):
+    """Three exercises over nine sets are all listed: no "+more". A fourth
+    exercise adds "+1 more"."""
+    w = (await client.post("/workouts", json={"notes": None})).json()["id"]
+    ids = [(await client.post("/exercises", json={"name": f"More Test {i}"})).json()["id"] for i in range(4)]
+    for ex_id in ids[:3]:
+        for _ in range(3):
+            await client.post(f"/workouts/{w}/sets", json={"exercise_id": ex_id, "reps": 5, "weight_kg": 50.0})
+    await client.post(f"/workouts/{w}/finish")
+    page = (await client.get("/workouts", headers={"Accept": "text/html"})).text
+    assert "More Test 2" in page and "&thinsp;+" not in page
+
+    w2 = (await client.post("/workouts", json={"notes": None})).json()["id"]
+    for ex_id in ids:
+        await client.post(f"/workouts/{w2}/sets", json={"exercise_id": ex_id, "reps": 5, "weight_kg": 50.0})
+    await client.post(f"/workouts/{w2}/finish")
+    page = (await client.get("/workouts", headers={"Accept": "text/html"})).text
+    assert "+1 more" in page
 
 
 @pytest.mark.asyncio
@@ -440,3 +462,22 @@ async def test_api_exercises_flags_time(client):
     bench = next((e for e in data["exercises"] if e["name"] == "Bench Press"), None)
     assert plank is not None and plank["is_time"] is True
     assert bench is not None and bench["is_time"] is False
+
+
+@pytest.mark.asyncio
+async def test_repeat_and_delete_live_on_the_session_page_not_the_list(client):
+    """The session list rows carry no repeat/trash icons; the finished session
+    page offers Repeat (and already has Delete)."""
+    ex_id = (await client.post("/exercises", json={"name": "Row Icons Test"})).json()["id"]
+    w = (await client.post("/workouts", json={"notes": None})).json()["id"]
+    await client.post(f"/workouts/{w}/sets", json={"exercise_id": ex_id, "reps": 5, "weight_kg": 50.0})
+    await client.post(f"/workouts/{w}/finish")
+    page = (await client.get("/workouts", headers={"Accept": "text/html"})).text
+    assert f'hx-delete="/workouts/{w}"' not in page and "repeatWorkout(" not in page
+    detail = (await client.get(f"/workouts/{w}", headers={"Accept": "text/html"})).text
+    assert "Repeat this session" in detail and 'aria-label="Delete workout"' in detail
+    assert "showConfirm('You have a session in progress" not in detail   # nothing else open
+
+    await client.post("/workouts", json={"notes": None})                # now one is open
+    detail = (await client.get(f"/workouts/{w}", headers={"Accept": "text/html"})).text
+    assert "showConfirm('You have a session in progress" in detail

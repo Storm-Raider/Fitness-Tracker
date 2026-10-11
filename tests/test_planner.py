@@ -11,12 +11,12 @@ async def test_planner_page_redirects_to_plan(client):
 
 @pytest.mark.asyncio
 async def test_plan_page_renders(client, monkeypatch):
-    """GET /plan returns 200 with 'Training Plan' in the HTML."""
+    """GET /plan returns 200 with 'Training plan' in the HTML."""
     monkeypatch.delenv("GEMINI_API_KEY", raising=False)
 
     resp = await client.get("/plan", headers={"Accept": "text/html"})
     assert resp.status_code == 200
-    assert "Training Plan" in resp.text
+    assert "Training plan" in resp.text
 
 
 @pytest.mark.asyncio
@@ -212,12 +212,17 @@ async def test_plan_page_includes_routine_ids_for_ai_plans(client, db, monkeypat
 
 
 @pytest.mark.asyncio
-async def test_plan_page_shows_gemini_setup_notice_without_key(client, monkeypatch):
+async def test_plan_page_shows_gemini_setup_notice_without_key(client, admin_client, monkeypatch):
+    """Everyone is told the AI coach is off; only the admin, who runs the
+    server, sees the setup step (an env var means nothing to anyone else)."""
     monkeypatch.delenv("GEMINI_API_KEY", raising=False)
     resp = await client.get("/plan", headers={"Accept": "text/html"})
     assert resp.status_code == 200
-    assert "GEMINI_API_KEY" in resp.text
+    assert "The AI coach is off on this server." in resp.text
+    assert "GEMINI_API_KEY" not in resp.text
     assert "Ollama" not in resp.text
+    admin = await admin_client.get("/plan", headers={"Accept": "text/html"})
+    assert "GEMINI_API_KEY" in admin.text
 
 
 @pytest.mark.asyncio
@@ -225,5 +230,5 @@ async def test_plan_page_hides_setup_notice_with_key(client, monkeypatch):
     monkeypatch.setenv("GEMINI_API_KEY", "test-key")
     resp = await client.get("/plan", headers={"Accept": "text/html"})
     assert resp.status_code == 200
-    assert "Gemini isn't configured" not in resp.text
+    assert "The AI coach is off" not in resp.text
     assert "test-key" not in resp.text  # the key must never reach the page

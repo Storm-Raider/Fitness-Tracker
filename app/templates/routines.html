@@ -48,7 +48,7 @@
       {%- if lib_routines %} · {{ lib_routines | length }} library{% endif %}
     </div>
   </div>
-  <a href="/workouts" class="btn btn-primary">Start Session</a>
+  <a href="/workouts" class="btn btn-primary">Start session</a>
 </div>
 
 {% if not routines %}
@@ -66,7 +66,7 @@
 {% else %}
 
 {% if own_routines %}
-<div class="section-title" style="margin-bottom:0.65rem;">My Routines</div>
+<div class="section-title" style="margin-bottom:0.65rem;">My routines</div>
 <div style="display:flex;flex-direction:column;gap:0.65rem;margin-bottom:1.75rem;" id="my-routines">
   {% for r in own_routines %}
   <div class="card" id="routine-{{ r.id }}" style="padding:1rem 1.25rem;">

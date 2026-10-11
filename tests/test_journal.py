@@ -26,7 +26,7 @@ LOG = {
 async def test_journal_page_renders(client):
     r = await client.get("/journal", headers={"Accept": "text/html"})
     assert r.status_code == 200
-    assert "Daily Log" in r.text
+    assert "Daily log" in r.text
 
 
 @pytest.mark.asyncio

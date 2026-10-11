@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% block title %}Analytics — Zenkai{% endblock %}
 {% block content %}
+{% from "partials/bw_best.html" import bw_best %}
 <div class="page-hd">
   <div>
     <h1>Analytics</h1>
@@ -12,22 +13,7 @@
 </div>
 
 <style>
-.sort-btn {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  color: var(--muted);
-  border-radius: var(--radius-xs);
-  cursor: pointer;
-  font-family: inherit;
-  font-weight: 600;
-  font-size: 0.8125rem;
-  padding: 0 0.85rem;
-  min-height: 44px;
-  transition: background 0.13s, border-color 0.13s, color 0.13s;
-}
-.sort-btn:hover { color: var(--text); border-color: var(--text); }
-.sort-btn.active { background: var(--text); border-color: var(--text); color: var(--surface); }
-.pr-age-fresh { color: var(--success); }
+.pr-age-fresh { color: var(--text); }  /* green means saved, not recent */
 .pr-age-mid   { color: var(--muted-hi); }
 .pr-age-old   { color: var(--muted); }
 .badge-plateau {
@@ -150,7 +136,7 @@
   };
 
   const records = [
-    {% for r in records %}
+    {% for r in records if not r.is_bodyweight %}
     { name: {{ r.name | tojson }}, e1rm: {{ r.est_1rm }} },
     {% endfor %}
   ];
@@ -237,10 +223,10 @@
                oninput="filterPRs()"
                style="padding:0.3rem 0.75rem 0.3rem 2.1rem;height:44px;font-size:1rem;border-radius:var(--radius-xs);min-width:180px;">
       </div>
-      <div style="display:flex;gap:0.25rem;">
-        <button class="sort-btn active" data-sort="name" onclick="sortPRs('name', this)">A–Z</button>
-        <button class="sort-btn" data-sort="date" onclick="sortPRs('date', this)">Recent</button>
-        <button class="sort-btn" data-sort="weight" onclick="sortPRs('weight', this)">Heaviest</button>
+      <div class="seg-toggle" role="group" aria-label="Sort records">
+        <button type="button" class="sort-btn" aria-pressed="true" data-sort="name" onclick="sortPRs('name', this)">A–Z</button>
+        <button type="button" class="sort-btn" aria-pressed="false" data-sort="date" onclick="sortPRs('date', this)">Recent</button>
+        <button type="button" class="sort-btn" aria-pressed="false" data-sort="weight" onclick="sortPRs('weight', this)">Heaviest</button>
       </div>
     </div>
   </div>
@@ -252,34 +238,38 @@
           <th>PR weight</th>
           <th>Est. 1RM</th>
           <th class="spark-cell" title="12-week e1RM trend">Trend</th>
-          <th>Sessions</th>
-          <th>Sets</th>
-          <th>PR set</th>
+          <th class="col-wide">Sessions</th>
+          <th class="col-wide">Sets</th>
+          <th class="col-wide">PR set</th>
         </tr>
       </thead>
       <tbody id="pr-tbody">
+        {# Every row is a record, so amber marks only the newest one (DESIGN.md). #}
+        {% set newest_pr_days = records | map(attribute='days_ago') | reject('none') | min %}
         {% for r in records %}
         <tr data-name="{{ r.name | lower }}"
             data-weight="{{ r.pr_kg }}"
             data-days="{{ r.days_ago if r.days_ago is not none else 99999 }}">
           <td style="font-weight:500;">
-            <a href="/exercises/{{ r.id }}" style="color:inherit;text-decoration:none;"
+            <a href="/exercises/{{ r.id }}" style="color:inherit;text-decoration:none;display:inline-flex;align-items:center;min-height:44px;"
                onmouseover="this.style.color='var(--accent)'"
                onmouseout="this.style.color='inherit'">{{ r.name }}</a>
             {% if r.stalled %}<span class="badge-plateau" title="No new PR in 3+ weeks">Plateau</span>{% endif %}
           </td>
           <td>
-            <span class="badge badge-pr num weight-display" style="white-space:nowrap;" data-kg="{{ r.pr_kg }}">{{ r.pr_kg }} kg</span>
+            {% set newest = r.days_ago is not none and r.days_ago == newest_pr_days %}
+            {% if r.is_bodyweight %}<span class="{{ 'badge badge-pr ' if newest }}num" style="white-space:nowrap;">{{ bw_best(r.bw) }}</span>
+            {% else %}<span class="{{ 'badge badge-pr ' if newest }}num weight-display" style="white-space:nowrap;" data-kg="{{ r.pr_kg }}">{{ r.pr_kg }} kg</span>{% endif %}
           </td>
           <td class="num" style="color:var(--muted);white-space:nowrap;">
-            <span class="weight-display" data-kg="{{ r.est_1rm }}">{{ r.est_1rm }} kg</span>
+            {% if r.est_1rm is not none %}<span class="weight-display" data-kg="{{ r.est_1rm }}">{{ r.est_1rm }} kg</span>{% else %}—{% endif %}
           </td>
           <td class="spark-cell">
-            <canvas class="spark" data-id="{{ r.id }}" width="52" height="24"></canvas>
+            {% if not r.is_bodyweight %}<canvas class="spark" data-id="{{ r.id }}" width="52" height="24"></canvas>{% endif %}
           </td>
-          <td class="num">{{ r.sessions }}</td>
-          <td class="num" style="color:var(--muted);">{{ r.total_sets }}</td>
-          <td style="white-space:nowrap;">
+          <td class="num col-wide">{{ r.sessions }}</td>
+          <td class="num col-wide" style="color:var(--muted);">{{ r.total_sets }}</td>
+          <td class="col-wide" style="white-space:nowrap;">
             <span class="{% if r.days_ago is not none and r.days_ago <= 30 %}pr-age-fresh{% elif r.days_ago is not none and r.days_ago <= 90 %}pr-age-mid{% else %}pr-age-old{% endif %}"
                   style="font-size:0.8125rem;font-weight:600;"
                   title="{{ r.pr_date or '' }}">{{ r.time_ago }}</span>
@@ -307,8 +297,7 @@ function filterPRs() {
 }
 
 function sortPRs(key, btn) {
-  document.querySelectorAll('.sort-btn').forEach(b => b.classList.remove('active'));
-  btn.classList.add('active');
+  document.querySelectorAll('.sort-btn').forEach(b => b.setAttribute('aria-pressed', String(b === btn)));
   const tbody = document.getElementById('pr-tbody');
   const rows  = [...tbody.querySelectorAll('tr')];
   rows.sort((a, b) => {
@@ -498,7 +487,7 @@ document.getElementById('pr-search').addEventListener('keydown', e => {
     grid:  tok('--border', '#dddcd6'), axis: tok('--muted', '#5d5d58'),
     ring:  tok('--ring', '#8f8e88'),   cardio: tok('--muted', '#5d5d58'),
   };
-  const AXIS_FONT = "600 13px 'Atkinson Hyperlegible Next', system-ui, sans-serif";
+  const AXIS_FONT = window.CHART_AXIS_FONT;
 
   function xAt(i, W, n) { return PL + (n <= 1 ? (W-PL-PR)/2 : (i/(n-1))*(W-PL-PR)); }
 

@@ -39,7 +39,7 @@ async def _log_cardio(client, db_conn, ex_id, **fields):
 async def test_cardio_page_renders(client: AsyncClient, db_conn):
     r = await client.get("/cardio", headers={"Accept": "text/html"})
     assert r.status_code == 200
-    assert "Log Session" in r.text
+    assert "Log session" in r.text
     assert 'action="/cardio"' in r.text  # the log form is present
 
 

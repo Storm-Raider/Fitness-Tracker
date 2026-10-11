@@ -250,6 +250,8 @@ async def _compute_earned(conn: aiosqlite.Connection, uid: int) -> dict[str, str
 # Daylight: an achievement is earned, so every tier wears the record amber
 # (base.html --pr / --pr-dim). Gold gets the solid amber badge; bronze and
 # silver the amber tint. (icon colour, badge background, badge border)
+_MAX_TOASTS = 2
+
 _TIER_COLORS = {
     "bronze": ("var(--pr)",      "var(--pr-dim)", "var(--pr)"),
     "silver": ("var(--pr)",      "var(--pr-dim)", "var(--pr)"),
@@ -276,11 +278,15 @@ async def achievements_unseen(
     )
     await conn.commit()
 
+    # At most two toasts, best tier first; the rest fold into one "+N more"
+    # card. Eight at once (a first visit, an import) used to fill the screen.
+    _tier_rank = {"gold": 0, "silver": 1, "bronze": 2}
+    unlocked = sorted((_ACH_INDEX[a] for a in unseen_ids if a in _ACH_INDEX),
+                      key=lambda a: _tier_rank.get(a["tier"], 3))
+    shown, rest = unlocked[:_MAX_TOASTS], len(unlocked) - _MAX_TOASTS
+
     cards = []
-    for i, aid in enumerate(unseen_ids):
-        ach = _ACH_INDEX.get(aid)
-        if not ach:
-            continue
+    for i, ach in enumerate(shown):
         color, bg, border = _TIER_COLORS.get(ach["tier"], _TIER_COLORS["bronze"])
         delay = i * 0.2
         cards.append(
@@ -297,11 +303,17 @@ async def achievements_unseen(
             f'<div style="font-size:0.8125rem;color:var(--muted);margin-top:0.1rem;">{ach["desc"]}</div>'
             f'</div></div></div>'
         )
+    if rest > 0:
+        cards.append(
+            f'<a href="/achievements" class="ach-toast ach-toast-more" '
+            f'style="animation-delay:{len(shown) * 0.2}s;">'
+            f'+{rest} more achievement{"s" if rest != 1 else ""} unlocked</a>'
+        )
 
     if not cards:
         return HTMLResponse("")
 
-    return HTMLResponse('<div id="ach-toast-rack">' + "".join(cards) + "</div>")
+    return HTMLResponse('<div id="ach-toast-rack" role="status">' + "".join(cards) + "</div>")
 
 
 @router.get("/achievements", response_class=HTMLResponse)

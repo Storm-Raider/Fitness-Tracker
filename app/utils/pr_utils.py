@@ -49,8 +49,49 @@ async def stalled_lifts(conn: aiosqlite.Connection, uid: int, limit: int) -> lis
         return [dict(r) for r in await cur.fetchall()]
 
 
+def bw_key(added: float | None, reps: int | None, secs: int | None) -> tuple:
+    """How bodyweight sets rank: more added load, then a longer hold, then more
+    reps. A bodyweight set's weight_kg is the lifter's bodyweight, so it never
+    counts: losing 2 kg must not look like a weaker pull-up."""
+    return (added or 0, secs or 0, reps or 0)
+
+
+async def bodyweight_bests(
+    conn: aiosqlite.Connection, uid: int, exercise_id: int | None = None,
+) -> dict[int, dict]:
+    """The best set ever per bodyweight exercise (equipment 'Bodyweight'):
+    {exercise_id: {"added", "reps", "secs", "date"}}, date being the newest day
+    it was matched. Shown as "BW × 12", "BW +10 kg × 6" or "BW · 1:30"."""
+    async with conn.execute(
+        """
+        SELECT s.exercise_id, COALESCE(s.added_weight_kg, 0) AS added, s.reps,
+               s.duration_seconds AS secs, DATE(w.started_at) AS day
+        FROM sets s
+        JOIN exercises e ON e.id = s.exercise_id
+        JOIN workouts w  ON w.id = s.workout_id
+        WHERE s.user_id = ? AND e.equipment = 'Bodyweight'
+          AND (? IS NULL OR s.exercise_id = ?)
+        ORDER BY w.started_at
+        """,
+        (uid, exercise_id, exercise_id),
+    ) as cur:
+        rows = await cur.fetchall()
+    best: dict[int, dict] = {}
+    for r in rows:
+        cur_best = best.get(r["exercise_id"])
+        key = bw_key(r["added"], r["reps"], r["secs"])
+        # >= so the newest day that matches the record is the one shown
+        if cur_best is None or key >= bw_key(cur_best["added"], cur_best["reps"], cur_best["secs"]):
+            best[r["exercise_id"]] = {"added": r["added"], "reps": r["reps"], "secs": r["secs"], "date": r["day"]}
+    return best
+
+
 async def fetch_prs(conn: aiosqlite.Connection, uid: int) -> list[dict]:
-    """All-time PRs per exercise with est. 1RM, pr_date, sessions, and total_sets."""
+    """All-time PRs per exercise with est. 1RM, pr_date, sessions, and total_sets.
+
+    A bodyweight exercise's record is its best set (bodyweight_bests): the row
+    gets is_bodyweight and "bw", and est_1rm is None (a 1RM of bodyweight plus
+    load means nothing to the lifter)."""
     async with conn.execute(
         """
         WITH mx AS (
@@ -85,4 +126,14 @@ async def fetch_prs(conn: aiosqlite.Connection, uid: int) -> list[dict]:
         """,
         (uid, uid, uid, uid),
     ) as cur:
-        return [dict(r) for r in await cur.fetchall()]
+        rows = [dict(r) for r in await cur.fetchall()]
+    bw = await bodyweight_bests(conn, uid)
+    for r in rows:
+        b = bw.get(r["id"])
+        r["is_bodyweight"] = b is not None
+        r["bw"] = b
+        if b:
+            r["pr_kg"] = b["added"]      # sorts "Heaviest" by added load
+            r["est_1rm"] = None
+            r["pr_date"] = b["date"]
+    return rows

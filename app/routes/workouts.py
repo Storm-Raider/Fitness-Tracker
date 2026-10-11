@@ -111,6 +111,7 @@ async def list_workouts(
         """
         SELECT w.id, w.started_at, w.ended_at, w.notes,
                COUNT(s.id) AS set_count,
+               COUNT(DISTINCT s.exercise_id) AS exercise_count,
                COALESCE(SUM(s.weight_kg * s.reps), 0) AS volume_kg,
                CASE WHEN w.ended_at IS NOT NULL
                     THEN CAST(ROUND((JULIANDAY(w.ended_at) - JULIANDAY(w.started_at)) * 1440) AS INTEGER)
@@ -271,6 +272,17 @@ async def get_workout(
 
     started_at_ms = int(datetime.fromisoformat(row["started_at"]).timestamp() * 1000)
 
+    # A finished session offers "Repeat"; it asks first if another is still open.
+    active_workout_id = None
+    if is_finished:
+        async with conn.execute(
+            "SELECT id FROM workouts WHERE user_id = ? AND ended_at IS NULL "
+            "ORDER BY started_at DESC LIMIT 1",
+            (current_user["id"],),
+        ) as cur:
+            _active = await cur.fetchone()
+        active_workout_id = _active["id"] if _active else None
+
     return templates.TemplateResponse(request, "workout_form.html", {
         "workout": dict(row),
         "sets": sets,
@@ -283,6 +295,7 @@ async def get_workout(
         "enrichment": enrichment,
         "latest_bodyweight": latest_bodyweight,
         "started_at_ms": started_at_ms,
+        "active_workout_id": active_workout_id,
     })
 
 
@@ -328,6 +341,19 @@ async def add_set(
             prior_row = await cur.fetchone()
         prior_max = prior_row["max_kg"] if prior_row and prior_row["max_kg"] else None
 
+        # A bodyweight set (added_weight_kg set) is a record by its added load,
+        # then reps; its weight_kg is the lifter's bodyweight (pr_utils.bw_key).
+        prior_bw_best = None
+        if body.added_weight_kg is not None and body.duration_seconds is None:
+            async with conn.execute(
+                "SELECT MAX(COALESCE(added_weight_kg, 0) * 10000 + reps) AS k FROM sets "
+                "WHERE exercise_id = ? AND user_id = ? AND added_weight_kg IS NOT NULL "
+                "AND duration_seconds IS NULL",
+                (body.exercise_id, uid),
+            ) as cur:
+                _k = await cur.fetchone()
+            prior_bw_best = _k["k"] if _k else None
+
         # A timed hold stores reps=0 so it's excluded from the kg-volume sum
         # (weight × reps); its progression metric is duration, not volume.
         is_time = body.duration_seconds is not None
@@ -343,7 +369,10 @@ async def add_set(
             set_id = cur.lastrowid
 
     # No weight-PR for timed holds — their progression is duration, not load.
-    is_pr = (not is_time) and (prior_max is None or body.weight_kg > prior_max)
+    if body.added_weight_kg is not None and not is_time:
+        is_pr = prior_bw_best is None or body.added_weight_kg * 10000 + body.reps > prior_bw_best
+    else:
+        is_pr = (not is_time) and (prior_max is None or body.weight_kg > prior_max)
     current_pr = body.weight_kg if is_pr else prior_max
 
     webhook_url = os.environ.get("WEBHOOK_URL", "").strip()

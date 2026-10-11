@@ -621,6 +621,9 @@
     tbody tr:hover td { background: var(--surface-2); }
     /* PR cell highlight */
     td.cell-pr { color: var(--pr); }
+    /* Secondary columns drop out on a phone, so a table fits its card instead
+       of cutting a number in half at the edge. */
+    @media (max-width: 559px) { .col-wide { display: none; } }
 
     /* ── Badges ──────────────────────────────────────── */
     .badge {
@@ -764,6 +767,10 @@
       color: #ffffff;
     }
     .confirm-sheet-confirm:hover { background: #b32f26; }
+    /* opts.primary: a confirm that isn't destructive (start another session)
+       is the orange "press" button, not delete red. */
+    .confirm-sheet-confirm.is-primary { background: var(--primary); border-color: var(--primary); color: var(--on-primary); }
+    .confirm-sheet-confirm.is-primary:hover { background: var(--primary-hover); }
     .confirm-sheet-overlay {
       position: fixed;
       inset: 0;
@@ -823,6 +830,14 @@
     }
     .seg-toggle button:hover:not(:disabled):not([aria-pressed="true"]) { color: var(--text); }
     .seg-toggle button[aria-pressed="true"] { background: var(--surface); color: var(--text); box-shadow: 0 1px 2px rgba(20,20,20,0.1); }
+    /* Every one-of-N choice uses this control (DESIGN.md): sort, chart metric,
+       page tabs, units, Low/Medium/High. .seg-fill spans the row. */
+    .seg-toggle.seg-fill { display: flex; }
+    .seg-toggle.seg-fill button { flex: 1; padding: 0 0.5rem; }
+    /* Every one-of-N choice in the app uses this control (DESIGN.md): sort,
+       chart metric, page tabs, units, Low/Medium/High. .seg-fill spans the row. */
+    .seg-toggle.seg-fill { display: flex; }
+    .seg-toggle.seg-fill button { flex: 1; padding: 0 0.5rem; }
     .seg-toggle button:focus-visible { outline: 2px solid var(--text); outline-offset: -2px; }
     .seg-toggle button:disabled { opacity: 0.5; cursor: default; }
 
@@ -933,7 +948,24 @@
       border-radius: var(--radius-sm);
       padding: 0.85rem 1rem;
       box-shadow: var(--shadow-lg);
-      animation: ach-toast-slide 4.5s cubic-bezier(0.16,1,0.3,1) forwards;
+      animation: ach-toast-slide 4.5s cubic-bezier(0.16,1,0.3,1) both;
+    }
+    .ach-toast-more {
+      display: flex; align-items: center; min-height: 48px;
+      pointer-events: auto; color: var(--text); font-weight: 700; font-size: 0.9rem;
+      border: 1px solid var(--border-mid);
+    }
+    .ach-toast-more:hover { color: var(--text); background: var(--surface-2); }
+    /* On a phone the rack sits above the tab bar, full width, never over it. */
+    @media (max-width: 767px) {
+      #ach-toast-rack {
+        left: 1rem; right: 1rem; max-width: none;
+        bottom: calc(68px + 0.75rem + env(safe-area-inset-bottom, 0px) + var(--composer-h, 0px));
+      }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .ach-toast { animation-name: ach-toast-fade; }
+      @keyframes ach-toast-fade { 0%, 100% { opacity: 0; } 8%, 82% { opacity: 1; } }
     }
     @keyframes ach-toast-slide {
       0%   { transform: translateX(110%); opacity: 0; }
@@ -942,6 +974,16 @@
       100% { transform: translateX(110%); opacity: 0; }
     }
   </style>
+  <script>
+    // Chart helpers, defined before any page script draws.
+    // "2026-09-13" -> "Sep 13", the way dates read everywhere else (human_date).
+    window.fmtShortDate = function(iso) {
+      var p = String(iso).slice(0, 10).split('-');
+      return ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][+p[1] - 1] + ' ' + (+p[2]);
+    };
+    // Chart axes are numbers, so they use the number face (DESIGN.md: .num).
+    window.CHART_AXIS_FONT = "700 13px 'Archivo', system-ui, sans-serif";
+  </script>
   {% block head %}{% endblock %}
 </head>
 <body>
@@ -953,8 +995,8 @@
     <span class="nav-sep"></span>
     <div class="nav-links" id="nav-links">
       <a href="/">Home</a>
-      <a href="/analytics">Analytics</a>
       <a href="/workouts">Sessions</a>
+      <a href="/analytics">Analytics</a>
       <a href="/exercises">Exercises</a>
       <a href="/plan">Plan</a>
       <!-- More dropdown (desktop) -->
@@ -963,10 +1005,10 @@
         <div class="nav-more-dropdown" id="nav-more-dropdown">
           <a href="/routines/manage">Routines</a>
           <a href="/templates">Templates</a>
-          <a href="/journal">Daily Log</a>
+          <a href="/journal">Daily log</a>
           <a href="/cardio">Cardio</a>
           <a href="/challenges">Challenges</a>
-          <a href="/metrics">Body Metrics</a>
+          <a href="/metrics">Body metrics</a>
           <a href="/achievements">Achievements</a>
           <a href="/export">Export</a>
           <a href="/feedback">Feedback</a>
@@ -978,10 +1020,10 @@
       <a href="/plan" class="nav-more-mobile-link">Plan</a>
       <a href="/routines/manage" class="nav-more-mobile-link">Routines</a>
       <a href="/templates" class="nav-more-mobile-link">Templates</a>
-      <a href="/journal" class="nav-more-mobile-link">Daily Log</a>
+      <a href="/journal" class="nav-more-mobile-link">Daily log</a>
       <a href="/cardio" class="nav-more-mobile-link">Cardio</a>
       <a href="/challenges" class="nav-more-mobile-link">Challenges</a>
-      <a href="/metrics" class="nav-more-mobile-link">Body Metrics</a>
+      <a href="/metrics" class="nav-more-mobile-link">Body metrics</a>
       <a href="/export" class="nav-more-mobile-link">Export</a>
       {% if user.is_admin %}<a href="/invite" class="nav-more-mobile-link">Invite</a>{% endif %}
       <a href="/settings" class="nav-more-mobile-link">Settings</a>
@@ -1050,7 +1092,7 @@
       </a>
       <a href="/journal" class="mob-more-item" data-mob-more-path="/journal" onclick="closeMobMore()">
         <div class="mob-more-icon"><i data-lucide="notebook-pen"></i></div>
-        <span>Daily Log</span>
+        <span>Daily log</span>
       </a>
       <a href="/cardio" class="mob-more-item" data-mob-more-path="/cardio" onclick="closeMobMore()">
         <div class="mob-more-icon"><i data-lucide="activity"></i></div>
@@ -1062,7 +1104,7 @@
       </a>
       <a href="/metrics" class="mob-more-item" data-mob-more-path="/metrics" onclick="closeMobMore()">
         <div class="mob-more-icon"><i data-lucide="scale"></i></div>
-        <span>Body Metrics</span>
+        <span>Body metrics</span>
       </a>
       <a href="/achievements" class="mob-more-item" data-mob-more-path="/achievements" onclick="closeMobMore()">
         <div class="mob-more-icon"><i data-lucide="medal"></i></div>
@@ -1456,7 +1498,8 @@
 
     // A modal confirm (alertdialog) for destructive actions. Built here rather
     // than on sheet.js: that one is a single, full-height sheet, and this has to
-    // open on top of it (the coach chat). opts: confirmLabel, onCancel.
+    // open on top of it (the coach chat). opts: confirmLabel, onCancel, primary
+    // (an orange confirm for an action that destroys nothing).
     window.showConfirm = function(message, onConfirm, opts) {
       opts = opts || {};
       var prev = document.getElementById('confirm-sheet');
@@ -1492,7 +1535,7 @@
 
       var confirmBtn = document.createElement('button');
       confirmBtn.type = 'button';
-      confirmBtn.className = 'confirm-sheet-confirm';
+      confirmBtn.className = 'confirm-sheet-confirm' + (opts.primary ? ' is-primary' : '');
       confirmBtn.textContent = opts.confirmLabel || 'Confirm';
 
       actions.appendChild(cancelBtn);
