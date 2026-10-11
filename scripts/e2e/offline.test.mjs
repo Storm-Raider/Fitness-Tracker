@@ -42,11 +42,13 @@ async function openWorkout() {
   return w.id;
 }
 async function chooseBench() {
-  await page.evaluate(id => {
-    document.getElementById('exercise-input').value = 'Bench Press';
-    document.getElementById('exercise-id').value = id;
-  }, bench.id);
+  await page.evaluate(id => selectExercise(id, 'Bench Press'), bench.id);
+  // A first-ever exercise starts blank (no made-up numbers): type the set.
+  await page.fill('#weight-input', '60');
+  await page.fill('#reps-input', '5');
 }
+// Notes and cardio sit in collapsed panels under the exercise card.
+const openPanel = id => page.evaluate(i => { document.getElementById(i).open = true; }, id);
 const busy = () => page.evaluate(() => !!document.querySelector('.log-btn').dataset.busy);
 const text = sel => page.evaluate(s => { const el = document.querySelector(s); return el && getComputedStyle(el).display !== 'none' ? el.textContent : ''; }, sel);
 
@@ -61,10 +63,11 @@ check('Log Set offline shows a connection error', /connection/i.test(err1), JSON
 check('Log Set offline re-enables the button', !(await busy()));
 await ctx.setOffline(false);
 await page.click('.log-btn');
-await page.waitForSelector('.set-row[id^="set-"]', { timeout: 3000 }).catch(() => {});
-check('Log Set works again once back online', (await page.locator('.set-row[id^="set-"]').count()) === 1);
+await page.waitForSelector('.cur-row', { timeout: 3000 }).catch(() => {});
+check('Log Set works again once back online', (await page.locator('.cur-row').count()) === 1);
 
 // ── 2. Session notes save while offline ──────────────────────────────────
+await openPanel('notes-panel');
 await page.fill('#session-notes-input', 'felt strong');
 await ctx.setOffline(true);
 await page.evaluate(() => saveNotes().catch(() => {}));
@@ -81,6 +84,7 @@ check('Finish offline shows a connection error', /connection/i.test(err3) && mod
 await ctx.setOffline(false);
 
 // ── 4. Log Cardio while offline ──────────────────────────────────────────
+await openPanel('cardio-panel');
 const cardioOk = await page.evaluate(() => {
   const sel = document.getElementById('cardio-exercise-select');
   const opt = [...sel.options].find(o => o.value);
@@ -99,10 +103,11 @@ await ctx.setOffline(false);
 const wS = await api('POST', '/workouts', { notes: null });
 await api('POST', `/workouts/${wS.id}/sets`, { exercise_id: bench.id, reps: 5, weight_kg: 60 });
 await page.goto(`${BASE}/workouts/${wS.id}`, { waitUntil: 'networkidle' });
-const row = page.locator('.set-row[id^="set-"]').first();
+await page.waitForSelector('.cur-row', { timeout: 3000 });
+const row = page.locator('.cur-row').first();
 const box = await row.boundingBox();
 await page.evaluate(([x, y]) => {
-  const el = document.querySelector('.set-row[id^="set-"]');
+  const el = document.querySelector('.cur-row');
   const t = (cx) => new Touch({ identifier: 1, target: el, clientX: cx, clientY: y });
   el.dispatchEvent(new TouchEvent('touchstart', { touches: [t(x)], bubbles: true, cancelable: true }));
   for (let i = 1; i <= 10; i++) el.dispatchEvent(new TouchEvent('touchmove', { touches: [t(x - i * 12)], bubbles: true, cancelable: true }));
@@ -112,8 +117,8 @@ await page.waitForSelector('.confirm-sheet-cancel', { timeout: 2000 });
 await page.click('.confirm-sheet-cancel');
 await page.waitForTimeout(500);
 const rowStyle = await page.evaluate(() => {
-  const el = document.querySelector('.set-row[id^="set-"]');
-  return { opacity: getComputedStyle(el).opacity, transform: el.style.transform };
+  const el = document.querySelector('.cur-row');
+  return { opacity: getComputedStyle(el).opacity, transform: el.querySelector('.cur-main').style.transform };
 });
 check('Cancelled swipe leaves the set visible', rowStyle.opacity === '1' && !rowStyle.transform.includes('-100%'), JSON.stringify(rowStyle));
 

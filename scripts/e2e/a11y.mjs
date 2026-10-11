@@ -78,6 +78,8 @@ await audit(guest, new URL(invite).pathname);
 
 // Touch targets on the logging screen (DESIGN.md: primary actions ≥56, everything else ≥44).
 await page.goto(`${BASE}/workouts/${live.id}`, { waitUntil: 'networkidle' });
+await page.waitForSelector('.cur-main');
+await page.click('.cur-main');   // opens the logged set's editor (Delete, Save)
 const targets = await page.evaluate(() => {
   const size = el => { if (!el) return null; const r = el.getBoundingClientRect(); return [Math.round(r.width), Math.round(r.height)]; };
   const hit = el => {  // the tappable box includes ::before/::after hit-area expansion
@@ -99,8 +101,10 @@ const targets = await page.evaluate(() => {
     'Weight/reps number ≥56 tall': [Math.min(size(document.getElementById('weight-input'))?.[1] || 0,
                                              size(document.getElementById('reps-input'))?.[1] || 0), 56],
     'Finish height ≥56': [size(finish)?.[1], 56],
-    'Set delete ≥44×44': [Math.min(...(hit(document.querySelector('.set-del')) || [0])), 44],
-    'Set edit ≥44×44': [Math.min(...(hit(document.querySelector('.set-edit-btn')) || [0])), 44],
+    'Logged set row ≥54 tall': [size(document.querySelector('.cur-main'))?.[1], 54],
+    'Set delete ≥44×44': [Math.min(...(hit(document.querySelector('.cur-del-btn')) || [0])), 44],
+    'Exercise chip ≥44 tall': [size(document.querySelector('.strip-chip'))?.[1], 44],
+    'Session menu ≥44×44': [Math.min(...(size(document.getElementById('session-menu-btn')) || [0])), 44],
   };
 });
 for (const [name, [got, need]] of Object.entries(targets)) {
@@ -110,10 +114,7 @@ for (const [name, [got, need]] of Object.entries(targets)) {
 }
 
 // A logged set is announced to screen readers.
-await page.evaluate(id => {
-  document.getElementById('exercise-input').value = 'Bench Press';
-  document.getElementById('exercise-id').value = id;
-}, bench.id);
+await page.evaluate(id => selectExercise(id, 'Bench Press'), bench.id);
 await page.click('.log-btn');
 await page.waitForTimeout(400);
 const said = await page.textContent('#sr-announcer');

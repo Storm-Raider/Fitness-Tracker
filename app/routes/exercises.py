@@ -106,7 +106,10 @@ async def list_exercises_json(
     conn: aiosqlite.Connection = Depends(get_db),
     current_user=Depends(get_current_user),
     category: str | None = None,
+    exclude_workout: int | None = None,
 ):
+    # exclude_workout: the logger asks for "last time" from before the session
+    # it is showing, so a reload mid-session doesn't echo today's sets back.
     if category:
         async with conn.execute(
             "SELECT id, name FROM exercises WHERE category = ? ORDER BY name",
@@ -139,17 +142,21 @@ async def list_exercises_json(
 
     async with conn.execute(
         """
-        SELECT s.exercise_id, s.weight_kg, s.reps
+        SELECT s.exercise_id, s.weight_kg, s.reps, s.added_weight_kg, s.duration_seconds
         FROM sets s
         WHERE s.user_id = ?
           AND s.id IN (
-            SELECT MAX(id) FROM sets WHERE user_id = ? GROUP BY exercise_id
+            SELECT MAX(id) FROM sets
+            WHERE user_id = ? AND (? IS NULL OR workout_id != ?)
+            GROUP BY exercise_id
           )
         """,
-        (current_user["id"], current_user["id"]),
+        (current_user["id"], current_user["id"], exclude_workout, exclude_workout),
     ) as cur:
         last_sets = {
-            str(r["exercise_id"]): {"weight_kg": r["weight_kg"], "reps": r["reps"]}
+            str(r["exercise_id"]): {"weight_kg": r["weight_kg"], "reps": r["reps"],
+                                    "added_weight_kg": r["added_weight_kg"],
+                                    "duration_seconds": r["duration_seconds"]}
             for r in await cur.fetchall()
         }
 

@@ -133,11 +133,16 @@ Scale (phone): active-set numbers 2.6rem; logged-set numbers 1.55rem; screen tit
 
 - Phone first, at 390px wide. Single column with 16px side gutters. Desktop max-width 1100px, reusing the same components.
 - Bottom tab bar: Home, Sessions, Progress, Plan.
-- **Session screen:** a header with the session name, "N of M sets" and an orange Finish button, plus a segmented progress bar. Exercises are stacked; finished ones collapse to one line with a summary. The current exercise shows "Last time" and a set list.
-  - Set rows: set number, kg, reps and a round tick (44px; 50px on the active set), each row at least 54px tall.
-  - Upcoming sets are pre-filled from last time.
-  - The next set is outlined in orange and shows big numbers, prefilled from the last set. Tapping a number opens the phone's number keypad; the round orange tick logs the set and moves to the next. RPE and set notes sit behind a one-line "RPE and set notes" disclosure.
-  - The rest timer appears inline, directly under the set just ticked: countdown, −30, +30, Skip, and a draining line. It never covers the screen or dims it.
+- **Session screen:** one exercise at a time.
+  - Header: "In session", a live line (elapsed · N sets · volume), a ⋯ button and the orange Finish button. The ⋯ opens a sheet with the weight unit, Save as routine and Delete session, so nothing destructive sits next to Finish.
+  - Exercise strip: a sideways-scrolling row of chips for this session's exercises: logged ones with their set count and a tick, planned ones (routine, template or repeat) dashed with "0/3" when the routine sets a target, the current one filled in ink, and "+ Exercise" last. A tap switches exercise.
+  - The current exercise card: name and muscles with a Change button, "Last time" (from before this session), the coach target and cue if any, and +2.5 kg / +1 rep chips before the first set. Then the logged sets and the next set.
+  - Search, routine and muscle filters live in a "Choose exercise" sheet (Change, + Exercise, or the empty state's button). A name with no match offers to log it as a new exercise.
+  - Set rows: set number, the set ("60 kg × 8") and a round tick (44px), each row at least 54px tall. Tap a logged set to fix its numbers or delete it; swipe left also deletes. Both ask first.
+  - The next set is outlined in orange and shows big numbers: this session's last set of the exercise, else last time's, else blank (never a number carried over from another exercise). Tapping a number selects it, so typing replaces it. The round orange tick logs the set. RPE and set notes sit behind a one-line disclosure.
+  - After a set, when the session has a plan, a "Next: <exercise>" button moves to the next planned exercise not started yet.
+  - The rest timer is pinned above the tab bar: countdown, −30, +30, Skip and a draining line. Fixed, so starting or stopping it never moves the sets; the page gets matching bottom padding, so it never covers them. A routine's prescribed rest sets its length.
+  - Session notes, Cardio and Muscles worked are collapsed rows in one card under the exercise.
 
 ## Elevation & Depth
 
@@ -161,7 +166,7 @@ Radii: sm 10px (small buttons, keys), md 14px (inputs, messages), lg 18px (cards
   - record: amber tint, amber numbers and tick, "Best ever" label, and one amber light sweep (0.9s) when ticked
 - **Tick:** round. 2px `ring` outline when empty, filled ink (or amber for a record) with a white check when done. Accessible name "Complete set N".
 - **Number entry:** the weight and reps on the next set are big number fields (`inputmode="decimal"` / `"numeric"`), so a tap opens the phone's own number keypad; the field being edited shows a 2px ink outline. A custom in-page pad was prototyped and dropped in favour of the native keypad (less code, works with every assistive tech).
-- **Rest row:** ink background, orange countdown, ghost buttons for −30, +30 and Skip, and a 3px orange draining line.
+- **Rest bar:** ink background, white countdown (green "Done!"), ghost buttons for −30, +30 and Skip, and a 3px orange draining line.
 - **Messages:** a white card with a bold lead word in the status color, for example "No connection." in red or "Saved." in green.
 - Every component has defined empty, loading and error states. Icon-only buttons have an `aria-label`. Errors use `role="alert"`, and logged sets are announced through `#sr-announcer`.
 
@@ -188,8 +193,9 @@ Radii: sm 10px (small buttons, keys), md 14px (inputs, messages), lg 18px (cards
 
 - WCAG 2.1 AA: text at least 4.5:1, UI outlines at least 3:1 (figures in Colors).
 - Pinch-zoom allowed, and every input is at least 16px (iOS focus zoom).
+- No page is ever wider than the screen. A page that overflows sideways makes iOS zoom out to fit and zoom back in when a field is focused. Grid tracks are `minmax(0, 1fr)`, never a bare `1fr` that a long unbroken line can stretch; `html, body { overflow-x: clip }` is the backstop. `scripts/e2e/no_overflow.test.mjs` checks every main page with long text.
 - Focus is always visible as a 2px ink outline.
-- Keep the existing checks green: `scripts/e2e/a11y.mjs` (axe-core plus touch targets) and the offline, confirm-sheet and sheet-drag suites.
+- Keep the existing checks green: `scripts/e2e/a11y.mjs` (axe-core plus touch targets) and the offline, confirm-sheet, sheet-drag and no-overflow suites.
 
 ## Decisions Log
 
@@ -200,5 +206,6 @@ Radii: sm 10px (small buttons, keys), md 14px (inputs, messages), lg 18px (cards
 | 2026-10-10 | Archivo + Atkinson Hyperlegible Next, self-hosted | OFL and verified from the font files (tabular figures present). Fontshare Satoshi and Cabinet Grotesk were rejected because their licence forbids self-hosting. |
 | 2026-10-10 | Set list with tap-to-type numbers and an inline rest timer | The user's adjustments: no −/+ steppers, round ticks, rest timer under the last set, softer done state. |
 | 2026-10-10 | Native number keypad instead of a custom pad; activity heatmap in ink | Built the rebuild: the native keypad is the same tap-to-type flow with less to break. Activity is data (ink); amber stays for records. |
+| 2026-10-11 | Session screen reworked: exercise strip, picker sheet, pinned rest timer | The user found the screen cluttered and switching exercises slow. Chose "focused, cleaned up" over a Strong/Hevy-style list of every exercise. Filters moved into the picker, delete and units into a ⋯ menu, the duplicate "This session" list and the segmented progress bar removed. The rest timer moved from inline to pinned so it stops shifting the sets. Its countdown is now white: orange text broke the no-orange-text rule. |
 
 The previous system (Redline Console) is preserved in `docs/design-history/DESIGN-redline-console.md`.

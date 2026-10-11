@@ -37,8 +37,10 @@ await page.evaluate(() => {
   document.removeEventListener = (t, f, o) => { if (t === 'keydown') window.__kd--; return rem(t, f, o); };
 });
 
-// ── Open from a set's delete button ──────────────────────────────────────
-const del = page.locator('.set-del').first();
+// ── Open from a set's delete button (tap a logged set to reveal it) ───────
+await page.waitForSelector('.cur-main');
+await page.locator('.cur-main').first().click();
+const del = page.locator('.cur-del-btn').first();
 await del.focus();
 await del.press('Enter');
 await page.waitForSelector('#confirm-sheet');
@@ -63,9 +65,9 @@ await page.keyboard.press('Escape');
 await page.waitForTimeout(350);
 const after = await page.evaluate(() => ({
   open: !!document.getElementById('confirm-sheet'),
-  focusIsDelete: document.activeElement?.classList.contains('set-del'),
+  focusIsDelete: document.activeElement?.classList.contains('cur-del-btn'),
   mainInert: document.querySelector('main')?.inert === true,
-  sets: document.querySelectorAll('.set-row[id^="set-"]').length,
+  sets: document.querySelectorAll('.cur-row').length,
   listeners: window.__kd,
 }));
 check('Escape closes it and nothing is deleted', !after.open && after.sets === 2, JSON.stringify(after));
@@ -74,7 +76,7 @@ check('The page is usable again', !after.mainInert);
 check('No keydown listener left behind', after.listeners === 0, `net listeners ${after.listeners}`);
 
 // Closing with Cancel (not Escape) used to leave its Escape listener behind.
-await page.locator('.set-del').first().click();
+await page.locator('.cur-del-btn').first().click();
 await page.waitForSelector('#confirm-sheet');
 await page.click('.confirm-sheet-cancel');
 await page.waitForTimeout(350);
@@ -82,10 +84,10 @@ const leak = await page.evaluate(() => window.__kd);
 check('Cancel leaves no keydown listener behind', leak === 0, `net listeners ${leak}`);
 
 // ── Confirm still deletes ────────────────────────────────────────────────
-await page.locator('.set-del').first().click();
+await page.locator('.cur-del-btn').first().click();
 await page.click('.confirm-sheet-confirm');
 await page.waitForTimeout(600);
-const left = await page.evaluate(() => document.querySelectorAll('.set-row[id^="set-"]').length);
+const left = await page.evaluate(() => document.querySelectorAll('.cur-row').length);
 check('Confirm deletes the set', left === 1, `${left} left`);
 
 // ── hx-confirm (HTMX) path: deleting a workout template ──────────────────

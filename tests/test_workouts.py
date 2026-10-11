@@ -273,6 +273,11 @@ async def test_log_set_with_rpe(client):
                                    "weight_kg": 100.0, "rpe": 8})
     assert resp.status_code == 201
 
+    # In session the sets reach the page as JSON (the logger draws the rows);
+    # once finished they're server-rendered rows.
+    page = await client.get(f"/workouts/{w_id}", headers={"Accept": "text/html"})
+    assert '"rpe": 8' in page.text
+    await client.post(f"/workouts/{w_id}/finish")
     page = await client.get(f"/workouts/{w_id}", headers={"Accept": "text/html"})
     assert "RPE 8" in page.text
 
