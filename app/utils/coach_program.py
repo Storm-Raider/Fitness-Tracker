@@ -264,13 +264,13 @@ def top_reps(reps: str) -> int | None:
 
 # ── Loads and progression ────────────────────────────────────────────
 
-def load_for(e1rm: float | None, reps: str, rir: int, factor: float = 1.0) -> float | None:
+def load_for(e1rm: float | None, reps: str, rir: int | None, factor: float = 1.0) -> float | None:
     """Working load for `reps` at `rir` reps in reserve, from the Epley e1RM the app uses
     everywhere (pr_utils.epley): the weight that leaves `rir` reps at the top of the range
     is e1RM / (1 + (top + rir) / 30). Rounded DOWN to 2.5 kg, so the target is never
     heavier than the maths says."""
     top = top_reps(reps)
-    if not e1rm or top is None:
+    if not e1rm or top is None or rir is None:
         return None
     load = e1rm / (1 + (top + rir) / 30) * factor
     load = math.floor(load / 2.5) * 2.5
@@ -315,6 +315,8 @@ def exercise_targets(row: dict, role: str, sets: int, reps: str, rir: int, rest_
         reps = _HOLD_REPS
     elif not keep_reps and stalled and role != "core":
         reps = scheme(goal, _NEXT_ROLE[role])["reps"]
+    if is_hold(name):
+        rir = None                      # reps in reserve means nothing for a timed hold
     e1rm = (profile.get("recent_e1rm") or {}).get(name.lower())
     load = load_for(e1rm, reps, rir, goal_factor * _effort_factor(name, profile))
     pattern = pattern_of(name)

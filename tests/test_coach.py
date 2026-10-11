@@ -116,7 +116,8 @@ async def test_generate_applies_picks_and_falls_back_for_unknowns(client, db, mo
     for day in plan["days"]:
         assert len(day["exercises"]) >= 4
         for ex in day["exercises"]:
-            assert ex["exercise_id"] > 0 and ex["rir"] is not None and ex["rest_sec"] and ex["progression"]
+            assert ex["exercise_id"] > 0 and ex["rest_sec"] and ex["progression"]
+            assert ex["rir"] is not None or ex["reps"].endswith("s")
 
 
 @pytest.mark.asyncio

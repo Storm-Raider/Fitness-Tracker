@@ -228,6 +228,12 @@
   font-size: 1rem;
   color: var(--text);   /* an estimate, not a record: amber is reserved for records */
 }
+.ex-hero-cue {
+  font-size: 0.8125rem;
+  color: var(--muted);
+  margin-top: 0.2rem;
+}
+.ex-hero-cue span { display: block; }
 .overload-chips { display: none; gap: 0.4rem; flex-wrap: wrap; margin-top: 0.5rem; }
 .overload-chip {
   font-family: var(--f-display);
@@ -1057,6 +1063,11 @@ document.getElementById('tpl-name-input')?.addEventListener('keydown', e => { if
           Last time: <span class="last-val" id="last-set-text"></span>
           <span class="orm-val" id="last-1rm"></span>
         </div>
+        {# The coach plan's target for this exercise (routine_exercises.target_json); never pre-fills sets #}
+        <div id="target-hint" class="ex-hero-hint" style="display:none;">
+          Target: <span class="last-val" id="target-text"></span>
+        </div>
+        <div id="target-cue" class="ex-hero-cue" style="display:none;"></div>
         <div id="overload-chips" class="overload-chips"></div>
       </div>
     </div>
@@ -2018,7 +2029,50 @@ function applyExerciseSelection(ex) {
     hint.style.display = 'none';
     if (chipsEl) chipsEl.style.display = 'none';
   }
+  _showTarget(ex);
   renderCurrentSets();
+}
+
+// The target the selected coach routine sets for this exercise, if any.
+function _routineTarget(exId) {
+  const sel = document.getElementById('routine-select');
+  const r = sel && sel.value !== '' ? _routines[parseInt(sel.value)] : null;
+  const item = r ? r.exercises.find(e => e.id === exId) : null;
+  return item ? item.target : null;
+}
+
+function _fmtRest(sec) {
+  if (!sec) return '';
+  return sec < 120 ? `${sec} s rest` : `${Math.round(sec / 30) / 2} min rest`;
+}
+
+function _showTarget(ex) {
+  const hint = document.getElementById('target-hint');
+  const out  = document.getElementById('target-text');
+  const cue  = document.getElementById('target-cue');
+  const t = ex ? _routineTarget(ex.id) : null;
+  if (!t || !t.sets) { hint.style.display = 'none'; cue.style.display = 'none'; return; }
+  // Built with DOM nodes: the cue and rule come from a model.
+  out.textContent = `${t.sets} × ${t.reps}`;
+  if (t.load_kg) {
+    out.appendChild(document.createTextNode(' · '));
+    const w = document.createElement('span');
+    w.className = 'weight-display';
+    w.setAttribute('data-kg', t.load_kg);            // the unit toggle re-renders it
+    w.textContent = fmtWeight(t.load_kg, getAppUnit());
+    out.appendChild(w);
+  }
+  const extra = [t.rir != null ? `RIR ${t.rir}` : '', _fmtRest(t.rest_sec)].filter(Boolean);
+  if (extra.length) out.appendChild(document.createTextNode(' · ' + extra.join(' · ')));
+  hint.style.display = 'flex';
+  cue.textContent = '';
+  for (const line of [t.note, t.progression]) {
+    if (!line) continue;
+    const span = document.createElement('span');
+    span.textContent = line;
+    cue.appendChild(span);
+  }
+  cue.style.display = cue.childNodes.length ? 'block' : 'none';
 }
 
 function applyOverload(weight, reps) {

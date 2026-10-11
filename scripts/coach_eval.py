@@ -152,7 +152,8 @@ NOTES_MENTION_KG = ("a note references a load in kg",
 
 EVERY_TARGET = ("every exercise has RIR, rest and a progression rule",
                 lambda r: bool(list(r.exercises())) and all(
-                    ex.get("rir") is not None and ex.get("rest_sec") and ex.get("progression") for _, ex in r.exercises()))
+                    (ex.get("rir") is not None or str(ex.get("reps", "")).endswith("s"))   # holds have no RIR
+                    and ex.get("rest_sec") and ex.get("progression") for _, ex in r.exercises()))
 
 
 def _top(reps):

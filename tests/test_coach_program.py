@@ -180,7 +180,7 @@ def test_stalled_lift_moves_rep_range_and_says_so():
 
 def test_holds_get_time_reps():
     t = cp.exercise_targets({"name": "Plank", "equipment": "Bodyweight"}, "core", 3, "8-12", 2, 60, _profile())
-    assert t["reps"] == "30-45s" and t["load_kg"] is None
+    assert t["reps"] == "30-45s" and t["load_kg"] is None and t["rir"] is None
 
 
 # ── Assembling picks ─────────────────────────────────────────────────
@@ -214,6 +214,7 @@ def test_assemble_uses_valid_picks_and_defaults_the_rest():
     for d in plan["days"]:
         for e in d["exercises"]:
             assert {"rir", "rest_sec", "load_kg", "progression"} <= set(e)
+            assert e["rir"] is not None or cp.is_hold(e["name"])
 
 
 def test_assemble_rejects_a_pain_flagged_pick():
