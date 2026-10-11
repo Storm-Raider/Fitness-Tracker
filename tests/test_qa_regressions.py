@@ -356,3 +356,13 @@ async def test_heatmap_first_day_shows_its_workout(client, db):
     page = (await client.get("/", headers={"Accept": "text/html"})).text
     cell = re.search(r'<rect[^>]*fill="([^"]+)"[^>]*><title>' + first + '</title>', page)
     assert cell and cell.group(1) == "#141414"
+
+
+# Regression: ISSUE-024 — challenge rules were mouse-only divs (no keyboard, no state)
+@pytest.mark.asyncio
+async def test_challenge_rules_are_keyboard_checkboxes(client):
+    aid = (await client.post("/challenges", json={"template_key": "75_hard"})).json()["id"]
+    page = (await client.get(f"/challenges/{aid}", headers={"Accept": "text/html"})).text
+    assert page.count('class="rule  " role="checkbox" tabindex="0" aria-checked="false"') + \
+           page.count('role="checkbox" tabindex="0" aria-checked=') >= 6
+    assert "e.key !== ' ' && e.key !== 'Enter'" in page
