@@ -225,7 +225,8 @@
   <div>
     <div class="section-title">Activity, last 52 weeks</div>
     <div class="card">
-      <div style="overflow-x:auto;" tabindex="0" role="region" aria-label="Activity heatmap, last 52 weeks">{{ heatmap_svg | safe }}</div>
+      {# rtl flips the scroll origin, so a phone opens on this week, not a year ago. #}
+      <div style="overflow-x:auto;direction:rtl;" tabindex="0" role="region" aria-label="Activity heatmap, last 52 weeks"><div style="direction:ltr;width:max-content;min-width:100%;">{{ heatmap_svg | safe }}</div></div>
     </div>
   </div>
 

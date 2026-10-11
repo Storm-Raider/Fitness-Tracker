@@ -44,7 +44,9 @@ def generate_heatmap_svg(workout_dates: list[str]) -> str:
         f'<svg xmlns="http://www.w3.org/2000/svg" '
         f'width="{WIDTH}" height="{HEIGHT}" '
         f'viewBox="0 0 {WIDTH} {HEIGHT}" '
-        f'style="display:block">'
+        # Fills a wide card; on a phone it keeps its natural width and the
+        # wrapper scrolls (opening on the newest week, see dashboard.html).
+        f'style="display:block;width:100%;min-width:{WIDTH}px;height:auto">'
         + "".join(cells)
         + "</svg>"
     )
