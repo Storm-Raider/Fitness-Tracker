@@ -21,6 +21,7 @@ services:
       # AI Coach — Google AI Studio (Gemini) API.
       - GEMINI_API_KEY=${GEMINI_API_KEY:-}
       - GEMINI_MODEL=${GEMINI_MODEL:-gemini-3.5-flash-lite}
+      - GEMINI_PLAN_MODEL=${GEMINI_PLAN_MODEL:-gemini-3.8-flash}
     restart: unless-stopped
 
 volumes:
