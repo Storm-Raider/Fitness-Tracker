@@ -18,15 +18,15 @@
 </div>
 
 {% if active_workout %}
-<div class="card is-live" style="margin-bottom:1.5rem;display:flex;align-items:center;justify-content:space-between;gap:1rem;padding:1rem 1.25rem;overflow:hidden;">
-  <div style="display:flex;align-items:center;gap:0.75rem;min-width:0;">
+<div class="card is-live" style="margin-bottom:1.5rem;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:0.75rem 1rem;padding:1rem 1.25rem;overflow:hidden;">
+  <div style="display:flex;align-items:center;gap:0.75rem;min-width:0;flex:1 1 200px;">
     <span class="session-dot" aria-hidden="true" style="width:10px;height:10px;border-radius:50%;background:var(--live);flex-shrink:0;"></span>
     <div style="min-width:0;">
       <div style="font-size:1rem;font-weight:700;color:var(--text);">Session in progress</div>
       <div style="font-size:0.875rem;color:var(--muted);margin-top:0.1rem;">{{ 'Ready to log' if active_workout.set_count == 0 else (active_workout.set_count ~ ' set' ~ ('s' if active_workout.set_count != 1 else '')) }} · <span class="num">{{ active_workout.elapsed_min }} min</span> elapsed</div>
     </div>
   </div>
-  <a href="/workouts/{{ active_workout.id }}" class="btn btn-primary" style="flex-shrink:0;min-height:56px;">Resume session</a>
+  <a href="/workouts/{{ active_workout.id }}" class="btn btn-primary" style="flex:1 0 auto;min-height:56px;">Resume session</a>
 </div>
 {% endif %}
 
