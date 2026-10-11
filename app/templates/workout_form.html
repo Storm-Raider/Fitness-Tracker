@@ -995,12 +995,12 @@
     <div class="finish-stat-lbl">minutes</div>
   </div>
   <div>
-    <div class="finish-stat-val">{{ sets|length }}</div>
+    <div class="finish-stat-val" id="finish-sets">{{ sets|length }}</div>
     <div class="finish-stat-lbl">sets</div>
   </div>
   <div>
     <div class="finish-stat-val">
-      <span class="weight-display" data-kg="{{ session_volume }}">{{ "{:,.0f}".format(session_volume) }}</span>
+      <span class="weight-display" id="finish-volume" data-kg="{{ session_volume }}">{{ "{:,.0f}".format(session_volume) }}</span>
     </div>
     <div class="finish-stat-lbl">volume</div>
   </div>
@@ -2840,8 +2840,18 @@ async function saveEdit(id) {
   }
   if (!resp.ok) { showErr('Failed to save — try again.'); return; }
 
-  row.dataset.kg    = weightKg;
-  row.dataset.reps  = reps;
+  // Keep the summary's volume in step; a hold or bodyweight set's numbers
+  // don't change (only RPE and the note), so its volume stays as it was.
+  if (!fixed && setVolumes[id] !== undefined) {
+    sessionVolume += weightKg * reps - setVolumes[id];
+    setVolumes[id] = weightKg * reps;
+  }
+  const model = SESSION_SETS.find(x => x.id === id);
+  if (model) {
+    if (!fixed) { model.weight_kg = weightKg; model.reps = reps; }
+    model.rpe = rpe; model.notes = notes;
+  }
+  if (!fixed) { row.dataset.kg = weightKg; row.dataset.reps = reps; }
   row.dataset.rpe   = rpe || '';
   row.dataset.notes = notes || '';
 
@@ -2855,6 +2865,7 @@ async function saveEdit(id) {
   const detailEl = document.getElementById('detail-' + id);
   detailEl.innerHTML = html;
   cancelEdit(id);
+  _refreshFinishStats();
 
   // Brief save confirmation
   const tick = document.createElement('span');
@@ -2893,7 +2904,22 @@ async function deleteSet(id) {
       }
     }
     if (!IS_FINISHED) { updateSessionMeta(); renderCurrentSets(); renderStrip(); }
+    else _refreshFinishStats();
   });
+}
+
+// Finished view: the summary at the top follows edits and deletes (it kept the
+// old set count and volume until a reload), and Repeat / Save as template go
+// once no sets are left.
+function _refreshFinishStats() {
+  const n = document.getElementById('finish-sets');
+  if (n) n.textContent = SESSION_SETS.length;
+  const v = document.getElementById('finish-volume');
+  if (v) { v.dataset.kg = sessionVolume; v.textContent = fmtWeight(Math.round(sessionVolume), getAppUnit()); }
+  if (!SESSION_SETS.length) {
+    document.getElementById('repeat-btn')?.remove();
+    document.getElementById('save-tpl-wrap')?.remove();
+  }
 }
 
 async function finishWorkout() {
