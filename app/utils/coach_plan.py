@@ -201,6 +201,20 @@ async def name_to_id_map(conn: aiosqlite.Connection) -> tuple[dict[str, dict], d
 _EQUIPMENT_TAG = re.compile(r"\s*\[[^\]]*\]\s*$")
 
 
+def resolve_name(name: str, name_map: dict, norm_map: dict | None = None) -> dict | None:
+    """The library entry {id, name} a model-written name means, or None. Strips a copied
+    [equipment] tag and recovers common model errors without risking false-positive fuzzy
+    matches: hyphen/en-dash vs space ("Pull Up" -> "Pull-up") and a trailing plural
+    ("Lateral Raises" -> "Lateral Raise")."""
+    key = _EQUIPMENT_TAG.sub("", str(name or "").strip()).strip().lower()
+    if not key:
+        return None
+    match = name_map.get(key)
+    if not match and norm_map:
+        match = norm_map.get(key) or norm_map.get(key.replace("-", " ").replace("–", " "))
+    return match or None
+
+
 def normalise_plan(raw: dict, goal: str, days: int, name_map: dict, norm_map: dict | None = None) -> tuple[dict, list[str]]:
     """
     Coerce the model's output into our shape, resolve exercise names to real
@@ -214,18 +228,11 @@ def normalise_plan(raw: dict, goal: str, days: int, name_map: dict, norm_map: di
         exercises = []
         for ex in (day.get("exercises") or []):
             name = _EQUIPMENT_TAG.sub("", str(ex.get("name", "")).strip()).strip()
-            match = name_map.get(name.lower())
-            if not match and name:
-                # Recover common model errors without risking false-positive fuzzy matches:
-                # 1) hyphen/en-dash ↔ space  ("Pull Up" → "Pull-up")
-                # 2) trailing plural 's'      ("Lateral Raises" → "Lateral Raise")
-                key = name.lower()
-                alt = norm_map and (norm_map.get(key) or norm_map.get(key.replace("-", " ").replace("–", " ")))
-                match = alt
-                if not match:
-                    dropped.append(name)
-                    continue
-            elif not match:
+            if not name:
+                continue
+            match = resolve_name(name, name_map, norm_map)
+            if not match:
+                dropped.append(name)
                 continue
             try:
                 sets = max(1, min(20, int(ex.get("sets") or 3)))
@@ -298,76 +305,6 @@ def plan_quality_issues(plan: dict) -> list[str]:
         if c > cap:
             issues.append(f"{names[eid]} appears on {c} days (maximum {cap} per week)")
     return issues
-
-
-def repair_plan(plan: dict, name_map: dict) -> tuple[dict, list[str]]:
-    """Deterministic last line of defence against a repetitive model output.
-
-    1. Removes duplicate exercises within each day (keeps the first).
-    2. Caps how many days an exercise appears on (max_weekly_repeats); excess
-       occurrences are swapped for an unused same-muscle alternative from the
-       library, preferring conventional staples.
-
-    Runs after every generation regardless of retries, so a saved plan can
-    never contain copy-paste days even when the small model ignores the prompt.
-    Returns (plan, swap_descriptions) — swaps are logged, not user-facing."""
-    rows = _EXERCISE_BASE_ROWS or []
-    muscle_of = {r["name"].lower(): (r["primary_muscle"] or r["category"]) for r in rows}
-    by_muscle: dict[str, list[str]] = {}
-    for r in sorted(rows, key=lambda r: (
-        _PRIORITY_RANK.get(r["name"].lower(), 999),
-        _EQUIP_RANK.get(r["equipment"], 5),
-        r["name"],
-    )):
-        by_muscle.setdefault(r["primary_muscle"] or r["category"], []).append(r["name"])
-
-    swaps: list[str] = []
-    cap = max_weekly_repeats(plan["days_per_week"])
-
-    # 1 — within-day dedupe.
-    for day in plan["days"]:
-        seen: set[int] = set()
-        deduped = []
-        for ex in day["exercises"]:
-            if ex["exercise_id"] in seen:
-                continue
-            seen.add(ex["exercise_id"])
-            deduped.append(ex)
-        day["exercises"] = deduped
-
-    # 2 — cross-day cap. Earlier days keep the exercise; later occurrences get
-    # swapped for a same-muscle alternative that isn't already in that day and
-    # isn't itself at the cap.
-    used_count: dict[int, int] = {}
-    for day in plan["days"]:
-        day_ids = {ex["exercise_id"] for ex in day["exercises"]}
-        for ex in day["exercises"]:
-            eid = ex["exercise_id"]
-            if used_count.get(eid, 0) < cap:
-                used_count[eid] = used_count.get(eid, 0) + 1
-                continue
-            muscle = muscle_of.get(ex["name"].lower())
-            replacement = None
-            for cand in by_muscle.get(muscle, []):
-                cand_match = name_map.get(cand.lower())
-                if not cand_match:
-                    continue
-                cid = cand_match["id"]
-                if cid == eid or cid in day_ids or used_count.get(cid, 0) >= cap:
-                    continue
-                replacement = cand_match
-                break
-            if replacement:
-                swaps.append(f"{ex['name']} → {replacement['name']}")
-                ex["exercise_id"] = replacement["id"]
-                ex["name"] = replacement["name"]
-                ex["note"] = "Variation swap for weekly variety — match the loading of the movement it replaces."
-                day_ids.add(replacement["id"])
-                used_count[replacement["id"]] = used_count.get(replacement["id"], 0) + 1
-            else:
-                # No viable alternative — accept the repeat rather than drop work.
-                used_count[eid] = used_count.get(eid, 0) + 1
-    return plan, swaps
 
 
 def athlete_context(profile: dict, goal: str) -> list[str]:
@@ -556,8 +493,9 @@ _PAIN_AVOID = [
      "overhead pressing, dips, upright rows and behind-the-neck work",
      r"overhead|military|upright row|\bdip|behind|snatch|handstand|arnold|push press|jerk"),
     (("lower back", "low back", "lumbar", "spine", "disc", "sciatic"), "lower back",
-     "deadlifts, good mornings, bent-over rows and heavy squats",
-     r"deadlift|good morning|bent[- ]?over|squat|clean|snatch|back extension|hyperextension"),
+     "deadlifts, good mornings, bent-over rows, swings and heavy squats",
+     r"deadlift|good morning|bent[- ]?over|barbell row|pendlay|t-bar|squat|clean|snatch|swing|"
+     r"pull[- ]?through|back extension|hyperextension|rack pull"),
     (("elbow",), "elbow", "skull crushers, dips, close-grip pressing and heavy curls",
      r"skull|\bdip|close[- ]grip|curl"),
     (("hip",), "hip", "deep squats, lunges, sumo deadlifts and hip-thrust variations that pinch",

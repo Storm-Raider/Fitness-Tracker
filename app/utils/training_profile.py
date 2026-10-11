@@ -116,6 +116,29 @@ async def build_profile(conn: aiosqlite.Connection, uid: int, *, fresh: bool = F
     ) as cur:
         top_lifts = [dict(r) for r in await cur.fetchall()]
 
+    # Per-exercise signals for programming (app/utils/coach_program.py), last 90 days:
+    # how much the athlete trains each movement (ranks the candidates), their CURRENT best
+    # e1RM (sets the loads; an all-time peak from months ago would overshoot) and every
+    # equipment type they use. Bodyweight lifts get no e1RM, as in top_lifts.
+    async with conn.execute(
+        """
+        SELECT e.name, COALESCE(e.equipment, 'Other') AS equipment, COUNT(*) AS sets,
+               MAX(CASE WHEN s.weight_kg > 0 AND COALESCE(e.equipment, '') != 'Bodyweight'
+                        THEN ROUND(e1rm(s.weight_kg, s.reps), 1) END) AS e1rm
+        FROM sets s
+        JOIN exercises e ON e.id = s.exercise_id
+        JOIN workouts w ON w.id = s.workout_id
+        WHERE s.user_id = ?
+          AND DATE(w.started_at) >= DATE('now','localtime','-90 days')
+        GROUP BY e.id
+        """,
+        (uid,),
+    ) as cur:
+        per_exercise = [dict(r) for r in await cur.fetchall()]
+    sets_by_exercise = {r["name"].lower(): r["sets"] for r in per_exercise}
+    recent_e1rm = {r["name"].lower(): r["e1rm"] for r in per_exercise if r["e1rm"]}
+    equipment_used = sorted({r["equipment"] for r in per_exercise})
+
     # Sessions per week estimate.
     sessions_per_week = None
     if freq["n"] and freq["first_day"] and freq["last_day"]:
@@ -337,6 +360,9 @@ async def build_profile(conn: aiosqlite.Connection, uid: int, *, fresh: bool = F
         "low_effort_lifts": low_effort_lifts,
         "wellness": wellness,
         "injury_flags": injury_flags,
+        "sets_by_exercise": sets_by_exercise,
+        "recent_e1rm": recent_e1rm,
+        "equipment_used": equipment_used,
     }
     _PROFILE_CACHE[uid] = (profile, time.monotonic())
     return profile

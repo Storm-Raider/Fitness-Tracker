@@ -171,6 +171,21 @@
   margin-top: 0.15rem;
   font-weight: 400;
 }
+.ex-target {
+  display: block;
+  font-size: 0.875rem;
+  color: var(--muted);
+  margin-top: 0.2rem;
+  font-weight: 400;
+}
+.ex-target .num { font-size: 1rem; font-weight: 800; color: var(--text); }
+.ex-prog {
+  display: block;
+  font-size: 0.8125rem;
+  color: var(--muted);
+  margin-top: 0.1rem;
+  font-weight: 400;
+}
 /* Latest edit (set by PlanView): neutral tint + muted label, never orange or amber. */
 .ex-row.changed { background: var(--surface-hover); margin: 0 -0.6rem; padding-left: 0.6rem; padding-right: 0.6rem; border-radius: 8px; border-bottom-color: transparent; }
 .edited-tag {
@@ -1034,7 +1049,9 @@ async function saveAiPlan() {
         days_per_week: currentPlan.days_per_week,
         days: currentPlan.days.map(d => ({
           focus: d.focus,
-          exercises: d.exercises.map(e => ({name: e.name, sets: e.sets, reps: e.reps, note: e.note || ''})),
+          exercises: d.exercises.map(e => ({name: e.name, sets: e.sets, reps: e.reps, note: e.note || '',
+                                           load_kg: e.load_kg ?? null, rir: e.rir ?? null,
+                                           rest_sec: e.rest_sec ?? null, progression: e.progression || ''})),
         })),
       };
       resp = await fetch('/coach/save', {

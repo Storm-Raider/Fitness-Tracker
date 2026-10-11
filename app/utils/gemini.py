@@ -10,6 +10,8 @@ its products; the paid tier does not.
 Configuration (env vars):
   GEMINI_API_KEY   AI Studio API key (required) — https://aistudio.google.com/apikey
   GEMINI_MODEL     model id (default gemini-3.5-flash-lite)
+  GEMINI_PLAN_MODEL  model for plan generation (default gemini-3.8-flash); the coach
+                     route falls back to GEMINI_MODEL when it fails
   GEMINI_CHAT_MODEL  optional model for the coach chat (the chat route reads it and
                      passes model=; everything else uses GEMINI_MODEL)
 
@@ -28,6 +30,9 @@ import time
 import httpx
 
 DEFAULT_MODEL = "gemini-3.5-flash-lite"
+# Plan generation is one request per routine and quality matters more than speed there,
+# so it uses a stronger model with a thinking budget (see app/routes/coach.py).
+DEFAULT_PLAN_MODEL = "gemini-3.8-flash"
 BASE_URL = "https://generativelanguage.googleapis.com/v1beta"
 MAX_ATTEMPTS = 3
 _BACKOFF_SECONDS = (2.0, 5.0)
@@ -45,6 +50,11 @@ def api_key() -> str:
 
 def model() -> str:
     return os.environ.get("GEMINI_MODEL", "").strip() or DEFAULT_MODEL
+
+
+def plan_model() -> str:
+    """Model for plan generation: GEMINI_PLAN_MODEL when set, else DEFAULT_PLAN_MODEL."""
+    return os.environ.get("GEMINI_PLAN_MODEL", "").strip() or DEFAULT_PLAN_MODEL
 
 
 _env_model = model  # chat_turn_json's `model=` parameter shadows the name inside it
@@ -140,7 +150,8 @@ def model_turn(text: str) -> dict:
     return {"role": "model", "parts": [{"text": text}]}
 
 
-def _build_payload(system: str, contents: list, schema: dict, temperature: float, model_name: str) -> dict:
+def _build_payload(system: str, contents: list, schema: dict, temperature: float, model_name: str,
+                   thinking_budget: int | None = None) -> dict:
     config: dict = {
         "temperature": temperature,
         "responseMimeType": "application/json",
@@ -152,8 +163,13 @@ def _build_payload(system: str, contents: list, schema: dict, temperature: float
     # the default spends ~150 thought tokens on a trivial prompt); Pro models
     # can't turn thinking off, and some Flash models (3.5 Flash-Lite) reject the
     # field outright — chat_turn_json() handles that by retrying without it.
-    if "flash" in model_name and model_name not in _NO_THINKING_CFG:
-        config["thinkingConfig"] = {"thinkingBudget": 0}
+    # A caller that wants reasoning (plan generation) passes a positive budget, which
+    # any model accepts except the ones known to reject the field altogether.
+    if model_name not in _NO_THINKING_CFG:
+        if thinking_budget:
+            config["thinkingConfig"] = {"thinkingBudget": thinking_budget}
+        elif "flash" in model_name:
+            config["thinkingConfig"] = {"thinkingBudget": 0}
     return {
         "systemInstruction": {"parts": [{"text": system}]},
         "contents": contents,
@@ -215,6 +231,7 @@ async def chat_turn_json(
     retry_timeouts: bool = True,
     retry_malformed: bool = False,      # also retry empty / non-JSON answers
     min_retry_seconds: float = 0.0,     # retry only if at least this long remains before `deadline`
+    thinking_budget: int | None = None, # None: no thinking where it can be turned off
 ) -> dict:
     """
     The one request core: send `contents` (a list of user/model turns) with a
@@ -243,7 +260,7 @@ async def chat_turn_json(
         )
     model_name = model or _env_model()
     headers = {"x-goog-api-key": key, "content-type": "application/json"}
-    payload = _build_payload(system, contents, schema, temperature, model_name)
+    payload = _build_payload(system, contents, schema, temperature, model_name, thinking_budget)
 
     failures = 0        # transient failures so far (the thinkingConfig fallback isn't counted)
     requests_made = 0   # every HTTP request, for max_requests
@@ -312,13 +329,16 @@ async def chat_json(
     on_tokens: "object | None" = None,
     model: str | None = None,
     on_request: "object | None" = None,
+    thinking_budget: int | None = None,
+    max_requests: int | None = None,
 ) -> dict:
     """A single user message in, parsed JSON out: chat_turn_json() with the
     plan-generation retry policy (transient failures retried, long timeout)."""
     return await chat_turn_json(
         system, [user_turn(user)], schema,
         temperature=temperature, timeout=timeout, on_tokens=on_tokens,
-        model=model, on_request=on_request,
+        model=model, on_request=on_request, thinking_budget=thinking_budget,
+        max_requests=max_requests,
     )
 
 
@@ -332,6 +352,8 @@ async def generate_json(
     on_tokens: "object | None" = None,
     model: str | None = None,
     on_request: "object | None" = None,
+    thinking_budget: int | None = None,
+    max_requests: int | None = None,
 ) -> tuple[dict, str]:
     """chat_json() plus the model name actually used — callers that record which
     model produced a result (e.g. coach_plans.model) store the returned name."""
@@ -339,6 +361,7 @@ async def generate_json(
     result = await chat_json(
         system, user, schema,
         temperature=temperature, timeout=timeout, on_tokens=on_tokens,
-        model=model_name, on_request=on_request,
+        model=model_name, on_request=on_request, thinking_budget=thinking_budget,
+        max_requests=max_requests,
     )
     return result, model_name

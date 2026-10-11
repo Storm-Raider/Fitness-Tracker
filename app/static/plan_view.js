@@ -55,6 +55,30 @@
     return pv;
   }
 
+  function fmtRest(sec) {
+    if (!sec) return '';
+    return sec < 120 ? sec + ' s rest' : (Math.round(sec / 30) / 2) + ' min rest';
+  }
+
+  // "80 kg · RIR 2 · 3 min rest" for plans the coach programmed; null for older plans.
+  // The load sits in a .weight-display[data-kg] span so the app's unit toggle re-renders it.
+  function buildTarget(ex) {
+    var parts = [];
+    if (ex.rir != null) parts.push('RIR ' + ex.rir);
+    if (ex.rest_sec) parts.push(fmtRest(ex.rest_sec));
+    if (!parts.length && !ex.load_kg) return null;
+    var line = el('span', 'ex-target');
+    if (ex.load_kg) {
+      var w = el('span', 'weight-display num');
+      w.setAttribute('data-kg', String(ex.load_kg));
+      w.textContent = global.fmtWeight ? global.fmtWeight(ex.load_kg, global.getAppUnit()) : ex.load_kg + ' kg';
+      line.appendChild(w);
+      if (parts.length) line.appendChild(document.createTextNode(' · '));
+    }
+    line.appendChild(document.createTextNode(parts.join(' · ')));
+    return line;
+  }
+
   function buildDay(day, n, opts, isChanged) {
     var card = el('div', 'day-card');
     card.setAttribute('data-day', String(n));
@@ -69,6 +93,9 @@
       row.setAttribute('data-idx', String(idx));
       var name = el('span', 'ex-name', fmt(ex.name));
       if (ex.note) name.appendChild(el('span', 'ex-note', fmt(ex.note)));
+      var target = buildTarget(ex);
+      if (target) name.appendChild(target);
+      if (ex.progression) name.appendChild(el('span', 'ex-prog', fmt(ex.progression)));
       row.appendChild(name);
       row.appendChild(el('span', 'ex-scheme num', fmt(ex.sets) + ' × ' + fmt(ex.reps)));
       if (opts.onRowAction) {

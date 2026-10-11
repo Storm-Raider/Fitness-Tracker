@@ -114,8 +114,9 @@ All settings go in `.env` (copied from `.env.example`):
 | `DATABASE_PATH` | No | `/data/fitness.db` | SQLite file path inside container |
 | `WEBHOOK_URL` | No | *(empty)* | HTTP endpoint to notify on events |
 | `GEMINI_API_KEY` | For AI Coach | — | Google AI Studio API key ([get one](https://aistudio.google.com/apikey)). Without it the Coach is disabled |
-| `GEMINI_MODEL` | No | `gemini-3.5-flash-lite` | Gemini model the AI Coach generates with |
-| `GEMINI_CHAT_MODEL` | No | `GEMINI_MODEL` | Model for the Coach chat, if you want a stronger one than plan generation uses |
+| `GEMINI_PLAN_MODEL` | No | `gemini-3.8-flash` | Model that writes plans (with a thinking budget). If it fails or its quota runs out, generation falls back to `GEMINI_MODEL` |
+| `GEMINI_MODEL` | No | `gemini-3.5-flash-lite` | Default Gemini model: the plan fallback, and the chat unless `GEMINI_CHAT_MODEL` is set |
+| `GEMINI_CHAT_MODEL` | No | `GEMINI_MODEL` | Model for the Coach chat |
 | `COACH_AI_MAX_PER_DAY` | No | `300` | App-wide cap on Gemini requests per day (Pacific time, when Google's quota resets). Set it to about 80% of your real limit from <https://ai.dev/rate-limit> |
 | `COACH_CHAT_ENABLED` | No | `true` | `false` turns the Coach chat off (undo and note management keep working) |
 
@@ -138,14 +139,32 @@ Google's [Gemini API](https://aistudio.google.com) (Google AI Studio).
    and hit *Generate*. Review the plan and save it — each day becomes a routine
    you can load straight into the workout logger.
 
-Generation typically takes a few seconds to under a minute. Rate-limit and
-temporary Gemini errors are retried automatically.
+**How a plan is built.** The programme itself is written by code
+(`app/utils/coach_program.py`), not by the model:
+
+- the split for your days per week (full body, upper/lower, push/pull/legs; or the one you ask for)
+- each day's slots: main lift, secondary lift, accessories, isolation, core
+- sets, reps, effort (RIR) and rest for your goal
+- loads from your own recent estimated 1RMs
+- a progression rule for every exercise
+
+It also adjusts for your feedback on the last plan, low sleep or energy, pain you
+flagged, under-trained muscles and a muscle trained yesterday. Gemini then picks one
+exercise per slot from a short list ranked by your own history, and writes the cues,
+the title and a summary of why the plan suits you.
+
+Saved routines keep these targets: pick the exercise in the workout logger and its
+target (e.g. `5 × 3-5 · 112.5 kg · RIR 2 · 3 min rest`) shows under "Last time".
+
+Generation takes a few seconds to about a minute. Rate-limit and temporary
+Gemini errors are retried automatically.
 
 **Free-tier quota:** Gemini's free tier caps requests per model per day (it was
 20/day for `gemini-3.8-flash` when this was set up; see your limits at
-<https://ai.dev/rate-limit>). One routine normally uses 1 request (up to 3
-if a retry is needed); nothing is generated in the background. Quotas are per model — set `GEMINI_MODEL` to a different one, or
-enable billing, for more headroom.
+<https://ai.dev/rate-limit>). A routine normally uses 1 request; when Gemini is
+struggling, retries and the fallback are capped at 4. When the plan model's quota
+runs out, plans fall back to `GEMINI_MODEL`, which has its own quota. Nothing is
+generated in the background.
 
 **Coach chat:** each plan can have a conversation with the coach: ask a
 question, or ask for a change ("swap squats for leg press", "day 2 is too long",

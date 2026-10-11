@@ -41,6 +41,7 @@ async def _assert_chat_schema(conn):
         "id", "plan_id", "user_id", "role", "content", "changed_days", "changes", "undone", "created_at"}
     assert set(await _columns(conn, "coach_notes")) == {"id", "user_id", "text", "source_plan_id", "created_at"}
     assert set(await _columns(conn, "coach_usage")) == {"day", "count"}
+    assert "target_json" in await _columns(conn, "routine_exercises")
 
 
 @pytest.mark.asyncio
@@ -71,6 +72,7 @@ async def test_a_pre_chat_database_upgrades_cleanly_and_keeps_its_rows():
         for col in ("updated_at", "rev", "undo_json"):
             await conn.execute(f"ALTER TABLE coach_plans DROP COLUMN {col}")
         await conn.execute("ALTER TABLE user_settings DROP COLUMN coach_chat_ack_at")
+        await conn.execute("ALTER TABLE routine_exercises DROP COLUMN target_json")   # added after the chat
         await conn.execute("DELETE FROM _schema_migrations WHERE idx >= ?", (first,))
         await conn.execute(
             "INSERT INTO coach_plans(id, user_id, title, goal, days_per_week, plan_json, status) "

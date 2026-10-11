@@ -59,7 +59,7 @@ def test_every_scenario_profile_patch_only_uses_real_profile_keys():
             "high_effort_lifts", "injury_flags", "last_day", "last_plan_feedback", "low_effort_lifts",
             "muscle_recovery", "muscle_sets", "preferred_equipment", "recent_set_notes",
             "sessions_per_week", "stalled", "top_exercises", "top_lifts", "total_workouts",
-            "undertrained", "wellness"}
+            "undertrained", "wellness", "sets_by_exercise", "recent_e1rm", "equipment_used"}
     for s in ev.SCENARIOS:
         assert set(s.profile) <= keys, (s.id, set(s.profile) - keys)
 
@@ -87,8 +87,8 @@ async def test_every_scenario_builds_a_prompt(db):
             for note in s.notes:
                 assert coach_chat.quote_for_prompt(note) in turns[0]["parts"][0]["text"], s.id
         else:
-            prompt = coach._build_prompt(s.goal, s.days, profile, catalog, s.note)
-            assert f"Return exactly {s.days} day(s)" in prompt, s.id
+            _rows, _skeleton, prompt = await coach._prepare(db, profile, catalog, s.goal, s.days, s.note)
+            assert f"return exactly {s.days} day(s)" in prompt, s.id
 
 
 def test_checks_pass_and_fail_as_described():

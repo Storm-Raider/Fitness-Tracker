@@ -25,6 +25,7 @@ from app.utils import coach_budget, coach_chat, gemini
 from app.utils.coach_plan import (
     exercise_catalog, exercise_rows, is_safe_exercise_name, name_to_id_map, pain_avoid_pattern,
 )
+from app.utils.coach_program import annotate_targets
 from app.utils.training_profile import build_profile
 
 router = APIRouter()
@@ -284,6 +285,12 @@ async def chat_turn(plan_id: int, body: ChatIn, conn: aiosqlite.Connection = Dep
         if editable and reply.days:
             name_map, norm_map = await name_to_id_map(conn)
             result = coach_chat.apply_patch(plan, reply.days, name_map, norm_map)
+            if result.applied_days:
+                # Every day the model sent was rebuilt from its names, sets and reps only, so
+                # targets are restored for all of them: kept where nothing changed,
+                # recomputed in code where it did (the cached profile ask_coach just built).
+                annotate_targets(result.plan, plan, await build_profile(conn, uid), await exercise_rows(conn),
+                                 only_days=result.applied_days)
             extra = coach_chat.unapplied_note(result)
             if extra:
                 reply_text = f"{reply_text} {extra}"[: coach_chat.MAX_REPLY_CHARS + 200]
@@ -470,6 +477,7 @@ async def swap_exercise(plan_id: int, body: SwapIn, conn: aiosqlite.Connection =
     target = swapped["days"][body.day - 1]["exercises"][body.idx]
     # Sets and reps carry over; the note described the old exercise's load, so it goes.
     target.update({"exercise_id": new["id"], "name": new["name"], "note": ""})
+    annotate_targets(swapped, plan, await build_profile(conn, uid), await exercise_rows(conn), only_days=[body.day])
     changed, changes = coach_chat.diff_plans(plan, swapped)
     undo_json = coach_chat.push_undo(row["undo_json"], plan, f"Swapped {old['name']} for {new['name']}")
     async with write_tx(conn):

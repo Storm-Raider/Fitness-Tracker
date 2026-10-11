@@ -407,3 +407,13 @@ def test_the_task_line_restates_pain_from_this_message_and_from_earlier_user_mes
     turns = cc.build_contents(context_text="CTX", history=only_model, plan=plan, message="no, all fine", profile={})
     assert "flagged pain" not in turns[-1]["parts"][0]["text"]               # the coach's own words do not count
 
+
+
+def test_the_plan_the_coach_sees_includes_loads_and_effort_when_set():
+    plan = {"title": "t", "days": [{"focus": "A", "exercises": [
+        {"exercise_id": 1, "name": "Bench Press", "sets": 5, "reps": "3-5", "note": "", "load_kg": 80.0, "rir": 2},
+        {"exercise_id": 2, "name": "Plank", "sets": 3, "reps": "30-45s", "note": "", "load_kg": None, "rir": 2},
+        {"exercise_id": 3, "name": "Dip", "sets": 3, "reps": "8", "note": ""}]}]}
+    text = cc.build_contents(context_text="ctx", history=[], plan=plan, message="hi", profile={})[-1]["parts"][0]["text"]
+    assert '"load_kg": 80.0, "rir": 2' in text
+    assert text.count("load_kg") == 1 and text.count('"rir"') == 2

@@ -227,6 +227,16 @@ async def test_a_swap_replaces_the_exercise_keeps_sets_and_reps_and_is_undoable(
 
 
 @pytest.mark.asyncio
+async def test_a_swapped_exercise_gets_fresh_targets(client, db):
+    pid, plan = await seed_plan(db)
+    new = await pick(client, pid)
+    d = (await swap(client, pid, to=new["exercise_id"])).json()
+    new_ex = d["plan"]["days"][2]["exercises"][0]
+    assert new_ex["rir"] is not None and new_ex["rest_sec"] and new_ex["progression"]
+    assert d["plan"]["days"][0] == plan["days"][0]                # other days are left alone
+
+
+@pytest.mark.asyncio
 async def test_the_old_exercises_note_does_not_follow_the_new_exercise(client, db):
     pid, plan = await seed_plan(db)
     assert plan["days"][0]["exercises"][0]["note"] == "a"                         # Bench Press carries a note
