@@ -217,6 +217,7 @@ window.addEventListener('distancechange', updatePace);
   const mm = String(t.getMonth() + 1).padStart(2, '0');
   const dd = String(t.getDate()).padStart(2, '0');
   document.getElementById('cardio-date').value = `${yyyy}-${mm}-${dd}`;
+  document.getElementById('cardio-date').max = `${yyyy}-${mm}-${dd}`;   // no future dates
 })();
 </script>
 {% endblock %}

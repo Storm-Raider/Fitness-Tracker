@@ -97,3 +97,25 @@ async def test_backdated_start_beyond_the_length_is_rejected(client):
     assert (await client.post("/challenges", json={"template_key": "75_hard", "start_date": too_early})).status_code == 422
     ok = (date.today() - timedelta(days=74)).isoformat()             # today is day 75: still inside
     assert (await client.post("/challenges", json={"template_key": "75_hard", "start_date": ok})).status_code == 201
+
+
+# Regression: ISSUE-005 — a future-dated activity reset the current streak to 0
+def test_streak_ignores_future_dates():
+    from app.utils.streak import compute_streak
+    today = date.today()
+    days = [(today - timedelta(days=i)).isoformat() for i in range(3)]
+    assert compute_streak(days) == 3
+    assert compute_streak(days + [(today + timedelta(days=1)).isoformat()]) == 3
+    assert compute_streak([(today + timedelta(days=2)).isoformat()]) == 0
+
+
+@pytest.mark.asyncio
+async def test_cardio_cannot_be_logged_in_the_future(client, db):
+    cid = await _cardio_ex(db)
+    tomorrow = (date.today() + timedelta(days=1)).isoformat()
+    r = await client.post("/cardio", data={"exercise_id": cid, "duration_minutes": 30, "logged_date": tomorrow},
+                          follow_redirects=False)
+    assert r.status_code == 422
+    r = await client.post("/cardio", data={"exercise_id": cid, "duration_minutes": 30,
+                                           "logged_date": date.today().isoformat()}, follow_redirects=False)
+    assert r.status_code == 303

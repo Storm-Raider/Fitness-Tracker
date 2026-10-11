@@ -26,8 +26,11 @@ def compute_streak(workout_dates: list[str]) -> int:
     if not workout_dates:
         return 0
 
-    unique = sorted({d for d in workout_dates}, reverse=True)
     today = date.today().isoformat()
+    # A future date (a mis-tapped cardio date) isn't a break in the streak.
+    unique = sorted({d for d in workout_dates if d <= today}, reverse=True)
+    if not unique:
+        return 0
 
     if unique[0] != today:
         return 0
