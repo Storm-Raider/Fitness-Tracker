@@ -265,7 +265,7 @@
             data-weight="{{ r.pr_kg }}"
             data-days="{{ r.days_ago if r.days_ago is not none else 99999 }}">
           <td style="font-weight:500;">
-            <a href="/exercises/{{ r.id }}" style="color:inherit;text-decoration:none;"
+            <a href="/exercises/{{ r.id }}" style="color:inherit;text-decoration:none;display:inline-flex;align-items:center;min-height:44px;"
                onmouseover="this.style.color='var(--accent)'"
                onmouseout="this.style.color='inherit'">{{ r.name }}</a>
             {% if r.stalled %}<span class="badge-plateau" title="No new PR in 3+ weeks">Plateau</span>{% endif %}
