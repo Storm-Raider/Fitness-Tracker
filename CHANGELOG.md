@@ -17,6 +17,13 @@ All notable changes to Zenkai are documented here.
   - Amber marks only the newest record in the records table, not every row; a record's age is ink, not "saved" green.
   - Chart dates read "Sep 13" in the number face, not "09-13"; the Daily log subtitle reads "Sunday, Oct 11".
   - Sentence case for every title and button ("Body metrics", "Start session"); the desktop nav uses the tab bar's order.
+  - One toggle style everywhere: Analytics sort, the exercise chart, Plan's mode, Body metrics tabs and the Daily log's Low/Medium/High now use the same grey-track toggle as Settings.
+  - The session list rows lose their repeat and trash icons; a finished session's page has "Repeat this session" next to its delete. Starting another session while one is open asks with an orange button, not a red one.
+  - The Plan page no longer shows the AI model's id, and when the coach is off it says so plainly; only the admin sees the setup step.
+  - Unlocking many achievements at once shows two toasts and "+N more", above the tab bar on a phone, instead of a column that filled the screen.
+
+### Fixed (design audit)
+- **Bodyweight exercises no longer show your bodyweight as a record.** "Pull-up 80 kg, est. 1RM 101 kg" was your bodyweight. A bodyweight record is now the best set (added load, then hold, then reps), shown as "BW × 12" or "BW +10 kg × 5" on Home, Analytics, Exercises and the exercise page, which charts reps instead of weight and drops the kg goal. Logging a set at a heavier bodyweight with fewer reps no longer celebrates a record.
 - **Charts no longer use blue, which is reserved for buttons and links.** Single-series charts (dashboard weekly volume, Analytics volume and trend lines, the exercise volume trend) use a new `--data` violet `#9085e9`. Exercise colours on the workout page were re-picked and pass colour-blind separation checks for neighbouring bars. On the dashboard, muscle bars now keep each muscle's colour (they were coloured by rank, so a muscle changed colour when its rank did, and second place was PR gold); the dashboard and the workout page's muscle map share one muscle palette: Chest is magenta, and Triceps and Forearms moved off green (Biceps, Triceps and Forearms were three near-identical greens, and Triceps' teal looked like the cyan used for things that are running). Strength levels on Analytics use one violet scale, brightest at Advanced, with Elite still gold. Plain numbers that were blue (session duration, finish-screen volume, plan sliders) are now text-coloured; the running session's side bar and a challenge's "today" counter are cyan, the colour for things that are running.
 
 ### Fixed

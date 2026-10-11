@@ -165,7 +165,12 @@ Radii: sm 10px (small buttons, keys), md 14px (inputs, messages), lg 18px (cards
 
 - **Primary button:** orange fill, ink text, min height 56px (68–72px for "Start session"). Hover darkens the fill slightly; focus shows a 2px ink outline with a 2px offset; disabled is 50% opacity with no hover.
 - **Secondary button:** white with a #c9c8c2 border and ink text. **Danger:** the secondary style with red text.
-- **Finished session:** the same tap-to-edit set rows as a live session (Save, Cancel, Delete in the editor; swipe also deletes), no per-row icons.
+- **Finished session:** the same tap-to-edit set rows as a live session (Save, Cancel, Delete in the editor; swipe also deletes), no per-row icons. "Repeat this session" and the header's delete live here, not on each row of the session list.
+- **Toggle:** every one-of-N choice (sort, chart metric, page tabs, units, Low/Medium/High) is the shared `.seg-toggle`: a grey track with the picked option as a white raised segment, real `<button aria-pressed>`, 44px tall; `.seg-fill` spans the row. Choices that carry a description (Plan goal, feedback type) are option cards instead.
+- **Confirm sheet:** red confirm for anything destructive; `primary: true` (orange, ink text) for a confirm that destroys nothing, such as starting another session.
+- **Achievement toasts:** at most two (best tier first), then one "+N more achievements unlocked" link; above the tab bar on a phone.
+- **Bodyweight records:** a bodyweight exercise's record is its best set, ranked by added load, then hold, then reps, and read "BW × 12", "BW +10 kg × 5" or "BW · 1:30". Its weight is your bodyweight, so it never shows as a kg record, an est. 1RM, a weight goal or a weight chart.
+- **Server setup** (API keys, env vars, model ids) shows only to the admin. Everyone else gets a plain note of what's off and what still works.
 - **Set row:**
   - todo: pencil numbers
   - done: `done` fill and an ink tick
@@ -214,6 +219,7 @@ Radii: sm 10px (small buttons, keys), md 14px (inputs, messages), lg 18px (cards
 | 2026-10-10 | Set list with tap-to-type numbers and an inline rest timer | The user's adjustments: no −/+ steppers, round ticks, rest timer under the last set, softer done state. |
 | 2026-10-10 | Native number keypad instead of a custom pad; activity heatmap in ink | Built the rebuild: the native keypad is the same tap-to-type flow with less to break. Activity is data (ink); amber stays for records. |
 | 2026-10-11 | Session screen reworked: exercise strip, picker sheet, pinned rest timer | The user found the screen cluttered and switching exercises slow. Chose "focused, cleaned up" over a Strong/Hevy-style list of every exercise. Filters moved into the picker, delete and units into a ⋯ menu, the duplicate "This session" list and the segmented progress bar removed. The rest timer moved from inline to pinned so it stops shifting the sets. Its countdown is now white: orange text broke the no-orange-text rule. |
+| 2026-10-11 | Audit follow-ups, the user's call on all five | One toggle style (the existing `.seg-toggle`); repeat/delete moved off session rows; bodyweight records are best sets; the Plan page hides the model id and shows setup to the admin only; achievement toasts capped at two. |
 | 2026-10-11 | Design audit consistency pass | A full audit at 390px and 1280px found drift, not new direction: Title Case next to sentence case, reps and chart axes in the body face, "09-13" dates, amber on every row of the records table, two buttons back into a live session, pencil and × icons on every finished set, tables cutting numbers off on a phone, the heatmap opening on last year. Each was brought back to the rules above. |
 
 The previous system (Redline Console) is preserved in `docs/design-history/DESIGN-redline-console.md`.
