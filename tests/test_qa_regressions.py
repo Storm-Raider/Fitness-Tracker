@@ -267,3 +267,18 @@ async def test_password_change_signs_out_other_devices_only(client, db):
         left = {row["id"] for row in await c.fetchall()}
     assert "other-device" not in left and left            # this device stays signed in
     assert (await client.get("/settings", headers={"Accept": "text/html"})).status_code == 200
+
+
+# Regression: ISSUE-014 — bodyweight sets earned weight achievements and counted as PRs
+@pytest.mark.asyncio
+async def test_bodyweight_sets_do_not_earn_weight_achievements(client, db):
+    async with db.execute("SELECT id FROM exercises WHERE name='Push-up'") as c:
+        ex = (await c.fetchone())["id"]
+    w = (await client.post("/workouts", json={})).json()["id"]
+    for kg in (105, 106):            # a 105 kg lifter, then a heavier morning
+        await client.post(f"/workouts/{w}/sets", json={"exercise_id": ex, "reps": 10, "weight_kg": kg, "added_weight_kg": 0})
+    await client.post(f"/workouts/{w}/finish")
+    await client.get("/achievements", headers={"Accept": "text/html"})
+    async with db.execute("SELECT achievement_id FROM user_achievements WHERE user_id=1") as c:
+        got = {r["achievement_id"] for r in await c.fetchall()}
+    assert "first_set" in got and not ({"lift_60kg", "lift_100kg", "prs_1"} & got)

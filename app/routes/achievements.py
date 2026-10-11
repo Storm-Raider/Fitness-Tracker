@@ -84,8 +84,13 @@ async def _compute_earned(conn: aiosqlite.Connection, uid: int) -> dict[str, str
     if n_sets >= 1000:  earned["sets_1000"]  = now
     if n_sets >= 10000: earned["sets_10000"] = now
 
-    # Max weight per set
-    async with conn.execute("SELECT MAX(weight_kg) AS m FROM sets WHERE user_id=?", (uid,)) as c:
+    # Max weight per set. Bodyweight exercises are left out: their weight_kg is
+    # the lifter's bodyweight, so push-ups at 105 kg are not a "Century Lift"
+    # (as pr_utils.bw_key).
+    async with conn.execute(
+        "SELECT MAX(s.weight_kg) AS m FROM sets s JOIN exercises e ON e.id = s.exercise_id "
+        "WHERE s.user_id=? AND COALESCE(e.equipment, '') != 'Bodyweight'", (uid,)
+    ) as c:
         max_kg = (await c.fetchone())["m"] or 0
     if max_kg >=  60: earned["lift_60kg"]  = now
     if max_kg >= 100: earned["lift_100kg"] = now
@@ -142,7 +147,9 @@ async def _compute_earned(conn: aiosqlite.Connection, uid: int) -> dict[str, str
         WITH sm AS (
             SELECT s.exercise_id, DATE(w.started_at) AS d, MAX(s.weight_kg) AS mk
             FROM sets s JOIN workouts w ON w.id=s.workout_id
-            WHERE s.user_id=? GROUP BY s.exercise_id, DATE(w.started_at)
+            JOIN exercises e ON e.id = s.exercise_id
+            WHERE s.user_id=? AND COALESCE(e.equipment, '') != 'Bodyweight'  -- weight is bodyweight
+            GROUP BY s.exercise_id, DATE(w.started_at)
         ), rm AS (
             SELECT *, MAX(mk) OVER (PARTITION BY exercise_id ORDER BY d
                 ROWS BETWEEN UNBOUNDED PRECEDING AND 1 PRECEDING) AS pm FROM sm
