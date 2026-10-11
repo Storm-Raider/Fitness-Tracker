@@ -571,18 +571,26 @@ async def patch_set(
 ):
     uid = current_user["id"]
     async with conn.execute(
-        "SELECT id FROM sets WHERE id = ? AND workout_id = ? AND user_id = ?",
+        "SELECT id, reps, weight_kg, added_weight_kg, duration_seconds FROM sets "
+        "WHERE id = ? AND workout_id = ? AND user_id = ?",
         (set_id, workout_id, uid),
     ) as cur:
-        if not await cur.fetchone():
-            raise HTTPException(status_code=404, detail="Set not found")
+        existing = await cur.fetchone()
+    if not existing:
+        raise HTTPException(status_code=404, detail="Set not found")
+    reps, weight_kg = body.reps, body.weight_kg
+    if existing["duration_seconds"] is not None or existing["added_weight_kg"] is not None:
+        # A hold (reps 0, out of volume) or a bodyweight set (weight_kg is
+        # bodyweight + load) keeps its numbers: only RPE and the note change.
+        # Overwriting them turned a plank into 80 kg x 1 of volume.
+        reps, weight_kg = existing["reps"], existing["weight_kg"]
     await conn.execute(
         "UPDATE sets SET reps = ?, weight_kg = ?, notes = ?, rpe = ? WHERE id = ? AND user_id = ?",
-        (body.reps, body.weight_kg, body.notes, body.rpe, set_id, uid),
+        (reps, weight_kg, body.notes, body.rpe, set_id, uid),
     )
     await conn.commit()
     return JSONResponse({
-        "id": set_id, "reps": body.reps, "weight_kg": body.weight_kg,
+        "id": set_id, "reps": reps, "weight_kg": weight_kg,
         "notes": body.notes, "rpe": body.rpe,
     })
 

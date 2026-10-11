@@ -171,3 +171,25 @@ async def test_zero_kg_sets_are_not_a_record_every_time(client):
     again = (await client.post(f"/workouts/{w}/sets", json={"exercise_id": ex, "reps": 15, "weight_kg": 0})).json()
     heavier = (await client.post(f"/workouts/{w}/sets", json={"exercise_id": ex, "reps": 10, "weight_kg": 2.5})).json()
     assert (first["is_pr"], again["is_pr"], heavier["is_pr"]) == (True, False, True)
+
+
+# Regression: ISSUE-010 — editing a hold or bodyweight set in the finished view corrupted it
+@pytest.mark.asyncio
+async def test_patch_keeps_a_holds_and_a_bodyweight_sets_numbers(client, db):
+    async with db.execute("SELECT id FROM exercises WHERE name='Plank'") as c:
+        plank = (await c.fetchone())["id"]
+    async with db.execute("SELECT id FROM exercises WHERE name='Pull-up'") as c:
+        pull = (await c.fetchone())["id"]
+    w = (await client.post("/workouts", json={})).json()["id"]
+    hold = (await client.post(f"/workouts/{w}/sets", json={"exercise_id": plank, "reps": 1, "weight_kg": 80,
+                                                            "added_weight_kg": 0, "duration_seconds": 60})).json()["id"]
+    bw = (await client.post(f"/workouts/{w}/sets", json={"exercise_id": pull, "reps": 8, "weight_kg": 85,
+                                                          "added_weight_kg": 5})).json()["id"]
+    before = (await client.post(f"/workouts/{w}/finish")).json()["volume_kg"]
+    r = await client.patch(f"/workouts/{w}/sets/{hold}", json={"reps": 1, "weight_kg": 80, "notes": "felt good", "rpe": 7})
+    assert r.status_code == 200 and r.json()["reps"] == 0
+    await client.patch(f"/workouts/{w}/sets/{bw}", json={"reps": 3, "weight_kg": 5, "notes": None, "rpe": 9})
+    async with db.execute("SELECT id, reps, weight_kg, notes, rpe FROM sets WHERE workout_id=? ORDER BY id", (w,)) as c:
+        rows = [tuple(r) for r in await c.fetchall()]
+    assert rows == [(hold, 0, 80.0, "felt good", 7), (bw, 8, 85.0, None, 9)]
+    assert (await client.post(f"/workouts/{w}/finish")).json()["volume_kg"] == before
