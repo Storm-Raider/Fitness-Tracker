@@ -96,6 +96,7 @@ async def list_routines(
         SELECT r.id, r.name,
                e.id AS ex_id, e.name AS ex_name,
                MIN(re.order_idx) AS ord,
+               MAX(re.target_json) AS target_json,
                json_group_array(json_object('name', em.muscle, 'is_primary', em.is_primary))
                    FILTER (WHERE em.muscle IS NOT NULL) AS muscles
         FROM routines r
@@ -120,6 +121,7 @@ async def list_routines(
                 "id": row["ex_id"],
                 "name": row["ex_name"],
                 "muscles": json.loads(row["muscles"] or "[]"),
+                "target": json.loads(row["target_json"]) if row["target_json"] else None,
             })
 
     return JSONResponse(list(routines_map.values()))

@@ -164,6 +164,14 @@ def _plan_schema(days: int, max_picks: int) -> dict:
     }
 
 
+def _target_json(ex: dict) -> str:
+    """What the workout logger shows for one routine exercise (routine_exercises.target_json)."""
+    return json.dumps({
+        "sets": ex.get("sets"), "reps": ex.get("reps"), "load_kg": ex.get("load_kg"), "rir": ex.get("rir"),
+        "rest_sec": ex.get("rest_sec"), "note": ex.get("note") or "", "progression": ex.get("progression") or "",
+    })
+
+
 # ── Pydantic request models ──────────────────────────────────────────
 
 class GenerateIn(BaseModel):
@@ -177,6 +185,10 @@ class PlanExercise(BaseModel):
     sets: int = Field(ge=1, le=20)
     reps: str = Field(max_length=20)
     note: str = ""
+    load_kg: float | None = Field(default=None, ge=0, le=1000)
+    rir: int | None = Field(default=None, ge=0, le=5)
+    rest_sec: int | None = Field(default=None, ge=0, le=900)
+    progression: str = Field(default="", max_length=200)
 
 
 class PlanDay(BaseModel):
@@ -649,6 +661,10 @@ async def save_plan(
                 "sets": ex.sets,
                 "reps": ex.reps,
                 "note": ex.note,
+                "load_kg": ex.load_kg,
+                "rir": ex.rir,
+                "rest_sec": ex.rest_sec,
+                "progression": ex.progression,
             })
         if resolved:
             stored_days.append({"focus": day.focus or "Training", "exercises": resolved})
@@ -685,8 +701,8 @@ async def save_plan(
                 rid = cur.lastrowid
             for idx, ex in enumerate(day["exercises"]):
                 await conn.execute(
-                    "INSERT INTO routine_exercises(routine_id, exercise_id, order_idx) VALUES (?,?,?)",
-                    (rid, ex["exercise_id"], idx),
+                    "INSERT INTO routine_exercises(routine_id, exercise_id, order_idx, target_json) VALUES (?,?,?,?)",
+                    (rid, ex["exercise_id"], idx, _target_json(ex)),
                 )
             routine_ids.append(rid)
 
@@ -771,8 +787,8 @@ async def confirm_plan(
                 if not eid:
                     continue
                 await conn.execute(
-                    "INSERT INTO routine_exercises(routine_id, exercise_id, order_idx) VALUES (?,?,?)",
-                    (rid, eid, idx),
+                    "INSERT INTO routine_exercises(routine_id, exercise_id, order_idx, target_json) VALUES (?,?,?,?)",
+                    (rid, eid, idx, _target_json(ex)),
                 )
             routine_ids.append(rid)
 

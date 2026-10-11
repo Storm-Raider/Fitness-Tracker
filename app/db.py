@@ -389,6 +389,9 @@ _MIGRATIONS = [
         count INTEGER NOT NULL DEFAULT 0
     )""",
     "ALTER TABLE user_settings ADD COLUMN coach_chat_ack_at TEXT",
+    # The coach plan's target for this exercise (sets, reps, load, RIR, rest, cue,
+    # progression) as JSON, shown in the workout logger. NULL for hand-made routines.
+    "ALTER TABLE routine_exercises ADD COLUMN target_json TEXT",
 ]
 
 
