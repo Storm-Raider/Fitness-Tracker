@@ -944,7 +944,24 @@
       border-radius: var(--radius-sm);
       padding: 0.85rem 1rem;
       box-shadow: var(--shadow-lg);
-      animation: ach-toast-slide 4.5s cubic-bezier(0.16,1,0.3,1) forwards;
+      animation: ach-toast-slide 4.5s cubic-bezier(0.16,1,0.3,1) both;
+    }
+    .ach-toast-more {
+      display: flex; align-items: center; min-height: 48px;
+      pointer-events: auto; color: var(--text); font-weight: 700; font-size: 0.9rem;
+      border: 1px solid var(--border-mid);
+    }
+    .ach-toast-more:hover { color: var(--text); background: var(--surface-2); }
+    /* On a phone the rack sits above the tab bar, full width, never over it. */
+    @media (max-width: 767px) {
+      #ach-toast-rack {
+        left: 1rem; right: 1rem; max-width: none;
+        bottom: calc(68px + 0.75rem + env(safe-area-inset-bottom, 0px) + var(--composer-h, 0px));
+      }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .ach-toast { animation-name: ach-toast-fade; }
+      @keyframes ach-toast-fade { 0%, 100% { opacity: 0; } 8%, 82% { opacity: 1; } }
     }
     @keyframes ach-toast-slide {
       0%   { transform: translateX(110%); opacity: 0; }
