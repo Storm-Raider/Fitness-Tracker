@@ -43,6 +43,7 @@ async def test_bodyweight_record_shows_the_best_set_everywhere(client):
     detail = (await client.get(f"/exercises/{ex}", headers={"Accept": "text/html"})).text
     assert "Best: BW × 12" in detail
     assert "Set a weight goal" not in detail and "Rep progression" in detail
+    assert 'let metric   = "reps";' in detail      # chart opens on reps, quotes unescaped
 
     listing = (await client.get("/exercises", headers={"Accept": "text/html"})).text
     assert "Best BW × 12" in listing

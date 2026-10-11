@@ -254,7 +254,7 @@ document.getElementById('goal-input')?.addEventListener('keydown', e => { if(e.k
   let prIdx = -1;
   if (PR_KG !== null) RAW.forEach((s, i) => { if (s.max_kg >= PR_KG) prIdx = i; });
   if (IS_BW) RAW.forEach((s, i) => { if (s.is_best) prIdx = i; });
-  let metric   = {{ "'hold'" if bw_timed else ("'reps'" if is_bw else "'weight'") }};
+  let metric   = {{ ('hold' if bw_timed else ('reps' if is_bw else 'weight')) | tojson }};
   const fmtHold = s => `${Math.floor(s / 60)}:${String(Math.round(s % 60)).padStart(2, '0')}`;
   let hoverIdx = -1;
 
