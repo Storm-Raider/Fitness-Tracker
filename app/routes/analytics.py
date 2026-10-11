@@ -62,7 +62,10 @@ async def analytics(
         r["time_ago"], r["days_ago"] = _time_ago(r["pr_date"])
 
     async with conn.execute(
-        "SELECT weight_kg FROM body_metrics WHERE user_id=? ORDER BY recorded_at DESC LIMIT 1",
+        # Latest by date, as Home and Body metrics: a back-filled old entry
+        # typed today must not become "your bodyweight".
+        "SELECT weight_kg FROM body_metrics WHERE user_id=? "
+        "ORDER BY COALESCE(entry_date, DATE(recorded_at)) DESC, recorded_at DESC LIMIT 1",
         (uid,),
     ) as c:
         bw_row = await c.fetchone()

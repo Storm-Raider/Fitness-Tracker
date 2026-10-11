@@ -282,3 +282,17 @@ async def test_bodyweight_sets_do_not_earn_weight_achievements(client, db):
     async with db.execute("SELECT achievement_id FROM user_achievements WHERE user_id=1") as c:
         got = {r["achievement_id"] for r in await c.fetchall()}
     assert "first_set" in got and not ({"lift_60kg", "lift_100kg", "prs_1"} & got)
+
+
+# Regression: ISSUE-015 — Analytics used the latest-typed bodyweight, not the latest-dated
+@pytest.mark.asyncio
+async def test_analytics_bodyweight_is_the_latest_dated_entry(client, db):
+    await client.post("/metrics", json={"weight_kg": 80.0, "entry_date": date.today().isoformat()})
+    await db.execute("UPDATE body_metrics SET recorded_at = datetime('now','localtime','-1 minute')")
+    await db.commit()
+    await client.post("/metrics", json={"weight_kg": 95.0, "entry_date": "2025-01-01"})   # back-filled later
+    ex = (await client.post("/exercises", json={"name": "Bench Press QA"})).json()["id"]
+    w = (await client.post("/workouts", json={})).json()["id"]
+    await client.post(f"/workouts/{w}/sets", json={"exercise_id": ex, "reps": 5, "weight_kg": 60})
+    page = (await client.get("/analytics", headers={"Accept": "text/html"})).text
+    assert "const BW_KG = 80.0;" in page or "const BW_KG = 80;" in page
