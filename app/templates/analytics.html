@@ -254,7 +254,7 @@
           <th class="spark-cell" title="12-week e1RM trend">Trend</th>
           <th class="col-wide">Sessions</th>
           <th class="col-wide">Sets</th>
-          <th>PR set</th>
+          <th class="col-wide">PR set</th>
         </tr>
       </thead>
       <tbody id="pr-tbody">
@@ -281,7 +281,7 @@
           </td>
           <td class="num col-wide">{{ r.sessions }}</td>
           <td class="num col-wide" style="color:var(--muted);">{{ r.total_sets }}</td>
-          <td style="white-space:nowrap;">
+          <td class="col-wide" style="white-space:nowrap;">
             <span class="{% if r.days_ago is not none and r.days_ago <= 30 %}pr-age-fresh{% elif r.days_ago is not none and r.days_ago <= 90 %}pr-age-mid{% else %}pr-age-old{% endif %}"
                   style="font-size:0.8125rem;font-weight:600;"
                   title="{{ r.pr_date or '' }}">{{ r.time_ago }}</span>
