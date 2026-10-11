@@ -204,7 +204,7 @@ async def test_workout_list_shows_resume_when_active(client):
     resp = await client.get("/workouts", headers={"Accept": "text/html"})
     assert resp.status_code == 200
     assert b"Resume session" in resp.content
-    assert b"Start session" not in resp.content
+    assert b'onclick="startSession(this)"' not in resp.content  # one way in, not two
 
 
 @pytest.mark.asyncio
