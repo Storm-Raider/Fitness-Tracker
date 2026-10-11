@@ -945,6 +945,16 @@
       100% { transform: translateX(110%); opacity: 0; }
     }
   </style>
+  <script>
+    // Chart helpers, defined before any page script draws.
+    // "2026-09-13" -> "Sep 13", the way dates read everywhere else (human_date).
+    window.fmtShortDate = function(iso) {
+      var p = String(iso).slice(0, 10).split('-');
+      return ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][+p[1] - 1] + ' ' + (+p[2]);
+    };
+    // Chart axes are numbers, so they use the number face (DESIGN.md: .num).
+    window.CHART_AXIS_FONT = "700 13px 'Archivo', system-ui, sans-serif";
+  </script>
   {% block head %}{% endblock %}
 </head>
 <body>

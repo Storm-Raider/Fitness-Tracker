@@ -216,7 +216,7 @@ document.getElementById('goal-input')?.addEventListener('keydown', e => { if(e.k
     data: tok('--data', '#141414'), pr: tok('--pr', '#8c5a00'), grid: tok('--border', '#dddcd6'),
     axis: tok('--muted', '#5d5d58'), ring: tok('--ring', '#8f8e88'), surface: tok('--surface', '#ffffff'),
   };
-  const AXIS_FONT = "600 13px 'Atkinson Hyperlegible Next', system-ui, sans-serif";
+  const AXIS_FONT = window.CHART_AXIS_FONT;
   const METRICS = { weight: {}, orm: {}, volume: {} };
   // index of the newest session that set the current PR (top weight)
   let prIdx = -1;
@@ -319,7 +319,7 @@ document.getElementById('goal-input')?.addEventListener('keydown', e => { if(e.k
     });
 
     // X-axis date labels
-    const dates = RAW.map(s => s.date.slice(5));
+    const dates = RAW.map(s => window.fmtShortDate(s.date));
     ctx.fillStyle = C.axis; ctx.font = AXIS_FONT;
     // newest date always labelled; others only where a 13px label fits (70px apart)
     const labelSet = (() => { const o = []; let last = Infinity; for (let i = n - 1; i >= 0; i--) { const x = gx(i); if (last - x >= 70) { o.push(i); last = x; } } return o; })();

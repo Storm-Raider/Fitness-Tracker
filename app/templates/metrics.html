@@ -72,7 +72,7 @@
     data: tok('--data', '#141414'), avg: tok('--muted', '#5d5d58'), grid: tok('--border', '#dddcd6'),
     axis: tok('--muted', '#5d5d58'), ring: tok('--ring', '#8f8e88'), surface: tok('--surface', '#ffffff'),
   };
-  const AXIS_FONT = "600 13px 'Atkinson Hyperlegible Next', system-ui, sans-serif";
+  const AXIS_FONT = window.CHART_AXIS_FONT;
 
   function xAt(i, W, n) { return PL + (n <= 1 ? (W-PL-PR)/2 : (i/(n-1))*(W-PL-PR)); }
 
@@ -141,7 +141,7 @@
       if (isH) { ctx.strokeStyle=C.surface; ctx.lineWidth=2; ctx.stroke(); }
     });
 
-    const dates = RAW.map(r => r.date.slice(5));
+    const dates = RAW.map(r => window.fmtShortDate(r.date));
     ctx.fillStyle=C.axis; ctx.font=AXIS_FONT;
     // newest date always labelled; others only where a 13px label fits (70px apart)
     const lbls = (() => { const o = []; let last = Infinity; for (let i = n - 1; i >= 0; i--) { const x = gx(i); if (last - x >= 70) { o.push(i); last = x; } } return o; })();
@@ -539,7 +539,7 @@ async function logMetric() {
     grid: tok('--border', '#dddcd6'), axis: tok('--muted', '#5d5d58'),
     ring: tok('--ring', '#8f8e88'), surface: tok('--surface', '#ffffff'), other: tok('--ring', '#8f8e88'),
   };
-  const AXIS_FONT = "600 13px 'Atkinson Hyperlegible Next', system-ui, sans-serif";
+  const AXIS_FONT = window.CHART_AXIS_FONT;
 
   const canvas = document.getElementById('meas-chart');
   if (!canvas) return;
@@ -644,7 +644,7 @@ async function logMetric() {
     const lblIdxs = (() => { const o = []; let last = Infinity; for (let i = n - 1; i >= 0; i--) { const x = xAt(i, W); if (last - x >= 70) { o.push(i); last = x; } } return o; })();
     lblIdxs.forEach(i => {
       ctx.textAlign = i===0?'left':i===n-1?'right':'center';
-      ctx.fillText(allDates[i].slice(5), xAt(i, W), H-3);
+      ctx.fillText(window.fmtShortDate(allDates[i]), xAt(i, W), H-3);
     });
   }
 

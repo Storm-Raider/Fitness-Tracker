@@ -500,7 +500,7 @@ document.getElementById('pr-search').addEventListener('keydown', e => {
     grid:  tok('--border', '#dddcd6'), axis: tok('--muted', '#5d5d58'),
     ring:  tok('--ring', '#8f8e88'),   cardio: tok('--muted', '#5d5d58'),
   };
-  const AXIS_FONT = "600 13px 'Atkinson Hyperlegible Next', system-ui, sans-serif";
+  const AXIS_FONT = window.CHART_AXIS_FONT;
 
   function xAt(i, W, n) { return PL + (n <= 1 ? (W-PL-PR)/2 : (i/(n-1))*(W-PL-PR)); }
 

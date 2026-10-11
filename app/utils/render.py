@@ -36,6 +36,18 @@ def _human_date(iso_str) -> str:
 templates.env.filters["human_date"] = _human_date
 
 
+def _long_date(iso_str) -> str:
+    """"2026-10-11" -> "Sunday, Oct 11": a page subtitle, never a raw ISO date."""
+    try:
+        d = _date.fromisoformat(str(iso_str)[:10])
+    except (ValueError, TypeError):
+        return str(iso_str or "")[:10]
+    return f"{d:%A}, {d:%b} {d.day}"
+
+
+templates.env.filters["long_date"] = _long_date
+
+
 def _has_template(name: str) -> bool:
     try:
         templates.env.get_template(name)
