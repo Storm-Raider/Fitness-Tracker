@@ -193,3 +193,36 @@ async def test_patch_keeps_a_holds_and_a_bodyweight_sets_numbers(client, db):
         rows = [tuple(r) for r in await c.fetchall()]
     assert rows == [(hold, 0, 80.0, "felt good", 7), (bw, 8, 85.0, None, 9)]
     assert (await client.post(f"/workouts/{w}/finish")).json()["volume_kg"] == before
+
+
+# Regression: ISSUE-011 — undo restored rows with new ids (wrong order, wrong "Last time")
+@pytest.mark.asyncio
+async def test_undo_puts_a_set_back_in_its_place(client, db):
+    a_ex = (await client.post("/exercises", json={"name": "QA Order Lift"})).json()["id"]
+    b_ex = (await client.post("/exercises", json={"name": "QA Other Lift"})).json()["id"]
+    w = (await client.post("/workouts", json={})).json()["id"]
+    first = (await client.post(f"/workouts/{w}/sets", json={"exercise_id": a_ex, "reps": 5, "weight_kg": 100})).json()["id"]
+    await client.post(f"/workouts/{w}/sets", json={"exercise_id": a_ex, "reps": 5, "weight_kg": 110})
+    await client.post(f"/workouts/{w}/sets", json={"exercise_id": b_ex, "reps": 5, "weight_kg": 50})
+    tok = (await client.delete(f"/workouts/{w}/sets/{first}")).headers["X-Undo-Token"]
+    assert (await client.post(f"/undo/{tok}")).status_code == 200
+    async with db.execute("SELECT id, weight_kg FROM sets WHERE workout_id=? ORDER BY id", (w,)) as c:
+        rows = [tuple(r) for r in await c.fetchall()]
+    assert rows[0] == (first, 100.0) and [r[1] for r in rows] == [100.0, 110.0, 50.0]
+
+
+@pytest.mark.asyncio
+async def test_undoing_an_old_session_keeps_last_time_on_the_newest(client):
+    ex = (await client.post("/exercises", json={"name": "QA Hint Lift"})).json()["id"]
+    old = (await client.post("/workouts", json={})).json()["id"]
+    await client.post(f"/workouts/{old}/sets", json={"exercise_id": ex, "reps": 5, "weight_kg": 60})
+    await client.post(f"/workouts/{old}/finish")
+    new = (await client.post("/workouts", json={})).json()["id"]
+    await client.post(f"/workouts/{new}/sets", json={"exercise_id": ex, "reps": 5, "weight_kg": 100})
+    await client.post(f"/workouts/{new}/finish")
+    tok = (await client.delete(f"/workouts/{old}")).headers["X-Undo-Token"]
+    assert (await client.post(f"/undo/{tok}")).status_code == 200
+    assert (await client.get(f"/workouts/{old}")).status_code == 200          # same URL as before
+    cur = (await client.post("/workouts", json={})).json()["id"]
+    last = (await client.get(f"/api/exercises?exclude_workout={cur}")).json()["last_sets"][str(ex)]
+    assert last["weight_kg"] == 100

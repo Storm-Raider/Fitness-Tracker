@@ -52,13 +52,24 @@ async def _exercise_name(conn, exercise_id) -> str | None:
     return r["name"] if r else None
 
 
-def _insert(table: str, row: dict, cols: list[str]) -> tuple[str, list]:
-    """Build an INSERT from a captured row, skipping `id` (so it gets a fresh
-    one) and any column that no longer exists in the table."""
-    keys = [k for k in row if k in cols and k != "id"]
+def _insert(table: str, row: dict, cols: list[str], keep_id: bool = False) -> tuple[str, list]:
+    """Build an INSERT from a captured row, skipping any column that no longer
+    exists in the table. `id` is kept only when keep_id (see _id_free)."""
+    keys = [k for k in row if k in cols and (keep_id or k != "id")]
     placeholders = ", ".join("?" for _ in keys)
     sql = f"INSERT INTO {table} ({', '.join(keys)}) VALUES ({placeholders})"
     return sql, [row[k] for k in keys]
+
+
+async def _id_free(conn, table: str, row: dict) -> bool:
+    """Undo puts a row back under its own id: these tables are AUTOINCREMENT,
+    so a deleted id is never handed out again. Same id = same place: a set
+    keeps its position in the session (sets are ordered by id), and a restored
+    old session's sets don't become the newest "Last time" (MAX(id))."""
+    if row.get("id") is None:
+        return False
+    async with conn.execute(f"SELECT 1 FROM {table} WHERE id = ?", (row["id"],)) as cur:
+        return await cur.fetchone() is None
 
 
 async def _purge_old(conn, uid: int) -> None:
@@ -130,7 +141,7 @@ async def restore(conn, uid: int, kind: str, payload: dict) -> str:
         row = payload["set"]
         if not await _exists(conn, "workouts", row.get("workout_id"), uid):
             raise RestoreError("The workout this set belonged to is gone.")
-        sql, vals = _insert("sets", row, await _columns(conn, "sets"))
+        sql, vals = _insert("sets", row, await _columns(conn, "sets"), await _id_free(conn, "sets", row))
         await conn.execute(sql, vals)
         return "Set restored"
 
@@ -138,24 +149,26 @@ async def restore(conn, uid: int, kind: str, payload: dict) -> str:
         row = payload["cardio"]
         if row.get("workout_id") and not await _exists(conn, "workouts", row["workout_id"], uid):
             raise RestoreError("The workout this cardio belonged to is gone.")
-        sql, vals = _insert("cardio_logs", row, await _columns(conn, "cardio_logs"))
+        sql, vals = _insert("cardio_logs", row, await _columns(conn, "cardio_logs"),
+                            await _id_free(conn, "cardio_logs", row))
         await conn.execute(sql, vals)
         return "Cardio session restored"
 
     if kind == "workout":
         workout = payload["workout"]
-        sql, vals = _insert("workouts", workout, await _columns(conn, "workouts"))
+        sql, vals = _insert("workouts", workout, await _columns(conn, "workouts"),
+                            await _id_free(conn, "workouts", workout))
         async with conn.execute(sql, vals) as cur:
             new_wid = cur.lastrowid
         set_cols = await _columns(conn, "sets")
         for s in payload.get("sets", []):
             child = {**s, "workout_id": new_wid}
-            sql, vals = _insert("sets", child, set_cols)
+            sql, vals = _insert("sets", child, set_cols, await _id_free(conn, "sets", child))
             await conn.execute(sql, vals)
         cardio_cols = await _columns(conn, "cardio_logs")
         for c in payload.get("cardio", []):
             child = {**c, "workout_id": new_wid}
-            sql, vals = _insert("cardio_logs", child, cardio_cols)
+            sql, vals = _insert("cardio_logs", child, cardio_cols, await _id_free(conn, "cardio_logs", child))
             await conn.execute(sql, vals)
         return "Workout restored"
 
