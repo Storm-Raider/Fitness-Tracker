@@ -135,3 +135,14 @@ async def test_invite_rejects_a_username_that_differs_only_in_case(anon_client, 
     assert r.status_code == 200 and "Username is already taken" in r.text
     async with db.execute("SELECT COUNT(*) AS n FROM users WHERE LOWER(username) = LOWER(?)", (existing,)) as c:
         assert (await c.fetchone())["n"] == 1
+
+
+# Regression: ISSUE-007 — a finished cardio-only session was missing from Sessions
+@pytest.mark.asyncio
+async def test_finished_cardio_only_session_is_listed(client, db):
+    cex = await _cardio_ex(db)
+    w = (await client.post("/workouts", json={})).json()["id"]
+    await client.post(f"/workouts/{w}/cardio", json={"exercise_id": cex, "duration_minutes": 30})
+    assert (await client.post(f"/workouts/{w}/finish")).status_code == 200
+    page = (await client.get("/workouts", headers={"Accept": "text/html"})).text
+    assert f'href="/workouts/{w}"' in page

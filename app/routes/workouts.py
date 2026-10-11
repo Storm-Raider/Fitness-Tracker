@@ -143,6 +143,7 @@ async def list_workouts(
                ))
         GROUP BY w.id
         HAVING w.ended_at IS NULL OR COUNT(s.id) > 0
+            OR EXISTS (SELECT 1 FROM cardio_logs c WHERE c.workout_id = w.id)  -- a cardio-only session
         ORDER BY w.started_at DESC
         """,
         (uid, uid, like, like, like, like),
