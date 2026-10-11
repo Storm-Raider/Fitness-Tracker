@@ -332,3 +332,13 @@ async def test_unlock_check_is_throttled(client, monkeypatch):
 @pytest.mark.asyncio
 async def test_goal_on_a_missing_exercise_is_404(client):
     assert (await client.put("/exercises/999999/goal", json={"target_kg": 100})).status_code == 404
+
+
+# Regression: ISSUE-019 — a whitespace-only template name was saved as an empty name
+@pytest.mark.asyncio
+async def test_template_name_of_only_spaces_is_rejected(client):
+    ex = (await client.post("/exercises", json={"name": "QA Tpl Lift"})).json()["id"]
+    w = (await client.post("/workouts", json={})).json()["id"]
+    await client.post(f"/workouts/{w}/sets", json={"exercise_id": ex, "reps": 5, "weight_kg": 50})
+    assert (await client.post("/templates", json={"name": "   ", "workout_id": w})).status_code == 422
+    assert (await client.post("/templates", json={"name": " Push ", "workout_id": w})).status_code == 201

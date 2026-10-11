@@ -1,5 +1,5 @@
 import aiosqlite
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from pydantic import BaseModel, Field
 
@@ -55,11 +55,14 @@ async def create_template(
     current_user=Depends(get_current_user),
 ):
     uid = current_user["id"]
+    name = body.name.strip()
+    if not name:   # min_length is checked before the strip: "   " passed
+        raise HTTPException(status_code=422, detail="Template name is required")
     await require_owns(conn, "workouts", body.workout_id, uid)
 
     async with conn.execute(
         "INSERT INTO workout_templates(user_id, name) VALUES(?,?)",
-        (uid, body.name.strip()),
+        (uid, name),
     ) as cur:
         tmpl_id = cur.lastrowid
 
