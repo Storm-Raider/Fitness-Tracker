@@ -80,7 +80,7 @@
     </div>
     <div style="display:flex;gap:0.4rem;align-items:center;flex-shrink:0;" id="goal-actions">
       <div id="goal-edit-form" style="display:none;align-items:center;gap:0.4rem;">
-        <input id="goal-input" type="number" min="0.5" max="1000" step="0.5" value="{{ exercise_goal_kg }}" class="num" style="width:84px;text-align:center;padding:0.25rem 0.4rem;">
+        <input id="goal-input" type="number" min="0.5" max="2500" step="0.5" value="{{ exercise_goal_kg }}" data-kg="{{ exercise_goal_kg }}" class="num" style="width:84px;text-align:center;padding:0.25rem 0.4rem;">
         <span style="font-size:0.875rem;color:var(--muted);" id="goal-unit-lbl">kg</span>
         <button onclick="saveExGoal()" class="btn btn-ghost" style="font-size:0.875rem;min-height:44px;padding:0.2rem 0.85rem;">Save</button>
       </div>
@@ -97,7 +97,7 @@
   </button>
   <div id="goal-edit-form" style="display:none;margin-top:0.5rem;align-items:center;gap:0.5rem;flex-wrap:wrap;padding:0.75rem 1rem;" class="card">
     <span style="font-size:0.875rem;color:var(--muted);">Target:</span>
-    <input id="goal-input" type="number" min="0.5" max="1000" step="0.5" value="{{ pr_kg or 100 }}" class="num" style="width:96px;text-align:center;padding:0.3rem 0.4rem;">
+    <input id="goal-input" type="number" min="0.5" max="2500" step="0.5" value="{{ pr_kg or 100 }}" data-kg="{{ pr_kg or 100 }}" class="num" style="width:96px;text-align:center;padding:0.3rem 0.4rem;">
     <span style="font-size:0.875rem;color:var(--muted);" id="goal-unit-lbl">kg</span>
     <button onclick="saveExGoal()" class="btn btn-primary" style="font-size:0.875rem;min-height:44px;padding:0.25rem 0.9rem;">Set goal</button>
     <button onclick="toggleExGoal()" class="btn btn-ghost" style="font-size:0.875rem;min-height:44px;">Cancel</button>
@@ -136,7 +136,17 @@ async function deleteExGoal() {
 document.getElementById('goal-input')?.addEventListener('keydown', e => { if(e.key==='Enter') saveExGoal(); });
 // Sync unit label
 (function() {
-  function syncLbl() { const l=document.getElementById('goal-unit-lbl'); if(l) l.textContent=window.getAppUnit?window.getAppUnit():'kg'; }
+  // The input is filled in kg (data-kg); show it in the chosen unit, or saving
+  // in lbs divides a kg number by 2.2 (a 100 kg goal became 45 kg).
+  function syncLbl() {
+    const unit = window.getAppUnit ? window.getAppUnit() : 'kg';
+    const l = document.getElementById('goal-unit-lbl'); if (l) l.textContent = unit;
+    const inp = document.getElementById('goal-input');
+    if (inp && inp.dataset.kg) {
+      const kg = parseFloat(inp.dataset.kg);
+      inp.value = unit === 'lbs' ? Math.round(kg * 2.20462 * 2) / 2 : kg;
+    }
+  }
   syncLbl(); window.addEventListener('unitchange', syncLbl);
 })();
 </script>
