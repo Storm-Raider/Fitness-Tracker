@@ -76,7 +76,7 @@ const invite = await page.evaluate(async () => {
 const guest = await (await browser.newContext({ viewport: { width: 390, height: 844 } })).newPage();
 await audit(guest, new URL(invite).pathname);
 
-// Touch targets on the logging screen (DESIGN.md "Touch Targets").
+// Touch targets on the logging screen (DESIGN.md: primary actions ≥56, everything else ≥44).
 await page.goto(`${BASE}/workouts/${live.id}`, { waitUntil: 'networkidle' });
 const targets = await page.evaluate(() => {
   const size = el => { if (!el) return null; const r = el.getBoundingClientRect(); return [Math.round(r.width), Math.round(r.height)]; };
@@ -95,11 +95,12 @@ const targets = await page.evaluate(() => {
   };
   const finish = [...document.querySelectorAll('button')].find(b => /finish/i.test(b.textContent));
   return {
-    'Log Set height ≥56': [size(document.querySelector('.log-btn'))?.[1], 56],
+    'Log-set tick ≥56×56': [Math.min(...(size(document.querySelector('.log-btn')) || [0])), 56],
+    'Weight/reps number ≥56 tall': [Math.min(size(document.getElementById('weight-input'))?.[1] || 0,
+                                             size(document.getElementById('reps-input'))?.[1] || 0), 56],
     'Finish height ≥56': [size(finish)?.[1], 56],
     'Set delete ≥44×44': [Math.min(...(hit(document.querySelector('.set-del')) || [0])), 44],
     'Set edit ≥44×44': [Math.min(...(hit(document.querySelector('.set-edit-btn')) || [0])), 44],
-    'Stepper ≥40': [Math.min(...(size(document.querySelector('.sx-btn, .stepper-btn')) || [0])), 40],
   };
 });
 for (const [name, [got, need]] of Object.entries(targets)) {
@@ -116,6 +117,10 @@ await page.evaluate(id => {
 await page.click('.log-btn');
 await page.waitForTimeout(400);
 const said = await page.textContent('#sr-announcer');
+const restMin = await page.evaluate(() => Math.min(...[...document.querySelectorAll('.rest-btn')]
+  .map(b => { const r = b.getBoundingClientRect(); return Math.min(r.width, r.height); })));
+if (!(restMin >= 44)) failures++;
+console.log(`${restMin >= 44 ? 'PASS' : 'FAIL'}  Rest-timer buttons ≥44  (got ${Math.round(restMin)})`);
 const announced = /Set logged: Bench Press/.test(said || '');
 if (!announced) failures++;
 console.log(`${announced ? 'PASS' : 'FAIL'}  Logged set is announced  (${JSON.stringify(said)})`);

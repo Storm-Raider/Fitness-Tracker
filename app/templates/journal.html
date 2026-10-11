@@ -3,34 +3,33 @@
 {% block content %}
 <style>
 .jf-row { display:flex; flex-direction:column; gap:0.3rem; margin-bottom:1rem; }
-.jf-row label { font-size:0.72rem; font-weight:700; text-transform:uppercase;
-  letter-spacing:0.06em; color:var(--muted); }
+.jf-row label { margin-bottom:0; }
 .jf-row input[type=text], .jf-row input[type=number], .jf-row input[type=date], .jf-row textarea {
   width:100%; }
-.jf-row textarea { resize:vertical; min-height:60px; }
-/* iOS zooms in on inputs < 16px — force 16px on mobile */
-@media (max-width: 767px) {
-  .jf-row input[type=text], .jf-row input[type=number], .jf-row input[type=date], .jf-row textarea {
-    font-size: 16px;
-  }
-}
+.jf-row textarea { resize:vertical; min-height:80px; }
 
-.seg { display:flex; gap:0.35rem; }
+/* Choice buttons: selected = 2px ink outline + ink tint. */
+.seg { display:flex; gap:0.5rem; }
 .seg-btn {
-  flex:1; padding:0.45rem 0.5rem; border:1.5px solid var(--border);
-  border-radius:var(--radius-xs); background:var(--surface-2); color:var(--muted);
-  cursor:pointer; font-family:'Barlow',inherit; font-size:0.78rem; font-weight:700;
-  letter-spacing:0.04em; text-transform:uppercase; transition:all 0.13s; text-align:center;
+  flex:1; min-height:48px; padding:0.45rem 0.5rem; border:1px solid var(--border-mid);
+  border-radius:var(--radius-sm); background:var(--surface); color:var(--text);
+  cursor:pointer; font-family:inherit; font-size:0.9375rem; font-weight:600;
+  text-transform:capitalize; text-align:center;
+  transition:background 0.13s, border-color 0.13s, box-shadow 0.13s;
 }
-.seg-btn:hover { border-color:var(--border-mid); color:var(--text); }
-.seg-btn.active { border-color:var(--accent); color:var(--accent); background:var(--accent-dim); }
+.seg-btn:hover { border-color:var(--text); }
+.seg-btn.active { border-color:var(--text); box-shadow:inset 0 0 0 1px var(--text); background:var(--accent-dim); font-weight:700; }
 
-.hist-row { display:flex; align-items:center; gap:0.75rem; padding:0.7rem 1rem;
-  border-bottom:1px solid rgba(30,35,52,0.55); cursor:pointer; transition:background 0.12s; }
+.hist-row { display:flex; align-items:center; gap:0.75rem; padding:0.75rem 1rem; min-height:56px;
+  border-bottom:1px solid var(--border); cursor:pointer; transition:background 0.12s; }
 .hist-row:last-child { border-bottom:none; }
-.hist-row:hover { background:rgba(255,255,255,0.025); }
-.hist-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; background:var(--border-mid); }
-.hist-dot.filled { background:var(--success); }
+.hist-row:hover { background:var(--surface-2); }
+.hist-dot { width:10px; height:10px; border-radius:50%; flex-shrink:0; background:var(--surface); box-shadow:inset 0 0 0 2px var(--ring); }
+.hist-dot.filled { background:var(--text); box-shadow:none; }
+.hist-date { font-size:0.9375rem; font-weight:700; font-variant-numeric:tabular-nums; }
+.hist-day { font-size:0.8125rem; font-weight:600; color:var(--muted); margin-left:0.4rem; }
+.hist-sub { font-size:0.875rem; color:var(--muted); margin-top:0.1rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.hist-steps { font-size:0.875rem; color:var(--muted-hi); flex-shrink:0; font-variant-numeric:tabular-nums; }
 </style>
 
 <div class="page-hd">
@@ -112,8 +111,8 @@
   </div>
 
   <div class="jf-row">
-    <label>Energy</label>
-    <div class="seg" id="seg-energy">
+    <label id="lbl-energy">Energy</label>
+    <div class="seg" id="seg-energy" role="group" aria-labelledby="lbl-energy">
       {% for lvl in ['low', 'medium', 'high'] %}
       <button type="button" class="seg-btn {% if today_log and today_log.energy == lvl %}active{% endif %}"
               data-val="{{ lvl }}" onclick="pick('seg-energy',this)">{{ lvl }}</button>
@@ -122,8 +121,8 @@
   </div>
 
   <div class="jf-row">
-    <label>Motivation</label>
-    <div class="seg" id="seg-motivation">
+    <label id="lbl-motivation">Motivation</label>
+    <div class="seg" id="seg-motivation" role="group" aria-labelledby="lbl-motivation">
       {% for lvl in ['low', 'medium', 'high'] %}
       <button type="button" class="seg-btn {% if today_log and today_log.motivation == lvl %}active{% endif %}"
               data-val="{{ lvl }}" onclick="pick('seg-motivation',this)">{{ lvl }}</button>
@@ -137,11 +136,11 @@
   </div>
 
   <div style="display:flex;align-items:center;gap:0.75rem;">
-    <button class="btn btn-primary" id="save-btn" onclick="saveLog()">
-      <i data-lucide="save" style="width:14px;height:14px;pointer-events:none;"></i>
+    <button class="btn btn-primary" id="save-btn" onclick="saveLog()" style="min-height:56px;min-width:140px;">
+      <i data-lucide="save" style="width:16px;height:16px;pointer-events:none;"></i>
       Save
     </button>
-    <span id="save-msg" style="font-size:0.8rem;display:none;"></span>
+    <span id="save-msg" role="status" style="font-size:0.9375rem;font-weight:600;display:none;"></span>
   </div>
 </div>
 
@@ -152,17 +151,17 @@
   <div class="hist-row" onclick='fillFromHistory({{ entry | tojson }})'>
     <span class="hist-dot {% if entry.weight_kg or entry.workout or entry.meal_1 %}filled{% endif %}"></span>
     <div style="flex:1;min-width:0;">
-      <div style="font-size:0.875rem;font-weight:600;">{{ entry.log_date }}
-        {% if entry.day_number %}<span style="font-size:0.72rem;color:var(--muted);margin-left:0.4rem;">Day {{ entry.day_number }}</span>{% endif %}
+      <div class="hist-date">{{ entry.log_date }}
+        {% if entry.day_number %}<span class="hist-day">Day {{ entry.day_number }}</span>{% endif %}
       </div>
-      <div style="font-size:0.75rem;color:var(--muted);margin-top:0.1rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+      <div class="hist-sub">
         {% if entry.weight_kg %}<span class="weight-display" data-kg="{{ entry.weight_kg }}">{{ entry.weight_kg }} kg</span>{% endif %}
         {% if entry.workout %}{% if entry.weight_kg %} · {% endif %}{{ entry.workout }}{% endif %}
         {% if entry.energy %}{% if entry.weight_kg or entry.workout %} · {% endif %}{{ entry.energy }} energy{% endif %}
         {% if entry.sleep_hrs %}{% if entry.weight_kg or entry.workout or entry.energy %} · {% endif %}{{ entry.sleep_hrs }}h sleep{% endif %}
       </div>
     </div>
-    <span style="font-size:0.7rem;color:var(--muted-hi);flex-shrink:0;">
+    <span class="hist-steps">
       {% if entry.steps %}{{ "{:,}".format(entry.steps) }} steps{% endif %}
     </span>
   </div>

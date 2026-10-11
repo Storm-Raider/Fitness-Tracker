@@ -5,189 +5,233 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Sign in — Zenkai</title>
   <link rel="manifest" href="/static/manifest.json">
-  <meta name="theme-color" content="#090b10">
+  <meta name="theme-color" content="#f4f4f1">
+  <meta name="color-scheme" content="light">
   <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <link rel="apple-touch-icon" href="/static/icon-192.png">
   <link rel="icon" type="image/png" sizes="32x32" href="/static/favicon-32.png">
   <link rel="stylesheet" href="/static/fonts/fonts.css">
   <style>
+    /* Daylight (DESIGN.md). Standalone page (no base.html), so the tokens are
+       copied from base.html's :root; keep the two in step. */
+    :root {
+      color-scheme: light;
+      --bg:           #f4f4f1;   /* paper */
+      --surface:      #ffffff;   /* card */
+      --surface-2:    #f7f7f4;   /* done sets, nested panels */
+      --surface-hover:#efefea;
+      --border:       #dddcd6;   /* hairlines (decorative) */
+      --border-mid:   #c9c8c2;   /* secondary-button borders */
+      --ring:         #8f8e88;   /* input and empty-tick outlines, 3.3:1 */
+      --text:         #141414;   /* ink */
+      --muted:        #5d5d58;   /* pencil, 6.0:1 on paper */
+      --muted-hi:     #4a4a46;
+      --accent:       #141414;   /* interactive text and active states: ink */
+      --accent-hover: #3a3a37;
+      --accent-dim:   rgba(20,20,20,0.06);
+      --primary:      #ff5a1f;   /* signal orange: always a fill with ink text */
+      --primary-hover:#f04e14;
+      --on-primary:   #141414;
+      --primary-edge: #e04a12;   /* orange outlines, 3.7:1; never text */
+      --primary-tint: #fff4ee;
+      --danger:       #c8372d;
+      --danger-dim:   #fdecea;
+      --success:      #1f7a4d;
+      --success-dim:  #e8f4ee;
+      --pr:           #8c5a00;   /* records only */
+      --pr-dim:       #fff3d6;
+      --pr-glow:      rgba(227,179,65,0.45);
+      --live:         #e04a12;   /* live-session marks (dots, outlines); never text */
+      --live-dim:     #fff4ee;
+      --live-glow:    rgba(224,74,18,0.3);
+      --data:         #141414;   /* single-series charts */
+      --accent-glow:  rgba(20,20,20,0.2);
+      --shadow-sm:    0 1px 2px rgba(20,20,20,0.06), 0 4px 14px rgba(20,20,20,0.06);
+      --shadow:       0 6px 20px rgba(20,20,20,0.10);
+      --shadow-lg:    0 12px 36px rgba(20,20,20,0.16);
+      --glow:         0 0 0 3px rgba(20,20,20,0.12);
+      --glow-pr:      0 0 0 3px rgba(140,90,0,0.18);
+      --radius:       18px;
+      --radius-sm:    14px;
+      --radius-xs:    10px;
+      --f-display: 'Archivo', 'Arial', system-ui, sans-serif;
+      --f-ui: 'Atkinson Hyperlegible Next', 'Atkinson Hyperlegible', system-ui, sans-serif;
+      /* Spacing scale — 8px base */
+      --sp-2xs:  2px;
+      --sp-xs:   4px;
+      --sp-sm:   8px;
+      --sp-md:   16px;
+      --sp-lg:   24px;
+      --sp-xl:   32px;
+      --sp-2xl:  48px;
+      --sp-3xl:  64px;
+    }
     * { box-sizing: border-box; margin: 0; padding: 0; }
+    a, button, input, label { touch-action: manipulation; }
+    html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
     body {
-      background: #090b10;
-      background-image:
-        radial-gradient(ellipse 80% 60% at 50% -5%, rgba(79,156,249,0.07) 0%, transparent 65%),
-        radial-gradient(circle at 1px 1px, rgba(255,255,255,0.05) 1px, transparent 0);
-      background-size: auto, 28px 28px;
-      color: #e4eaf2;
-      font-family: 'Barlow', system-ui, sans-serif;
-      font-size: 15px;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--f-ui);
+      font-size: 16px;
+      line-height: 1.5;
       min-height: 100vh;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+    *:focus-visible { outline: 2px solid var(--text); outline-offset: 2px; }
+    body {
       display: flex;
       flex-direction: column;
       align-items: center;
-      padding-top: 26vh;
-      -webkit-font-smoothing: antialiased;
+      padding: max(14vh, env(safe-area-inset-top, 0px) + 48px) 16px 48px;
     }
-    .login-wrap {
-      width: calc(100% - 2rem);
-      max-width: 360px;
-      animation: slideUp 0.35s cubic-bezier(0.16, 1, 0.3, 1) both;
-    }
-    @keyframes slideUp {
-      from { opacity: 0; transform: translateY(12px); }
-      to   { opacity: 1; transform: translateY(0); }
-    }
+    .wrap, .login-wrap { width: 100%; max-width: 400px; }
     .wordmark {
-      font-family: 'Syne', system-ui, sans-serif;
+      font-family: var(--f-display);
+      font-weight: 800;
+      font-size: 2.25rem;
+      letter-spacing: -0.02em;
+      line-height: 1.05;
+      color: var(--text);
       text-align: center;
-      font-size: 1.55rem;
-      font-weight: 700;
-      letter-spacing: -0.03em;
-      margin-bottom: 0.5rem;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 0.45rem;
-    }
-    .wordmark-dot {
-      width: 7px;
-      height: 7px;
-      background: #f59e0b;
-      border-radius: 50%;
-      box-shadow: 0 0 10px rgba(245,158,11,0.7);
     }
     .tagline {
       text-align: center;
-      font-size: 0.8rem;
-      color: #72849e;
-      margin-bottom: 1.75rem;
-      letter-spacing: 0.02em;
+      font-size: 1rem;
+      color: var(--muted);
+      margin: 0.4rem 0 1.75rem;
     }
     .card {
-      background: #0f1219;
-      border: 1px solid #1e2334;
-      border-radius: 12px;
-      padding: 1.75rem;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,255,255,0.04),
-                  0 0 60px rgba(79,156,249,0.04);
+      background: var(--surface);
+      border-radius: var(--radius);
+      padding: 1.5rem;
+      box-shadow: var(--shadow-sm);
     }
-    .flash-error {
-      background: rgba(248,113,113,0.08);
-      border: 1px solid rgba(248,113,113,0.25);
-      color: #f87171;
-      border-radius: 8px;
-      padding: 0.75rem 1rem;
-      font-size: 0.875rem;
-      margin-bottom: 1rem;
+    h2 {
+      font-family: var(--f-display);
+      font-size: 1.35rem;
+      font-weight: 700;
+      letter-spacing: -0.005em;
+      line-height: 1.2;
+      margin-bottom: 1.25rem;
     }
-    .flash-success {
-      background: rgba(74,222,128,0.08);
-      border: 1px solid rgba(74,222,128,0.25);
-      color: #4ade80;
-      border-radius: 8px;
-      padding: 0.75rem 1rem;
-      font-size: 0.875rem;
-      margin-bottom: 1rem;
+    .flash-error, .flash-success {
+      border-radius: var(--radius-sm);
+      padding: 0.875rem 1rem;
+      font-size: 0.95rem;
+      line-height: 1.5;
+      margin-bottom: 1.25rem;
     }
+    .flash-error { background: var(--danger-dim); color: var(--danger); }
+    .flash-success { background: var(--success-dim); color: var(--success); }
+    form > div { margin-bottom: 1.1rem; }
     label {
       display: block;
-      font-size: 0.72rem;
-      font-weight: 700;
-      letter-spacing: 0.06em;
-      text-transform: uppercase;
-      color: #72849e;
-      margin-bottom: 0.35rem;
+      font-size: 0.875rem;
+      font-weight: 600;
+      color: var(--muted);
+      margin-bottom: 0.4rem;
     }
     input[type="text"],
+    input[type="email"],
     input[type="password"] {
+      display: block;
       width: 100%;
-      background: #090b10;
-      border: 1px solid #1e2334;
-      border-radius: 8px;
-      color: #e4eaf2;
-      padding: 0.55rem 0.85rem;
-      font-size: 0.9rem;
-      font-family: 'Barlow', system-ui, sans-serif;
-      margin-bottom: 1rem;
-      transition: border-color 0.15s, box-shadow 0.15s;
+      height: 52px;
+      background: var(--surface);
+      border: 1px solid var(--ring);
+      border-radius: var(--radius-sm);
+      color: var(--text);
+      padding: 0 0.95rem;
+      font-family: inherit;
+      transition: border-color 0.15s;
     }
     input[type="text"]:focus,
+    input[type="email"]:focus,
     input[type="password"]:focus {
-      outline: none;
-      border-color: #4f9cf9;
-      box-shadow: 0 0 0 3px rgba(79,156,249,0.2);
+      outline: 2px solid var(--text);
+      outline-offset: 0;
+      border-color: var(--text);
     }
+    .hint-text, .field-error {
+      font-size: 0.8125rem;
+      line-height: 1.4;
+      margin-top: 0.4rem;
+    }
+    .hint-text { color: var(--muted); }
+    .field-error { color: var(--danger); font-weight: 600; }
+    .btn-primary {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      min-height: 56px;
+      margin-top: 0.5rem;
+      background: var(--primary);
+      color: var(--on-primary);
+      border: none;
+      border-radius: var(--radius);
+      font-family: inherit;
+      font-size: 1.0625rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    .btn-primary:hover { background: var(--primary-hover); }
+    /* Force 16px on inputs unconditionally to stop tap-to-zoom on every
+       touch device (width/pointer queries miss iPad+trackpad & landscape). */
+    input, select, textarea { font-size: 16px !important; }
     .row-remember {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      margin-bottom: 1.25rem;
+      gap: 0.5rem;
+      margin: -0.25rem 0 0.75rem;
     }
     .remember-label {
-      display: flex;
+      display: inline-flex;
       align-items: center;
-      gap: 0.4rem;
-      font-size: 0.82rem;
-      font-weight: 500;
-      color: #94a3b8;
+      gap: 0.55rem;
+      min-height: 44px;
+      margin: 0;
+      font-size: 0.95rem;
+      font-weight: 400;
+      color: var(--text);
       cursor: pointer;
       user-select: none;
-      text-transform: none;
-      letter-spacing: 0;
     }
     .remember-label input[type="checkbox"] {
-      width: 15px;
-      height: 15px;
-      accent-color: #4f9cf9;
+      width: 20px;
+      height: 20px;
+      accent-color: var(--text);
       cursor: pointer;
       margin: 0;
     }
     .forgot-link {
-      font-size: 0.82rem;
-      color: #4f9cf9;
-      text-decoration: none;
-    }
-    .forgot-link:hover { text-decoration: underline; }
-    .btn-primary {
-      display: block;
-      width: 100%;
+      display: inline-flex;
+      align-items: center;
       min-height: 44px;
-      background: linear-gradient(135deg, #4f9cf9 0%, #3b82f6 100%);
-      color: #090b10;   /* dark on blue (white was 2.8:1), as in base.html */
-      border: none;
-      border-radius: 8px;
-      font-size: 0.9rem;
+      font-size: 0.95rem;
       font-weight: 600;
-      font-family: 'Barlow', system-ui, sans-serif;
-      letter-spacing: 0.02em;
-      cursor: pointer;
-      transition: all 0.15s;
+      color: var(--text);
+      text-decoration: underline;
+      text-underline-offset: 3px;
+      text-decoration-thickness: 1px;
     }
-    .btn-primary:hover {
-      background: linear-gradient(135deg, #7ab8fc 0%, #4f9cf9 100%);
-      box-shadow: 0 4px 20px rgba(79,156,249,0.4);
-      transform: translateY(-1px);
-    }
+    .forgot-link:hover { text-decoration-thickness: 2px; }
     .hint {
       text-align: center;
-      font-size: 0.8rem;
-      color: #72849e;
-      margin-top: 1.25rem;
+      font-size: 0.9375rem;
+      color: var(--muted);
+      margin-top: 1.5rem;
     }
-    /* Prevent iOS/Android tap-to-zoom: focused inputs must be >=16px on any
-       touch device (pointer:coarse), regardless of width. Pinch-zoom unaffected. */
-    /* Force 16px on inputs unconditionally to stop tap-to-zoom on every
-       touch device (width/pointer queries miss iPad+trackpad & landscape). */
-    input, select, textarea { font-size: 16px !important; }
   </style>
 </head>
 <body>
-  <div class="login-wrap">
-    <div class="wordmark">
-      <span class="wordmark-dot"></span>
-      Zenkai
-    </div>
+  <main class="login-wrap">
+    <h1 class="wordmark">Zenkai</h1>
     <p class="tagline">Your lifts. Your data. Your server.</p>
     <div class="card">
       {% if request.query_params.get('reset') %}
@@ -224,7 +268,7 @@
       </form>
     </div>
     <p class="hint">Need access? Ask your server admin for an invite link.</p>
-  </div>
+  </main>
   <script>
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('/sw.js');

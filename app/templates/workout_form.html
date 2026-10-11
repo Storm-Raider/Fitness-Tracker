@@ -2,79 +2,91 @@
 {% block title %}Workout — Zenkai{% endblock %}
 {% block head %}
 <style>
+/* Session screen (DESIGN.md § Layout, "Session screen"): the current exercise
+   shows its logged sets as ticked rows, the rest timer inline under the last
+   one, then the next set with big tap-to-type numbers and a round tick. */
 
 /* ── Session header ──────────────────────────────────────────── */
 .session-hdr {
-  display: flex;
+  display: grid;
+  grid-template-columns: 1fr auto;
   align-items: center;
-  gap: 0.6rem;
-  margin-bottom: 1.25rem;
-  flex-wrap: wrap;
+  gap: 0.25rem 0.75rem;
+  margin-bottom: 1rem;
 }
 .session-hdr-back {
+  grid-column: 1 / -1;
   color: var(--muted);
-  font-size: 0.85rem;
+  font-size: 0.9rem;
+  font-weight: 600;
   display: inline-flex;
   align-items: center;
   gap: 0.2rem;
-  transition: color 0.15s;
+  min-height: 32px;
+  width: fit-content;
   text-decoration: none;
 }
 .session-hdr-back:hover { color: var(--text); }
 .session-hdr-info {
   display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  font-size: 0.82rem;
-  color: var(--muted);
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0.15rem 0.6rem;
+  min-width: 0;
 }
+.session-title {
+  font-family: var(--f-display);
+  font-size: clamp(1.6rem, 6vw, 2rem);
+  font-weight: 800;
+  line-height: 1.05;
+  color: var(--text);
+  flex-basis: 100%;
+}
+.session-meta { font-size: 0.9rem; color: var(--muted); display: inline-flex; align-items: center; gap: 0.45rem; }
 .session-live-dot {
-  width: 7px; height: 7px;
+  width: 8px; height: 8px;
   border-radius: 50%;
   background: var(--live);
   flex-shrink: 0;
-  box-shadow: 0 0 0 3px rgba(34,229,201,0.2);
   animation: pulseDot 2s ease-in-out infinite;
+  align-self: center;
 }
 @keyframes pulseDot {
-  0%,100% { box-shadow: 0 0 0 3px rgba(34,229,201,0.25); }
-  50%      { box-shadow: 0 0 0 6px rgba(34,229,201,0); }
+  0%,100% { box-shadow: 0 0 0 3px rgba(224,74,18,0.22); }
+  50%      { box-shadow: 0 0 0 6px rgba(224,74,18,0); }
 }
 .session-done-dot {
-  width: 7px; height: 7px;
+  width: 8px; height: 8px;
   border-radius: 50%;
   background: var(--success);
   flex-shrink: 0;
+  align-self: center;
 }
-.session-title {
-  font-family: 'Syne', system-ui, sans-serif;
-  font-size: 0.95rem;
-  font-weight: 700;
+.session-elapsed { font-family: var(--f-display); font-stretch: 72%; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--text); }
+.session-hdr-actions { display: flex; align-items: center; gap: 0.5rem; }
+.hdr-delete-btn, .hdr-unit-btn {
+  background: var(--surface);
+  border: 1px solid var(--border-mid);
   color: var(--text);
-}
-.session-elapsed {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 0.8rem;
-  letter-spacing: 0.03em;
-}
-.session-hdr-actions { margin-left: auto; display: flex; align-items: center; gap: 0.5rem; }
-.hdr-delete-btn {
-  background: transparent;
-  border: 1px solid var(--border);
-  color: var(--muted);
   cursor: pointer;
-  padding: 0.28rem 0.5rem;
   min-width: 44px;
-  min-height: 44px;   /* touch target */
+  min-height: 44px;
   justify-content: center;
-  border-radius: 7px;
+  border-radius: var(--radius-xs);
   display: inline-flex;
   align-items: center;
   font-family: inherit;
-  font-size: 0.72rem;
-  transition: all 0.15s;
+  font-size: 0.9rem;
+  font-weight: 700;
+  transition: border-color 0.15s, color 0.15s;
 }
-.hdr-delete-btn:hover { color: var(--danger); border-color: rgba(248,113,113,0.35); background: rgba(248,113,113,0.06); }
+.hdr-delete-btn:hover { color: var(--danger); border-color: var(--danger); }
+.hdr-unit-btn:hover { border-color: var(--text); }
+.finish-btn { min-height: 56px; padding: 0 1.4rem; font-size: 1rem; }
+
+/* Session progress: one segment per logged set (grows as you go). */
+.session-progress { display: flex; gap: 3px; margin: 0.25rem 0 1rem; }
+.session-progress i { flex: 1; max-width: 28px; height: 6px; border-radius: 3px; background: var(--primary); }
 
 /* ── Workout grid ────────────────────────────────────────────── */
 .workout-grid {
@@ -83,174 +95,156 @@
   gap: 1.25rem;
 }
 @media (max-width: 767px) {
-  /* Pull session log above the form on mobile */
-  .workout-sets-col { order: -1; }
-  /* Hide when empty (no sets yet) — nothing useful to show */
+  /* Nothing logged yet: the session list has nothing useful to show */
   .workout-sets-col:has(#empty-msg) { display: none; }
-  /* Keep the log compact so the form is still immediately visible */
-  .sets-card { max-height: 210px; overflow-y: auto; }
 }
 @media (min-width: 768px) {
   .workout-grid { flex-direction: row; align-items: start; }
-  .workout-form-col { flex: 0 0 420px; min-width: 0; }
+  .workout-form-col { flex: 0 0 440px; min-width: 0; }
   .workout-sets-col { flex: 1; min-width: 0; }
 }
 
-/* ── Exercise hero card ──────────────────────────────────────── */
+/* ── Exercise card ───────────────────────────────────────────── */
 .ex-card {
   background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  padding: 1rem;
+  border-radius: var(--radius);
+  padding: 0.9rem 0.75rem 0.75rem;
   box-shadow: var(--shadow-sm);
   margin-bottom: 1rem;
   position: relative;
   overflow: visible;
-  transition: border-color 0.2s;
 }
-.ex-card::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(135deg, rgba(255,255,255,0.025) 0%, transparent 55%);
-  pointer-events: none;
-  border-radius: inherit;
-}
-.ex-card.active { border-color: rgba(79,156,249,0.4); }
-.ex-card.active::after {
-  content: '';
-  position: absolute;
-  top: 0; left: 0; right: 0;
-  height: 2px;
-  background: linear-gradient(90deg, transparent, var(--accent), transparent);
-  border-radius: 14px 14px 0 0;
-}
+.ex-pick { padding: 0 0.25rem; }
 
 /* Filter row */
 .filter-row {
   display: flex;
   gap: 0.4rem;
-  margin-bottom: 0.75rem;
+  margin-bottom: 0.6rem;
 }
 .filter-row select {
   flex: 1;
-  min-height: 32px;
-  font-size: 0.78rem;
-  padding: 0.25rem 0.5rem;
-  border-radius: 7px;
+  min-width: 0;
+  min-height: 44px;
+  font-size: 0.9rem;
+  padding: 0.25rem 0.6rem;
+  border-radius: var(--radius-xs);
+  border-color: var(--border-mid);
+  color: var(--muted-hi);
 }
 .filter-clear {
   background: transparent;
-  border: 1px solid var(--border);
+  border: 1px solid var(--border-mid);
   color: var(--muted);
   cursor: pointer;
-  width: 32px;
-  height: 32px;
-  border-radius: 7px;
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-xs);
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  font-size: 1rem;
-  transition: all 0.12s;
+  font-size: 1.15rem;
   line-height: 1;
 }
-.filter-clear:hover { color: var(--text); border-color: rgba(255,255,255,0.15); }
+.filter-clear:hover { color: var(--text); border-color: var(--text); }
+.chip-lbl { font-size: 0.875rem; color: var(--muted); font-weight: 600; margin-bottom: 0.4rem; display: flex; align-items: center; gap: 0.35rem; }
+.chip-row { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+.ex-chip {
+  min-height: 40px;
+  padding: 0.35rem 0.85rem;
+  border-radius: 999px;
+  border: 1px solid var(--border-mid);
+  background: var(--surface);
+  color: var(--text);
+  font-family: inherit;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.ex-chip:hover { border-color: var(--text); }
 
 /* Search field */
 .ex-search-wrap { position: relative; }
 .ex-search-icon {
   position: absolute;
-  left: 0.75rem;
+  left: 0.85rem;
   top: 50%;
   transform: translateY(-50%);
   color: var(--muted);
   pointer-events: none;
-  width: 15px;
-  height: 15px;
+  width: 16px;
+  height: 16px;
 }
 #exercise-input {
-  padding-left: 2.4rem;
-  border-radius: 10px;
-  font-size: 0.9rem;
-  height: 44px;
-  transition: border-color 0.15s, box-shadow 0.15s;
+  padding-left: 2.5rem;
+  height: 48px;
 }
-#exercise-input:focus { border-color: var(--accent); box-shadow: var(--glow); }
-.new-ex-chip { padding: 0.35rem 0.75rem; border: 1.5px solid var(--border); border-radius: 20px;
-  background: var(--surface-2); color: var(--muted); font-size: 0.78rem; font-weight: 600;
-  cursor: pointer; font-family: inherit; transition: all 0.12s; }
-.new-ex-chip.active { border-color: var(--accent); color: var(--accent); background: var(--accent-dim); }
+.new-ex-chip { min-height: 40px; padding: 0.35rem 0.85rem; border: 1px solid var(--border-mid); border-radius: 999px;
+  background: var(--surface); color: var(--text); font-size: 0.875rem; font-weight: 600;
+  cursor: pointer; font-family: inherit; }
+.new-ex-chip.active { border-color: var(--text); background: var(--text); color: var(--bg); }
 
-/* Exercise hero reveal */
+/* Exercise hero */
 .ex-hero-reveal {
   overflow: hidden;
   max-height: 0;
   transition: max-height 0.25s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.2s;
   opacity: 0;
+  padding: 0 0.25rem;
 }
 .ex-hero-reveal.open {
-  max-height: 180px;
+  max-height: 220px;
   opacity: 1;
 }
-.ex-hero-divider {
-  height: 1px;
-  background: var(--border);
-  margin: 0.85rem 0 0.85rem;
-}
+.ex-hero-divider { height: 0.9rem; }
 .ex-hero-name {
-  font-family: 'Syne', system-ui, sans-serif;
-  font-size: 1.65rem;
-  font-weight: 600;
-  letter-spacing: -0.03em;
+  font-family: var(--f-display);
+  font-size: 1.45rem;
+  font-weight: 700;
   color: var(--text);
-  line-height: 1;
-  margin-bottom: 0.3rem;
+  line-height: 1.1;
+  margin-bottom: 0.2rem;
 }
 .ex-hero-muscles {
-  font-size: 0.75rem;
+  font-size: 0.875rem;
   color: var(--muted);
-  letter-spacing: 0.03em;
-  text-transform: uppercase;
-  margin-bottom: 0.5rem;
+  margin-bottom: 0.35rem;
 }
 .ex-hero-hint {
-  font-size: 0.8rem;
+  font-size: 0.9rem;
   color: var(--muted);
   display: flex;
-  gap: 0.5rem;
+  gap: 0.4rem;
   align-items: baseline;
   flex-wrap: wrap;
 }
-.ex-hero-hint .last-val {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 0.78rem;
-  color: var(--text);
-}
+.ex-hero-hint .last-val,
 .ex-hero-hint .orm-val {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 0.74rem;
-  color: var(--text);   /* an estimate, not a PR: gold is reserved for PRs */
-}
-.overload-chips { display: none; gap: 0.3rem; flex-wrap: wrap; margin-top: 0.45rem; }
-.overload-chip {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 0.68rem;
+  font-family: var(--f-display);
+  font-stretch: 72%;
   font-weight: 700;
-  padding: 0.15rem 0.55rem;
-  border-radius: 100px;
-  border: 1px solid;
-  background: transparent;
-  cursor: pointer;
-  transition: background 0.12s, color 0.12s;
-  white-space: nowrap;
-  letter-spacing: 0.02em;
-  line-height: 1.6;
+  font-variant-numeric: tabular-nums;
+  font-size: 1rem;
+  color: var(--text);   /* an estimate, not a record: amber is reserved for records */
 }
-.overload-chip.primary { color: var(--accent); border-color: rgba(79,156,249,0.4); }
-.overload-chip.primary:hover { background: var(--accent-dim); }
-.overload-chip.secondary { color: var(--muted); border-color: var(--border); }
-.overload-chip.secondary:hover { color: var(--text); border-color: var(--border-mid); }
+.overload-chips { display: none; gap: 0.4rem; flex-wrap: wrap; margin-top: 0.5rem; }
+.overload-chip {
+  font-family: var(--f-display);
+  font-stretch: 72%;
+  font-size: 1rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  min-height: 40px;
+  padding: 0.25rem 0.85rem;
+  border-radius: 999px;
+  border: 1px solid var(--border-mid);
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.overload-chip:hover { border-color: var(--text); }
 
 /* Autocomplete dropdown */
 #exercise-dropdown {
@@ -259,262 +253,279 @@
   left: 0; right: 0;
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 10px;
-  max-height: 220px;
+  border-radius: var(--radius-sm);
+  max-height: 260px;
   overflow-y: auto;
   z-index: 50;
   margin-top: 4px;
-  box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+  box-shadow: var(--shadow);
   display: none;
 }
 .ex-option {
-  padding: 0.6rem 0.85rem;
-  font-size: 0.875rem;
+  padding: 0.75rem 0.9rem;
+  font-size: 1rem;
   cursor: pointer;
   border-bottom: 1px solid var(--border);
 }
 .ex-option:last-child { border-bottom: none; }
 .ex-option:hover, .ex-option.ex-active { background: var(--surface-hover); }
-.ex-option mark { background: transparent; color: var(--accent); font-weight: 600; }
+.ex-option mark { background: transparent; color: var(--text); font-weight: 700; text-decoration: underline; text-underline-offset: 3px; }
 
-/* ── Steppers ────────────────────────────────────────────────── */
-.steppers-row {
+#bw-hint {
+  margin: 0.6rem 0.25rem 0;
+  font-size: 0.875rem;
+  color: var(--muted);
+  background: var(--surface-2);
+  border-radius: var(--radius-xs);
+  padding: 0.55rem 0.75rem;
+}
+
+/* ── Set list (this exercise) ────────────────────────────────── */
+.set-cols, .cur-row, .active-set {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 0.75rem;
-  margin-bottom: 1rem;
-}
-.stepper-field label {
-  font-size: 0.65rem;
-  font-weight: 700;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--muted);
-  margin-bottom: 0.4rem;
-  display: block;
-}
-.stepper-xl {
-  display: flex;
-  align-items: stretch;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  overflow: hidden;
-  height: 64px;
-  transition: border-color 0.15s, box-shadow 0.15s;
-}
-.stepper-xl:focus-within { border-color: var(--accent); box-shadow: var(--glow); }
-.stepper-xl .sx-btn {
-  width: 52px;
-  background: transparent;
-  border: none;
-  color: var(--muted);
-  font-size: 1.5rem;
-  line-height: 1;
-  cursor: pointer;
-  display: flex;
+  grid-template-columns: 28px 1fr 1fr 60px;
   align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  transition: color 0.12s, background 0.12s;
-  user-select: none;
-  -webkit-user-select: none;
-  -webkit-tap-highlight-color: transparent;
+  gap: 6px;
 }
-.stepper-xl .sx-btn:hover { color: var(--accent); background: var(--accent-dim); }
-.stepper-xl .sx-btn:active { transform: scale(0.92); }
-.stepper-xl .sx-val {
-  flex: 1;
-  min-width: 0;
-  background: transparent;
-  border: none;
-  outline: none;
-  text-align: center;
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 1.5rem;
-  font-weight: 700;
-  color: var(--text);
-  padding: 0;
-  letter-spacing: -0.03em;
-}
-.stepper-xl .sx-val:focus { color: var(--accent); }
-
-/* ── RPE chips ───────────────────────────────────────────────── */
-.rpe-wrap { margin-bottom: 1rem; }
-.rpe-wrap > .rpe-lbl {
-  font-size: 0.65rem;
-  font-weight: 700;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
+.set-cols {
+  margin-top: 0.9rem;
+  padding: 0 6px 2px;
+  font-size: 0.8125rem;
   color: var(--muted);
-  margin-bottom: 0.45rem;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-.rpe-lbl .rpe-opt { font-weight: 400; text-transform: none; letter-spacing: 0; color: var(--muted); font-size: 0.65rem; }
-.rpe-chips { display: grid; grid-template-columns: repeat(10, 1fr); gap: 0.3rem; }
-.rpe-chip {
-  width: 100%; height: 34px;
-  border-radius: 7px;
-  border: 1px solid var(--border);
-  background: var(--surface);
-  color: var(--muted);
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 0.78rem;
   font-weight: 600;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.13s;
-  user-select: none;
-  -webkit-user-select: none;
 }
-.rpe-chip:hover { border-color: var(--accent); color: var(--accent); }
-.rpe-chip.selected {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: #090b10;   /* dark text on every shade below (white was 2.8:1 on blue) */
-  box-shadow: 0 2px 8px rgba(79,156,249,0.4);
-}
-/* High RPE shades */
-/* 8 is peach, not gold: gold (--pr) means a personal record and nothing else. */
-.rpe-chip[data-rpe="8"].selected  { background: #fdba74; border-color: #fdba74; box-shadow: 0 2px 8px rgba(253,186,116,0.4); }
-.rpe-chip[data-rpe="9"].selected  { background: #f97316; border-color: #f97316; box-shadow: 0 2px 8px rgba(249,115,22,0.4); }
-.rpe-chip[data-rpe="10"].selected { background: #f87171; border-color: #f87171; box-shadow: 0 2px 8px rgba(248,113,113,0.4); }
-
-/* ── Log Set button ──────────────────────────────────────────── */
-.log-btn {
-  width: 100%;
-  height: 56px;
-  border: none;
+.set-cols span:last-child { text-align: right; }
+.cur-sets { display: grid; gap: 4px; margin-top: 4px; }
+.cur-row {
+  min-height: 54px;
+  padding: 0 6px;
   border-radius: 12px;
-  background: linear-gradient(135deg, #4f9cf9 0%, #3b82f6 100%);
-  color: #090b10;   /* 7.0:1 → 5.4:1; white was 2.8:1 */
-  font-family: 'Syne', system-ui, sans-serif;
-  font-size: 0.95rem;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-  transition: all 0.15s;
+  background: var(--surface-2);
+}
+.cur-n { color: var(--muted); font-size: 0.9rem; }
+.cur-val {
+  grid-column: 2 / 4;
+  font-family: var(--f-display);
+  font-stretch: 72%;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  font-size: 1.45rem;
+  line-height: 1.1;
+  color: var(--text);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cur-tag { font-family: var(--f-ui); font-stretch: 100%; font-size: 0.8125rem; font-weight: 700; color: var(--pr); margin-left: 0.4rem; }
+.cur-tick {
+  justify-self: end;
+  width: 44px; height: 44px;
+  border-radius: 50%;
+  background: var(--text);
+  display: grid;
+  place-items: center;
+}
+.cur-tick svg { width: 20px; height: 20px; stroke: #ffffff; stroke-width: 3; fill: none; }
+.cur-row.is-pr { background: var(--pr-dim); }
+.cur-row.is-pr .cur-val { color: var(--pr); }
+.cur-row.is-pr .cur-tick { background: var(--pr); }
+@keyframes curFill { from { background-color: var(--primary-tint); } }
+.cur-row.just { animation: curFill 0.18s ease-out; }
+@keyframes curSweep {
+  from { background-position: -120% 0; }
+  to   { background-position: 220% 0; }
+}
+.cur-row.is-pr.just {
+  background-image: linear-gradient(100deg, transparent 30%, var(--pr-glow) 50%, transparent 70%);
+  background-size: 60% 100%;
+  background-repeat: no-repeat;
+  animation: curSweep 0.9s ease-out 1;
+}
+
+/* ── Rest timer (inline, under the last set) ─────────────────── */
+.rest-bar {
+  display: none;
   position: relative;
   overflow: hidden;
-  margin-bottom: 0.5rem;
+  background: var(--text);
+  color: var(--bg);
+  border-radius: 12px;
+  padding: 8px 6px 11px 12px;
+  margin-top: 4px;
+  align-items: center;
+  gap: 0.5rem;
+  animation: restSlide 0.2s ease-out;
 }
-.log-btn::after {
-  content: '';
+@keyframes restSlide {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.rest-ring-wrap { display: none; }
+.rest-info { flex: 1; display: flex; align-items: baseline; gap: 0.6rem; min-width: 0; }
+.rest-lbl { font-size: 0.875rem; font-weight: 600; color: #c9c9c2; }
+.rest-count {
+  font-family: var(--f-display);
+  font-stretch: 72%;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  font-size: 1.75rem;
+  line-height: 1;
+  color: #ff7a47;   /* 7.1:1 on ink */
+}
+.rest-count.is-done { color: #7fd6a8; }   /* 10:1 on ink */
+.rest-btns { display: flex; gap: 0.3rem; align-items: center; }
+.rest-btn {
+  min-height: 44px;
+  min-width: 48px;
+  padding: 0 0.6rem;
+  border-radius: var(--radius-xs);
+  border: 1px solid #3a3a37;
+  background: transparent;
+  color: var(--bg);
+  font-family: inherit;
+  font-size: 0.9rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+.rest-btn:hover { border-color: var(--bg); }
+.rest-btn:focus-visible { outline-color: var(--bg); }
+.rest-drain {
   position: absolute;
-  inset: 0;
-  background: linear-gradient(135deg, rgba(255,255,255,0.12) 0%, transparent 50%);
-  pointer-events: none;
+  left: 0; bottom: 0;
+  height: 3px;
+  background: var(--primary);
+  transition: width 0.9s linear;
 }
-.log-btn:hover {
-  background: linear-gradient(135deg, #7ab8fc 0%, #4f9cf9 100%);
-  box-shadow: 0 6px 20px rgba(79,156,249,0.45);
-  transform: translateY(-1px);
-}
-.log-btn:active { transform: scale(0.975); box-shadow: none; }
 
-/* ── Same-set repeat button ──────────────────────────────────── */
-.same-btn {
+/* ── The next set ────────────────────────────────────────────── */
+.active-set {
+  margin-top: 4px;
+  min-height: 92px;
+  padding: 6px;
+  border-radius: 14px;
+  background: var(--primary-tint);
+  box-shadow: inset 0 0 0 2px var(--primary-edge);
+}
+.as-n { color: var(--muted); font-size: 0.9rem; padding-left: 0; }
+.as-field { display: grid; gap: 0; min-width: 0; }
+.as-field .sx-val {
   width: 100%;
-  display: none;
+  min-width: 0;
+  height: 60px;
+  padding: 0 6px;
+  border: none;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--text);
+  font-family: var(--f-display) !important;
+  font-stretch: 72%;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  font-size: 2.6rem !important;   /* overrides the global 16px field rule; still ≥16px, so no iOS focus zoom */
+  line-height: 1;
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+.as-field .sx-val::-webkit-inner-spin-button,
+.as-field .sx-val::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+.as-field .sx-val:focus { outline: none; background: var(--surface); box-shadow: inset 0 0 0 2px var(--text); }
+.as-field label {
+  margin: 0;
+  padding: 0 6px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.log-btn {
+  justify-self: end;
+  width: 58px;
+  height: 58px;
+  border-radius: 50%;
+  border: none;
+  background: var(--primary);
+  color: var(--on-primary);
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  transition: background 0.15s, transform 0.1s;
+}
+.log-btn svg { width: 26px; height: 26px; stroke: currentColor; stroke-width: 3; fill: none; }
+.log-btn:hover { background: var(--primary-hover); }
+.log-btn:active { transform: scale(0.94); }
+
+/* The tick repeats the prefilled set, so the separate repeat button is gone. */
+.same-btn { display: none !important; }
+
+/* RPE + notes: tucked away, one tap to open */
+.set-extras { margin-top: 0.6rem; padding: 0 0.25rem; }
+.set-extras > summary {
+  list-style: none;
+  cursor: pointer;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+.set-extras > summary::-webkit-details-marker { display: none; }
+.set-extras > summary::after { content: '+'; font-size: 1.1rem; margin-left: 0.15rem; }
+.set-extras[open] > summary::after { content: '−'; }
+.set-extras > summary:hover { color: var(--text); }
+.rpe-wrap { margin: 0.25rem 0 0.9rem; }
+.rpe-wrap > .rpe-lbl {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--muted);
+  margin-bottom: 0.45rem;
+}
+.rpe-chips { display: grid; grid-template-columns: repeat(5, 1fr); gap: 0.35rem; }
+@media (min-width: 420px) { .rpe-chips { grid-template-columns: repeat(10, 1fr); } }
+.rpe-chip {
+  width: 100%; height: 44px;
+  border-radius: var(--radius-xs);
+  border: 1px solid var(--border-mid);
+  background: var(--surface);
+  color: var(--text);
+  font-family: var(--f-display);
+  font-stretch: 72%;
+  font-variant-numeric: tabular-nums;
+  font-size: 1.1rem;
+  font-weight: 700;
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.rpe-chip:hover { border-color: var(--text); }
+.rpe-chip.selected { background: var(--text); border-color: var(--text); color: var(--bg); }
+
+/* ── Cardio + session notes ──────────────────────────────────── */
+.cardio-toggle {
+  background: var(--surface);
+  border: 1px solid var(--border-mid);
+  border-radius: var(--radius-sm);
+  min-height: 48px;
+  color: var(--text);
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  display: flex;
   align-items: center;
   justify-content: center;
   gap: 0.45rem;
-  min-height: 40px;
-  margin-top: 0.45rem;
-  background: transparent;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  color: var(--muted-hi);
-  font-family: inherit;
-  font-size: 0.82rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.15s;
-  letter-spacing: 0.01em;
+  width: 100%;
+  padding: 0 1rem;
 }
-.same-btn:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-dim); }
-.same-btn:active { transform: scale(0.975); }
+.cardio-toggle:hover { border-color: var(--text); }
+.notes-saved { font-size: 0.8125rem; color: var(--success); margin-top: 0.25rem; display: none; }
 
-
-/* ── Rest timer ──────────────────────────────────────────────── */
-.rest-bar {
-  display: none;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 0.7rem 1rem;
-  margin-top: 0.75rem;
-  align-items: center;
-  gap: 0.9rem;
-  animation: restSlide 0.22s cubic-bezier(0.16, 1, 0.3, 1);
-}
-@keyframes restSlide {
-  from { opacity: 0; transform: translateY(-5px); }
-  to   { opacity: 1; transform: translateY(0); }
-}
-.rest-ring-wrap { flex-shrink: 0; position: relative; }
-/* Radar-sweep ring around the live rest timer — a rotating conic-gradient arc
-   layered on top of the existing progress ring. Only ever visible while the
-   parent .rest-bar is displayed (running), so no separate on/off wiring is
-   needed for the animation itself — only for its color state below. */
-.rest-ring-wrap::after {
-  content: '';
-  position: absolute;
-  inset: -3px;
-  border-radius: 50%;
-  background: conic-gradient(var(--live) 0deg, transparent 55deg, transparent 360deg);
-  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 3px), #000 calc(100% - 3px) 100%);
-  mask: radial-gradient(farthest-side, transparent calc(100% - 3px), #000 calc(100% - 3px) 100%);
-  animation: spin 2.4s linear infinite;
-  opacity: 0.55;
-  pointer-events: none;
-}
-.rest-ring-wrap.is-done::after { opacity: 0; }
-@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-.rest-info { flex: 0 0 auto; }
-.rest-lbl { font-size: 0.6rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted); margin-bottom: 0.1rem; }
-.rest-count {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 1.55rem;
-  font-weight: 700;
-  color: var(--text);
-  line-height: 1;
-  letter-spacing: -0.02em;
-  transition: color 0.2s, text-shadow 0.2s;
-}
-/* Currently running = live (cyan) per the app-wide rule; success (green) only
-   at the moment it completes. See DESIGN.md § Color Tokens. */
-.rest-count.is-live { color: var(--live); text-shadow: 0 0 10px var(--live-glow); }
-.rest-count.is-done { color: var(--success); text-shadow: none; }
-.rest-btns { display: flex; gap: 0.3rem; margin-left: auto; align-items: center; }
-
-/* ── Cardio section ──────────────────────────────────────────── */
-.cardio-toggle {
-  background: transparent;
-  border: none;
-  color: var(--muted);
-  font-size: 0.8rem;
-  cursor: pointer;
-  font-family: inherit;
-  display: flex;
-  align-items: center;
-  gap: 0.35rem;
-  padding: 0;
-  margin-top: 0.75rem;
-  transition: color 0.15s;
-}
-.cardio-toggle:hover { color: var(--text); }
-
-/* ── Sets feed ───────────────────────────────────────────────── */
+/* ── This session (all exercises) ────────────────────────────── */
 .sets-hdr {
   display: flex;
   align-items: center;
@@ -522,39 +533,34 @@
   margin-bottom: 0.6rem;
 }
 .sets-hdr-lbl {
-  font-size: 0.65rem;
+  font-family: var(--f-display);
+  font-size: 1.15rem;
   font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  color: var(--muted);
+  color: var(--text);
 }
 .sets-badge {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 0.7rem;
+  font-size: 0.875rem;
+  font-weight: 600;
   color: var(--muted);
-  background: var(--surface);
-  border: 1px solid var(--border);
-  padding: 0.1rem 0.55rem;
-  border-radius: 100px;
 }
 .sets-card {
   background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 0 1rem;
+  border-radius: var(--radius);
+  padding: 0.25rem 1rem;
   box-shadow: var(--shadow-sm);
   min-height: 56px;
 }
 .set-row {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
-  padding: 0.7rem 0;
+  gap: 0.5rem;
+  padding: 0.35rem 0;
   border-bottom: 1px solid var(--border);
-  animation: rowIn 0.22s cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation: rowIn 0.2s ease-out both;
   position: relative;
   overflow: hidden;
   touch-action: pan-y;
+  background: var(--surface);
 }
 @keyframes rowIn {
   from { opacity: 0; transform: translateX(-6px); }
@@ -564,7 +570,7 @@
 .set-row-swipe-bg {
   position: absolute;
   inset: 0;
-  background: rgba(248,113,113,0.15);
+  background: var(--danger-dim);
   display: flex;
   align-items: center;
   justify-content: flex-end;
@@ -574,16 +580,10 @@
   transition: opacity 0.1s;
 }
 .set-row-swipe-bg i { color: var(--danger); }
-.set-bar {
-  width: 3px;
-  min-height: 32px;
-  border-radius: 2px;
-  flex-shrink: 0;
-  align-self: stretch;
-}
+.set-bar { display: none; }
 .set-body { flex: 1; min-width: 0; }
 .set-name {
-  font-size: 0.88rem;
+  font-size: 0.95rem;
   font-weight: 600;
   color: var(--text);
   white-space: nowrap;
@@ -594,110 +594,87 @@
   gap: 0.4rem;
 }
 .set-detail {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 0.75rem;
+  font-size: 0.95rem;
   color: var(--muted);
-  margin-top: 0.1rem;
+  font-variant-numeric: tabular-nums;
 }
-.set-del {
+.set-detail .weight-display { font-family: var(--f-display); font-stretch: 72%; font-weight: 800; font-size: 1.15rem; color: var(--text); }
+.set-del, .set-edit-btn {
   background: transparent;
   border: 1px solid transparent;
   color: var(--muted);
   cursor: pointer;
-  padding: 0.2rem 0.4rem;
-  border-radius: 6px;
+  border-radius: var(--radius-xs);
   display: flex;
   align-items: center;
   justify-content: center;
-  min-width: 44px;   /* DESIGN.md touch target; the icon stays small */
+  min-width: 44px;   /* touch target; the icon stays small */
   min-height: 44px;
   flex-shrink: 0;
-  transition: all 0.13s;
+  transition: color 0.13s, background 0.13s;
 }
-.set-del:hover { color: var(--danger); border-color: rgba(248,113,113,0.3); background: rgba(248,113,113,0.06); }
-.set-edit-btn {
-  background: transparent;
-  border: 1px solid transparent;
-  color: var(--muted);
-  cursor: pointer;
-  padding: 0.2rem 0.4rem;
-  border-radius: 6px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 44px;   /* DESIGN.md touch target; the icon stays small */
-  min-height: 44px;
-  flex-shrink: 0;
-  transition: all 0.13s;
-}
-.set-edit-btn:hover { color: var(--accent); border-color: rgba(79,156,249,0.3); background: rgba(79,156,249,0.06); }
+.set-del:hover { color: var(--danger); background: var(--danger-dim); }
+.set-edit-btn:hover { color: var(--text); background: var(--surface-hover); }
 
-/* ── Exercise groups in session panel ────────────────────── */
+/* Exercise groups */
+.ex-group + .ex-group { border-top: 1px solid var(--border); }
 .ex-group-hdr {
   display: flex;
-  align-items: stretch;
+  align-items: center;
   gap: 0.65rem;
-  padding: 0.5rem 0;
-  border-bottom: 1px solid var(--border);
+  padding: 0.7rem 0 0.2rem;
 }
 .ex-group-name {
-  font-size: 0.78rem;
+  font-family: var(--f-display);
+  font-size: 1.05rem;
   font-weight: 700;
-  color: var(--muted-hi);
-  letter-spacing: 0.02em;
+  color: var(--text);
   flex: 1;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  align-self: center;
 }
 .ex-group-badge {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 0.65rem;
+  font-size: 0.875rem;
+  font-weight: 600;
   color: var(--muted);
-  background: rgba(255,255,255,0.04);
-  border: 1px solid var(--border);
-  padding: 0.1rem 0.5rem;
-  border-radius: 100px;
   white-space: nowrap;
-  align-self: center;
 }
-.ex-group .set-row { padding-left: 0.25rem; }
+.ex-group .set-row { border-bottom: none; }
 
-/* ── Inline set edit ─────────────────────────────────────── */
+/* Inline set edit */
 .set-edit-row {
   display: none;
   align-items: center;
   gap: 0.4rem;
-  margin-top: 0.3rem;
+  margin: 0.3rem 0;
   flex-wrap: wrap;
 }
-.set-edit-row .edit-w,
-.set-edit-row .edit-r {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 0.8rem;
-  padding: 0.2rem 0.35rem;
-  border-radius: 6px;
-  background: rgba(255,255,255,0.06);
-  border: 1px solid var(--border);
-  color: var(--text);
+.set-edit-row input, .set-edit-row select {
+  min-height: 44px !important;
+  padding: 0.2rem 0.5rem !important;
+  border-radius: var(--radius-xs) !important;
+  width: auto;
+}
+.set-edit-row .edit-w, .set-edit-row .edit-r {
+  font-family: var(--f-display);
+  font-stretch: 72%;
+  font-weight: 800;
   text-align: center;
-  outline: none;
   -moz-appearance: textfield;
   appearance: textfield;
 }
 .set-edit-row .edit-w::-webkit-inner-spin-button,
 .set-edit-row .edit-r::-webkit-inner-spin-button { display: none; }
-.set-edit-row .edit-w:focus,
-.set-edit-row .edit-r:focus { border-color: var(--accent); }
-.set-edit-row .edit-w { width: 68px; }
-.set-edit-row .edit-r { width: 52px; }
+.set-edit-row .edit-w { width: 5rem !important; }
+.set-edit-row .edit-r { width: 4rem !important; }
+.set-edit-row .edit-notes { flex: 1; min-width: 6rem; }
+.set-edit-row .btn { min-height: 44px; padding: 0 0.8rem; font-size: 0.9rem; }
 
 /* ── Sticky footer ───────────────────────────────────────────── */
+/* Not sticky: on a phone it would sit over the next-set row. */
 .workout-footer {
-  position: sticky;
-  bottom: 0;
   background: var(--bg);
   border-top: 1px solid var(--border);
   padding: 0.75rem 0;
@@ -707,66 +684,75 @@
   gap: 0.75rem;
 }
 .footer-vol-wrap { margin-left: auto; text-align: right; }
-.footer-vol-lbl { font-size: 0.6rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; }
+.footer-vol-lbl { font-size: 0.8125rem; color: var(--muted); font-weight: 600; }
 .footer-vol {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 1.05rem;
-  font-weight: 700;
-  color: var(--accent);
+  font-family: var(--f-display);
+  font-stretch: 72%;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  font-size: 1.35rem;
+  line-height: 1.1;
+  color: var(--text);
 }
 
-/* ── Finish stats (finished view) ────────────────────────────── */
+/* ── Finished view ───────────────────────────────────────────── */
 .finish-stats {
   display: grid;
   grid-template-columns: 1fr 1fr 1fr;
   gap: 1rem;
   text-align: center;
-  padding: 1.5rem;
+  padding: 1.5rem 1rem;
   background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 14px;
+  border-radius: var(--radius);
   margin-bottom: 1.5rem;
   box-shadow: var(--shadow-sm);
 }
 .finish-stat-val {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 2.25rem;
-  font-weight: 700;
-  color: var(--accent);
+  font-family: var(--f-display);
+  font-stretch: 72%;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  font-size: clamp(1.9rem, 8vw, 2.6rem);
+  color: var(--text);
   line-height: 1;
 }
-.finish-stat-val.neutral { color: var(--text); }
 .finish-stat-lbl {
-  font-size: 0.62rem;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
+  font-size: 0.875rem;
+  font-weight: 600;
   color: var(--muted);
   margin-top: 0.4rem;
 }
+.lead-lbl { font-size: 0.875rem; font-weight: 600; color: var(--muted); margin-bottom: 0.35rem; }
 
-/* ── PR flash ────────────────────────────────────────────────── */
+/* Coach's notes */
+.coach-notes-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.9rem; }
+@media (max-width: 520px) { .coach-notes-grid { grid-template-columns: 1fr; } }
+.coach-notes-grid ul { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.35rem; }
+.coach-notes-grid li { font-size: 0.95rem; color: var(--text); display: flex; align-items: flex-start; gap: 0.45rem; line-height: 1.45; }
+.coach-notes-grid .lead-lbl.bad { color: var(--danger); }
+
+/* ── Record toast ────────────────────────────────────────────── */
 #pr-badge {
   display: none;
   position: fixed;
-  top: 68px;
+  top: calc(16px + env(safe-area-inset-top, 0px));
   left: 50%;
   transform: translateX(-50%);
   background: var(--pr-dim);
-  border: 1px solid rgba(245,158,11,0.4);
   color: var(--pr);
-  padding: 0.45rem 1.2rem;
-  border-radius: 100px;
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 0.82rem;
+  padding: 0.55rem 1.2rem;
+  border-radius: 999px;
+  font-size: 0.95rem;
   font-weight: 700;
   z-index: 200;
   white-space: nowrap;
-  box-shadow: 0 4px 20px rgba(245,158,11,0.25), 0 0 24px var(--pr-glow);
-  animation: prPop 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: var(--shadow);
+  animation: prPop 0.25s ease-out;
 }
+@media (min-width: 768px) { #pr-badge { top: 72px; } }
 @keyframes prPop {
-  from { opacity: 0; transform: translateX(-50%) scale(0.82) translateY(-6px); }
-  to   { opacity: 1; transform: translateX(-50%) scale(1) translateY(0); }
+  from { opacity: 0; transform: translateX(-50%) translateY(-6px); }
+  to   { opacity: 1; transform: translateX(-50%) translateY(0); }
 }
 
 /* ── Modals ──────────────────────────────────────────────────── */
@@ -774,15 +760,17 @@
   display: none;
   position: fixed;
   inset: 0;
-  background: rgba(0,0,0,0.85);
+  background: rgba(20,20,20,0.4);
   z-index: 600;
   align-items: center;
   justify-content: center;
   padding: 1rem;
   padding-bottom: calc(1rem + env(safe-area-inset-bottom, 0px));
-  backdrop-filter: blur(4px);
-  -webkit-backdrop-filter: blur(4px);
 }
+.modal-title { font-family: var(--f-display); font-size: 1.6rem; font-weight: 800; line-height: 1.1; margin-bottom: 0.3rem; }
+.modal-stats { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.5rem; margin: 1.25rem 0 1.5rem; }
+.modal-stat-val { font-family: var(--f-display); font-stretch: 72%; font-weight: 800; font-variant-numeric: tabular-nums; font-size: 2rem; line-height: 1; }
+.modal-stat-lbl { font-size: 0.875rem; color: var(--muted); font-weight: 600; margin-top: 0.3rem; }
 </style>
 {% endblock %}
 
@@ -799,46 +787,77 @@
 {%- endif -%}
 {%- endmacro -%}
 
-{# ── PR toast ── #}
-<div id="pr-badge">🏆 New PR!</div>
+{%- macro set_row(s) -%}
+<div class="set-row" id="set-{{ s.id }}" data-exercise-id="{{ s.exercise_id }}"
+     data-kg="{{ s.weight_kg }}" data-reps="{{ s.reps }}"
+     data-rpe="{{ s.rpe or '' }}" data-notes="{{ s.notes or '' }}">
+  <div class="set-bar"></div>
+  <div class="set-body">
+    <div class="set-name">{{ s.exercise_name }}</div>
+    <div class="set-detail" id="detail-{{ s.id }}">
+      {{ set_metric(s) }}{% if s.rpe %} · RPE {{ s.rpe }}{% endif %}{% if s.notes %} · {{ s.notes }}{% endif %}
+    </div>
+    <div class="set-edit-row" id="edit-{{ s.id }}">
+      <input type="number" class="edit-w" step="0.5" min="0" inputmode="decimal">
+      <span style="color:var(--muted);">×</span>
+      <input type="number" class="edit-r" step="1" min="1" inputmode="numeric">
+      <button onclick="saveEdit({{ s.id }})" class="btn btn-ghost">Save</button>
+      <button onclick="cancelEdit({{ s.id }})" class="btn btn-ghost" aria-label="Cancel edit">✕</button>
+    </div>
+  </div>
+  <button class="set-edit-btn" onclick="startEdit({{ s.id }})" aria-label="Edit set">
+    <i data-lucide="pencil" style="width:16px;height:16px;pointer-events:none;"></i>
+  </button>
+  <button class="set-del" onclick="deleteSet({{ s.id }}, this)" aria-label="Delete set">
+    <i data-lucide="x" style="width:18px;height:18px;pointer-events:none;"></i>
+  </button>
+  <div class="set-row-swipe-bg"><i data-lucide="trash-2" style="width:18px;height:18px;pointer-events:none;"></i></div>
+</div>
+{%- endmacro -%}
+
+{%- macro cardio_row(c) -%}
+<div class="set-row" id="cardio-{{ c.id }}">
+  <div class="set-bar"></div>
+  <div class="set-body">
+    <div class="set-name">
+      <i data-lucide="activity" style="width:16px;height:16px;flex-shrink:0;"></i>
+      {{ c.exercise_name }}
+    </div>
+    <div class="set-detail">
+      {{ c.duration_minutes | int }} min{% if c.distance_km %} · <span class="distance-display" data-km="{{ c.distance_km }}">{{ c.distance_km }}</span> km{% endif %}{% if c.notes %} · {{ c.notes }}{% endif %}
+    </div>
+  </div>
+  <button class="set-del" onclick="deleteCardio({{ c.id }}, this)" aria-label="Delete cardio entry">
+    <i data-lucide="x" style="width:18px;height:18px;pointer-events:none;"></i>
+  </button>
+  <div class="set-row-swipe-bg"><i data-lucide="trash-2" style="width:18px;height:18px;pointer-events:none;"></i></div>
+</div>
+{%- endmacro -%}
+
+{# ── Record toast ── #}
+<div id="pr-badge" role="status">New record</div>
 
 {# ── Session header ── #}
 <div class="session-hdr">
   <a href="/workouts" class="session-hdr-back">
-    <i data-lucide="chevron-left" style="width:15px;height:15px;"></i>Workouts
+    <i data-lucide="chevron-left" style="width:18px;height:18px;"></i>Sessions
   </a>
   <div class="session-hdr-info">
     {% if is_finished %}
-    <span class="session-done-dot"></span>
-    <span class="session-title">Finished</span>
-    <span style="color:var(--border);">·</span>
-    <span>{{ workout.started_at[:10] }}</span>
-    <span style="color:var(--border);">·</span>
-    <span style="color:var(--success);">{{ duration_min }} min</span>
+    <h1 class="session-title">Finished</h1>
+    <span class="session-meta"><span class="session-done-dot"></span><span class="human-date" data-iso="{{ workout.started_at[:10] }}">{{ workout.started_at[:10] }}</span> · <span class="num">{{ duration_min }}</span> min</span>
     {% else %}
-    <span class="session-live-dot"></span>
-    <span class="session-title">In Session</span>
-    <span style="color:var(--border);">·</span>
-    <span>{{ workout.started_at[:10] }}</span>
-    <span style="color:var(--border);">·</span>
-    <span class="session-elapsed" id="elapsed-clock"></span>
+    <h1 class="session-title">In session</h1>
+    <span class="session-meta"><span class="session-live-dot"></span><span class="human-date" data-iso="{{ workout.started_at[:10] }}">{{ workout.started_at[:10] }}</span> · <span class="session-elapsed" id="elapsed-clock"></span></span>
     {% endif %}
   </div>
   <div class="session-hdr-actions">
     <button class="hdr-delete-btn" onclick="deleteWorkout()" title="Delete workout" aria-label="Delete workout">
-      <i data-lucide="trash-2" style="width:12px;height:12px;pointer-events:none;"></i>
+      <i data-lucide="trash-2" style="width:18px;height:18px;pointer-events:none;"></i>
     </button>
     {% if not is_finished %}
-    <button id="unit-toggle-session" onclick="toggleUnit()"
-            title="Toggle kg / lbs"
-            style="background:transparent;border:1px solid var(--border);color:var(--muted);
-                   cursor:pointer;padding:0.2rem 0.6rem;border-radius:var(--radius-xs);
-                   font-size:0.72rem;font-family:'JetBrains Mono',monospace;letter-spacing:0.04em;
-                   min-height:44px;transition:color 0.15s,border-color 0.15s;">kg</button>
-    <button class="btn btn-primary" onclick="finishWorkout()"
-            style="min-height:56px;padding:0.3rem 1.2rem;font-size:0.9rem;font-weight:700;letter-spacing:0.02em;">
-      Finish
-    </button>
+    <button id="unit-toggle-session" class="hdr-unit-btn" onclick="toggleUnit()" title="Toggle kg / lbs" aria-label="Toggle kg or lbs">kg</button>
+    <button class="btn btn-primary finish-btn" onclick="finishWorkout()">Finish</button>
     {% endif %}
   </div>
 </div>
@@ -852,7 +871,7 @@
     <div class="finish-stat-lbl">minutes</div>
   </div>
   <div>
-    <div class="finish-stat-val neutral">{{ sets|length }}</div>
+    <div class="finish-stat-val">{{ sets|length }}</div>
     <div class="finish-stat-lbl">sets</div>
   </div>
   <div>
@@ -864,9 +883,9 @@
 </div>
 
 {% if workout.notes %}
-<div class="card card-accent" style="margin-bottom:1.25rem;padding:0.85rem 1.1rem;">
-  <div style="font-size:0.6rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted);margin-bottom:0.35rem;">Session notes</div>
-  <div style="font-size:0.875rem;color:var(--text);line-height:1.55;white-space:pre-wrap;">{{ workout.notes }}</div>
+<div class="card" style="margin-bottom:1.25rem;">
+  <div class="lead-lbl">Session notes</div>
+  <div style="font-size:1rem;color:var(--text);line-height:1.55;white-space:pre-wrap;">{{ workout.notes }}</div>
 </div>
 {% endif %}
 
@@ -875,74 +894,28 @@
 </div>
 <div class="sets-card" id="sets-container">
   {% if sets or cardio_logs %}
-    {% for s in sets %}
-    <div class="set-row" id="set-{{ s.id }}" data-exercise-id="{{ s.exercise_id }}"
-         data-kg="{{ s.weight_kg }}" data-reps="{{ s.reps }}"
-         data-rpe="{{ s.rpe or '' }}" data-notes="{{ s.notes or '' }}">
-      <div class="set-bar"></div>
-      <div class="set-body">
-        <div class="set-name">{{ s.exercise_name }}</div>
-        <div class="set-detail" id="detail-{{ s.id }}">
-          {{ set_metric(s) }}{% if s.rpe %} · RPE {{ s.rpe }}{% endif %}{% if s.notes %} · {{ s.notes }}{% endif %}
-        </div>
-        <div class="set-edit-row" id="edit-{{ s.id }}">
-          <input type="number" class="edit-w" step="0.5" min="0" inputmode="decimal">
-          <span style="color:var(--muted);font-size:0.85rem;">×</span>
-          <input type="number" class="edit-r" step="1" min="1" inputmode="numeric">
-          <button onclick="saveEdit({{ s.id }})" class="btn btn-ghost" style="font-size:0.72rem;padding:0.1rem 0.5rem;min-height:24px;">Save</button>
-          <button onclick="cancelEdit({{ s.id }})" class="btn btn-ghost" style="font-size:0.72rem;padding:0.1rem 0.4rem;min-height:24px;">✕</button>
-        </div>
-      </div>
-      <button class="set-edit-btn" onclick="startEdit({{ s.id }})" aria-label="Edit set">
-        <i data-lucide="pencil" style="width:12px;height:12px;pointer-events:none;"></i>
-      </button>
-      <button class="set-del" onclick="deleteSet({{ s.id }}, this)" aria-label="Delete set">
-        <i data-lucide="x" style="width:13px;height:13px;pointer-events:none;"></i>
-      </button>
-      <div class="set-row-swipe-bg"><i data-lucide="trash-2" style="width:16px;height:16px;pointer-events:none;"></i></div>
-    </div>
-    {% endfor %}
-    {% for c in cardio_logs %}
-    <div class="set-row" id="cardio-{{ c.id }}">
-      <div class="set-bar" style="background:var(--success) !important;"></div>
-      <div class="set-body">
-        <div class="set-name">
-          <i data-lucide="activity" style="width:12px;height:12px;color:var(--success);flex-shrink:0;"></i>
-          {{ c.exercise_name }}
-        </div>
-        <div class="set-detail">
-          {{ c.duration_minutes | int }} min{% if c.distance_km %} · <span class="distance-display" data-km="{{ c.distance_km }}">{{ c.distance_km }}</span> km{% endif %}{% if c.notes %} · {{ c.notes }}{% endif %}
-        </div>
-      </div>
-      <button class="set-del" onclick="deleteCardio({{ c.id }}, this)" aria-label="Delete cardio entry">
-        <i data-lucide="x" style="width:13px;height:13px;pointer-events:none;"></i>
-      </button>
-      <div class="set-row-swipe-bg"><i data-lucide="trash-2" style="width:16px;height:16px;pointer-events:none;"></i></div>
-    </div>
-    {% endfor %}
+    {% for s in sets %}{{ set_row(s) }}{% endfor %}
+    {% for c in cardio_logs %}{{ cardio_row(c) }}{% endfor %}
   {% else %}
-    <p style="color:var(--muted);font-size:0.875rem;padding:0.75rem 0;">No sets recorded.</p>
+    <p style="color:var(--muted);padding:0.75rem 0;">No sets recorded.</p>
   {% endif %}
 </div>
 
 {% if sets %}
 <div style="margin-top:1rem;" id="save-tpl-wrap">
-  <button onclick="showSaveTpl()" id="save-tpl-btn" style="display:flex;align-items:center;gap:0.5rem;background:transparent;border:1px dashed var(--border);color:var(--muted);border-radius:var(--radius);cursor:pointer;padding:0.6rem 1.1rem;font-family:inherit;font-size:0.82rem;width:100%;transition:all 0.15s;" onmouseover="this.style.borderColor='var(--border-mid)';this.style.color='var(--text)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">
-    <i data-lucide="layout-template" style="width:14px;height:14px;flex-shrink:0;pointer-events:none;"></i>
+  <button onclick="showSaveTpl()" id="save-tpl-btn" class="btn btn-ghost" style="width:100%;min-height:48px;">
+    <i data-lucide="layout-template" style="width:16px;height:16px;flex-shrink:0;pointer-events:none;"></i>
     Save as template
   </button>
   <div id="save-tpl-form" style="display:none;margin-top:0.5rem;" class="card">
-    <div style="padding:1rem 1.25rem;">
-      <div style="font-size:0.75rem;font-weight:600;color:var(--muted);margin-bottom:0.6rem;text-transform:uppercase;letter-spacing:0.07em;">Template name</div>
-      <div style="display:flex;gap:0.5rem;flex-wrap:wrap;">
-        <input type="text" id="tpl-name-input" placeholder="e.g. Push Day" maxlength="80" autocomplete="off"
-               style="flex:1;min-width:140px;padding:0.4rem 0.65rem;border-radius:var(--radius-xs);border:1px solid var(--border);background:var(--surface-2);color:var(--text);font-family:inherit;font-size:0.875rem;">
-        <button onclick="doSaveTpl()" class="btn btn-primary" style="font-size:0.82rem;min-height:38px;">Save</button>
-        <button onclick="hideSaveTpl()" class="btn btn-ghost" style="font-size:0.82rem;min-height:38px;">Cancel</button>
-      </div>
-      <div id="tpl-save-ok" style="display:none;margin-top:0.5rem;font-size:0.8rem;color:var(--success);">Saved! <a href="/templates" style="color:var(--accent);">View templates →</a></div>
-      <div id="tpl-save-err" style="display:none;margin-top:0.5rem;font-size:0.8rem;color:var(--danger);"></div>
+    <label for="tpl-name-input">Template name</label>
+    <div style="display:flex;gap:0.5rem;flex-wrap:wrap;">
+      <input type="text" id="tpl-name-input" placeholder="e.g. Push Day" maxlength="80" autocomplete="off" style="flex:1;min-width:140px;">
+      <button onclick="doSaveTpl()" class="btn btn-primary">Save</button>
+      <button onclick="hideSaveTpl()" class="btn btn-ghost">Cancel</button>
     </div>
+    <div id="tpl-save-ok" style="display:none;margin-top:0.5rem;font-size:0.9rem;color:var(--success);">Saved. <a href="/templates" style="text-decoration:underline;">View templates</a></div>
+    <div id="tpl-save-err" role="alert" style="display:none;margin-top:0.5rem;font-size:0.9rem;color:var(--danger);"></div>
   </div>
 </div>
 <script>
@@ -980,52 +953,35 @@ document.getElementById('tpl-name-input')?.addEventListener('keydown', e => { if
 {# ── Coach's Notes (AI-generated form info) ── #}
 <div style="margin-top:1.5rem;">
   <div class="section-title" style="display:flex;align-items:center;gap:0.5rem;">
-    <i data-lucide="book-open" style="width:13px;height:13px;pointer-events:none;"></i>
-    Coach's Notes
-    <span style="font-size:0.6rem;font-weight:400;color:var(--muted);text-transform:none;letter-spacing:0;
-                 border:1px solid var(--border);border-radius:10px;padding:0.05rem 0.4rem;">AI</span>
+    Coach's notes
+    <span class="badge">AI</span>
   </div>
   <div style="display:flex;flex-direction:column;gap:0.75rem;">
     {% for ex_name, info in enrichment.items() %}
     {% if info and (info.cues or info.mistakes or info.reference) %}
-    <div class="card" style="padding:1rem 1.25rem;">
-      <div style="font-family:'Syne',system-ui,sans-serif;font-size:0.88rem;font-weight:700;
-                  color:var(--text);margin-bottom:0.75rem;display:flex;align-items:center;gap:0.5rem;">
-        <i data-lucide="dumbbell" style="width:14px;height:14px;color:var(--accent);pointer-events:none;flex-shrink:0;"></i>
-        {{ ex_name }}
-      </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem;">
+    <div class="card">
+      <div style="font-family:var(--f-display);font-size:1.1rem;font-weight:700;margin-bottom:0.75rem;">{{ ex_name }}</div>
+      <div class="coach-notes-grid">
         {% if info.cues %}
         <div>
-          <div style="font-size:0.6rem;text-transform:uppercase;letter-spacing:0.1em;color:var(--accent);
-                      font-weight:700;margin-bottom:0.4rem;">Form Cues</div>
-          <ul style="list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:0.3rem;">
-            {% for cue in info.cues %}
-            <li style="font-size:0.78rem;color:var(--text);display:flex;align-items:flex-start;gap:0.4rem;line-height:1.4;">
-              <span style="color:var(--accent);flex-shrink:0;margin-top:0.1rem;">›</span>{{ cue }}
-            </li>
-            {% endfor %}
+          <div class="lead-lbl">Form cues</div>
+          <ul>
+            {% for cue in info.cues %}<li><span aria-hidden="true">›</span>{{ cue }}</li>{% endfor %}
           </ul>
         </div>
         {% endif %}
         {% if info.mistakes %}
         <div>
-          <div style="font-size:0.6rem;text-transform:uppercase;letter-spacing:0.1em;color:var(--danger);
-                      font-weight:700;margin-bottom:0.4rem;">Common Mistakes</div>
-          <ul style="list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:0.3rem;">
-            {% for m in info.mistakes %}
-            <li style="font-size:0.78rem;color:var(--text);display:flex;align-items:flex-start;gap:0.4rem;line-height:1.4;">
-              <span style="color:var(--danger);flex-shrink:0;margin-top:0.1rem;">×</span>{{ m }}
-            </li>
-            {% endfor %}
+          <div class="lead-lbl bad">Common mistakes</div>
+          <ul>
+            {% for m in info.mistakes %}<li><span aria-hidden="true">×</span>{{ m }}</li>{% endfor %}
           </ul>
         </div>
         {% endif %}
       </div>
       {% if info.reference %}
-      <div style="margin-top:0.65rem;padding-top:0.65rem;border-top:1px solid var(--border);
-                  font-size:0.68rem;color:var(--muted);display:flex;align-items:center;gap:0.35rem;">
-        <i data-lucide="book" style="width:11px;height:11px;pointer-events:none;flex-shrink:0;"></i>
+      <div style="margin-top:0.75rem;padding-top:0.65rem;border-top:1px solid var(--border);font-size:0.875rem;color:var(--muted);display:flex;align-items:center;gap:0.4rem;">
+        <i data-lucide="book" style="width:14px;height:14px;pointer-events:none;flex-shrink:0;"></i>
         {{ info.reference }}
       </div>
       {% endif %}
@@ -1039,149 +995,150 @@ document.getElementById('tpl-name-input')?.addEventListener('keydown', e => { if
 {% else %}
 {# ══ ACTIVE WORKOUT VIEW ══ #}
 
+<div class="session-progress" id="session-progress" aria-hidden="true">{% for s in sets %}<i></i>{% endfor %}</div>
+
 <div class="workout-grid">
 
-{# ─── LEFT: Form column ─── #}
+{# ─── LEFT: the current exercise ─── #}
 <div class="workout-form-col">
 
-  {# Exercise card #}
   <div class="ex-card" id="ex-card">
-
-    {# Routine + muscle filters #}
-    <div class="filter-row">
-      <select id="routine-select" onchange="onRoutineSelect(this.value)" aria-label="Routine">
-        <option value="">— routine —</option>
-      </select>
-      <button type="button" class="filter-clear" onclick="clearRoutine()" title="Clear routine" aria-label="Clear routine">×</button>
-      <select id="muscle-group-select" onchange="onMuscleGroupSelect(this.value)" aria-label="Muscle group">
-        <option value="">— muscle —</option>
-      </select>
-      <button type="button" class="filter-clear" onclick="clearMuscleGroup()" title="Clear muscle" aria-label="Clear muscle">×</button>
-    </div>
-
-    {# Template exercise chips #}
-    {% if template_exercises %}
-    <div style="margin-bottom:0.65rem;">
-      <div style="font-size:0.65rem;color:var(--accent);text-transform:uppercase;letter-spacing:0.08em;font-weight:700;margin-bottom:0.4rem;display:flex;align-items:center;gap:0.35rem;">
-        <i data-lucide="layout-template" style="width:11px;height:11px;pointer-events:none;"></i>Template exercises:
+    <div class="ex-pick">
+      {# Routine + muscle filters #}
+      <div class="filter-row">
+        <select id="routine-select" onchange="onRoutineSelect(this.value)" aria-label="Routine">
+          <option value="">Routine</option>
+        </select>
+        <button type="button" class="filter-clear" onclick="clearRoutine()" title="Clear routine" aria-label="Clear routine">×</button>
+        <select id="muscle-group-select" onchange="onMuscleGroupSelect(this.value)" aria-label="Muscle group">
+          <option value="">Muscle</option>
+        </select>
+        <button type="button" class="filter-clear" onclick="clearMuscleGroup()" title="Clear muscle" aria-label="Clear muscle">×</button>
       </div>
-      <div style="display:flex;flex-wrap:wrap;gap:0.35rem;">
-        {% for ex in template_exercises %}
-        <button type="button"
-                onclick='selectExercise({{ ex.id }}, {{ ex.name | tojson }})'
-                style="background:var(--accent-dim);border:1px solid rgba(79,156,249,0.3);color:var(--accent);border-radius:var(--radius-xs);padding:0.2rem 0.6rem;font-size:0.75rem;font-family:inherit;font-weight:600;cursor:pointer;transition:all 0.13s;"
-                onmouseover="this.style.background='rgba(79,156,249,0.2)'"
-                onmouseout="this.style.background='var(--accent-dim)'">{{ ex.name }}</button>
-        {% endfor %}
+
+      {# Template exercise chips #}
+      {% if template_exercises %}
+      <div style="margin-bottom:0.65rem;">
+        <div class="chip-lbl">From the template</div>
+        <div class="chip-row">
+          {% for ex in template_exercises %}
+          <button type="button" class="ex-chip" onclick='selectExercise({{ ex.id }}, {{ ex.name | tojson }})'>{{ ex.name }}</button>
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
+
+      {# Routine quick-select chips #}
+      <div id="routine-plan" style="display:none; margin-bottom:0.65rem;">
+        <div id="routine-plan-label" class="chip-lbl">Tap to select:</div>
+        <div id="routine-chips" class="chip-row"></div>
+      </div>
+
+      {# Search #}
+      <div class="ex-search-wrap">
+        <i data-lucide="search" class="ex-search-icon"></i>
+        <input id="exercise-input" aria-label="Exercise" placeholder="Search exercise…" autocomplete="off" autocorrect="off" autocapitalize="words" spellcheck="false">
+        <input type="hidden" id="exercise-id" value="">
+        <div id="exercise-dropdown"></div>
+      </div>
+
+      {# New-exercise muscle picker — appears when the typed name isn't in the library #}
+      <div id="new-ex-picker" style="display:none;margin-top:0.6rem;">
+        <div class="chip-lbl">New exercise: tag a muscle group</div>
+        <div id="new-ex-chips" class="chip-row"></div>
+      </div>
+
+      {# Hero #}
+      <div class="ex-hero-reveal" id="ex-hero-reveal">
+        <div class="ex-hero-divider"></div>
+        <div class="ex-hero-name" id="hero-name"></div>
+        <div class="ex-hero-muscles" id="hero-muscles"></div>
+        <div id="last-set-hint" class="ex-hero-hint" style="display:none;">
+          Last time: <span class="last-val" id="last-set-text"></span>
+          <span class="orm-val" id="last-1rm"></span>
+        </div>
+        <div id="overload-chips" class="overload-chips"></div>
       </div>
     </div>
-    {% endif %}
 
-    {# Routine quick-select chips #}
-    <div id="routine-plan" style="display:none; margin-bottom:0.65rem;">
-      <div id="routine-plan-label" style="font-size:0.65rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:0.4rem;">Tap to select:</div>
-      <div id="routine-chips" style="display:flex;flex-wrap:wrap;gap:0.35rem;"></div>
-    </div>
+    {# Bodyweight load hint — shown only for bodyweight exercises #}
+    <div id="bw-hint" style="display:none;"></div>
 
-    {# Search #}
-    <div class="ex-search-wrap">
-      <i data-lucide="search" class="ex-search-icon"></i>
-      <input id="exercise-input" aria-label="Exercise" placeholder="Search exercise…" autocomplete="off" autocorrect="off" autocapitalize="words" spellcheck="false">
-      <input type="hidden" id="exercise-id" value="">
-      <div id="exercise-dropdown"></div>
-    </div>
+    {# This exercise's sets, the rest timer under the last one, then the next set #}
+    <div class="set-cols" aria-hidden="true"><span>Set</span><span id="col-weight">kg</span><span id="col-reps">Reps</span><span></span></div>
+    <div class="cur-sets" id="cur-sets" role="list" aria-label="Sets of this exercise"></div>
 
-    {# New-exercise muscle picker — appears when the typed name isn't in the library #}
-    <div id="new-ex-picker" style="display:none;margin-top:0.6rem;">
-      <div style="font-size:0.66rem;color:var(--accent);text-transform:uppercase;letter-spacing:0.07em;font-weight:700;margin-bottom:0.4rem;display:flex;align-items:center;gap:0.35rem;">
-        <i data-lucide="plus-circle" style="width:12px;height:12px;pointer-events:none;"></i>New exercise — tag a muscle group
+    <div id="rest-timer" class="rest-bar" role="timer" aria-label="Rest timer">
+      <div class="rest-ring-wrap" id="rest-ring-wrap">
+        <svg width="1" height="1" viewBox="0 0 56 56" aria-hidden="true">
+          <circle id="timer-ring" cx="28" cy="28" r="22" fill="none" stroke="var(--border)"
+                  stroke-dasharray="138.23" stroke-dashoffset="0"/>
+        </svg>
       </div>
-      <div id="new-ex-chips" style="display:flex;flex-wrap:wrap;gap:0.35rem;"></div>
-    </div>
-
-    {# Hero reveal #}
-    <div class="ex-hero-reveal" id="ex-hero-reveal">
-      <div class="ex-hero-divider"></div>
-      <div class="ex-hero-name" id="hero-name"></div>
-      <div class="ex-hero-muscles" id="hero-muscles"></div>
-      <div id="last-set-hint" class="ex-hero-hint" style="display:none;">
-        Last: <span class="last-val" id="last-set-text"></span>
-        <span class="orm-val" id="last-1rm"></span>
+      <div class="rest-info">
+        <div class="rest-lbl">Rest</div>
+        <div class="rest-count" id="timer-display">2:00</div>
       </div>
-      <div id="overload-chips" class="overload-chips"></div>
+      <div class="rest-btns">
+        <button class="rest-btn" onclick="adjustTimer(-30)" aria-label="30 seconds less">−30</button>
+        <button class="rest-btn" onclick="adjustTimer(30)" aria-label="30 seconds more">+30</button>
+        <button class="rest-btn" onclick="stopTimer()">Skip</button>
+      </div>
+      <span class="rest-drain" id="rest-drain" style="width:100%"></span>
     </div>
-  </div>
 
-  {# Bodyweight load hint — shown only for bodyweight exercises #}
-  <div id="bw-hint" style="display:none;margin-bottom:0.6rem;font-size:0.78rem;color:var(--muted);
-       background:var(--surface-2);border:1px solid var(--border);border-radius:var(--radius-xs);padding:0.5rem 0.75rem;">
-  </div>
-
-  {# Weight + Reps steppers #}
-  <div class="steppers-row">
-    <div class="stepper-field">
-      <label id="weight-label" for="weight-input">Weight (kg)</label>
-      <div class="stepper-xl">
-        <button type="button" class="sx-btn" onclick="stepWeight(-1)" aria-label="Decrease weight">−</button>
+    <div class="active-set" id="active-set">
+      <span class="as-n" id="active-set-n">1</span>
+      <div class="as-field">
         <input type="number" id="weight-input" class="sx-val" value="60" step="0.5" min="0" inputmode="decimal">
-        <button type="button" class="sx-btn" onclick="stepWeight(1)" aria-label="Increase weight">+</button>
+        <label id="weight-label" for="weight-input">Weight (kg)</label>
       </div>
-    </div>
-    <div class="stepper-field">
-      <label id="reps-label" for="reps-input">Reps</label>
-      <div class="stepper-xl">
-        <button type="button" class="sx-btn" onclick="step('reps', -1)" aria-label="Decrease reps">−</button>
+      <div class="as-field">
         <input type="number" id="reps-input" class="sx-val" value="8" step="1" min="1" inputmode="numeric">
-        <button type="button" class="sx-btn" onclick="step('reps', 1)" aria-label="Increase reps">+</button>
+        <label id="reps-label" for="reps-input">Reps</label>
       </div>
+      <button class="log-btn" onclick="logSet()" aria-label="Log set">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>
+      </button>
     </div>
+    <button class="same-btn" id="same-btn" onclick="logSame()" tabindex="-1" aria-hidden="true">
+      <span id="same-btn-label">Same set</span>
+    </button>
+    <div id="log-error" role="alert" style="color:var(--danger);font-size:0.9rem;margin:0.5rem 0.25rem 0;display:none;"></div>
+
+    <details class="set-extras">
+      <summary>RPE and set notes</summary>
+      <div class="rpe-wrap">
+        <div class="rpe-lbl">RPE (optional)</div>
+        <div class="rpe-chips" id="rpe-chips-row" role="group" aria-label="RPE">
+          {% for n in range(1, 11) %}
+          <button type="button" class="rpe-chip" data-rpe="{{ n }}" aria-pressed="false" onclick="selectRpe({{ n }})">{{ n }}</button>
+          {% endfor %}
+        </div>
+        <select id="rpe-select" style="display:none;" aria-hidden="true" tabindex="-1">
+          <option value=""></option>
+          {% for n in range(1, 11) %}
+          <option value="{{ n }}">{{ n }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-group" style="margin-bottom:0.25rem;">
+        <label for="notes-input">Set notes (optional)</label>
+        <input type="text" id="notes-input" placeholder="e.g. paused reps, wide grip…">
+      </div>
+    </details>
   </div>
 
-{# RPE chips #}
-  <div class="rpe-wrap">
-    <div class="rpe-lbl">
-      RPE <span class="rpe-opt">(optional)</span>
-    </div>
-    <div class="rpe-chips" id="rpe-chips-row" role="group" aria-label="RPE">
-      {% for n in range(1, 11) %}
-      <button type="button" class="rpe-chip" data-rpe="{{ n }}" aria-pressed="false" onclick="selectRpe({{ n }})">{{ n }}</button>
-      {% endfor %}
-    </div>
-    <select id="rpe-select" style="display:none;">
-      <option value=""></option>
-      {% for n in range(1, 11) %}
-      <option value="{{ n }}">{{ n }}</option>
-      {% endfor %}
-    </select>
-  </div>
-
-  {# Notes #}
-  <div class="form-group">
-    <label for="notes-input">Notes <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--muted);">(optional)</span></label>
-    <input type="text" id="notes-input" placeholder="e.g. paused reps, wide grip…">
-  </div>
-
-  {# Log Set button #}
-  <button class="log-btn" onclick="logSet()">
-    <i data-lucide="plus" style="width:17px;height:17px;pointer-events:none;"></i>
-    Log Set
-  </button>
-  <button class="same-btn" id="same-btn" onclick="logSame()">
-    <i data-lucide="repeat-2" style="width:14px;height:14px;pointer-events:none;flex-shrink:0;"></i>
-    <span id="same-btn-label">Same set</span>
-  </button>
-  <div id="log-error" role="alert" style="color:var(--danger);font-size:0.8rem;margin-top:0.35rem;display:none;"></div>
-
-  {# Cardio — colocated with log actions so it's always visible #}
-  <div style="margin-top:0.6rem;">
-    <button type="button" onclick="toggleCardioForm()" class="cardio-toggle" style="border:1px solid var(--border);border-radius:var(--radius-xs);padding:0.35rem 0.75rem;color:var(--muted-hi);font-size:0.8rem;width:100%;justify-content:center;gap:0.4rem;">
-      <i data-lucide="activity" style="width:13px;height:13px;flex-shrink:0;"></i>
+  {# Cardio #}
+  <div>
+    <button type="button" onclick="toggleCardioForm()" class="cardio-toggle">
+      <i data-lucide="activity" style="width:16px;height:16px;flex-shrink:0;"></i>
       <span id="cardio-toggle-label">Add cardio</span>
     </button>
-    <div id="cardio-form" style="display:none;margin-top:0.75rem;">
+    <div id="cardio-form" class="card" style="display:none;margin-top:0.75rem;">
       <div class="form-group">
         <label for="cardio-exercise-select">Cardio exercise</label>
-        <select id="cardio-exercise-select"><option value="">— select —</option></select>
+        <select id="cardio-exercise-select"><option value="">Select…</option></select>
       </div>
       <div class="grid-2">
         <div class="form-group">
@@ -1201,105 +1158,35 @@ document.getElementById('tpl-name-input')?.addEventListener('keydown', e => { if
         <label for="cardio-notes">Notes (optional)</label>
         <input type="text" id="cardio-notes" placeholder="e.g. treadmill, easy pace">
       </div>
-      <button class="btn btn-ghost" style="width:100%;font-size:0.85rem;" onclick="logCardio()">Log Cardio</button>
-      <div id="cardio-error" role="alert" style="color:var(--danger);font-size:0.8rem;margin-top:0.4rem;display:none;"></div>
+      <button class="btn btn-ghost" style="width:100%;" onclick="logCardio()">Log cardio</button>
+      <div id="cardio-error" role="alert" style="color:var(--danger);font-size:0.9rem;margin-top:0.4rem;display:none;"></div>
     </div>
   </div>
 
   {# Session notes #}
-  <div class="form-group" style="margin-top:0.85rem;">
-    <label for="session-notes-input" style="font-size:0.65rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted);">
-      Session notes <span style="font-weight:400;text-transform:none;letter-spacing:0;">(optional)</span>
-    </label>
+  <div class="form-group" style="margin-top:1rem;">
+    <label for="session-notes-input">Session notes (optional)</label>
     <textarea id="session-notes-input" rows="2"
-              placeholder="How did it feel? Any pain, PRs, energy level…"
-              style="resize:vertical;min-height:60px;font-size:0.85rem;line-height:1.5;"
+              placeholder="How did it feel? Any pain, records, energy level…"
+              style="resize:vertical;min-height:64px;line-height:1.5;"
               oninput="scheduleNotesSave()" onblur="saveNotes()">{{ workout.notes or '' }}</textarea>
-    <div id="notes-save-indicator" style="font-size:0.72rem;color:var(--muted);margin-top:0.2rem;display:none;">Saved</div>
+    <div id="notes-save-indicator" class="notes-saved">Saved</div>
   </div>
-  <div id="rest-timer" class="rest-bar">
-    <div class="rest-ring-wrap" id="rest-ring-wrap">
-      <svg width="56" height="56" viewBox="0 0 56 56">
-        <circle cx="28" cy="28" r="22" fill="none" stroke="var(--border)" stroke-width="4"/>
-        <circle id="timer-ring" cx="28" cy="28" r="22" fill="none"
-                stroke="var(--accent)" stroke-width="4"
-                stroke-dasharray="138.23" stroke-dashoffset="0"
-                stroke-linecap="round"
-                transform="rotate(-90 28 28)"
-                style="transition:stroke-dashoffset 0.9s linear, stroke 0.3s;"/>
-      </svg>
-    </div>
-    <div class="rest-info">
-      <div class="rest-lbl">Rest</div>
-      <div class="rest-count" id="timer-display">2:00</div>
-    </div>
-    <div class="rest-btns">
-      <button class="btn btn-ghost" style="padding:0.2rem 0.55rem;min-height:30px;font-size:0.75rem;" onclick="adjustTimer(-30)">−30s</button>
-      <button class="btn btn-ghost" style="padding:0.2rem 0.55rem;min-height:30px;font-size:0.75rem;" onclick="adjustTimer(30)">+30s</button>
-      <button class="btn btn-ghost" style="padding:0.2rem 0.4rem;min-height:30px;" onclick="stopTimer()" aria-label="Stop rest timer">
-        <i data-lucide="x" style="width:13px;height:13px;pointer-events:none;"></i>
-      </button>
-    </div>
-  </div>
-
 
 </div>{# /form col #}
 
-{# ─── RIGHT: Sets column ─── #}
+{# ─── RIGHT: the whole session ─── #}
 <div class="workout-sets-col">
   <div class="sets-hdr">
-    <span class="sets-hdr-lbl">This Session</span>
+    <span class="sets-hdr-lbl">This session</span>
     <span class="sets-badge" id="sets-count-badge">{{ sets|length }} set{{ 's' if sets|length != 1 else '' }}</span>
   </div>
   <div class="sets-card" id="sets-container">
     {% if sets or cardio_logs %}
-      {% for s in sets %}
-      <div class="set-row" id="set-{{ s.id }}" data-exercise-id="{{ s.exercise_id }}"
-           data-kg="{{ s.weight_kg }}" data-reps="{{ s.reps }}"
-           data-rpe="{{ s.rpe or '' }}" data-notes="{{ s.notes or '' }}">
-        <div class="set-bar"></div>
-        <div class="set-body">
-          <div class="set-name">{{ s.exercise_name }}</div>
-          <div class="set-detail" id="detail-{{ s.id }}">
-            {{ set_metric(s) }}{% if s.rpe %} · RPE {{ s.rpe }}{% endif %}{% if s.notes %} · {{ s.notes }}{% endif %}
-          </div>
-          <div class="set-edit-row" id="edit-{{ s.id }}">
-            <input type="number" class="edit-w" step="0.5" min="0" inputmode="decimal">
-            <span style="color:var(--muted);font-size:0.85rem;">×</span>
-            <input type="number" class="edit-r" step="1" min="1" inputmode="numeric">
-            <button onclick="saveEdit({{ s.id }})" class="btn btn-ghost" style="font-size:0.72rem;padding:0.1rem 0.5rem;min-height:24px;">Save</button>
-            <button onclick="cancelEdit({{ s.id }})" class="btn btn-ghost" style="font-size:0.72rem;padding:0.1rem 0.4rem;min-height:24px;">✕</button>
-          </div>
-        </div>
-        <button class="set-edit-btn" onclick="startEdit({{ s.id }})" aria-label="Edit set">
-          <i data-lucide="pencil" style="width:12px;height:12px;pointer-events:none;"></i>
-        </button>
-        <button class="set-del" onclick="deleteSet({{ s.id }}, this)" aria-label="Delete set">
-          <i data-lucide="x" style="width:13px;height:13px;pointer-events:none;"></i>
-        </button>
-        <div class="set-row-swipe-bg"><i data-lucide="trash-2" style="width:16px;height:16px;pointer-events:none;"></i></div>
-      </div>
-      {% endfor %}
-      {% for c in cardio_logs %}
-      <div class="set-row" id="cardio-{{ c.id }}">
-        <div class="set-bar" style="background:var(--success) !important;"></div>
-        <div class="set-body">
-          <div class="set-name">
-            <i data-lucide="activity" style="width:12px;height:12px;color:var(--success);flex-shrink:0;"></i>
-            {{ c.exercise_name }}
-          </div>
-          <div class="set-detail">
-            {{ c.duration_minutes | int }} min{% if c.distance_km %} · <span class="distance-display" data-km="{{ c.distance_km }}">{{ c.distance_km }}</span> km{% endif %}{% if c.notes %} · {{ c.notes }}{% endif %}
-          </div>
-        </div>
-        <button class="set-del" onclick="deleteCardio({{ c.id }}, this)" aria-label="Delete cardio entry">
-          <i data-lucide="x" style="width:13px;height:13px;pointer-events:none;"></i>
-        </button>
-        <div class="set-row-swipe-bg"><i data-lucide="trash-2" style="width:16px;height:16px;pointer-events:none;"></i></div>
-      </div>
-      {% endfor %}
+      {% for s in sets %}{{ set_row(s) }}{% endfor %}
+      {% for c in cardio_logs %}{{ cardio_row(c) }}{% endfor %}
     {% else %}
-      <p id="empty-msg" style="color:var(--muted);font-size:0.875rem;padding:0.75rem 0;">No sets yet — log your first!</p>
+      <p id="empty-msg" style="color:var(--muted);padding:0.75rem 0;">No sets yet. Log your first.</p>
     {% endif %}
   </div>
 </div>{# /sets col #}
@@ -1308,35 +1195,25 @@ document.getElementById('tpl-name-input')?.addEventListener('keydown', e => { if
 
 {% if not is_finished %}
 {# ── Muscle activation panel (live) ── #}
-<div id="muscle-panel" style="margin-top:1rem;">
-  <button onclick="toggleMusclePanel()" id="muscle-panel-toggle"
-          style="width:100%;background:transparent;border:1px solid var(--border);border-radius:var(--radius-sm);
-                 color:var(--muted);font-family:'Barlow',inherit;font-size:0.78rem;font-weight:600;
-                 cursor:pointer;padding:0.55rem 1rem;display:flex;align-items:center;justify-content:space-between;
-                 transition:border-color 0.15s,color 0.15s;letter-spacing:0.02em;"
-          onmouseover="this.style.borderColor='var(--border-mid)';this.style.color='var(--text)'"
-          onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">
+<details id="muscle-panel" class="card" style="margin-top:1rem;padding:0;">
+  <summary id="muscle-panel-toggle" style="list-style:none;cursor:pointer;min-height:52px;padding:0 1rem;display:flex;align-items:center;justify-content:space-between;font-weight:600;">
     <span style="display:flex;align-items:center;gap:0.5rem;">
-      <i data-lucide="activity" style="width:14px;height:14px;pointer-events:none;"></i>
-      Muscle Activation Map
-      <span id="muscle-panel-badge" style="display:none;background:var(--accent-dim);color:var(--accent);
-             border:1px solid rgba(79,156,249,0.3);border-radius:20px;font-size:0.65rem;padding:0.05rem 0.5rem;">live</span>
+      Muscles worked
+      <span id="muscle-panel-badge" class="badge" style="display:none;">Live</span>
     </span>
-    <i data-lucide="chevron-down" id="muscle-panel-chevron" style="width:14px;height:14px;pointer-events:none;transition:transform 0.2s;"></i>
-  </button>
-  <div id="muscle-panel-body" style="display:none;padding:1.25rem;background:var(--surface);border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius-sm) var(--radius-sm);">
-    <div style="font-size:0.72rem;color:var(--muted);margin-bottom:1rem;text-align:center;">
-      Muscles activated in this session, scaled by volume logged.
+    <i data-lucide="chevron-down" id="muscle-panel-chevron" style="width:18px;height:18px;pointer-events:none;transition:transform 0.2s;"></i>
+  </summary>
+  <div id="muscle-panel-body" style="padding:0 1.25rem 1.25rem;">
+    <div style="font-size:0.875rem;color:var(--muted);margin-bottom:1rem;text-align:center;">
+      Muscles worked in this session, scaled by volume logged.
     </div>
     {% set map_id = "workout" %}
     {% set muscle_data_json = '{}' %}
     {% include 'partials/muscle_map.html' %}
   </div>
-</div>
+</details>
 <script>
 (function() {
-  var panelOpen = false;
-
   function recomputeAll() {
     var muscleVol = {};
     if (typeof setVolumes === 'undefined' || typeof setExercises === 'undefined') return muscleVol;
@@ -1353,6 +1230,7 @@ document.getElementById('tpl-name-input')?.addEventListener('keydown', e => { if
     return muscleVol;
   }
 
+  var panel = document.getElementById('muscle-panel');
   function pushToMap() {
     var muscleVol = recomputeAll();
     var updFn = window['mmapUpdate_workout'];
@@ -1360,27 +1238,24 @@ document.getElementById('tpl-name-input')?.addEventListener('keydown', e => { if
     var badge = document.getElementById('muscle-panel-badge');
     if (badge) badge.style.display = Object.keys(muscleVol).length ? 'inline-block' : 'none';
   }
-
-  window.toggleMusclePanel = function() {
-    panelOpen = !panelOpen;
-    document.getElementById('muscle-panel-body').style.display = panelOpen ? 'block' : 'none';
+  panel.addEventListener('toggle', function() {
     var chev = document.getElementById('muscle-panel-chevron');
-    if (chev) chev.style.transform = panelOpen ? 'rotate(180deg)' : '';
-    if (panelOpen) pushToMap();
-  };
+    if (chev) chev.style.transform = panel.open ? 'rotate(180deg)' : '';
+    if (panel.open) pushToMap();
+  });
+  window.toggleMusclePanel = function() { panel.open = !panel.open; };
 
   // Hook called by logSet and deleteSet after they mutate setVolumes/setExercises
-  window._mmapRefresh = function() { if (panelOpen) pushToMap(); };
+  window._mmapRefresh = function() { if (panel.open) pushToMap(); };
 })();
 </script>
 {% endif %}
 
 {# ── Sticky footer ── #}
 <div class="workout-footer">
-  <button class="btn btn-ghost" style="font-size:0.8rem;white-space:nowrap;"
-          onclick="document.getElementById('routine-save-modal').style.display='flex'">
-    <i data-lucide="bookmark" style="width:14px;height:14px;"></i>
-    Save Routine
+  <button class="btn btn-ghost" onclick="document.getElementById('routine-save-modal').style.display='flex'">
+    <i data-lucide="bookmark" style="width:16px;height:16px;"></i>
+    Save as routine
   </button>
   <div class="footer-vol-wrap">
     <div class="footer-vol-lbl">Volume</div>
@@ -1390,13 +1265,13 @@ document.getElementById('tpl-name-input')?.addEventListener('keydown', e => { if
 
 {# ── Routine save modal ── #}
 <div id="routine-save-modal" class="modal-backdrop">
-  <div class="card" style="max-width:340px;width:100%;padding:1.5rem;">
-    <h3 style="font-size:1rem;font-weight:700;font-family:'Syne',system-ui,sans-serif;letter-spacing:-0.02em;margin-bottom:1rem;">Save as Routine</h3>
+  <div class="card" style="max-width:360px;width:100%;padding:1.5rem;" role="dialog" aria-labelledby="routine-save-title">
+    <h3 id="routine-save-title" style="font-size:1.3rem;margin-bottom:1rem;">Save as routine</h3>
     <div class="form-group">
       <label for="routine-name-input">Routine name</label>
       <input type="text" id="routine-name-input" placeholder="e.g. Push Day" autocomplete="off">
     </div>
-    <div id="routine-save-error" style="color:var(--danger);font-size:0.8rem;margin-bottom:0.75rem;display:none;"></div>
+    <div id="routine-save-error" role="alert" style="color:var(--danger);font-size:0.9rem;margin-bottom:0.75rem;display:none;"></div>
     <div style="display:flex;gap:0.5rem;">
       <button class="btn btn-primary" style="flex:1;" onclick="saveRoutine()">Save</button>
       <button class="btn btn-ghost" onclick="document.getElementById('routine-save-modal').style.display='none'">Cancel</button>
@@ -1406,29 +1281,28 @@ document.getElementById('tpl-name-input')?.addEventListener('keydown', e => { if
 
 {# ── Finish modal ── #}
 <div id="finish-modal" class="modal-backdrop">
-  <div class="card" style="max-width:340px;width:100%;text-align:center;padding:2rem;">
-    <div style="font-family:'Syne',system-ui,sans-serif;font-size:1.5rem;font-weight:700;letter-spacing:-0.03em;color:var(--success);margin-bottom:0.35rem;">Workout Done</div>
-    <div style="font-size:0.82rem;color:var(--muted);margin-bottom:1.5rem;">Great session.</div>
-    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:0.5rem;margin-bottom:1.75rem;">
+  <div class="card" style="max-width:360px;width:100%;text-align:center;padding:2rem 1.5rem;" role="dialog" aria-labelledby="finish-title">
+    <div class="modal-title" id="finish-title">Session done</div>
+    <div style="font-size:1rem;color:var(--muted);">Nice work.</div>
+    <div class="modal-stats">
       <div>
-        <div id="modal-duration" style="font-family:'JetBrains Mono',monospace;font-size:1.75rem;font-weight:700;line-height:1;"></div>
-        <div style="font-size:0.6rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em;margin-top:0.35rem;">min</div>
+        <div id="modal-duration" class="modal-stat-val"></div>
+        <div class="modal-stat-lbl">min</div>
       </div>
       <div>
-        <div id="modal-sets" style="font-family:'JetBrains Mono',monospace;font-size:1.75rem;font-weight:700;line-height:1;"></div>
-        <div style="font-size:0.6rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em;margin-top:0.35rem;">sets</div>
+        <div id="modal-sets" class="modal-stat-val"></div>
+        <div class="modal-stat-lbl">sets</div>
       </div>
       <div>
-        <div id="modal-volume" style="font-family:'JetBrains Mono',monospace;font-size:1.75rem;font-weight:700;line-height:1;color:var(--text);"></div>
-        <div id="modal-vol-unit" style="font-size:0.6rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em;margin-top:0.35rem;">kg</div>
+        <div id="modal-volume" class="modal-stat-val"></div>
+        <div id="modal-vol-unit" class="modal-stat-lbl">kg</div>
       </div>
     </div>
-    <button onclick="location.href='/workouts'" class="btn btn-primary" style="width:100%;justify-content:center;min-height:46px;">Done</button>
+    <button onclick="location.href='/workouts'" class="btn btn-primary" style="width:100%;min-height:56px;">Done</button>
   </div>
 </div>
 
 {% endif %}{# /active view #}
-
 <script>
 const WORKOUT_ID = {{ workout.id }};
 let exercises = [];
@@ -1455,21 +1329,11 @@ function _bwBadge(addedKg, unit) {
     : 'BW';
 }
 
-// Exercise color palette — cycles per unique exercise ID
-// Validated with the dataviz checks against --surface (adjacent bars: worst CVD ΔE 10.5,
-// normal-vision 25.2). No blue (chrome), gold (PR) or live cyan; slot 1 is --data.
-const EX_COLORS = ['#9085e9','#fb923c','#34d399','#d55181','#a3e635','#f472b6'];
-const _exColorMap = {};
-let _exColorIdx = 0;
-function exColor(exerciseId) {
-  if (!_exColorMap[exerciseId]) {
-    _exColorMap[exerciseId] = EX_COLORS[_exColorIdx++ % EX_COLORS.length];
-  }
-  return _exColorMap[exerciseId];
-}
-// Group and colour server-rendered sets on load; restore timer if mid-rest
+// Group server-rendered sets on load; restore timer if mid-rest
 document.addEventListener('DOMContentLoaded', function() {
+  document.querySelectorAll('.human-date[data-iso]').forEach(el => { el.textContent = window.humanDate(el.dataset.iso); });
   regroupSets();
+  {% if not is_finished %}renderCurrentSets();{% endif %}
   {% if not is_finished %}
   _restoreTimerState();
   {% endif %}
@@ -1502,6 +1366,44 @@ function updateSetsCountBadge() {
   if (!badge) return;
   const n = document.querySelectorAll('#sets-container .set-row[id^="set-"]').length;
   badge.textContent = n + (n === 1 ? ' set' : ' sets');
+  const prog = document.getElementById('session-progress');
+  if (prog) prog.innerHTML = '<i></i>'.repeat(n);
+}
+
+// ── This exercise's sets ──────────────────────────────────────
+// The session list (#sets-container) is the source of truth; the exercise card
+// shows the current exercise's rows from it as ticked sets, so the next set
+// (the inputs) always sits right under the last one.
+const _prSetIds = new Set();
+const _TICK_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
+function renderCurrentSets(justId) {
+  const box = document.getElementById('cur-sets');
+  if (!box) return;
+  const exId = parseInt(document.getElementById('exercise-id').value);
+  const rows = exId
+    ? [...document.querySelectorAll('#sets-container .set-row[id^="set-"]')]
+        .filter(r => parseInt(r.dataset.exerciseId) === exId)
+    : [];
+  box.textContent = '';
+  rows.forEach((r, i) => {
+    const id = r.id.slice(4);
+    const detail = (r.querySelector('.set-detail')?.textContent || '').replace(/\s+/g, ' ').trim();
+    const main = detail.split(' · RPE')[0].split(' · 1RM')[0];
+    const el = document.createElement('div');
+    el.className = 'cur-row' + (_prSetIds.has(id) ? ' is-pr' : '') + (id === String(justId) ? ' just' : '');
+    el.setAttribute('role', 'listitem');
+    const n = document.createElement('span'); n.className = 'cur-n'; n.textContent = i + 1;
+    const v = document.createElement('span'); v.className = 'cur-val'; v.textContent = main;
+    if (_prSetIds.has(id)) {
+      const tag = document.createElement('span'); tag.className = 'cur-tag'; tag.textContent = 'Best ever';
+      v.appendChild(tag);
+    }
+    const t = document.createElement('span'); t.className = 'cur-tick'; t.innerHTML = _TICK_SVG;
+    el.append(n, v, t);
+    box.appendChild(el);
+  });
+  const nEl = document.getElementById('active-set-n');
+  if (nEl) nEl.textContent = rows.length + 1;
 }
 
 // ── Exercise hero ──────────────────────────────────────────────
@@ -1550,6 +1452,8 @@ window.addEventListener('unitchange', function(e) {
   const oldUnit = e.detail.oldUnit;
   const label   = document.getElementById('weight-label');
   if (label) label.textContent = (_bwMode ? 'Added (' : 'Weight (') + unit + ')';
+  const col = document.getElementById('col-weight');
+  if (col) col.textContent = unit;
   const input = document.getElementById('weight-input');
   if (input && oldUnit !== unit) {
     const val = parseFloat(input.value || 0);
@@ -1559,6 +1463,7 @@ window.addEventListener('unitchange', function(e) {
   }
   updateBwHint();
   updateVolumeDisplay();
+  renderCurrentSets();
 });
 
 window.addEventListener('distancechange', function(e) {
@@ -1698,6 +1603,8 @@ function updateTimerDisplay() {
     `${mins}:${String(secs).padStart(2, '0')}`;
   const progress = timerTotal > 0 ? timerRemaining / timerTotal : 0;
   document.getElementById('timer-ring').style.strokeDashoffset = RING_C * (1 - progress);
+  const drain = document.getElementById('rest-drain');
+  if (drain) drain.style.width = (Math.min(1, progress) * 100) + '%';
 }
 
 // ── Session notes auto-save ───────────────────────────────────
@@ -1752,7 +1659,7 @@ function _populateMuscleDropdown(exercisePool) {
   const groups = Object.keys(counts).sort();
   const sel  = document.getElementById('muscle-group-select');
   const prev = sel.value;
-  sel.innerHTML = '<option value="">— muscle —</option>';
+  sel.innerHTML = '<option value="">Muscle</option>';
   groups.forEach(g => {
     const opt = document.createElement('option');
     opt.value = g;
@@ -1771,11 +1678,10 @@ function _updateChipsAndDatalist() {
   const planEl  = document.getElementById('routine-plan');
   if (routineVal !== '' || selectedMuscleGroup) {
     if (filtered.length === 0) {
-      chipsEl.innerHTML = `<span style="color:var(--muted);font-size:0.8rem;">No exercises found.</span>`;
+      chipsEl.innerHTML = `<span style="color:var(--muted);font-size:0.9rem;">No exercises found.</span>`;
     } else {
       chipsEl.innerHTML = filtered.map(e =>
-        `<button type="button" class="btn btn-ghost"
-                 style="font-size:0.78rem;padding:0.2rem 0.6rem;min-height:30px;"
+        `<button type="button" class="ex-chip"
                  onclick="selectExerciseFromRoutine(${e.id},${JSON.stringify(e.name).replace(/"/g,'&quot;')})">
            ${escHtml(e.name)}
          </button>`
@@ -1801,7 +1707,7 @@ async function loadRoutines() {
     sel.innerHTML = '<option value="">— no routines yet —</option>';
     return;
   }
-  sel.innerHTML = '<option value="">— routine —</option>';
+  sel.innerHTML = '<option value="">Routine</option>';
   _routines.forEach((r, i) => {
     const opt = document.createElement('option');
     opt.value = i; opt.textContent = r.name;
@@ -1875,9 +1781,18 @@ async function loadExercises() {
     lastSets  = data.last_sets || {};
     _populateMuscleDropdown(exercises);
     _updateChipsAndDatalist();
+    if (!_resumePicked && !document.getElementById('exercise-id').value
+        && !document.getElementById('exercise-input').value) {
+      const rows = document.querySelectorAll('#sets-container .set-row[id^="set-"]');
+      const last = rows[rows.length - 1];
+      const ex = last && exercises.find(e => e.id === parseInt(last.dataset.exerciseId));
+      if (ex) selectExercise(ex.id, ex.name);
+    }
   } catch {}
+  _resumePicked = true;
   await initRepeatMode();
 }
+let _resumePicked = false;
 {% if not is_finished %}
 loadExercises();
 
@@ -1975,8 +1890,7 @@ async function initRepeatMode() {
     if (!exList.length) return;
     document.getElementById('routine-plan-label').textContent = 'From last session:';
     document.getElementById('routine-chips').innerHTML = exList.map(e =>
-      `<button type="button" class="btn btn-ghost"
-               style="font-size:0.78rem;padding:0.2rem 0.6rem;min-height:30px;"
+      `<button type="button" class="ex-chip"
                onclick="selectExerciseFromRoutine(${e.id},${JSON.stringify(e.name).replace(/"/g,'&quot;')})">
          ${escHtml(e.name)}
        </button>`
@@ -2019,8 +1933,8 @@ function updateBwHint() {
     hint.innerHTML =
       `Add your bodyweight to track volume: ` +
       `<input id="bw-quick" type="number" inputmode="decimal" step="0.5" min="1" placeholder="${unit}" ` +
-      `style="width:74px;margin:0 0.3rem;padding:0.25rem 0.4rem;font-size:16px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-xs);color:var(--text);">` +
-      `<button type="button" onclick="saveQuickBw()" class="btn btn-ghost" style="min-height:30px;padding:0.2rem 0.6rem;font-size:0.75rem;">Save</button>`;
+      `aria-label="Bodyweight" style="width:90px;margin:0.3rem;min-height:44px;">` +
+      `<button type="button" onclick="saveQuickBw()" class="btn btn-ghost" style="min-height:44px;">Save</button>`;
     return;
   }
   const added  = parseFloat(document.getElementById('weight-input').value) || 0;
@@ -2104,6 +2018,7 @@ function applyExerciseSelection(ex) {
     hint.style.display = 'none';
     if (chipsEl) chipsEl.style.display = 'none';
   }
+  renderCurrentSets();
 }
 
 function applyOverload(weight, reps) {
@@ -2360,7 +2275,6 @@ async function _logSet(exerciseName, exerciseId) {
   const emptyMsg  = document.getElementById('empty-msg');
   if (emptyMsg) emptyMsg.remove();
 
-  const color = exColor(exerciseId);
   const row   = document.createElement('div');
   row.className = 'set-row'; row.id = 'set-' + data.id;
   row.dataset.exerciseId = exerciseId;
@@ -2369,7 +2283,7 @@ async function _logSet(exerciseName, exerciseId) {
   row.dataset.rpe   = rpe || '';
   row.dataset.notes = notes || '';
   row.innerHTML = `
-    <div class="set-bar" style="background:${color};"></div>
+    <div class="set-bar"></div>
     <div class="set-body">
       <div class="set-name">${escHtml(exerciseName)}${data.is_pr ? ' <span class="badge badge-pr" role="img" aria-label="Personal record">PR</span>' : ''}</div>
       <div class="set-detail" id="detail-${data.id}">
@@ -2382,10 +2296,10 @@ async function _logSet(exerciseName, exerciseId) {
       </div>
       <div class="set-edit-row" id="edit-${data.id}">
         <input type="number" class="edit-w" step="0.5" min="0" inputmode="decimal">
-        <span style="color:var(--muted);font-size:0.85rem;">×</span>
+        <span style="color:var(--muted);">×</span>
         <input type="number" class="edit-r" step="1" min="1" inputmode="numeric">
-        <button onclick="saveEdit(${data.id})" class="btn btn-ghost" style="font-size:0.72rem;padding:0.1rem 0.5rem;min-height:24px;">Save</button>
-        <button onclick="cancelEdit(${data.id})" class="btn btn-ghost" style="font-size:0.72rem;padding:0.1rem 0.4rem;min-height:24px;">✕</button>
+        <button onclick="saveEdit(${data.id})" class="btn btn-ghost">Save</button>
+        <button onclick="cancelEdit(${data.id})" class="btn btn-ghost" aria-label="Cancel edit">✕</button>
       </div>
     </div>
     <button class="set-edit-btn" onclick="startEdit(${data.id})" aria-label="Edit set">
@@ -2397,9 +2311,11 @@ async function _logSet(exerciseName, exerciseId) {
     <div class="set-row-swipe-bg"><i data-lucide="trash-2" style="width:16px;height:16px;pointer-events:none;"></i></div>`;
   addSetToGroup(row, exerciseId, exerciseName);
   row.classList.add('set-enter');
-  if (data.is_pr) row.classList.add('pr-flash');
+  if (data.is_pr) { row.classList.add('pr-flash'); _prSetIds.add(String(data.id)); }
+  if (parseInt(document.getElementById('exercise-id').value) !== exerciseId) document.getElementById('exercise-id').value = exerciseId;
+  renderCurrentSets(data.id);
   lucide.createIcons();
-  row.scrollIntoView({behavior: 'smooth', block: 'nearest'});
+  document.getElementById('active-set')?.scrollIntoView({behavior: 'smooth', block: 'nearest'});
 
   document.getElementById('notes-input').value = '';
   clearRpe();
@@ -2413,11 +2329,9 @@ async function _logSet(exerciseName, exerciseId) {
 
 // ── Exercise group helpers ─────────────────────────────────────
 function _makeGroupHdr(exerciseId, exerciseName) {
-  const color = exColor(exerciseId);
   const hdr = document.createElement('div');
   hdr.className = 'ex-group-hdr';
   hdr.innerHTML =
-    `<div class="set-bar" style="background:${color};width:3px;border-radius:2px;min-height:28px;flex-shrink:0;align-self:stretch;"></div>` +
     `<div class="ex-group-name">${escHtml(exerciseName)}</div>` +
     `<span class="ex-group-badge">0 sets</span>`;
   return hdr;
@@ -2453,8 +2367,6 @@ function regroupSets() {
     }
     const nameEl = row.querySelector('.set-name');
     if (nameEl) nameEl.style.display = 'none';
-    const bar = row.querySelector('.set-bar');
-    if (bar) bar.style.background = exColor(exId);
     currentGroup.appendChild(row);
   });
   container.querySelectorAll('.ex-group').forEach(_updateGroupBadge);
@@ -2501,16 +2413,15 @@ function startEdit(id) {
   ).join('');
 
   editEl.innerHTML =
-    `<input type="number" class="edit-w" value="${displayW}" step="0.5" min="0" style="width:4.2rem;">` +
-    `<span style="color:var(--muted);font-size:0.85rem;flex-shrink:0;">×</span>` +
-    `<input type="number" class="edit-r" value="${reps}" step="1" min="1" style="width:3.2rem;">` +
-    `<select class="edit-rpe" title="RPE" aria-label="RPE" style="font-size:0.72rem;padding:0.1rem 0.25rem;border-radius:4px;border:1px solid var(--border);background:var(--surface-2);color:var(--muted);height:26px;min-width:54px;">` +
+    `<input type="number" class="edit-w" value="${displayW}" step="0.5" min="0" inputmode="decimal" aria-label="Weight">` +
+    `<span style="color:var(--muted);flex-shrink:0;">×</span>` +
+    `<input type="number" class="edit-r" value="${reps}" step="1" min="1" inputmode="numeric" aria-label="Reps">` +
+    `<select class="edit-rpe" title="RPE" aria-label="RPE">` +
       `<option value="">RPE</option>${rpeOpts}` +
     `</select>` +
-    `<input type="text" class="edit-notes" value="${escHtml(notes)}" placeholder="notes…" autocorrect="off" spellcheck="false"` +
-      ` style="flex:1;min-width:0;font-size:0.72rem;padding:0.1rem 0.4rem;border-radius:4px;border:1px solid var(--border);background:var(--surface-2);color:var(--text);height:26px;">` +
-    `<button onclick="saveEdit(${id})" class="btn btn-ghost" style="font-size:0.72rem;padding:0.1rem 0.5rem;min-height:26px;flex-shrink:0;">Save</button>` +
-    `<button onclick="cancelEdit(${id})" class="btn btn-ghost" style="font-size:0.72rem;padding:0.1rem 0.4rem;min-height:26px;flex-shrink:0;">✕</button>`;
+    `<input type="text" class="edit-notes" value="${escHtml(notes)}" placeholder="Notes" aria-label="Set notes" autocorrect="off" spellcheck="false">` +
+    `<button onclick="saveEdit(${id})" class="btn btn-ghost">Save</button>` +
+    `<button onclick="cancelEdit(${id})" class="btn btn-ghost" aria-label="Cancel edit">✕</button>`;
 
   document.getElementById('detail-' + id).style.display = 'none';
   editEl.style.display = 'flex';
@@ -2581,10 +2492,11 @@ async function saveEdit(id) {
   const detailEl = document.getElementById('detail-' + id);
   detailEl.innerHTML = html;
   cancelEdit(id);
+  renderCurrentSets();
 
   // Brief save confirmation
   const tick = document.createElement('span');
-  tick.textContent = ' ✓'; tick.style.cssText = 'color:var(--success);font-size:0.7rem;';
+  tick.textContent = ' Saved'; tick.style.cssText = 'color:var(--success);font-size:0.875rem;font-weight:600;';
   detailEl.appendChild(tick);
   setTimeout(() => tick.remove(), 1500);
 }
@@ -2616,7 +2528,7 @@ async function deleteSet(id, btn) {
       if (row) {
         row.classList.add('set-exit');
         let _done = false;
-        const _remove = () => { if (_done) return; _done = true; row.remove(); _afterRemove(); };
+        const _remove = () => { if (_done) return; _done = true; row.remove(); _afterRemove(); renderCurrentSets(); };
         // animationend can fail to fire on iOS Safari with prefers-reduced-motion;
         // the setTimeout is a guaranteed fallback.
         row.addEventListener('animationend', _remove, { once: true });

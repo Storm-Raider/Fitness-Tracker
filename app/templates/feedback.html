@@ -4,19 +4,18 @@
 <style>
 .fb-seg { display:flex; gap:0.6rem; }
 .fb-seg-btn {
-  flex:1; padding:0.85rem 0.5rem; border:1.5px solid var(--border);
-  border-radius:var(--radius-sm); background:var(--surface-2); color:var(--muted);
-  cursor:pointer; font-family:'Barlow',inherit; font-size:0.85rem; font-weight:700;
-  letter-spacing:0.02em; transition:all 0.13s; text-align:center;
-  display:flex; flex-direction:column; align-items:center; gap:0.35rem;
+  flex:1; min-height:88px; padding:0.85rem 0.5rem; border:1px solid var(--border-mid);
+  border-radius:var(--radius-sm); background:var(--surface); color:var(--text);
+  cursor:pointer; font-family:inherit; font-size:1rem; font-weight:700;
+  transition:background 0.13s, border-color 0.13s, box-shadow 0.13s; text-align:center;
+  display:flex; flex-direction:column; align-items:center; justify-content:center; gap:0.3rem;
 }
-.fb-seg-btn:hover { border-color:var(--border-mid); color:var(--text); }
-.fb-seg-btn.active { border-color:var(--accent); color:var(--accent); background:var(--accent-dim); }
-.fb-seg-btn .fb-sub { font-size:0.65rem; font-weight:400; color:var(--muted); }
-.fb-seg-btn.active .fb-sub { color:var(--accent); }
+.fb-seg-btn:hover { border-color:var(--text); }
+.fb-seg-btn.active { border-color:var(--text); box-shadow:inset 0 0 0 1px var(--text); background:var(--accent-dim); }
+.fb-seg-btn .fb-sub { font-size:0.8125rem; font-weight:400; color:var(--muted); }
+.fb-seg-btn.active .fb-sub { color:var(--muted-hi); }
 .fb-row { display:flex; flex-direction:column; gap:0.4rem; margin-bottom:1.1rem; }
-.fb-row label { font-size:0.72rem; font-weight:700; text-transform:uppercase;
-  letter-spacing:0.06em; color:var(--muted); }
+.fb-row label { margin-bottom:0; }
 .fb-row input, .fb-row textarea { width:100%; }
 .fb-row textarea { resize:vertical; min-height:140px; }
 @media (max-width:767px) { .fb-row input, .fb-row textarea { font-size:16px; } }
@@ -31,17 +30,17 @@
 
 <div style="max-width:560px;">
 {% if not configured %}
-  <div class="card" style="border-left:3px solid var(--muted-hi);">
+  <div class="card">
     <div style="display:flex;align-items:flex-start;gap:0.75rem;">
-      <i data-lucide="info" style="width:20px;height:20px;color:var(--muted-hi);flex-shrink:0;margin-top:0.1rem;"></i>
+      <i data-lucide="info" style="width:20px;height:20px;color:var(--text);flex-shrink:0;margin-top:0.1rem;"></i>
       <div>
         <div style="font-weight:600;margin-bottom:0.3rem;">Reporting isn't configured</div>
-        <div style="font-size:0.85rem;color:var(--muted);line-height:1.55;">
+        <div style="font-size:0.9375rem;color:var(--muted);line-height:1.55;">
           The server admin needs to set a <code>GITHUB_TOKEN</code> (and optionally
           <code>GITHUB_REPO</code>) so reports can be filed to GitHub. Until then you
           can open an issue directly at
           <a href="https://github.com/{{ repo }}/issues/new/choose" target="_blank" rel="noopener"
-             style="color:var(--accent);">github.com/{{ repo }}</a>.
+             style="color:var(--text);text-decoration:underline;text-underline-offset:2px;font-weight:600;">github.com/{{ repo }}</a>.
         </div>
       </div>
     </div>
@@ -49,15 +48,15 @@
 {% else %}
   <div class="card">
     <div class="fb-row">
-      <label>Type</label>
-      <div class="fb-seg" id="fb-type">
-        <button type="button" class="fb-seg-btn active" data-val="bug" onclick="pickType(this)">
-          <i data-lucide="bug" style="width:18px;height:18px;pointer-events:none;"></i>
+      <label id="fb-type-label">Type</label>
+      <div class="fb-seg" id="fb-type" role="group" aria-labelledby="fb-type-label">
+        <button type="button" class="fb-seg-btn active" aria-pressed="true" data-val="bug" onclick="pickType(this)">
+          <i data-lucide="bug" style="width:20px;height:20px;pointer-events:none;"></i>
           Bug
           <span class="fb-sub">Something's broken</span>
         </button>
-        <button type="button" class="fb-seg-btn" data-val="feature" onclick="pickType(this)">
-          <i data-lucide="lightbulb" style="width:18px;height:18px;pointer-events:none;"></i>
+        <button type="button" class="fb-seg-btn" aria-pressed="false" data-val="feature" onclick="pickType(this)">
+          <i data-lucide="lightbulb" style="width:20px;height:20px;pointer-events:none;"></i>
           Feature
           <span class="fb-sub">An idea or request</span>
         </button>
@@ -76,11 +75,11 @@
     </div>
 
     <div style="display:flex;align-items:center;gap:0.75rem;">
-      <button class="btn btn-primary" id="fb-submit" onclick="submitFeedback()">
-        <i data-lucide="send" style="width:14px;height:14px;pointer-events:none;"></i>
+      <button class="btn btn-primary" id="fb-submit" onclick="submitFeedback()" style="min-height:56px;padding:0 1.4rem;border-radius:var(--radius);font-size:1rem;">
+        <i data-lucide="send" style="width:16px;height:16px;pointer-events:none;"></i>
         Submit
       </button>
-      <span id="fb-msg" style="font-size:0.82rem;display:none;"></span>
+      <span id="fb-msg" role="status" style="font-size:0.9375rem;font-weight:600;display:none;"></span>
     </div>
   </div>
 {% endif %}
@@ -91,8 +90,9 @@
 let _fbType = 'bug';
 
 function pickType(btn) {
-  document.querySelectorAll('#fb-type .fb-seg-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('#fb-type .fb-seg-btn').forEach(b => { b.classList.remove('active'); b.setAttribute('aria-pressed', 'false'); });
   btn.classList.add('active');
+  btn.setAttribute('aria-pressed', 'true');
   _fbType = btn.dataset.val;
   // Tailor the description prompt to the chosen type
   const label = document.getElementById('fb-desc-label');
@@ -140,7 +140,7 @@ async function submitFeedback() {
     document.getElementById('fb-title').value = '';
     document.getElementById('fb-desc').value = '';
     msg.innerHTML = '✓ Submitted! '
-      + (data.url ? '<a href="' + data.url + '" target="_blank" rel="noopener" style="color:var(--accent);">View issue #' + data.number + ' →</a>' : '');
+      + (data.url ? '<a href="' + data.url + '" target="_blank" rel="noopener" style="color:var(--text);text-decoration:underline;">View issue #' + data.number + ' →</a>' : '');
     msg.style.color = 'var(--success)';
     msg.style.display = 'inline';
     btn.disabled = false;

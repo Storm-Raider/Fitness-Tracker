@@ -1,5 +1,17 @@
 {% extends "base.html" %}
 {% block title %}Export & Import — Zenkai{% endblock %}
+{% block head %}
+<style>
+  #csv-file { padding: 0.45rem 0.6rem; }
+  #csv-file::file-selector-button {
+    min-height: 36px; margin-right: 0.75rem; padding: 0 0.9rem;
+    border: 1px solid var(--border-mid); border-radius: var(--radius-xs);
+    background: var(--surface); color: var(--text);
+    font-family: inherit; font-size: 0.9375rem; font-weight: 700; cursor: pointer;
+  }
+  #csv-file::file-selector-button:hover { border-color: var(--text); }
+</style>
+{% endblock %}
 {% block content %}
 <div class="page-hd">
   <div>
@@ -15,7 +27,7 @@
     <p style="font-size:0.875rem; color:var(--muted); margin-bottom:1.25rem;">
       Download all your sets as a CSV file — date, exercise, reps, weight, notes.
     </p>
-    <a href="/export/workouts.csv" class="btn btn-primary" style="display:inline-block;">
+    <a href="/export/workouts.csv" class="btn btn-primary" style="min-height:56px;padding:0 1.4rem;border-radius:var(--radius);font-size:1rem;">
       Download workouts.csv
     </a>
   </div>
@@ -29,11 +41,11 @@
     <form id="import-form" enctype="multipart/form-data">
       <div class="form-group">
         <label for="csv-file">CSV file</label>
-        <input type="file" id="csv-file" accept=".csv" style="color:var(--text);">
+        <input type="file" id="csv-file" accept=".csv" style="color:var(--text);min-height:48px;">
       </div>
-      <div id="import-error" class="flash flash-error" style="display:none;"></div>
-      <div id="import-success" class="flash flash-success" style="display:none;"></div>
-      <button type="button" id="import-btn" class="btn btn-primary" onclick="runImport(this)">Import</button>
+      <div id="import-error" class="flash flash-error" role="alert" style="display:none;"></div>
+      <div id="import-success" class="flash flash-success" role="status" style="display:none;"></div>
+      <button type="button" id="import-btn" class="btn btn-ghost" onclick="runImport(this)">Import</button>
     </form>
   </div>
 

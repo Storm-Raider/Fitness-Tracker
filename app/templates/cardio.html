@@ -1,6 +1,21 @@
 {% extends "base.html" %}
 {% block title %}Cardio — Zenkai{% endblock %}
 {% block content %}
+<style>
+.cardio-del {
+  width: 44px; height: 44px; display: inline-flex; align-items: center; justify-content: center;
+  background: transparent; border: none; border-radius: var(--radius-xs);
+  color: var(--muted); cursor: pointer; transition: color 0.15s, background 0.15s;
+}
+/* Grid items default to min-width:auto, so the history table pushed the
+   page wider than a phone; let the columns shrink and the card scroll. */
+.cardio-grid > div { min-width: 0; }
+/* Two stepper fields side by side when there is room, stacked on a phone. */
+.cardio-pair { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 0.75rem 1rem; }
+.cardio-pair .stepper-group input { flex: 1; min-width: 0; width: auto; }
+.cardio-pair .stepper-btn { width: 48px; height: 48px; }
+.cardio-del:hover { color: var(--danger); background: var(--danger-dim); }
+</style>
 <div class="page-hd">
   <div>
     <h1>Cardio</h1>
@@ -8,7 +23,7 @@
   </div>
 </div>
 
-<div class="grid-2" style="align-items:start;gap:1.5rem;">
+<div class="grid-2 cardio-grid" style="align-items:start;gap:1.5rem;">
 
   {# ── Log form ── #}
   <div>
@@ -18,7 +33,7 @@
 
         <div class="form-group">
           <label for="cardio-activity">Activity</label>
-          <select id="cardio-activity" name="exercise_id" required style="height:44px;">
+          <select id="cardio-activity" name="exercise_id" required style="min-height:48px;">
             {% for ex in cardio_exercises %}
             <option value="{{ ex.id }}">{{ ex.name }}</option>
             {% endfor %}
@@ -27,29 +42,29 @@
 
         <div class="form-group">
           <label for="cardio-date">Date</label>
-          <input type="date" id="cardio-date" name="logged_date" style="height:44px;">
+          <input type="date" id="cardio-date" name="logged_date" style="min-height:48px;">
         </div>
 
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem;">
+        <div class="cardio-pair">
           <div class="form-group" style="margin-bottom:0;">
             <label for="cardio-duration">Duration (min)</label>
             <div class="stepper-group">
-              <button type="button" class="stepper-btn" onclick="step('cardio-duration',-5,0)">−</button>
+              <button type="button" class="stepper-btn" onclick="step('cardio-duration',-5,0)" aria-label="5 minutes less">−</button>
               <input type="number" id="cardio-duration" name="duration_minutes"
                      class="num" value="30" min="1" step="1" required style="text-align:center;">
-              <button type="button" class="stepper-btn" onclick="step('cardio-duration',5,0)">+</button>
+              <button type="button" class="stepper-btn" onclick="step('cardio-duration',5,0)" aria-label="5 minutes more">+</button>
             </div>
           </div>
           <div class="form-group" style="margin-bottom:0;">
             <label for="cardio-distance">
               Distance (<span class="distance-unit-label">km</span>)
-              <span style="font-weight:400;color:var(--muted);text-transform:none;letter-spacing:0;">optional</span>
+              <span style="font-weight:400;color:var(--muted);">optional</span>
             </label>
             <div class="stepper-group">
-              <button type="button" class="stepper-btn" onclick="step('cardio-distance',-0.5,1)">−</button>
+              <button type="button" class="stepper-btn" onclick="step('cardio-distance',-0.5,1)" aria-label="Less distance">−</button>
               <input type="number" id="cardio-distance" name="distance_km"
                      class="num" placeholder="—" min="0" step="0.01" style="text-align:center;">
-              <button type="button" class="stepper-btn" onclick="step('cardio-distance',0.5,1)">+</button>
+              <button type="button" class="stepper-btn" onclick="step('cardio-distance',0.5,1)" aria-label="More distance">+</button>
             </div>
           </div>
         </div>
@@ -57,18 +72,19 @@
         <div class="form-group" style="margin-top:0.75rem;">
           <label for="cardio-notes">
             Notes
-            <span style="font-weight:400;color:var(--muted);text-transform:none;letter-spacing:0;">optional</span>
+            <span style="font-weight:400;color:var(--muted);">optional</span>
           </label>
           <input type="text" id="cardio-notes" name="notes"
                  placeholder="e.g. easy pace, treadmill, intervals…" maxlength="300">
         </div>
 
-        <div id="pace-result-wrap" style="display:none;background:var(--surface-2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:0.6rem 1rem;margin-bottom:0.75rem;align-items:baseline;gap:0.5rem;">
-          <span id="pace-val" style="font-family:'JetBrains Mono',monospace;font-size:1.25rem;font-weight:700;color:var(--text);">—</span>
-          <span class="pace-unit-label" style="font-size:0.7rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em;">min/km</span>
+        <div id="pace-result-wrap" style="display:none;background:var(--surface-2);border-radius:var(--radius-sm);padding:0.6rem 1rem;margin-bottom:0.75rem;align-items:baseline;gap:0.5rem;">
+          <span style="font-size:0.875rem;font-weight:600;color:var(--muted);">Pace</span>
+          <span id="pace-val" class="num" style="font-size:1.6rem;color:var(--text);">—</span>
+          <span class="pace-unit-label" style="font-size:0.875rem;color:var(--muted);">min/km</span>
         </div>
 
-        <button type="submit" class="btn btn-primary" style="width:100%;min-height:48px;">
+        <button type="submit" class="btn btn-primary" style="width:100%;min-height:56px;">
           Log Session
         </button>
       </form>
@@ -95,7 +111,7 @@
           {# One tbody per session so HTMX delete removes the row and its note together #}
           <tbody id="cardio-{{ log.id }}">
           <tr>
-            <td style="font-weight:500;white-space:nowrap;">{{ log.logged_date | human_date }}</td>
+            <td style="font-weight:600;white-space:nowrap;">{{ log.logged_date | human_date }}</td>
             <td>{{ log.exercise_name }}</td>
             <td class="num">{{ log.duration_minutes | int }}m</td>
             <td class="num">
@@ -114,23 +130,21 @@
                 </span>
               {% else %}—{% endif %}
             </td>
-            <td style="padding:0.4rem 0.5rem;text-align:center;">
+            <td style="padding:0.25rem 0.4rem;text-align:center;">
               <button
                 hx-delete="/cardio/{{ log.id }}"
                 hx-target="#cardio-{{ log.id }}"
                 hx-swap="outerHTML"
                 hx-confirm="Delete this session?"
-                style="background:transparent;border:none;color:var(--muted);cursor:pointer;padding:0.25rem;border-radius:4px;display:inline-flex;align-items:center;transition:color 0.15s;"
-                onmouseover="this.style.color='var(--danger)'"
-                onmouseout="this.style.color='var(--muted)'"
-                title="Delete session">
-                <i data-lucide="trash-2" style="width:14px;height:14px;pointer-events:none;"></i>
+                class="cardio-del"
+                title="Delete session" aria-label="Delete session">
+                <i data-lucide="trash-2" style="width:16px;height:16px;pointer-events:none;"></i>
               </button>
             </td>
           </tr>
           {% if log.notes %}
           <tr style="background:transparent;">
-            <td colspan="6" style="padding-top:0;padding-bottom:0.65rem;color:var(--muted);font-size:0.8rem;font-style:italic;">
+            <td colspan="6" style="padding-top:0;padding-bottom:0.65rem;color:var(--muted);font-size:0.875rem;font-style:italic;">
               {{ log.notes }}
             </td>
           </tr>
@@ -142,10 +156,10 @@
     {% else %}
     <div class="card" style="text-align:center;padding:2.5rem 1.25rem;">
       <div style="display:flex;flex-direction:column;align-items:center;gap:0.75rem;">
-        <div style="width:48px;height:48px;border-radius:50%;background:rgba(255,255,255,0.04);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;">
+        <div style="width:48px;height:48px;border-radius:50%;background:var(--surface-2);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;">
           <i data-lucide="activity" style="width:20px;height:20px;color:var(--muted-hi);pointer-events:none;"></i>
         </div>
-        <p style="color:var(--muted);font-size:0.875rem;max-width:240px;line-height:1.55;">No cardio sessions yet. Log your first one using the form.</p>
+        <p style="color:var(--muted);font-size:0.9375rem;max-width:260px;line-height:1.55;">No cardio sessions yet. Log your first one using the form.</p>
       </div>
     </div>
     {% endif %}

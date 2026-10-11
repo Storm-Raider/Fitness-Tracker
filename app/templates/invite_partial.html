@@ -1,8 +1,8 @@
 <div style="margin-top: 0.25rem;">
-  <p style="font-size: 0.8rem; color: var(--muted); margin-bottom: 0.5rem;">Share this link — expires in 7 days, up to {{ max_uses }} signups:</p>
+  <p style="font-size: 0.875rem; color: var(--muted); margin-bottom: 0.5rem;">Share this link — expires in 7 days, up to {{ max_uses }} signups:</p>
   <div style="display: flex; gap: 0.5rem; align-items: center;">
     <input type="text" id="invite-url" value="{{ invite_url | e }}" readonly
-           style="flex: 1; font-size: 0.8rem; background: var(--bg); cursor: text;">
+           style="flex: 1; background: var(--surface-2); cursor: text;">
     <button class="btn btn-ghost"
             style="flex-shrink: 0;"
             onclick="var btn=this;navigator.clipboard.writeText(document.getElementById('invite-url').value).then(function(){btn.textContent='Copied!';setTimeout(function(){btn.textContent='Copy';},2000)})"
@@ -12,7 +12,7 @@
   </div>
 </div>
 
-<div id="pending-invites-card" hx-swap-oob="innerHTML" class="card" style="padding:0; overflow:hidden;">
+<div id="pending-invites-card" hx-swap-oob="innerHTML" class="card" style="padding:0; overflow-x:auto;">
   <table>
     <thead>
       <tr>
@@ -27,14 +27,14 @@
       {% for inv in pending_invites %}
       <tr>
         <td>
-          <code style="font-family:var(--mono); font-size:0.8rem; color:var(--muted);">…{{ inv.token[-8:] }}</code>
+          <code style="font-size:0.875rem; color:var(--muted-hi);">…{{ inv.token[-8:] }}</code>
         </td>
-        <td style="font-size:0.8rem; color:var(--muted);">{{ inv.created_at[:16] }}</td>
-        <td style="font-size:0.8rem; color:var(--muted);">{{ inv.expires_at[:16] }}</td>
-        <td class="num" style="font-size:0.8rem; color:var(--muted);">{{ inv.uses_count }} / {{ inv.max_uses }}</td>
+        <td style="font-size:0.875rem; color:var(--muted);">{{ inv.created_at[:16] }}</td>
+        <td style="font-size:0.875rem; color:var(--muted);">{{ inv.expires_at[:16] }}</td>
+        <td class="num" style="font-size:0.875rem; color:var(--muted);">{{ inv.uses_count }} / {{ inv.max_uses }}</td>
         <td style="text-align:right;">
           <button class="btn btn-ghost"
-                  style="font-size:0.8rem; color:var(--danger);"
+                  style="font-size:0.875rem; color:var(--danger);"
                   hx-delete="/invite/{{ inv.token }}"
                   hx-target="closest tr"
                   hx-swap="outerHTML"

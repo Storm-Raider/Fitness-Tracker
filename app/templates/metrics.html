@@ -8,8 +8,8 @@
   </div>
   <button id="body-unit-toggle" onclick="window.toggleBodyUnit && window.toggleBodyUnit()"
     style="background:var(--surface-2);border:1px solid var(--border);color:var(--muted-hi);
-           font-family:inherit;font-size:0.8rem;font-weight:600;padding:0.35rem 0.75rem;
-           border-radius:var(--radius-xs);cursor:pointer;letter-spacing:0.04em;min-width:44px;">cm</button>
+           font-family:inherit;font-size:0.875rem;font-weight:600;padding:0.35rem 0.85rem;
+           border-radius:var(--radius-xs);cursor:pointer;min-width:44px;min-height:44px;">cm</button>
 </div>
 
 <style>
@@ -17,11 +17,11 @@
 .tab-btn {
   background:transparent; border:none; border-bottom:2px solid transparent;
   color:var(--muted); font-family:inherit; font-size:0.875rem; font-weight:600;
-  padding:0.5rem 0.85rem 0.6rem; cursor:pointer; letter-spacing:0.02em;
+  padding:0.5rem 0.85rem 0.6rem; cursor:pointer; min-height:44px;
   transition:color 0.15s, border-color 0.15s; margin-bottom:-1px;
 }
 .tab-btn:hover { color:var(--text); }
-.tab-btn.active { color:var(--accent); border-bottom-color:var(--accent); }
+.tab-btn.active { color:var(--text); border-bottom-color:var(--text); }
 .tab-panel { display:none; }
 .tab-panel.active { display:block; }
 </style>
@@ -40,7 +40,7 @@
   <div class="card" style="padding:0.85rem 1.25rem 0.65rem;">
     <div id="bw-chart-inner" style="position:relative;">
       <canvas id="bw-chart" style="display:block;width:100%;cursor:crosshair;"></canvas>
-      <div id="bw-chart-tip" style="display:none;position:absolute;top:4px;background:var(--surface-2);border:1px solid var(--border-mid);border-radius:var(--radius-xs);padding:0.4rem 0.6rem;pointer-events:none;z-index:10;white-space:nowrap;box-shadow:0 4px 16px rgba(0,0,0,0.4);"></div>
+      <div id="bw-chart-tip" style="display:none;position:absolute;top:4px;background:var(--surface);border:1px solid var(--border-mid);border-radius:var(--radius-xs);padding:0.45rem 0.7rem;pointer-events:none;z-index:10;white-space:nowrap;box-shadow:var(--shadow);"></div>
     </div>
   </div>
 </div>
@@ -64,7 +64,15 @@
     });
   }
 
-  const PL = 48, PR = 16, PT = 14, PB = 24;
+  const PL = 48, PR = 16, PT = 26, PB = 24;
+  // Daylight tokens from base.html (fallbacks are the same literals): weight is
+  // the ink series, the moving average a dashed muted line.
+  const tok = (n, fb) => (getComputedStyle(document.documentElement).getPropertyValue(n).trim() || fb);
+  const C = {
+    data: tok('--data', '#141414'), avg: tok('--muted', '#5d5d58'), grid: tok('--border', '#dddcd6'),
+    axis: tok('--muted', '#5d5d58'), ring: tok('--ring', '#8f8e88'), surface: tok('--surface', '#ffffff'),
+  };
+  const AXIS_FONT = "600 13px 'Atkinson Hyperlegible Next', system-ui, sans-serif";
 
   function xAt(i, W, n) { return PL + (n <= 1 ? (W-PL-PR)/2 : (i/(n-1))*(W-PL-PR)); }
 
@@ -92,9 +100,9 @@
 
     [0, 0.5, 1].forEach(f => {
       const gv = vMin + f*(vMax-vMin), y = gy(gv);
-      ctx.strokeStyle='#1f2535'; ctx.lineWidth=1;
+      ctx.strokeStyle=C.grid; ctx.lineWidth=1;
       ctx.beginPath(); ctx.moveTo(PL,y); ctx.lineTo(PL+cW,y); ctx.stroke();
-      ctx.fillStyle='#4a5568'; ctx.font="10px 'JetBrains Mono',monospace"; ctx.textAlign='right';
+      ctx.fillStyle=C.axis; ctx.font=AXIS_FONT; ctx.textAlign='right';
       ctx.fillText(gv>=100?Math.round(gv):gv.toFixed(1), PL-4, y+4);
     });
 
@@ -102,11 +110,11 @@
       ctx.beginPath(); ctx.moveTo(gx(0), gy(vs[0]));
       for (let i=1;i<n;i++) ctx.lineTo(gx(i), gy(vs[i]));
       ctx.lineTo(gx(n-1), PT+cH); ctx.lineTo(gx(0), PT+cH);
-      ctx.closePath(); ctx.fillStyle='#34d39910'; ctx.fill();
+      ctx.closePath(); ctx.globalAlpha=0.05; ctx.fillStyle=C.data; ctx.fill(); ctx.globalAlpha=1;
     }
 
     if (hoverIdx >= 0) {
-      ctx.strokeStyle='#34d39938'; ctx.lineWidth=1; ctx.setLineDash([3,3]);
+      ctx.strokeStyle=C.ring; ctx.lineWidth=1; ctx.setLineDash([3,3]);
       ctx.beginPath(); ctx.moveTo(gx(hoverIdx),PT); ctx.lineTo(gx(hoverIdx),PT+cH); ctx.stroke();
       ctx.setLineDash([]);
     }
@@ -114,14 +122,14 @@
     if (n >= 3) {
       ctx.beginPath(); ctx.moveTo(gx(0), gy(avg[0]));
       for (let i=1;i<n;i++) ctx.lineTo(gx(i), gy(avg[i]));
-      ctx.strokeStyle='#4f9cf9'; ctx.lineWidth=1.5;
+      ctx.strokeStyle=C.avg; ctx.lineWidth=1.5;
       ctx.setLineDash([4,3]); ctx.stroke(); ctx.setLineDash([]);
     }
 
     if (n >= 2) {
       ctx.beginPath(); ctx.moveTo(gx(0), gy(vs[0]));
       for (let i=1;i<n;i++) ctx.lineTo(gx(i), gy(vs[i]));
-      ctx.strokeStyle='#34d399'; ctx.lineWidth=2.2;
+      ctx.strokeStyle=C.data; ctx.lineWidth=2;
       ctx.lineJoin='round'; ctx.lineCap='round'; ctx.stroke();
     }
 
@@ -129,22 +137,23 @@
       const isH = i===hoverIdx, r = isH?5:n<=40?2.8:0;
       if (!r) return;
       ctx.beginPath(); ctx.arc(gx(i), gy(v), r, 0, Math.PI*2);
-      ctx.fillStyle = isH?'#34d399':'#34d399b0'; ctx.fill();
-      if (isH) { ctx.strokeStyle='#0d1117'; ctx.lineWidth=1.5; ctx.stroke(); }
+      ctx.fillStyle = C.data; ctx.fill();
+      if (isH) { ctx.strokeStyle=C.surface; ctx.lineWidth=2; ctx.stroke(); }
     });
 
     const dates = RAW.map(r => r.date.slice(5));
-    ctx.fillStyle='#4a5568'; ctx.font='9px JetBrains Mono,monospace';
-    const lbls = n<=4 ? dates.map((_,i)=>i) : [...new Set([0,Math.round(n*.25),Math.round(n*.5),Math.round(n*.75),n-1])];
+    ctx.fillStyle=C.axis; ctx.font=AXIS_FONT;
+    // newest date always labelled; others only where a 13px label fits (70px apart)
+    const lbls = (() => { const o = []; let last = Infinity; for (let i = n - 1; i >= 0; i--) { const x = gx(i); if (last - x >= 70) { o.push(i); last = x; } } return o; })();
     lbls.forEach(i => {
       ctx.textAlign = i===0?'left':i===n-1?'right':'center';
       ctx.fillText(dates[i], gx(i), H-3);
     });
 
     if (n >= 3) {
-      ctx.fillStyle='#34d399'; ctx.font="bold 9px 'JetBrains Mono',monospace";
-      ctx.textAlign='left'; ctx.fillText('● Weight', PL, PT-2);
-      ctx.fillStyle='#4f9cf9'; ctx.fillText('- 7-entry avg', PL+58, PT-2);
+      ctx.font=AXIS_FONT; ctx.textAlign='left';
+      ctx.fillStyle=C.data; ctx.fillText('● Weight', PL, 14);
+      ctx.fillStyle=C.avg; ctx.fillText('- - 7-entry avg', PL+84, 14);
     }
   }
 
@@ -153,8 +162,8 @@
     const u  = getUnit();
     const w  = cvt(r.weight_kg).toFixed(1);
     tip.innerHTML =
-      `<div style="font-size:0.7rem;color:var(--muted);margin-bottom:0.2rem;">${humanDate(r.date)}</div>` +
-      `<span style="color:#34d399;font-size:0.82rem;font-weight:700;">${w} ${u}</span>`;
+      `<div style="font-size:0.8125rem;color:var(--muted);margin-bottom:0.2rem;">${humanDate(r.date)}</div>` +
+      `<span class="num" style="color:var(--text);font-size:1rem;">${w} ${u}</span>`;
     tip.style.display='block';
     const W=canvas.offsetWidth, tw=tip.offsetWidth;
     const x=xAt(idx,W,RAW.length);
@@ -184,7 +193,7 @@
 {% endif %}
 
 <div class="grid-2" style="align-items:start;gap:1.5rem;">
-  <div style="display:flex;flex-direction:column;gap:1rem;">
+  <div style="display:flex;flex-direction:column;gap:1rem;min-width:0;">
 
     <div class="card">
       <div class="section-title">Log entry</div>
@@ -201,15 +210,15 @@
       </div>
       <div class="form-group">
         <label for="metric-date">Date</label>
-        <input type="date" id="metric-date" style="height:42px;">
+        <input type="date" id="metric-date">
       </div>
       <div class="form-group">
-        <label for="metric-notes">Notes <span style="font-weight:400;color:var(--muted);text-transform:none;letter-spacing:0;">(optional)</span></label>
+        <label for="metric-notes">Notes <span style="font-weight:400;color:var(--muted);">(optional)</span></label>
         <input type="text" id="metric-notes" placeholder="e.g. morning, fasted, post-vacation…" maxlength="300">
       </div>
       <div id="metric-error" class="flash flash-error" style="display:none;"></div>
       <div id="metric-success" class="flash flash-success" style="display:none;">Entry logged.</div>
-      <button class="btn btn-primary" style="width:100%;min-height:48px;" onclick="logMetric()">Log Entry</button>
+      <button class="btn btn-primary" style="width:100%;min-height:56px;" onclick="logMetric()">Log Entry</button>
     </div>
 
     <div class="card">
@@ -224,10 +233,12 @@
       </div>
 
       <div style="margin:0.5rem 0 0.35rem;position:relative;">
-        <div style="height:8px;border-radius:4px;background:linear-gradient(to right,#60a5fa 0% 14%,#4ade80 14% 40%,#fb923c 40% 60%,#f87171 60% 100%);position:relative;">
-          <div id="bmi-marker" style="position:absolute;top:50%;width:14px;height:14px;border-radius:50%;background:#fff;border:2.5px solid #888;transform:translate(-50%,-50%);transition:left 0.2s ease;display:none;box-shadow:0 2px 6px rgba(0,0,0,0.5);"></div>
+        {# Hard-stop bands (not a decorative gradient): healthy range green,
+           obese red, the two outer ranges neutral; the result below names the band. #}
+        <div style="height:8px;border-radius:4px;background:linear-gradient(to right,var(--border-mid) 0% 14%,var(--success) 14% 40%,var(--border-mid) 40% 60%,var(--danger) 60% 100%);position:relative;">
+          <div id="bmi-marker" style="position:absolute;top:50%;width:18px;height:18px;border-radius:50%;background:var(--surface);border:3px solid var(--text);transform:translate(-50%,-50%);transition:left 0.2s ease;display:none;box-shadow:var(--shadow-sm);"></div>
         </div>
-        <div class="num" style="display:flex;justify-content:space-between;margin-top:0.35rem;font-size:0.68rem;color:var(--muted);position:relative;height:1.2rem;">
+        <div class="num" style="display:flex;justify-content:space-between;margin-top:0.45rem;font-size:0.875rem;color:var(--muted);position:relative;height:1.3rem;">
           <span style="position:absolute;left:0%;">15</span>
           <span style="position:absolute;left:14%;">18.5</span>
           <span style="position:absolute;left:40%;">25</span>
@@ -239,9 +250,9 @@
     </div>
   </div>
 
-  <div>
+  <div style="min-width:0;">
     <div class="section-title">History</div>
-    <div class="card" id="metrics-table" style="padding:0;overflow:hidden;">
+    <div class="card" id="metrics-table" style="padding:0;overflow-x:auto;">
       {% if metrics %}
       <table>
         <thead>
@@ -252,18 +263,18 @@
           <tr id="metric-{{ m.id }}">
             <td style="font-weight:500;white-space:nowrap;">{{ m.entry_date | human_date }}</td>
             <td class="num" style="white-space:nowrap;"><span class="weight-display" data-kg="{{ m.weight_kg }}">{{ m.weight_kg }} kg</span></td>
-            <td style="font-size:0.8rem;color:var(--muted);">{{ m.notes or '' }}</td>
-            <td style="padding:0.4rem 0.5rem;text-align:center;">
+            <td style="font-size:0.875rem;color:var(--muted);">{{ m.notes or '' }}</td>
+            <td style="padding:0.2rem 0.4rem;text-align:center;">
               <button
                 hx-delete="/metrics/{{ m.id }}"
                 hx-target="#metric-{{ m.id }}"
                 hx-swap="outerHTML"
                 hx-confirm="Delete this entry?"
-                style="background:transparent;border:none;color:var(--muted);cursor:pointer;padding:0.25rem;border-radius:4px;display:inline-flex;align-items:center;transition:color 0.15s;"
+                style="background:transparent;border:none;color:var(--muted);cursor:pointer;min-width:44px;min-height:44px;border-radius:var(--radius-xs);display:inline-flex;align-items:center;justify-content:center;transition:color 0.15s;"
                 onmouseover="this.style.color='var(--danger)'"
                 onmouseout="this.style.color='var(--muted)'"
-                title="Delete entry">
-                <i data-lucide="trash-2" style="width:14px;height:14px;pointer-events:none;"></i>
+                title="Delete entry" aria-label="Delete entry">
+                <i data-lucide="trash-2" style="width:18px;height:18px;pointer-events:none;"></i>
               </button>
             </td>
           </tr>
@@ -272,10 +283,10 @@
       </table>
       {% else %}
       <div style="display:flex;flex-direction:column;align-items:center;text-align:center;padding:2rem 1.25rem;gap:0.65rem;">
-        <div style="width:44px;height:44px;border-radius:50%;background:rgba(255,255,255,0.04);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;">
+        <div style="width:44px;height:44px;border-radius:50%;background:var(--surface-2);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;">
           <i data-lucide="scale" style="width:20px;height:20px;color:var(--muted-hi);pointer-events:none;"></i>
         </div>
-        <p style="color:var(--muted);font-size:0.8rem;">No weight entries yet.</p>
+        <p style="color:var(--muted);font-size:0.875rem;">No weight entries yet.</p>
       </div>
       {% endif %}
     </div>
@@ -328,15 +339,15 @@ function calcBmi() {
   markerEl.style.left = pct + '%';
   markerEl.style.display = 'block';
   let cat, color, bg;
-  if (bmi < 18.5)      { cat = 'Underweight'; color = '#60a5fa'; bg = 'rgba(96,165,250,0.10)'; }
-  else if (bmi < 25.0) { cat = 'Normal';      color = '#4ade80'; bg = 'rgba(74,222,128,0.10)'; }
-  else if (bmi < 30.0) { cat = 'Overweight';  color = 'var(--muted-hi)'; bg = 'rgba(255,255,255,0.05)'; }
+  if (bmi < 18.5)      { cat = 'Underweight'; color = 'var(--muted-hi)'; bg = 'var(--surface-2)'; }
+  else if (bmi < 25.0) { cat = 'Normal';      color = 'var(--success)';  bg = 'var(--success-dim)'; }
+  else if (bmi < 30.0) { cat = 'Overweight';  color = 'var(--muted-hi)'; bg = 'var(--surface-2)'; }
   else                  { cat = 'Obese';       color = 'var(--danger)'; bg = 'var(--danger-dim)'; }
   markerEl.style.borderColor = color;
-  const borderColor = color.startsWith('var(') ? 'var(--border)' : color + '33';
+  const borderColor = 'var(--border)';
   resultEl.innerHTML =
-    '<div class="num" style="font-size:2.4rem;font-weight:700;color:' + color + ';line-height:1;letter-spacing:-0.03em;">' + bmi.toFixed(1) + '</div>' +
-    '<span class="badge" style="background:' + bg + ';color:' + color + ';font-size:0.8rem;border:1px solid ' + borderColor + ';">' + cat + '</span>';
+    '<div class="num" style="font-size:2.4rem;color:' + color + ';line-height:1;">' + bmi.toFixed(1) + '</div>' +
+    '<span class="badge" style="background:' + bg + ';color:' + color + ';font-size:0.875rem;border:1px solid ' + borderColor + ';">' + cat + '</span>';
 }
 async function logMetric() {
   const weight = getWeightKg();
@@ -424,19 +435,19 @@ async function logMetric() {
   <div class="card" style="padding:0.85rem 1.25rem 0.65rem;">
     <div style="position:relative;">
       <canvas id="meas-chart" style="display:block;width:100%;cursor:crosshair;"></canvas>
-      <div id="meas-tip" style="display:none;position:absolute;top:4px;background:var(--surface-2);border:1px solid var(--border-mid);border-radius:var(--radius-xs);padding:0.4rem 0.6rem;pointer-events:none;z-index:10;white-space:nowrap;box-shadow:0 4px 16px rgba(0,0,0,0.4);"></div>
+      <div id="meas-tip" style="display:none;position:absolute;top:4px;background:var(--surface);border:1px solid var(--border-mid);border-radius:var(--radius-xs);padding:0.45rem 0.7rem;pointer-events:none;z-index:10;white-space:nowrap;box-shadow:var(--shadow);"></div>
     </div>
   </div>
 </div>
 {% endif %}
 
 <div class="grid-2" style="align-items:start;gap:1.5rem;">
-  <div>
+  <div style="min-width:0;">
     <div class="card">
       <div class="section-title">Log measurement</div>
       <div class="form-group">
         <label for="meas-site">Site</label>
-        <select id="meas-site" style="height:42px;padding:0 0.75rem;">
+        <select id="meas-site">
           {% for site in measurement_sites %}
           <option value="{{ site }}">{{ site }}</option>
           {% endfor %}
@@ -452,21 +463,21 @@ async function logMetric() {
       </div>
       <div class="form-group">
         <label for="meas-date">Date</label>
-        <input type="date" id="meas-date" style="height:42px;">
+        <input type="date" id="meas-date">
       </div>
       <div class="form-group">
-        <label for="meas-notes">Notes <span style="font-weight:400;color:var(--muted);text-transform:none;letter-spacing:0;">(optional)</span></label>
+        <label for="meas-notes">Notes <span style="font-weight:400;color:var(--muted);">(optional)</span></label>
         <input type="text" id="meas-notes" placeholder="e.g. morning, flexed…" maxlength="300">
       </div>
       <div id="meas-error" class="flash flash-error" style="display:none;"></div>
       <div id="meas-success" class="flash flash-success" style="display:none;">Measurement logged.</div>
-      <button class="btn btn-primary" style="width:100%;min-height:48px;" onclick="logMeasurement()">Log Measurement</button>
+      <button class="btn btn-primary" style="width:100%;min-height:56px;" onclick="logMeasurement()">Log Measurement</button>
     </div>
   </div>
 
-  <div>
+  <div style="min-width:0;">
     <div class="section-title">History</div>
-    <div class="card" style="padding:0;overflow:hidden;">
+    <div class="card" style="padding:0;overflow-x:auto;">
       {% if measurements %}
       <table id="meas-table">
         <thead>
@@ -475,20 +486,20 @@ async function logMetric() {
         <tbody>
           {% for m in measurements %}
           <tr id="meas-{{ m.id }}">
-            <td class="num" style="white-space:nowrap;font-size:0.78rem;color:var(--muted);">{{ m.logged_date }}</td>
-            <td style="font-weight:500;font-size:0.85rem;">{{ m.site }}</td>
-            <td class="num" style="font-size:0.9rem;" data-cm="{{ m.value_cm }}">{{ m.value_cm }}</td>
-            <td style="padding:0.4rem 0.5rem;text-align:center;">
+            <td class="num" style="white-space:nowrap;font-size:0.95rem;color:var(--muted);">{{ m.logged_date }}</td>
+            <td style="font-weight:600;font-size:0.875rem;">{{ m.site }}</td>
+            <td class="num" style="font-size:1rem;" data-cm="{{ m.value_cm }}">{{ m.value_cm }}</td>
+            <td style="padding:0.2rem 0.4rem;text-align:center;">
               <button
                 hx-delete="/measurements/{{ m.id }}"
                 hx-target="#meas-{{ m.id }}"
                 hx-swap="outerHTML"
                 hx-confirm="Delete this entry?"
-                style="background:transparent;border:none;color:var(--muted);cursor:pointer;padding:0.25rem;border-radius:4px;display:inline-flex;align-items:center;transition:color 0.15s;"
+                style="background:transparent;border:none;color:var(--muted);cursor:pointer;min-width:44px;min-height:44px;border-radius:var(--radius-xs);display:inline-flex;align-items:center;justify-content:center;transition:color 0.15s;"
                 onmouseover="this.style.color='var(--danger)'"
                 onmouseout="this.style.color='var(--muted)'"
-                title="Delete">
-                <i data-lucide="trash-2" style="width:14px;height:14px;pointer-events:none;"></i>
+                title="Delete" aria-label="Delete measurement">
+                <i data-lucide="trash-2" style="width:18px;height:18px;pointer-events:none;"></i>
               </button>
             </td>
           </tr>
@@ -497,10 +508,10 @@ async function logMetric() {
       </table>
       {% else %}
       <div style="display:flex;flex-direction:column;align-items:center;text-align:center;padding:2rem 1.25rem;gap:0.65rem;">
-        <div style="width:44px;height:44px;border-radius:50%;background:rgba(255,255,255,0.04);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;">
+        <div style="width:44px;height:44px;border-radius:50%;background:var(--surface-2);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;">
           <i data-lucide="ruler" style="width:20px;height:20px;color:var(--muted-hi);pointer-events:none;"></i>
         </div>
-        <p style="color:var(--muted);font-size:0.8rem;">No measurements logged yet.</p>
+        <p style="color:var(--muted);font-size:0.875rem;">No measurements logged yet.</p>
       </div>
       {% endif %}
     </div>
@@ -510,16 +521,25 @@ async function logMetric() {
 <script>
 (function () {
   const SITE_DATA = {{ measurements_json | safe }};
+  // One colour per site, in MEASUREMENT_SITES order, from the validated white-
+  // card palette in app/utils/charts.py (MUSCLE_COLORS, same slot order: passes
+  // the adjacent CVD / normal-vision / 3:1 checks). Labels and values stay ink.
   const COLORS = {
-    'Chest':     '#4f9cf9',
-    'Waist':     '#e879f9',
-    'Hips':      '#a78bfa',
-    'Left Arm':  '#34d399',
-    'Right Arm': '#2dd4bf',
-    'Thighs':    '#f87171',
-    'Calves':    '#fb923c',
-    'Neck':      '#94a3b8',
+    'Chest':     '#159cb7',
+    'Waist':     '#aa71fc',
+    'Hips':      '#829821',
+    'Left Arm':  '#2773c0',
+    'Right Arm': '#853275',
+    'Thighs':    '#fb0086',
+    'Calves':    '#068665',
+    'Neck':      '#5e07dc',
   };
+  const tok = (n, fb) => (getComputedStyle(document.documentElement).getPropertyValue(n).trim() || fb);
+  const C = {
+    grid: tok('--border', '#dddcd6'), axis: tok('--muted', '#5d5d58'),
+    ring: tok('--ring', '#8f8e88'), surface: tok('--surface', '#ffffff'), other: tok('--ring', '#8f8e88'),
+  };
+  const AXIS_FONT = "600 13px 'Atkinson Hyperlegible Next', system-ui, sans-serif";
 
   const canvas = document.getElementById('meas-chart');
   if (!canvas) return;
@@ -534,10 +554,10 @@ async function logMetric() {
 
   // Build legend chips
   sites.forEach(site => {
-    const c = COLORS[site] || '#888';
+    const c = COLORS[site] || C.other;
     const chip = document.createElement('span');
-    chip.style.cssText = `display:inline-flex;align-items:center;gap:0.3rem;font-size:0.72rem;font-weight:600;color:${c};`;
-    chip.innerHTML = `<span style="width:10px;height:3px;background:${c};border-radius:2px;display:inline-block;"></span>${site}`;
+    chip.style.cssText = `display:inline-flex;align-items:center;gap:0.35rem;font-size:0.8125rem;font-weight:600;color:var(--text);`;
+    chip.innerHTML = `<span style="width:14px;height:4px;background:${c};border-radius:2px;display:inline-block;"></span>${site}`;
     legend.appendChild(chip);
   });
 
@@ -578,16 +598,16 @@ async function logMetric() {
     [0, 0.5, 1].forEach(f => {
       const gv = gMin + f*(gMax-gMin);
       const y = gy(gv, H, yMin, yMax);
-      ctx.strokeStyle='#1f2535'; ctx.lineWidth=1;
+      ctx.strokeStyle=C.grid; ctx.lineWidth=1;
       ctx.beginPath(); ctx.moveTo(PL, y); ctx.lineTo(W-PR, y); ctx.stroke();
-      ctx.fillStyle='#4a5568'; ctx.font="10px 'JetBrains Mono',monospace"; ctx.textAlign='right';
+      ctx.fillStyle=C.axis; ctx.font=AXIS_FONT; ctx.textAlign='right';
       ctx.fillText(Math.round(gv), PL-4, y+4);
     });
 
     // Hover crosshair
     if (hoverX >= 0) {
       const x = xAt(hoverX, W);
-      ctx.strokeStyle='#ffffff20'; ctx.lineWidth=1; ctx.setLineDash([3,3]);
+      ctx.strokeStyle=C.ring; ctx.lineWidth=1; ctx.setLineDash([3,3]);
       ctx.beginPath(); ctx.moveTo(x, PT); ctx.lineTo(x, H-PB); ctx.stroke();
       ctx.setLineDash([]);
     }
@@ -595,7 +615,7 @@ async function logMetric() {
     // Draw each site
     sites.forEach(site => {
       const pts = SITE_DATA[site];
-      const c = COLORS[site] || '#888';
+      const c = COLORS[site] || C.other;
       // Map to canvas coords (convert to display unit)
       const mapped = pts.map(p => ({ xi: dateIdx[p.date], v: cvtMeas(p.value) }));
 
@@ -614,14 +634,14 @@ async function logMetric() {
         const r = isH ? 5 : mapped.length <= 30 ? 3 : 0;
         if (!r) return;
         ctx.beginPath(); ctx.arc(xAt(xi, W), gy(v, H, yMin, yMax), r, 0, Math.PI*2);
-        ctx.fillStyle = isH ? c : c+'b0'; ctx.fill();
-        if (isH) { ctx.strokeStyle='#0d1117'; ctx.lineWidth=1.5; ctx.stroke(); }
+        ctx.fillStyle = c; ctx.fill();
+        if (isH) { ctx.strokeStyle=C.surface; ctx.lineWidth=2; ctx.stroke(); }
       });
     });
 
     // X-axis labels
-    ctx.fillStyle='#4a5568'; ctx.font='9px JetBrains Mono,monospace';
-    const lblIdxs = n<=4 ? allDates.map((_,i)=>i) : [...new Set([0,Math.round(n*.25),Math.round(n*.5),Math.round(n*.75),n-1])];
+    ctx.fillStyle=C.axis; ctx.font=AXIS_FONT;
+    const lblIdxs = (() => { const o = []; let last = Infinity; for (let i = n - 1; i >= 0; i--) { const x = xAt(i, W); if (last - x >= 70) { o.push(i); last = x; } } return o; })();
     lblIdxs.forEach(i => {
       ctx.textAlign = i===0?'left':i===n-1?'right':'center';
       ctx.fillText(allDates[i].slice(5), xAt(i, W), H-3);
@@ -636,16 +656,16 @@ async function logMetric() {
     if (idx !== hoverX) { hoverX = idx; draw(); }
     // Tooltip
     const date = allDates[idx];
-    let html = `<div class="num" style="font-size:0.7rem;color:var(--muted);margin-bottom:0.3rem;">${date}</div>`;
+    let html = `<div class="num" style="font-size:0.95rem;color:var(--muted);margin-bottom:0.3rem;">${date}</div>`;
     sites.forEach(site => {
       const pt = SITE_DATA[site].find(p => p.date === date);
       if (!pt) return;
-      const c = COLORS[site] || '#888';
+      const c = COLORS[site] || C.other;
       const disp = window.fmtMeasurement ? window.fmtMeasurement(pt.value) : pt.value + ' cm';
-      html += `<div style="display:flex;align-items:center;gap:0.4rem;font-size:0.8rem;">
-        <span style="width:8px;height:3px;background:${c};border-radius:2px;display:inline-block;flex-shrink:0;"></span>
+      html += `<div style="display:flex;align-items:center;gap:0.4rem;font-size:0.875rem;">
+        <span style="width:12px;height:4px;background:${c};border-radius:2px;display:inline-block;flex-shrink:0;"></span>
         <span style="color:var(--muted-hi);">${site}</span>
-        <span style="color:${c};font-weight:700;margin-left:auto;">${disp}</span></div>`;
+        <span style="color:var(--text);font-weight:700;margin-left:auto;">${disp}</span></div>`;
     });
     tip.innerHTML = html;
     tip.style.display = 'block';

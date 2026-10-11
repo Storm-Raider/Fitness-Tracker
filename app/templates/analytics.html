@@ -20,20 +20,22 @@
   cursor: pointer;
   font-family: inherit;
   font-weight: 600;
-  letter-spacing: 0.02em;
-  transition: all 0.13s;
+  font-size: 0.8125rem;
+  padding: 0 0.85rem;
+  min-height: 44px;
+  transition: background 0.13s, border-color 0.13s, color 0.13s;
 }
-.sort-btn:hover { color: var(--text); border-color: var(--border-mid); }
-.sort-btn.active { background: var(--accent-dim); border-color: rgba(79,156,249,0.4); color: var(--accent); }
+.sort-btn:hover { color: var(--text); border-color: var(--text); }
+.sort-btn.active { background: var(--text); border-color: var(--text); color: var(--surface); }
 .pr-age-fresh { color: var(--success); }
 .pr-age-mid   { color: var(--muted-hi); }
 .pr-age-old   { color: var(--muted); }
 .badge-plateau {
   display: inline-flex; align-items: center; gap: 0.2rem;
-  font-size: 0.62rem; font-weight: 700; letter-spacing: 0.05em;
-  text-transform: uppercase; padding: 0.1rem 0.35rem;
-  border-radius: 3px; border: 1px solid rgba(251,146,60,0.45);
-  background: rgba(251,146,60,0.1); color: #fb923c;
+  font-size: 0.8125rem; font-weight: 600;
+  padding: 0.05rem 0.45rem;
+  border-radius: 999px; border: 1px solid var(--border-mid);
+  background: var(--surface-2); color: var(--muted-hi);
   vertical-align: middle; margin-left: 0.35rem;
 }
 .spark-cell { width: 52px; padding: 0 0.5rem 0 0 !important; }
@@ -46,6 +48,26 @@
   border-bottom: 1px solid var(--border);
 }
 .strength-row:last-child { border-bottom: none; }
+/* Recovery chips: state is spelled out in each chip (never colour alone);
+   status colours are text on their own tint (all >= 4.5:1). */
+.rec-chip {
+  border: 1px solid var(--border-mid); border-radius: var(--radius-xs);
+  padding: 0.4rem 0.75rem; display: flex; flex-direction: column;
+  align-items: flex-start; gap: 0.1rem; min-width: 88px;
+  background: var(--surface); color: var(--text);
+}
+.rec-chip .rec-muscle { font-size: 0.875rem; font-weight: 700; }
+.rec-chip .rec-state  { font-size: 0.8125rem; font-weight: 600; display: inline-flex; align-items: center; gap: 0.3rem; }
+.rec-chip .rec-state .num { font-size: 0.95rem; }
+.rec-fatigued   { background: var(--danger-dim);  border-color: var(--danger); }
+.rec-fatigued .rec-state   { color: var(--danger); }
+.rec-recovering { background: var(--surface-2); }
+.rec-recovering .rec-state { color: var(--muted-hi); }
+.rec-fresh      { background: var(--success-dim); border-color: var(--success); }
+.rec-fresh .rec-state      { color: var(--success); }
+.rec-legend { display:flex; gap:0.5rem 1.25rem; margin-top:0.85rem; flex-wrap:wrap; font-size:0.8125rem; color:var(--muted); }
+.rec-legend span { display:inline-flex; align-items:center; gap:0.35rem; }
+.rec-key { width:12px; height:12px; border-radius:3px; border:1px solid; display:inline-block; }
 </style>
 
 {# ── 1. Muscle heatmap ───────────────────────────────────────────── #}
@@ -65,34 +87,24 @@
     <div style="display:flex;flex-wrap:wrap;gap:0.5rem;">
       {% for m in muscle_recovery %}
       {% if m.days_ago <= 1 %}
-        {% set bg = "rgba(248,113,113,0.1)" %}
-        {% set border = "rgba(248,113,113,0.3)" %}
-        {% set color = "var(--danger)" %}
-        {% set label = "fatigued" %}
+        {% set state = "fatigued" %}{% set label = "Fatigued" %}
       {% elif m.days_ago <= 3 %}
-        {% set bg = "rgba(251,146,60,0.1)" %}
-        {% set border = "rgba(251,146,60,0.3)" %}
-        {% set color = "#fb923c" %}
-        {% set label = "recovering" %}
+        {% set state = "recovering" %}{% set label = "Recovering" %}
       {% else %}
-        {% set bg = "rgba(52,211,153,0.1)" %}
-        {% set border = "rgba(52,211,153,0.3)" %}
-        {% set color = "var(--success)" %}
-        {% set label = "fresh" %}
+        {% set state = "fresh" %}{% set label = "Fresh" %}
       {% endif %}
-      <div style="background:{{ bg }};border:1px solid {{ border }};border-radius:var(--radius-xs);padding:0.35rem 0.7rem;display:flex;flex-direction:column;align-items:center;gap:0.1rem;min-width:72px;"
-           title="{{ m.muscle }}: last trained {{ m.last_date }}">
-        <span style="font-size:0.78rem;font-weight:600;color:{{ color }};">{{ m.muscle }}</span>
-        <span style="font-size:0.65rem;color:{{ color }};opacity:0.8;font-family:'JetBrains Mono',monospace;">
-          {% if m.days_ago == 0 %}today{% elif m.days_ago == 1 %}1 day{% else %}{{ m.days_ago }}d{% endif %}
+      <div class="rec-chip rec-{{ state }}" title="{{ m.muscle }}: last trained {{ m.last_date }}">
+        <span class="rec-muscle">{{ m.muscle }}</span>
+        <span class="rec-state">{{ label }} ·
+          {% if m.days_ago == 0 %}today{% elif m.days_ago == 1 %}<span class="num">1</span> day{% else %}<span class="num">{{ m.days_ago }}</span> days{% endif %}
         </span>
       </div>
       {% endfor %}
     </div>
-    <div style="display:flex;gap:1.25rem;margin-top:0.85rem;flex-wrap:wrap;">
-      <span style="font-size:0.7rem;color:var(--success);display:flex;align-items:center;gap:0.3rem;"><span style="width:8px;height:8px;background:rgba(52,211,153,0.6);border-radius:50%;display:inline-block;"></span>Fresh (4+ days)</span>
-      <span style="font-size:0.7rem;color:#fb923c;display:flex;align-items:center;gap:0.3rem;"><span style="width:8px;height:8px;background:rgba(251,146,60,0.6);border-radius:50%;display:inline-block;"></span>Recovering (2–3 days)</span>
-      <span style="font-size:0.7rem;color:var(--danger);display:flex;align-items:center;gap:0.3rem;"><span style="width:8px;height:8px;background:rgba(248,113,113,0.6);border-radius:50%;display:inline-block;"></span>Fatigued (0–1 days)</span>
+    <div class="rec-legend">
+      <span><span class="rec-key" style="background:var(--success-dim);border-color:var(--success);"></span>Fresh: 4+ days</span>
+      <span><span class="rec-key" style="background:var(--surface-2);border-color:var(--border-mid);"></span>Recovering: 2–3 days</span>
+      <span><span class="rec-key" style="background:var(--danger-dim);border-color:var(--danger);"></span>Fatigued: 0–1 days</span>
     </div>
   </div>
 </div>
@@ -103,7 +115,7 @@
 <div style="margin-bottom:1.5rem;">
   <div class="section-title">Strength levels — bodyweight ratios</div>
   <div class="card" style="padding:1.1rem 1.25rem;">
-    <div style="font-size:0.72rem;color:var(--muted);margin-bottom:1rem;display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;">
+    <div style="font-size:0.8125rem;color:var(--muted);margin-bottom:1rem;display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;">
       <span>Based on your bodyweight of <strong style="color:var(--text);"><span class="weight-display" id="bw-display" data-kg="{{ bodyweight_kg | round(1) }}">{{ bodyweight_kg | round(1) }} kg</span></strong></span>
       <span style="color:var(--border-mid);">·</span>
       <span>Standard strength classification benchmarks</span>
@@ -126,14 +138,15 @@
     'Incline Bench Press':[0.40, 0.60, 0.85, 1.10, 1.35],
   };
   const LEVELS = ['Untrained','Novice','Intermediate','Advanced','Elite'];
-  // Ordered levels: one violet ramp, brighter as the level rises (validated as
-  // an ordinal ramp on --surface). Elite is earned, so it keeps PR gold.
+  // Ordered levels: one neutral ramp, darker as the level rises (validated as
+  // an ordinal ramp on the white card: monotone L, light end 3.3:1). Elite is
+  // earned, so it wears the record amber (--pr).
   const LEVEL_COLORS = {
-    'Untrained':    '#72849e',
-    'Novice':       '#6a60cc',
-    'Intermediate': '#9085e9',
-    'Advanced':     '#bdb6f4',
-    'Elite':        '#f59e0b',
+    'Untrained':    '#8f8e88',   // --ring
+    'Novice':       '#6b6a65',
+    'Intermediate': '#4a4a46',   // --muted-hi
+    'Advanced':     '#141414',   // --text
+    'Elite':        '#8c5a00',   // --pr
   };
 
   const records = [
@@ -172,7 +185,7 @@
     const rec = records.find(r => r.name.toLowerCase() === liftName.toLowerCase());
     if (!rec) continue;
     const { level, pct } = getLevel(rec.e1rm, norms);
-    const color = LEVEL_COLORS[level] || '#9085e9';
+    const color = LEVEL_COLORS[level] || '#141414';
     const ratio = (rec.e1rm / BW_KG).toFixed(2);
     const display = window.fmtWeight ? window.fmtWeight(rec.e1rm, unit) : rec.e1rm.toFixed(1) + ' kg';
 
@@ -180,17 +193,17 @@
     row.className = 'strength-row';
     row.innerHTML = `
       <div style="width:8.5rem;flex-shrink:0;overflow:hidden;">
-        <div style="font-size:0.8rem;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${liftName}</div>
-        <div style="font-size:0.64rem;font-weight:700;color:${color};margin-top:0.15rem;text-transform:uppercase;letter-spacing:0.03em;">${level}</div>
+        <div style="font-size:0.875rem;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${liftName}</div>
+        <div style="font-size:0.8125rem;font-weight:700;color:${level === 'Elite' ? 'var(--pr)' : 'var(--muted)'};margin-top:0.15rem;">${level}</div>
       </div>
       <div style="flex:1;min-width:60px;">
-        <div style="height:7px;background:var(--surface-2);border-radius:4px;overflow:hidden;">
-          <div style="height:100%;width:${pct}%;background:linear-gradient(90deg,${color}88,${color});border-radius:4px;transition:width 0.6s cubic-bezier(0.16,1,0.3,1);"></div>
+        <div style="height:8px;background:var(--surface-hover);border-radius:4px;overflow:hidden;">
+          <div style="height:100%;width:${pct}%;background:${color};border-radius:4px;transition:width 0.6s cubic-bezier(0.16,1,0.3,1);"></div>
         </div>
       </div>
       <div style="text-align:right;flex-shrink:0;width:5.5rem;">
-        <div class="num" data-e1rm="${rec.e1rm}" style="font-size:0.92rem;font-weight:700;color:${color};line-height:1;">${display}</div>
-        <div style="font-size:0.62rem;color:var(--muted);margin-top:0.2rem;">${ratio}× BW</div>
+        <div class="num" data-e1rm="${rec.e1rm}" style="font-size:1.05rem;color:var(--text);line-height:1;">${display}</div>
+        <div style="font-size:0.8125rem;color:var(--muted);margin-top:0.2rem;"><span class="num">${ratio}</span>× BW</div>
       </div>`;
     grid.appendChild(row);
     rendered++;
@@ -219,15 +232,15 @@
     <div class="section-title" style="margin-bottom:0;">Personal records</div>
     <div style="display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;">
       <div style="position:relative;">
-        <i data-lucide="search" style="position:absolute;left:0.65rem;top:50%;transform:translateY(-50%);width:13px;height:13px;color:var(--muted);pointer-events:none;"></i>
+        <i data-lucide="search" style="position:absolute;left:0.7rem;top:50%;transform:translateY(-50%);width:16px;height:16px;color:var(--muted);pointer-events:none;"></i>
         <input id="pr-search" type="search" placeholder="Filter exercises…"
                oninput="filterPRs()"
-               style="padding:0.3rem 0.75rem 0.3rem 2.1rem;height:36px;font-size:0.8rem;border-radius:var(--radius-xs);min-width:180px;">
+               style="padding:0.3rem 0.75rem 0.3rem 2.1rem;height:44px;font-size:1rem;border-radius:var(--radius-xs);min-width:180px;">
       </div>
       <div style="display:flex;gap:0.25rem;">
-        <button class="sort-btn active" data-sort="name" onclick="sortPRs('name', this)" style="font-size:0.75rem;padding:0.25rem 0.65rem;min-height:36px;">A–Z</button>
-        <button class="sort-btn" data-sort="date" onclick="sortPRs('date', this)" style="font-size:0.75rem;padding:0.25rem 0.65rem;min-height:36px;">Recent</button>
-        <button class="sort-btn" data-sort="weight" onclick="sortPRs('weight', this)" style="font-size:0.75rem;padding:0.25rem 0.65rem;min-height:36px;">Heaviest</button>
+        <button class="sort-btn active" data-sort="name" onclick="sortPRs('name', this)">A–Z</button>
+        <button class="sort-btn" data-sort="date" onclick="sortPRs('date', this)">Recent</button>
+        <button class="sort-btn" data-sort="weight" onclick="sortPRs('weight', this)">Heaviest</button>
       </div>
     </div>
   </div>
@@ -256,9 +269,9 @@
             {% if r.stalled %}<span class="badge-plateau" title="No new PR in 3+ weeks">Plateau</span>{% endif %}
           </td>
           <td>
-            <span class="badge badge-pr num weight-display" data-kg="{{ r.pr_kg }}">{{ r.pr_kg }} kg</span>
+            <span class="badge badge-pr num weight-display" style="white-space:nowrap;" data-kg="{{ r.pr_kg }}">{{ r.pr_kg }} kg</span>
           </td>
-          <td class="num" style="color:var(--muted);">
+          <td class="num" style="color:var(--muted);white-space:nowrap;">
             <span class="weight-display" data-kg="{{ r.est_1rm }}">{{ r.est_1rm }} kg</span>
           </td>
           <td class="spark-cell">
@@ -268,7 +281,7 @@
           <td class="num" style="color:var(--muted);">{{ r.total_sets }}</td>
           <td style="white-space:nowrap;">
             <span class="{% if r.days_ago is not none and r.days_ago <= 30 %}pr-age-fresh{% elif r.days_ago is not none and r.days_ago <= 90 %}pr-age-mid{% else %}pr-age-old{% endif %}"
-                  style="font-family:'JetBrains Mono',monospace;font-size:0.78rem;font-weight:600;"
+                  style="font-size:0.8125rem;font-weight:600;"
                   title="{{ r.pr_date or '' }}">{{ r.time_ago }}</span>
           </td>
         </tr>
@@ -315,6 +328,9 @@ document.getElementById('pr-search').addEventListener('keydown', e => {
 (function() {
   const TREND = {{ trend_json | safe }};
   const dpr = window.devicePixelRatio || 1;
+  // Read Daylight tokens so the canvas follows base.html (fallbacks = literals).
+  const tok = (n, fb) => (getComputedStyle(document.documentElement).getPropertyValue(n).trim() || fb);
+  const DATA_C = tok('--data', '#141414'), STALL_C = tok('--ring', '#8f8e88');
 
   function drawSpark(canvas, values, stalled) {
     if (!values || values.length < 2) {
@@ -323,7 +339,7 @@ document.getElementById('pr-search').addEventListener('keydown', e => {
         canvas.width = 52 * dpr; canvas.height = 24 * dpr;
         canvas.style.width = '52px'; canvas.style.height = '24px';
         ctx.setTransform(dpr,0,0,dpr,0,0);
-        ctx.fillStyle = '#9085e9';   // --data
+        ctx.fillStyle = DATA_C;
         ctx.beginPath(); ctx.arc(26, 12, 2.5, 0, Math.PI*2); ctx.fill();
       }
       return;
@@ -340,15 +356,13 @@ document.getElementById('pr-search').addEventListener('keydown', e => {
     const x = i => PAD + (i / (n-1)) * (W - PAD*2);
     const y = v => H - PAD - ((v - mn) / range) * (H - PAD*2);
 
-    const grad = ctx.createLinearGradient(0, PAD, 0, H);
-    const col = stalled ? '#fb923c' : '#9085e9';   // --data; orange = stalled
-    grad.addColorStop(0, col + '44');
-    grad.addColorStop(1, col + '00');
+    // ink line; a stalled lift (also flagged by the "Plateau" badge) is grey
+    const col = stalled ? STALL_C : DATA_C;
     ctx.beginPath();
     ctx.moveTo(x(0), y(values[0]));
     for (let i = 1; i < n; i++) ctx.lineTo(x(i), y(values[i]));
     ctx.lineTo(x(n-1), H); ctx.lineTo(x(0), H); ctx.closePath();
-    ctx.fillStyle = grad; ctx.fill();
+    ctx.globalAlpha = 0.08; ctx.fillStyle = col; ctx.fill(); ctx.globalAlpha = 1;
 
     ctx.beginPath();
     ctx.moveTo(x(0), y(values[0]));
@@ -384,7 +398,7 @@ document.getElementById('pr-search').addEventListener('keydown', e => {
 {% else %}
 <div class="card" style="text-align:center;padding:3rem 1.25rem;margin-bottom:1.5rem;">
   <div style="display:flex;flex-direction:column;align-items:center;gap:0.75rem;">
-    <div style="width:52px;height:52px;border-radius:50%;background:rgba(255,255,255,0.04);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;">
+    <div style="width:52px;height:52px;border-radius:50%;background:var(--surface-2);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;">
       <i data-lucide="bar-chart-2" style="width:22px;height:22px;color:var(--muted-hi);pointer-events:none;"></i>
     </div>
     <p style="color:var(--muted);font-size:0.875rem;max-width:240px;line-height:1.5;">No sets logged yet — your analytics will appear here.</p>
@@ -400,17 +414,17 @@ document.getElementById('pr-search').addEventListener('keydown', e => {
     {% if weekly_rows %}
     <div id="vol-chart-wrap" style="position:relative;">
       <canvas id="vol-chart" style="display:block;width:100%;cursor:crosshair;"></canvas>
-      <div id="vol-chart-tip" style="display:none;position:absolute;top:4px;background:var(--surface-2);border:1px solid var(--border-mid);border-radius:var(--radius-xs);padding:0.4rem 0.6rem;pointer-events:none;z-index:10;white-space:nowrap;box-shadow:0 4px 16px rgba(0,0,0,0.4);"></div>
+      <div id="vol-chart-tip" style="display:none;position:absolute;top:4px;background:var(--surface);border:1px solid var(--border-mid);border-radius:var(--radius-xs);padding:0.45rem 0.7rem;pointer-events:none;z-index:10;white-space:nowrap;box-shadow:var(--shadow);"></div>
     </div>
     {% if has_cardio %}
-    <div style="display:flex;gap:1rem;margin-top:0.5rem;font-size:0.7rem;color:var(--muted);">
-      <span style="display:flex;align-items:center;gap:0.35rem;"><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:#9085e9;"></span>Strength volume</span>
-      <span style="display:flex;align-items:center;gap:0.35rem;"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#34d399;"></span>Cardio session</span>
+    <div style="display:flex;gap:1rem;margin-top:0.5rem;font-size:0.8125rem;color:var(--muted);">
+      <span style="display:flex;align-items:center;gap:0.35rem;"><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:var(--data);"></span>Strength volume</span>
+      <span style="display:flex;align-items:center;gap:0.35rem;"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--muted);"></span>Cardio session</span>
     </div>
     {% endif %}
     {% else %}
     <div style="display:flex;flex-direction:column;align-items:center;text-align:center;padding:1.5rem 0 0.75rem;gap:0.7rem;">
-      <div style="width:48px;height:48px;border-radius:50%;background:rgba(255,255,255,0.04);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;">
+      <div style="width:48px;height:48px;border-radius:50%;background:var(--surface-2);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;">
         <i data-lucide="bar-chart-2" style="width:20px;height:20px;color:var(--muted-hi);pointer-events:none;"></i>
       </div>
       <p style="color:var(--muted);font-size:0.875rem;max-width:240px;line-height:1.55;">Volume trend appears once you've logged a few sessions.</p>
@@ -475,7 +489,16 @@ document.getElementById('pr-search').addEventListener('keydown', e => {
   const getUnit = () => window.getAppUnit ? window.getAppUnit() : 'kg';
   const cvt     = v  => getUnit() === 'lbs' ? v * 2.20462 : v;
 
-  const PL = 52, PR = 16, PT = 14, PB = 28;
+  const PL = 52, PR = 16, PT = 14, PB = 32;
+  // Daylight tokens read from base.html (fallbacks are the same literals):
+  // ink bars, orange for the hovered week, hairline grid, muted axis text.
+  const tok = (n, fb) => (getComputedStyle(document.documentElement).getPropertyValue(n).trim() || fb);
+  const C = {
+    data:  tok('--data', '#141414'),   hi:   tok('--primary', '#ff5a1f'),
+    grid:  tok('--border', '#dddcd6'), axis: tok('--muted', '#5d5d58'),
+    ring:  tok('--ring', '#8f8e88'),   cardio: tok('--muted', '#5d5d58'),
+  };
+  const AXIS_FONT = "600 13px 'Atkinson Hyperlegible Next', system-ui, sans-serif";
 
   function xAt(i, W, n) { return PL + (n <= 1 ? (W-PL-PR)/2 : (i/(n-1))*(W-PL-PR)); }
 
@@ -501,24 +524,17 @@ document.getElementById('pr-search').addEventListener('keydown', e => {
 
     [0, 0.5, 1].forEach(f => {
       const gv = vMax * f, y = gy(gv);
-      ctx.strokeStyle = '#1f2535'; ctx.lineWidth = 1;
+      ctx.strokeStyle = C.grid; ctx.lineWidth = 1;
       ctx.beginPath(); ctx.moveTo(PL, y); ctx.lineTo(PL + cW, y); ctx.stroke();
       if (f > 0) {
-        ctx.fillStyle = '#4a5568'; ctx.font = "10px 'JetBrains Mono',monospace"; ctx.textAlign = 'right';
+        ctx.fillStyle = C.axis; ctx.font = AXIS_FONT; ctx.textAlign = 'right';
         const label = cvt(gv);
         ctx.fillText(label >= 1000 ? (label/1000).toFixed(1)+'k' : Math.round(label), PL - 4, y + 4);
       }
     });
 
-    if (n >= 2) {
-      ctx.beginPath(); ctx.moveTo(gx(0), gy(vs[0]));
-      for (let i = 1; i < n; i++) ctx.lineTo(gx(i), gy(vs[i]));
-      ctx.lineTo(gx(n-1), PT+cH); ctx.lineTo(gx(0), PT+cH);
-      ctx.closePath(); ctx.fillStyle = '#9085e912'; ctx.fill();
-    }
-
     if (hoverIdx >= 0) {
-      ctx.strokeStyle = '#9085e938'; ctx.lineWidth = 1; ctx.setLineDash([3,3]);
+      ctx.strokeStyle = C.ring; ctx.lineWidth = 1; ctx.setLineDash([3,3]);
       ctx.beginPath(); ctx.moveTo(gx(hoverIdx), PT); ctx.lineTo(gx(hoverIdx), PT+cH); ctx.stroke();
       ctx.setLineDash([]);
     }
@@ -530,7 +546,7 @@ document.getElementById('pr-search').addEventListener('keydown', e => {
       if (v) {
         const bH = Math.max(3, gy(0) - gy(v));
         const y  = gy(v);
-        ctx.fillStyle = isH ? '#9085e9' : '#9085e988';   // --data
+        ctx.fillStyle = isH ? C.hi : C.data;
         ctx.beginPath();
         ctx.roundRect(x, y, barW, bH, [3, 3, 0, 0]);
         ctx.fill();
@@ -538,17 +554,18 @@ document.getElementById('pr-search').addEventListener('keydown', e => {
       if (DATA[i].cardio) {
         const dotY = PT + cH + 6;
         const dotR = 3;
-        ctx.fillStyle = isH ? '#34d399' : '#34d39988';
+        ctx.fillStyle = isH ? C.data : C.cardio;
         ctx.beginPath();
         ctx.arc(gx(i), dotY, dotR, 0, Math.PI * 2);
         ctx.fill();
       }
     });
 
-    ctx.fillStyle = '#4a5568'; ctx.font = '9px JetBrains Mono,monospace';
-    const step = n <= 6 ? 1 : n <= 12 ? 2 : 3;
+    ctx.fillStyle = C.axis; ctx.font = AXIS_FONT;
+    // ~64px per 13px label; count back from the newest week so it is always labelled
+    const step = Math.max(1, Math.ceil(n / Math.max(1, Math.floor(cW / 64))));
     DATA.forEach((d, i) => {
-      if (i % step !== 0 && i !== n - 1) return;
+      if ((n - 1 - i) % step !== 0) return;
       ctx.textAlign = i === 0 ? 'left' : i === n - 1 ? 'right' : 'center';
       ctx.fillText(d.label, gx(i), H - 8);
     });
@@ -560,11 +577,11 @@ document.getElementById('pr-search').addEventListener('keydown', e => {
     const v = cvt(d.volume);
     const disp = v >= 1000 ? (v/1000).toFixed(1) + 'k' : Math.round(v).toLocaleString();
     const cardioLine = d.cardio
-      ? `<div style="color:#34d399;font-size:0.72rem;margin-top:0.15rem;">+ ${d.cardio} cardio</div>`
+      ? `<div style="color:var(--muted-hi);font-size:0.8125rem;margin-top:0.15rem;">+ ${d.cardio} cardio</div>`
       : '';
     tip.innerHTML =
-      `<div style="font-size:0.7rem;color:var(--muted);margin-bottom:0.2rem;font-family:'JetBrains Mono',monospace;">${d.label}</div>` +
-      (v ? `<span style="color:var(--text);font-size:0.82rem;font-weight:700;">${disp} ${u}</span>` : '') +
+      `<div style="font-size:0.8125rem;color:var(--muted);margin-bottom:0.2rem;">${d.label}</div>` +
+      (v ? `<span class="num" style="color:var(--text);font-size:1rem;">${disp} ${u}</span>` : '') +
       cardioLine;
     tip.style.display = 'block';
     const W = canvas.offsetWidth, tw = tip.offsetWidth;
