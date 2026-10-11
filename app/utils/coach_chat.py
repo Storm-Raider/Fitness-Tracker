@@ -483,6 +483,17 @@ def context_text(profile: dict, goal: str, goal_label: str, catalog: dict, notes
     return "\n".join(parts)
 
 
+def _exercise_view(e: dict) -> dict:
+    """An exercise as the coach sees it: the load and effort target are included when the
+    plan has them, so the coach can talk about them (it never writes them: code does)."""
+    view = {"name": e["name"], "sets": e["sets"], "reps": e["reps"]}
+    for key in ("load_kg", "rir"):
+        if e.get(key) is not None:
+            view[key] = e[key]
+    view["note"] = e.get("note", "")
+    return view
+
+
 def build_contents(*, context_text: str, history: list[dict], plan: dict, message: str,
                    profile: dict) -> list[dict]:
     """The turns sent to the model, stable first and volatile last so Gemini's implicit prefix
@@ -493,9 +504,7 @@ def build_contents(*, context_text: str, history: list[dict], plan: dict, messag
     plan_view = {
         "title": plan.get("title"),
         "days": [
-            {"index": i, "focus": d["focus"], "exercises": [
-                {"name": e["name"], "sets": e["sets"], "reps": e["reps"], "note": e.get("note", "")}
-                for e in d["exercises"]]}
+            {"index": i, "focus": d["focus"], "exercises": [_exercise_view(e) for e in d["exercises"]]}
             for i, d in enumerate(plan["days"], start=1)
         ],
     }

@@ -575,14 +575,18 @@ def infer_role(day: dict, idx: int) -> str:
     return ("main", "secondary")[rank] if rank < 2 else "accessory"
 
 
-def annotate_targets(plan: dict, previous: dict | None, profile: dict, rows: list[dict]) -> dict:
-    """Fill the target fields of every exercise in `plan` (in place; also returned). An
+def annotate_targets(plan: dict, previous: dict | None, profile: dict, rows: list[dict],
+                     only_days: "set[int] | list[int] | None" = None) -> dict:
+    """Fill the target fields of the exercises in `plan` (in place; also returned). An
     exercise that sits on the same day of `previous` with the same id, sets and reps keeps
-    its targets; anything else is recomputed from its own sets and reps."""
+    its targets; anything else is recomputed from its own sets and reps. `only_days`
+    (1-based) limits this to the days an edit changed, so untouched days stay as they were."""
     row_of = {r["name"].lower(): r for r in rows}
     goal = plan.get("goal") or "general"
     prev_days = (previous or {}).get("days") or []
     for di, day in enumerate(plan.get("days") or []):
+        if only_days is not None and di + 1 not in only_days:
+            continue
         old = {e["exercise_id"]: e for e in (prev_days[di]["exercises"] if di < len(prev_days) else [])}
         for idx, ex in enumerate(day["exercises"]):
             before = old.get(ex["exercise_id"])
