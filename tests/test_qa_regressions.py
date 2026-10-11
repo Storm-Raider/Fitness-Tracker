@@ -326,3 +326,9 @@ async def test_unlock_check_is_throttled(client, monkeypatch):
     for _ in range(3):
         await client.get("/achievements/unseen")
     assert len(calls) == 1
+
+
+# Regression: ISSUE-018 — a goal on a missing exercise was a 500
+@pytest.mark.asyncio
+async def test_goal_on_a_missing_exercise_is_404(client):
+    assert (await client.put("/exercises/999999/goal", json={"target_kg": 100})).status_code == 404

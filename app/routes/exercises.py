@@ -344,6 +344,9 @@ async def set_exercise_goal(
     conn: aiosqlite.Connection = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
+    async with conn.execute("SELECT 1 FROM exercises WHERE id = ?", (exercise_id,)) as cur:
+        if not await cur.fetchone():
+            raise HTTPException(status_code=404, detail="Exercise not found")   # not a FK 500
     await conn.execute(
         "INSERT INTO exercise_goals(user_id, exercise_id, target_kg) VALUES(?,?,?) "
         "ON CONFLICT(user_id, exercise_id) DO UPDATE SET target_kg=excluded.target_kg",
