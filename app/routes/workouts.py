@@ -356,7 +356,9 @@ async def add_set(
             (body.exercise_id, uid),
         ) as cur:
             prior_row = await cur.fetchone()
-        prior_max = prior_row["max_kg"] if prior_row and prior_row["max_kg"] else None
+        # "is not None": a prior best of 0 kg is a best, not "no sets yet"
+        # (else every 0 kg set after the first read as a new record).
+        prior_max = prior_row["max_kg"] if prior_row and prior_row["max_kg"] is not None else None
 
         # A bodyweight set (added_weight_kg set) is a record by its added load,
         # then reps; its weight_kg is the lifter's bodyweight (pr_utils.bw_key).

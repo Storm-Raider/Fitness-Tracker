@@ -160,3 +160,14 @@ async def test_search_keeps_the_live_session_resume_card(client):
     assert f'href="/workouts/{done}"' in page
     assert "Resume session" in page and 'onclick="startSession(this)"' not in page
     assert f"_activeWorkoutId = {live}" in page
+
+
+# Regression: ISSUE-009 — every 0 kg set after the first was a "new record"
+@pytest.mark.asyncio
+async def test_zero_kg_sets_are_not_a_record_every_time(client):
+    ex = (await client.post("/exercises", json={"name": "QA Band Pull Apart"})).json()["id"]
+    w = (await client.post("/workouts", json={})).json()["id"]
+    first = (await client.post(f"/workouts/{w}/sets", json={"exercise_id": ex, "reps": 15, "weight_kg": 0})).json()
+    again = (await client.post(f"/workouts/{w}/sets", json={"exercise_id": ex, "reps": 15, "weight_kg": 0})).json()
+    heavier = (await client.post(f"/workouts/{w}/sets", json={"exercise_id": ex, "reps": 10, "weight_kg": 2.5})).json()
+    assert (first["is_pr"], again["is_pr"], heavier["is_pr"]) == (True, False, True)
