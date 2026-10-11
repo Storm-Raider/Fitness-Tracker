@@ -141,6 +141,27 @@ async def test_thinking_disabled_only_for_flash_models(monkeypatch):
     assert "thinkingConfig" not in calls[2]["json"]["generationConfig"]
 
 
+def test_plan_model_default_and_override(monkeypatch):
+    monkeypatch.delenv("GEMINI_PLAN_MODEL", raising=False)
+    assert gemini.plan_model() == gemini.DEFAULT_PLAN_MODEL == "gemini-3.8-flash"
+    monkeypatch.setenv("GEMINI_PLAN_MODEL", "gemini-9-pro")
+    assert gemini.plan_model() == "gemini-9-pro"
+
+
+@pytest.mark.asyncio
+async def test_thinking_budget_is_sent_when_given(monkeypatch):
+    calls = _install_client(monkeypatch, [_FakeResponse(200, _ok_body())] * 3)
+    await gemini.generate_json("s", "u", SCHEMA, model="gemini-3.8-flash", thinking_budget=1024)
+    assert calls[0]["json"]["generationConfig"]["thinkingConfig"] == {"thinkingBudget": 1024}
+    # A positive budget is valid on Pro models too (only zero is rejected there).
+    await gemini.generate_json("s", "u", SCHEMA, model="gemini-2.5-pro", thinking_budget=512)
+    assert calls[1]["json"]["generationConfig"]["thinkingConfig"] == {"thinkingBudget": 512}
+    # A model known to reject the field never gets it.
+    monkeypatch.setattr(gemini, "_NO_THINKING_CFG", {"gemini-3.5-flash-lite"})
+    await gemini.generate_json("s", "u", SCHEMA, model="gemini-3.5-flash-lite", thinking_budget=1024)
+    assert "thinkingConfig" not in calls[2]["json"]["generationConfig"]
+
+
 @pytest.mark.asyncio
 async def test_generate_json_returns_model_used(monkeypatch):
     _install_client(monkeypatch, [_FakeResponse(200, _ok_body())])
