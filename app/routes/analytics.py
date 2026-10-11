@@ -32,22 +32,20 @@ def _time_ago(iso_date: str | None) -> tuple[str, int | None]:
     return label, days
 
 
-def _week_label(year_week: str) -> str:
-    y, w = year_week.split("-")
-    try:
-        d = datetime.strptime(f"{y} {int(w):02d} 1", "%Y %W %w")
-        return d.strftime("%b %d").replace(" 0", " ")
-    except ValueError:
-        return year_week
+# Weeks are keyed by their Monday ("2026-12-28"), in SQL by
+# DATE(x, 'weekday 0', '-6 days'). A year-week number ("%Y-%W") split the week
+# spanning New Year in two, and its "week 00" days never reached the chart.
 
 
-def _week_start(year_week: str) -> str:
-    y, w = year_week.split("-")
+def _week_label(monday: str) -> str:
     try:
-        d = datetime.strptime(f"{y} {int(w):02d} 1", "%Y %W %w")
-        return d.strftime("%Y-%m-%d")
+        return datetime.strptime(monday, "%Y-%m-%d").strftime("%b %d").replace(" 0", " ")
     except ValueError:
-        return ""
+        return monday
+
+
+def _week_start(monday: str) -> str:
+    return monday
 
 
 @router.get("/analytics", response_class=HTMLResponse)
@@ -74,7 +72,7 @@ async def analytics(
     async with conn.execute(
         """
         SELECT s.exercise_id,
-               strftime('%Y-%W', w.started_at) AS week,
+               DATE(w.started_at, 'weekday 0', '-6 days') AS week,
                ROUND(MAX(e1rm(s.weight_kg, s.reps)), 1) AS e1rm
         FROM sets s
         JOIN workouts w ON w.id = s.workout_id
@@ -118,7 +116,7 @@ async def analytics(
     # ── Volume trend (12 weeks) ───────────────────────────────────────
     async with conn.execute(
         """
-        SELECT strftime('%Y-%W', w.started_at) AS week,
+        SELECT DATE(w.started_at, 'weekday 0', '-6 days') AS week,
                COALESCE(SUM(s.weight_kg * s.reps), 0) AS volume
         FROM workouts w
         LEFT JOIN sets s ON s.workout_id = w.id AND s.user_id = ?
@@ -132,7 +130,7 @@ async def analytics(
 
     async with conn.execute(
         """
-        SELECT strftime('%Y-%W', w.started_at) AS week,
+        SELECT DATE(w.started_at, 'weekday 0', '-6 days') AS week,
                COUNT(c.id) AS cardio_count
         FROM cardio_logs c
         JOIN workouts w ON w.id = c.workout_id
@@ -147,7 +145,7 @@ async def analytics(
     today = _date.today()
     monday = today - timedelta(days=today.weekday())
     all_weeks = [
-        (monday - timedelta(weeks=i)).strftime("%Y-%W")
+        (monday - timedelta(weeks=i)).isoformat()
         for i in range(11, -1, -1)
     ]
     _actual = {r["week"]: r["volume"] for r in weekly_rows}

@@ -226,3 +226,29 @@ async def test_undoing_an_old_session_keeps_last_time_on_the_newest(client):
     cur = (await client.post("/workouts", json={})).json()["id"]
     last = (await client.get(f"/api/exercises?exclude_workout={cur}")).json()["last_sets"][str(ex)]
     assert last["weight_kg"] == 100
+
+
+# Regression: ISSUE-012 — the week spanning New Year lost its new-year days in Analytics
+@pytest.mark.asyncio
+async def test_analytics_week_across_new_year_keeps_all_its_days(client, db, monkeypatch):
+    import re
+    import app.routes.analytics as an
+
+    class FakeDate(date):
+        @classmethod
+        def today(cls):
+            return cls(2027, 1, 4)              # the Monday after New Year
+
+    monkeypatch.setattr(an, "_date", FakeDate)
+    ex = (await client.post("/exercises", json={"name": "QA Year Lift"})).json()["id"]
+    for day, kg in (("2026-12-30", 50), ("2027-01-02", 100)):   # Wed + Sat of one week
+        async with db.execute("INSERT INTO workouts(user_id, started_at, ended_at) VALUES (1, ?, ?)",
+                              (f"{day} 10:00:00", f"{day} 11:00:00")) as c:
+            wid = c.lastrowid
+        await db.execute("INSERT INTO sets(workout_id, exercise_id, reps, weight_kg, user_id) VALUES (?,?,10,?,1)",
+                         (wid, ex, kg))
+    await db.commit()
+    page = (await client.get("/analytics", headers={"Accept": "text/html"})).text
+    weeks = json.loads(re.search(r"const DATA\s*=\s*(\[.*?\]);", page, re.S).group(1))
+    by_start = {w["week_start"]: w["volume"] for w in weeks}
+    assert by_start["2026-12-28"] == 1500.0 and weeks[-1]["week_start"] == "2027-01-04"
