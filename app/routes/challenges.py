@@ -133,6 +133,11 @@ async def start_challenge(
             )
         total_days = body.total_days
 
+    # A back-dated start must leave today inside the run: one that would already
+    # be over can never be ticked to completion.
+    if date.fromisoformat(started_on) < date.today() - timedelta(days=total_days - 1):
+        raise HTTPException(status_code=422, detail="That start date would put the challenge's end in the past")
+
     # Validate and store custom rules for editable challenges. Freeform templates
     # have no fallback rule list of their own, so rules are hard-required here —
     # without this, an omitted `rules` field would fall back to the template's

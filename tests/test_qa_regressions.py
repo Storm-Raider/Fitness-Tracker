@@ -25,3 +25,75 @@ async def test_sessions_page_survives_an_old_cardio_only_session(client, db):
     r = await client.get("/workouts", headers={"Accept": "text/html"})
     assert r.status_code == 200
     assert (await client.get(f"/workouts/{w}")).status_code == 200      # the session and its cardio survive
+
+
+RULES_HARD = ["workout1", "workout2", "diet", "water", "read", "photo"]
+
+
+async def _attempt(db, key, title, total, start):
+    async with db.execute(
+        "INSERT INTO challenge_attempts(user_id,template_key,title,total_days,status,started_on,created_at) "
+        "VALUES (1,?,?,?,'active',?,?)", (key, title, total, start.isoformat(), start.isoformat() + " 08:00:00")) as c:
+        aid = c.lastrowid
+    await db.commit()
+    return aid
+
+
+async def _tick(db, aid, start, end, keys=RULES_HARD):
+    d = start
+    while d <= end:
+        await db.execute("INSERT INTO challenge_checkins(attempt_id,user_id,day_date,rules_json) VALUES (?,1,?,?)",
+                         (aid, d.isoformat(), json.dumps({k: True for k in keys})))
+        d += timedelta(days=1)
+    await db.commit()
+
+
+async def _status(db, aid):
+    async with db.execute("SELECT status, ended_on FROM challenge_attempts WHERE id=?", (aid,)) as c:
+        return tuple(await c.fetchone())
+
+
+# Regression: ISSUE-002 — the last day of a challenge took away yesterday's grace
+@pytest.mark.asyncio
+async def test_last_day_keeps_yesterdays_grace(client, db):
+    """Day 75 of 75 Hard, days 1-73 done, 74 and 75 not ticked yet: opening the
+    page failed the run, though the page itself offers day 74 as editable."""
+    today = date.today()
+    start = today - timedelta(days=74)
+    aid = await _attempt(db, "75_hard", "75 Hard", 75, start)
+    await _tick(db, aid, start, today - timedelta(days=2))
+    assert (await client.get(f"/challenges/{aid}", headers={"Accept": "text/html"})).status_code == 200
+    assert (await _status(db, aid))[0] == "active"
+    # ticking 74 and 75 now completes it
+    await _tick(db, aid, today - timedelta(days=1), today)
+    await client.get(f"/challenges/{aid}", headers={"Accept": "text/html"})
+    assert await _status(db, aid) == ("completed", today.isoformat())
+
+
+# Regression: ISSUE-003 — a missed final day left the challenge active forever
+@pytest.mark.asyncio
+async def test_missed_final_day_ends_the_run(client, db):
+    today = date.today()
+    start = today - timedelta(days=80)                  # last day was 6 days ago
+    last_day = start + timedelta(days=74)
+    aid = await _attempt(db, "75_hard", "75 Hard", 75, start)
+    await _tick(db, aid, start, last_day - timedelta(days=1))
+    await client.get("/", headers={"Accept": "text/html"})
+    assert await _status(db, aid) == ("failed", last_day.isoformat())
+
+
+@pytest.mark.asyncio
+async def test_no_fail_run_left_incomplete_ends_after_its_grace(client, db):
+    today = date.today()
+    start = today - timedelta(days=80)
+    aid = await _attempt(db, "75_medium", "75 Medium", 75, start)   # no ticks at all
+    await client.get("/", headers={"Accept": "text/html"})
+    assert (await _status(db, aid))[0] == "failed"
+
+
+@pytest.mark.asyncio
+async def test_backdated_start_beyond_the_length_is_rejected(client):
+    too_early = (date.today() - timedelta(days=100)).isoformat()
+    assert (await client.post("/challenges", json={"template_key": "75_hard", "start_date": too_early})).status_code == 422
+    ok = (date.today() - timedelta(days=74)).isoformat()             # today is day 75: still inside
+    assert (await client.post("/challenges", json={"template_key": "75_hard", "start_date": ok})).status_code == 201

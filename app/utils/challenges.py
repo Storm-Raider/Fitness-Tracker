@@ -140,18 +140,14 @@ async def evaluate_attempt(
         failed_on = None
 
         if not template.get("no_fail"):
-            if today >= last_day:
-                # The run is ending: there's no further "tomorrow" left within
-                # the challenge to extend the usual 1-day grace to, so every
-                # day through last_day-1 must be verified right now instead of
-                # staying unlocked. Without this, the day immediately before
-                # the last day falls out of the grace window (it's still
-                # "yesterday" relative to today) but is also never covered by
-                # the completion check below — a fully-skipped day could then
-                # slip through unverified and read as completed.
-                locked_end = last_day - timedelta(days=1)
-            else:
-                locked_end = today - timedelta(days=1 + GRACE_DAYS)
+            # Yesterday keeps its 1-day grace on every day, the last day
+            # included: the detail page offers it as editable, so failing it
+            # first would fail a run the user is mid-way through ticking. A
+            # skipped day before the last can't read as completed anyway
+            # (prev_day_ok below); it fails once its grace passes. Capped at
+            # last_day, so a missed final day fails instead of leaving the run
+            # active forever ("Day 81 of 75").
+            locked_end = min(today - timedelta(days=1 + GRACE_DAYS), last_day)
             d = start
             while d <= locked_end:
                 if d < creation_date:
@@ -182,6 +178,10 @@ async def evaluate_attempt(
             and day_complete(template, last_day.isoformat(), checks, train_dates)
         ):
             status, ended_on = "completed", last_day.isoformat()
+        elif today > last_day + timedelta(days=GRACE_DAYS):
+            # Past the end and its grace without completing (a no_fail run with
+            # a missed day): the run is over, not active forever.
+            status, ended_on = "failed", last_day.isoformat()
 
         if status != attempt["status"]:
             await conn.execute(
