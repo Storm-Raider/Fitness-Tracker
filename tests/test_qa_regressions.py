@@ -342,3 +342,17 @@ async def test_template_name_of_only_spaces_is_rejected(client):
     await client.post(f"/workouts/{w}/sets", json={"exercise_id": ex, "reps": 5, "weight_kg": 50})
     assert (await client.post("/templates", json={"name": "   ", "workout_id": w})).status_code == 422
     assert (await client.post("/templates", json={"name": " Push ", "workout_id": w})).status_code == 201
+
+
+# Regression: ISSUE-023 — the heatmap's first column could show real days blank
+@pytest.mark.asyncio
+async def test_heatmap_first_day_shows_its_workout(client, db):
+    import re
+    from app.utils.heatmap import heatmap_start
+    first = heatmap_start().isoformat()
+    await db.execute("INSERT INTO workouts(user_id, started_at, ended_at) VALUES (1, ?, ?)",
+                     (f"{first} 08:00:00", f"{first} 09:00:00"))
+    await db.commit()
+    page = (await client.get("/", headers={"Accept": "text/html"})).text
+    cell = re.search(r'<rect[^>]*fill="([^"]+)"[^>]*><title>' + first + '</title>', page)
+    assert cell and cell.group(1) == "#141414"
