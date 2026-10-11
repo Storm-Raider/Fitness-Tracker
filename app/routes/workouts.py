@@ -93,12 +93,15 @@ async def list_workouts(
 ):
     uid = current_user["id"]
 
-    # Cleanup ghost sessions: unfinished workouts with no sets older than 1 hour
+    # Cleanup ghost sessions: unfinished workouts with nothing logged (no sets,
+    # no cardio) older than 1 hour. Cardio counts: cardio_logs references the
+    # workout without a cascade, so deleting it would fail the whole page.
     await conn.execute(
         """DELETE FROM workouts
            WHERE user_id = ?
              AND ended_at IS NULL
              AND NOT EXISTS (SELECT 1 FROM sets WHERE workout_id = workouts.id)
+             AND NOT EXISTS (SELECT 1 FROM cardio_logs WHERE workout_id = workouts.id)
              AND started_at < datetime('now', 'localtime', '-1 hour')""",
         (uid,),
     )
