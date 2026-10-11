@@ -149,7 +149,6 @@ async def plan_page(
             # The chat panel is not rendered at all when switched off (COACH_CHAT_ENABLED=false)
             # or when there is no key to talk to.
             "coach_chat_enabled": coach_budget.chat_enabled() and gemini.is_configured(),
-            "llm_model": gemini.model(),
             "active_job_id": active_job,
             "failed_generation": None if active_job else coach.take_unseen_failure(uid),
         },
