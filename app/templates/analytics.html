@@ -12,21 +12,6 @@
 </div>
 
 <style>
-.sort-btn {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  color: var(--muted);
-  border-radius: var(--radius-xs);
-  cursor: pointer;
-  font-family: inherit;
-  font-weight: 600;
-  font-size: 0.8125rem;
-  padding: 0 0.85rem;
-  min-height: 44px;
-  transition: background 0.13s, border-color 0.13s, color 0.13s;
-}
-.sort-btn:hover { color: var(--text); border-color: var(--text); }
-.sort-btn.active { background: var(--text); border-color: var(--text); color: var(--surface); }
 .pr-age-fresh { color: var(--text); }  /* green means saved, not recent */
 .pr-age-mid   { color: var(--muted-hi); }
 .pr-age-old   { color: var(--muted); }
@@ -237,10 +222,10 @@
                oninput="filterPRs()"
                style="padding:0.3rem 0.75rem 0.3rem 2.1rem;height:44px;font-size:1rem;border-radius:var(--radius-xs);min-width:180px;">
       </div>
-      <div style="display:flex;gap:0.25rem;">
-        <button class="sort-btn active" data-sort="name" onclick="sortPRs('name', this)">A–Z</button>
-        <button class="sort-btn" data-sort="date" onclick="sortPRs('date', this)">Recent</button>
-        <button class="sort-btn" data-sort="weight" onclick="sortPRs('weight', this)">Heaviest</button>
+      <div class="seg-toggle" role="group" aria-label="Sort records">
+        <button type="button" class="sort-btn" aria-pressed="true" data-sort="name" onclick="sortPRs('name', this)">A–Z</button>
+        <button type="button" class="sort-btn" aria-pressed="false" data-sort="date" onclick="sortPRs('date', this)">Recent</button>
+        <button type="button" class="sort-btn" aria-pressed="false" data-sort="weight" onclick="sortPRs('weight', this)">Heaviest</button>
       </div>
     </div>
   </div>
@@ -309,8 +294,7 @@ function filterPRs() {
 }
 
 function sortPRs(key, btn) {
-  document.querySelectorAll('.sort-btn').forEach(b => b.classList.remove('active'));
-  btn.classList.add('active');
+  document.querySelectorAll('.sort-btn').forEach(b => b.setAttribute('aria-pressed', String(b === btn)));
   const tbody = document.getElementById('pr-tbody');
   const rows  = [...tbody.querySelectorAll('tr')];
   rows.sort((a, b) => {

@@ -826,6 +826,14 @@
     }
     .seg-toggle button:hover:not(:disabled):not([aria-pressed="true"]) { color: var(--text); }
     .seg-toggle button[aria-pressed="true"] { background: var(--surface); color: var(--text); box-shadow: 0 1px 2px rgba(20,20,20,0.1); }
+    /* Every one-of-N choice uses this control (DESIGN.md): sort, chart metric,
+       page tabs, units, Low/Medium/High. .seg-fill spans the row. */
+    .seg-toggle.seg-fill { display: flex; }
+    .seg-toggle.seg-fill button { flex: 1; padding: 0 0.5rem; }
+    /* Every one-of-N choice in the app uses this control (DESIGN.md): sort,
+       chart metric, page tabs, units, Low/Medium/High. .seg-fill spans the row. */
+    .seg-toggle.seg-fill { display: flex; }
+    .seg-toggle.seg-fill button { flex: 1; padding: 0 0.5rem; }
     .seg-toggle button:focus-visible { outline: 2px solid var(--text); outline-offset: -2px; }
     .seg-toggle button:disabled { opacity: 0.5; cursor: default; }
 

@@ -126,23 +126,13 @@ document.getElementById('goal-input')?.addEventListener('keydown', e => { if(e.k
 </script>
 
 {% if sessions %}
-<style>
-.metric-btn {
-  background: var(--surface); border: 1px solid var(--border); color: var(--muted);
-  border-radius: var(--radius-xs); cursor: pointer; font-family: inherit;
-  font-size: 0.8125rem; font-weight: 600;
-  padding: 0 0.85rem; min-height: 44px; transition: background 0.13s, border-color 0.13s, color 0.13s;
-}
-.metric-btn:hover { color: var(--text); border-color: var(--text); }
-.metric-btn.active { background: var(--text); border-color: var(--text); color: var(--surface); }
-</style>
 <div style="margin-bottom:1.5rem;">
   <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.6rem;flex-wrap:wrap;gap:0.5rem;">
     <div class="section-title" style="margin-bottom:0;">Weight progression</div>
-    <div style="display:flex;gap:0.25rem;">
-      <button class="metric-btn active" data-metric="weight">Weight</button>
-      <button class="metric-btn" data-metric="orm">Est. 1RM</button>
-      <button class="metric-btn" data-metric="volume">Volume</button>
+    <div class="seg-toggle" role="group" aria-label="Chart">
+      <button type="button" aria-pressed="true" data-metric="weight">Weight</button>
+      <button type="button" aria-pressed="false" data-metric="orm">Est. 1RM</button>
+      <button type="button" aria-pressed="false" data-metric="volume">Volume</button>
     </div>
   </div>
   <div class="card" style="padding:0.85rem 1.25rem 0.65rem;">
@@ -378,8 +368,7 @@ document.getElementById('goal-input')?.addEventListener('keydown', e => { if(e.k
     btn.addEventListener('click', () => {
       metric = btn.dataset.metric;
       clearHover();
-      document.querySelectorAll('[data-metric]').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
+      document.querySelectorAll('[data-metric]').forEach(b => b.setAttribute('aria-pressed', String(b === btn)));
     });
   });
 

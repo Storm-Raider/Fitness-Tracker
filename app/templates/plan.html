@@ -3,30 +3,7 @@
 {% block content %}
 <style>
 /* ── Mode toggle ── */
-.plan-mode-toggle {
-  display: flex;
-  gap: 0.5rem;
-  margin-bottom: 1.5rem;
-}
-.mode-btn {
-  padding: 0.55rem 1.25rem;
-  border: 1px solid var(--border-mid);
-  border-radius: 999px;
-  background: var(--surface);
-  color: var(--text);
-  cursor: pointer;
-  font-family: var(--f-ui);
-  font-size: 0.9375rem;
-  font-weight: 700;
-  transition: background 0.15s, border-color 0.15s, color 0.15s;
-  min-height: 44px;
-}
-.mode-btn:hover { border-color: var(--text); }
-.mode-btn.active {
-  background: var(--text);
-  border-color: var(--text);
-  color: var(--surface);
-}
+.plan-mode-toggle { margin-bottom: 1.5rem; }
 
 /* ── Plan grid (shared by both modes) ── */
 .plan-grid {
@@ -498,9 +475,9 @@
 </div>
 
 {# ── Mode toggle ── #}
-<div class="plan-mode-toggle" id="plan-mode-toggle">
-  <button class="mode-btn active" id="mode-ai" onclick="setMode('ai')">AI Routine</button>
-  <button class="mode-btn" id="mode-meso" onclick="setMode('meso')">Mesocycle</button>
+<div class="seg-toggle plan-mode-toggle" id="plan-mode-toggle" role="group" aria-label="Plan type">
+  <button type="button" id="mode-ai" aria-pressed="true" onclick="setMode('ai')">AI routine</button>
+  <button type="button" id="mode-meso" aria-pressed="false" onclick="setMode('meso')">Mesocycle</button>
 </div>
 
 {# ══════════════════════════════════════════════════════
@@ -829,8 +806,8 @@
 function setMode(m) {
   if (!['ai','meso'].includes(m)) m = 'ai';
   localStorage.setItem('zenkai:plan:mode', m);
-  document.getElementById('mode-ai').classList.toggle('active', m === 'ai');
-  document.getElementById('mode-meso').classList.toggle('active', m === 'meso');
+  document.getElementById('mode-ai').setAttribute('aria-pressed', String(m === 'ai'));
+  document.getElementById('mode-meso').setAttribute('aria-pressed', String(m === 'meso'));
   document.getElementById('plan-ai').style.display = m === 'ai' ? '' : 'none';
   document.getElementById('plan-meso').style.display = m === 'meso' ? '' : 'none';
   // Reset goal selection in the newly-shown panel

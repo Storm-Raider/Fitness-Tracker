@@ -8,17 +8,8 @@
   width:100%; }
 .jf-row textarea { resize:vertical; min-height:80px; }
 
-/* Choice buttons: selected = 2px ink outline + ink tint. */
-.seg { display:flex; gap:0.5rem; }
-.seg-btn {
-  flex:1; min-height:48px; padding:0.45rem 0.5rem; border:1px solid var(--border-mid);
-  border-radius:var(--radius-sm); background:var(--surface); color:var(--text);
-  cursor:pointer; font-family:inherit; font-size:0.9375rem; font-weight:600;
-  text-transform:capitalize; text-align:center;
-  transition:background 0.13s, border-color 0.13s, box-shadow 0.13s;
-}
-.seg-btn:hover { border-color:var(--text); }
-.seg-btn.active { border-color:var(--text); box-shadow:inset 0 0 0 1px var(--text); background:var(--accent-dim); font-weight:700; }
+/* Low/Medium/High use the shared .seg-toggle; .active is the picked value. */
+.seg-btn { text-transform:capitalize; }
 
 .hist-row { display:flex; align-items:center; gap:0.75rem; padding:0.75rem 1rem; min-height:56px;
   border-bottom:1px solid var(--border); cursor:pointer; transition:background 0.12s; }
@@ -112,9 +103,9 @@
 
   <div class="jf-row">
     <label id="lbl-energy">Energy</label>
-    <div class="seg" id="seg-energy" role="group" aria-labelledby="lbl-energy">
+    <div class="seg-toggle seg-fill" id="seg-energy" role="group" aria-labelledby="lbl-energy">
       {% for lvl in ['low', 'medium', 'high'] %}
-      <button type="button" class="seg-btn {% if today_log and today_log.energy == lvl %}active{% endif %}"
+      <button type="button" class="seg-btn {% if today_log and today_log.energy == lvl %}active{% endif %}" aria-pressed="{{ 'true' if today_log and today_log.energy == lvl else 'false' }}"
               data-val="{{ lvl }}" onclick="pick('seg-energy',this)">{{ lvl }}</button>
       {% endfor %}
     </div>
@@ -122,9 +113,9 @@
 
   <div class="jf-row">
     <label id="lbl-motivation">Motivation</label>
-    <div class="seg" id="seg-motivation" role="group" aria-labelledby="lbl-motivation">
+    <div class="seg-toggle seg-fill" id="seg-motivation" role="group" aria-labelledby="lbl-motivation">
       {% for lvl in ['low', 'medium', 'high'] %}
-      <button type="button" class="seg-btn {% if today_log and today_log.motivation == lvl %}active{% endif %}"
+      <button type="button" class="seg-btn {% if today_log and today_log.motivation == lvl %}active{% endif %}" aria-pressed="{{ 'true' if today_log and today_log.motivation == lvl else 'false' }}"
               data-val="{{ lvl }}" onclick="pick('seg-motivation',this)">{{ lvl }}</button>
       {% endfor %}
     </div>
@@ -174,8 +165,10 @@ const TODAY = {{ today | tojson }};
 const ACTIVE_DAY = {{ active_day | tojson }};
 
 function pick(groupId, btn) {
-  document.querySelectorAll('#' + groupId + ' .seg-btn').forEach(b => b.classList.remove('active'));
-  btn.classList.toggle('active', true);
+  document.querySelectorAll('#' + groupId + ' .seg-btn').forEach(b => {
+    b.classList.toggle('active', b === btn);
+    b.setAttribute('aria-pressed', String(b === btn));
+  });
 }
 
 function segVal(groupId) {
@@ -256,10 +249,14 @@ function populateForm(dateStr, entry) {
   document.getElementById('j-sleep').value = numOrBlank('sleep_hrs');
   document.getElementById('j-steps').value = numOrBlank('steps');
   document.getElementById('j-notes').value = (entry && entry.notes) || '';
-  document.querySelectorAll('#seg-energy .seg-btn').forEach(b =>
-    b.classList.toggle('active', !!entry && b.dataset.val === entry.energy));
-  document.querySelectorAll('#seg-motivation .seg-btn').forEach(b =>
-    b.classList.toggle('active', !!entry && b.dataset.val === entry.motivation));
+  document.querySelectorAll('#seg-energy .seg-btn').forEach(b => {
+    const on = !!entry && b.dataset.val === entry.energy;
+    b.classList.toggle('active', on); b.setAttribute('aria-pressed', String(on));
+  });
+  document.querySelectorAll('#seg-motivation .seg-btn').forEach(b => {
+    const on = !!entry && b.dataset.val === entry.motivation;
+    b.classList.toggle('active', on); b.setAttribute('aria-pressed', String(on));
+  });
 
   document.getElementById('entry-title').textContent =
     dateStr === TODAY ? "Today's entry" : ('Entry for ' + dateStr);

@@ -13,22 +13,14 @@
 </div>
 
 <style>
-.tab-bar { display:flex; gap:0.25rem; margin-bottom:1.25rem; border-bottom:1px solid var(--border); }
-.tab-btn {
-  background:transparent; border:none; border-bottom:2px solid transparent;
-  color:var(--muted); font-family:inherit; font-size:0.875rem; font-weight:600;
-  padding:0.5rem 0.85rem 0.6rem; cursor:pointer; min-height:44px;
-  transition:color 0.15s, border-color 0.15s; margin-bottom:-1px;
-}
-.tab-btn:hover { color:var(--text); }
-.tab-btn.active { color:var(--text); border-bottom-color:var(--text); }
+.tab-bar { margin-bottom:1.25rem; }
 .tab-panel { display:none; }
 .tab-panel.active { display:block; }
 </style>
 
-<div class="tab-bar">
-  <button class="tab-btn active" onclick="switchTab('weight', this)">Weight</button>
-  <button class="tab-btn" onclick="switchTab('measurements', this)">Measurements</button>
+<div class="seg-toggle tab-bar" role="group" aria-label="Show">
+  <button type="button" class="tab-btn" aria-pressed="true" onclick="switchTab('weight', this)">Weight</button>
+  <button type="button" class="tab-btn" aria-pressed="false" onclick="switchTab('measurements', this)">Measurements</button>
 </div>
 
 {# ═══════════════════ TAB 1: WEIGHT ═══════════════════ #}
@@ -756,9 +748,8 @@ async function logMeasurement() {
 <script>
 function switchTab(name, btn) {
   document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
-  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.setAttribute('aria-pressed', String(b === btn)));
   document.getElementById('tab-' + name).classList.add('active');
-  btn.classList.add('active');
   // Re-trigger canvas draws after tab becomes visible
   window.dispatchEvent(new Event('resize'));
 }
