@@ -1434,6 +1434,9 @@ document.getElementById('tpl-name-input')?.addEventListener('keydown', e => { if
 
 <script>
 const WORKOUT_ID = {{ workout.id }};
+// The exercise on screen, kept across a reload of this session (an undo
+// reloads the page; it should come back where the user was).
+const _CUR_EX_KEY = `zenkai_cur_ex_${WORKOUT_ID}`;
 const IS_FINISHED = {{ 'true' if is_finished else 'false' }};
 let exercises = [];
 let lastSets = {};       // exercise id -> its latest set from before this session
@@ -2165,9 +2168,14 @@ async function loadExercises() {
     lastSets  = data.last_sets || {};
     _populateMuscleDropdown(exercises);
     if (!_resumePicked && !_currentExId()) {
-      // Pick up where the session is: the last exercise logged, else the first planned one.
+      // Pick up where the user was (this tab, this session), else the last
+      // exercise logged, else the first planned one.
+      let saved = null;
+      try { saved = parseInt(sessionStorage.getItem(_CUR_EX_KEY)); } catch {}
+      const savedEx = saved ? exercises.find(e => e.id === saved) : null;
       const last = SESSION_SETS[SESSION_SETS.length - 1];
-      const first = last ? {id: last.exercise_id, name: last.exercise_name} : (_nextPlannedFromStart() || null);
+      const first = savedEx ? {id: savedEx.id, name: savedEx.name}
+        : last ? {id: last.exercise_id, name: last.exercise_name} : (_nextPlannedFromStart() || null);
       if (first) selectExercise(first.id, first.name);
     }
   } catch {}
@@ -2468,7 +2476,9 @@ function selectExercise(id, name) {
   document.getElementById('exercise-input').value  = name;
   const ex = exercises.find(e => e.id === id) || {id, name};
   applyExerciseSelection(ex);
+  try { sessionStorage.setItem(_CUR_EX_KEY, String(id)); } catch {}
 }
+
 
 // A name that isn't in the library: log under it (the first set creates it).
 function useNewExercise() {
