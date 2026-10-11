@@ -78,6 +78,12 @@
       touch-action: manipulation;
     }
     html { font-family: var(--f-ui); -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+    /* The page is never wider than the screen. If anything overflows sideways,
+       iOS lays the page out wider, zooms out to fit, and zooms back in whenever
+       a field is focused (the "zoom when I type"). Overflow is fixed at its
+       source (minmax(0, 1fr) tracks, min-width: 0); this clip is the backstop.
+       clip, not hidden: it makes no scroll container, so position: sticky works. */
+    html, body { overflow-x: clip; }
     body {
       background: var(--bg);
       color: var(--text);
@@ -631,10 +637,12 @@
     .badge-blue { background: var(--accent-dim); color: var(--text); }
 
     /* ── Grids ───────────────────────────────────────── */
-    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
-    .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem; }
+    /* minmax(0, 1fr), not 1fr: a 1fr track never shrinks below its content, so
+       one long unwrapped line (a session note) widened the page past the screen. */
+    .grid-2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }
+    .grid-3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1rem; }
     @media (max-width: 640px) {
-      .grid-2, .grid-3 { grid-template-columns: 1fr; }
+      .grid-2, .grid-3 { grid-template-columns: minmax(0, 1fr); }
     }
 
     /* ── Section title ───────────────────────────────── */

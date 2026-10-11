@@ -116,15 +116,14 @@ async def test_workout_preloads_exercises_from_routine(client, db):
 
 @pytest.mark.asyncio
 async def test_template_chip_onclick_survives_apostrophe_in_name(client, db):
-    """Regression test: a template/routine exercise chip's onclick handler must
-    survive HTML attribute parsing even when the exercise name contains an
-    apostrophe. `ex.name | tojson` produces a double-quoted JS string literal
-    with internal quotes unicode-escaped (per Jinja's htmlsafe_json_dumps), so
-    it must be embedded in a *single*-quoted HTML attribute — a double-quoted
-    attribute gets truncated by the browser's HTML parser at the first quote
-    inside the tojson output.
+    """Regression test: a routine/template exercise whose name has an apostrophe
+    still reaches the session page intact. The logger gets the plan as JSON
+    (`template_exercises | tojson` inside a <script>), which renders the chips
+    in JS; Jinja's htmlsafe JSON escapes the quote to \\u0027, so the literal
+    can't end early and the name round-trips exactly.
     """
-    import html.parser
+    import json
+    import re
 
     ex = await client.post("/exercises", json={"name": "Farmer's Walk"})
     assert ex.status_code == 201
@@ -146,32 +145,13 @@ async def test_template_chip_onclick_survives_apostrophe_in_name(client, db):
     resp = await client.get(f"/workouts/{wid}?routine={rid}", headers={"Accept": "text/html"})
     assert resp.status_code == 200
 
-    # Parse the response like a browser would and collect every onclick
-    # attribute value. If the attribute were still double-quoted, the HTML
-    # parser would truncate it at the escaped-name's opening quote and the
-    # captured value would never contain the full call (id + full name).
-    onclicks = []
-
-    class _Collector(html.parser.HTMLParser):
-        def handle_starttag(self, tag, attrs):
-            for name, value in attrs:
-                if name == "onclick" and value:
-                    onclicks.append(value)
-
-    _Collector().feed(resp.text)
-
-    matches = [v for v in onclicks if f"selectExercise({ex_id}," in v]
-    assert matches, "no selectExercise(...) chip onclick found for the seeded exercise"
-    assert any("Walk" in v for v in matches), (
-        "onclick attribute was truncated before the exercise name — "
-        f"got: {matches}"
-    )
-    # No raw single quote should appear inside the tojson payload itself
-    # (Jinja's tojson escapes ' to \\u0027), so the single-quoted HTML
-    # attribute never gets accidentally closed early either.
-    for v in matches:
-        payload = v.split(",", 1)[1].rstrip(")")
-        assert "\\u0027" in payload  # the apostrophe survived, escaped
+    m = re.search(r"let _planned = (\[.*?\]);", resp.text)
+    assert m, "the session page doesn't carry the routine's exercises"
+    literal = m.group(1)
+    assert "'" not in literal          # the apostrophe is escaped, not raw
+    assert "\\u0027" in literal
+    planned = json.loads(literal)
+    assert {"id": ex_id, "name": "Farmer's Walk"} in planned
 
 
 @pytest.mark.asyncio

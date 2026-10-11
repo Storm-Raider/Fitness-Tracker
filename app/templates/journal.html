@@ -48,7 +48,7 @@
            onchange="onDateChanged(this.value)">
   </div>
 
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:0 1rem;">
+  <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 1rem;">
 
     <div class="jf-row">
       <label for="j-day">Day number</label>
@@ -88,7 +88,7 @@
            value="{{ today_log.meal_3 or '' }}">
   </div>
 
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:0 1rem;">
+  <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 1rem;">
 
     <div class="jf-row">
       <label for="j-water">Water (L)</label>

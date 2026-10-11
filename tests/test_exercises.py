@@ -100,6 +100,23 @@ async def test_last_sets_returns_most_recent_set(client):
 
 
 @pytest.mark.asyncio
+async def test_last_sets_can_exclude_the_current_workout(client):
+    """The logger's "Last time" is from before the session on screen, even after
+    a reload mid-session."""
+    ex_id = (await client.post("/exercises", json={"name": "Excl Press"})).json()["id"]
+    old = (await client.post("/workouts", json={"notes": None})).json()["id"]
+    await client.post(f"/workouts/{old}/sets", json={"exercise_id": ex_id, "reps": 5, "weight_kg": 60.0})
+    await client.post(f"/workouts/{old}/finish")
+    now = (await client.post("/workouts", json={"notes": None})).json()["id"]
+    await client.post(f"/workouts/{now}/sets", json={"exercise_id": ex_id, "reps": 3, "weight_kg": 70.0})
+
+    assert (await client.get("/api/exercises")).json()["last_sets"][str(ex_id)]["weight_kg"] == 70.0
+    last = (await client.get(f"/api/exercises?exclude_workout={now}")).json()["last_sets"][str(ex_id)]
+    assert last["weight_kg"] == 60.0 and last["reps"] == 5
+    assert last["duration_seconds"] is None and last["added_weight_kg"] is None
+
+
+@pytest.mark.asyncio
 async def test_create_exercise_infers_muscle_from_name(client):
     """A custom exercise with a recognisable name gets a muscle group inferred."""
     resp = await client.post("/exercises", json={"name": "Testing Spider Curl"})
