@@ -9,6 +9,7 @@ from app.data.exercises import infer_muscle_and_category
 from app.db import get_db, write_tx
 from app.routes.auth import get_current_user
 from app.utils.coach_plan import invalidate_exercise_caches, validate_exercise_name
+from app.utils.pr_utils import bodyweight_bests, bw_key
 from app.utils.render import templates
 
 router = APIRouter()
@@ -50,11 +51,15 @@ async def exercises_page(
     ) as cur:
         rows = await cur.fetchall()
 
+    # Bodyweight exercises show their best set, not bodyweight as a "PR".
+    bw_best = await bodyweight_bests(conn, current_user["id"])
+
     by_muscle: dict[str, list] = {m: [] for m in _MUSCLE_ORDER}
     exercises = []
     other = []
     for row in rows:
         ex = dict(row)
+        ex["bw"] = bw_best.get(ex["id"])
         muscles = [m.strip() for m in (ex.pop("primary_muscles") or "").split(",") if m.strip()]
         ex["muscles"] = muscles
         exercises.append(ex)
@@ -89,6 +94,8 @@ async def exercises_page(
         (current_user["id"],),
     ) as cur:
         recent_exercises = [dict(r) for r in await cur.fetchall()]
+    for ex in recent_exercises:
+        ex["bw"] = bw_best.get(ex["id"])
 
     return templates.TemplateResponse(
         request, "exercises.html",
@@ -283,6 +290,37 @@ async def exercise_detail(
     total_sets = sum(s["set_count"] for s in sessions)
     total_volume = round(sum(s["volume_kg"] for s in sessions), 1)
 
+    # Bodyweight exercises: weight_kg is the lifter's bodyweight, so the page
+    # charts and ranks the best set (added load, hold, reps) and total reps.
+    is_bw = exercise["equipment"] == "Bodyweight"
+    bw = None
+    if is_bw:
+        async with conn.execute(
+            """
+            SELECT DATE(w.started_at) AS day, COALESCE(s.added_weight_kg, 0) AS added,
+                   s.reps, s.duration_seconds AS secs
+            FROM sets s JOIN workouts w ON w.id = s.workout_id
+            WHERE s.exercise_id = ? AND s.user_id = ?
+            """,
+            (exercise_id, uid),
+        ) as cur:
+            bw_rows = await cur.fetchall()
+        per_day: dict[str, dict] = {}
+        for r in bw_rows:
+            d = per_day.setdefault(r["day"], {"best": None, "total_reps": 0})
+            d["total_reps"] += r["reps"] or 0
+            if d["best"] is None or bw_key(r["added"], r["reps"], r["secs"]) > bw_key(*d["best"]):
+                d["best"] = (r["added"], r["reps"], r["secs"])
+        for s in sessions:
+            d = per_day.get(s["date"])
+            added, reps, secs = d["best"] if d else (0, 0, None)
+            s.update(bw_added=added, bw_reps=reps, bw_secs=secs,
+                     total_reps=d["total_reps"] if d else 0)
+        bw = (await bodyweight_bests(conn, uid, exercise_id)).get(exercise_id)
+        best_key = bw_key(bw["added"], bw["reps"], bw["secs"]) if bw else None
+        for s in sessions:
+            s["is_best"] = best_key is not None and bw_key(s["bw_added"], s["bw_reps"], s["bw_secs"]) == best_key
+
     chrono = list(reversed(sessions))
 
     return templates.TemplateResponse(request, "exercise_detail.html", {
@@ -294,6 +332,8 @@ async def exercise_detail(
         "total_volume": total_volume,
         "exercise_goal_kg": exercise_goal_kg,
         "user": dict(current_user),
+        "is_bw": is_bw,
+        "bw": bw,
     })
 
 

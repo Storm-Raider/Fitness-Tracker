@@ -98,7 +98,9 @@ async def analytics(
         SELECT s.exercise_id
         FROM sets s
         JOIN workouts w ON w.id = s.workout_id AND w.ended_at IS NOT NULL
+        JOIN exercises e ON e.id = s.exercise_id
         WHERE s.user_id = ?
+          AND COALESCE(e.equipment, '') != 'Bodyweight'   -- as stalled_lifts()
         GROUP BY s.exercise_id
         HAVING COUNT(DISTINCT DATE(w.started_at)) >= 4
            AND MAX(CASE WHEN DATE(w.started_at) >= DATE('now','localtime','-21 days')

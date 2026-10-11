@@ -341,6 +341,19 @@ async def add_set(
             prior_row = await cur.fetchone()
         prior_max = prior_row["max_kg"] if prior_row and prior_row["max_kg"] else None
 
+        # A bodyweight set (added_weight_kg set) is a record by its added load,
+        # then reps; its weight_kg is the lifter's bodyweight (pr_utils.bw_key).
+        prior_bw_best = None
+        if body.added_weight_kg is not None and body.duration_seconds is None:
+            async with conn.execute(
+                "SELECT MAX(COALESCE(added_weight_kg, 0) * 10000 + reps) AS k FROM sets "
+                "WHERE exercise_id = ? AND user_id = ? AND added_weight_kg IS NOT NULL "
+                "AND duration_seconds IS NULL",
+                (body.exercise_id, uid),
+            ) as cur:
+                _k = await cur.fetchone()
+            prior_bw_best = _k["k"] if _k else None
+
         # A timed hold stores reps=0 so it's excluded from the kg-volume sum
         # (weight × reps); its progression metric is duration, not volume.
         is_time = body.duration_seconds is not None
@@ -356,7 +369,10 @@ async def add_set(
             set_id = cur.lastrowid
 
     # No weight-PR for timed holds — their progression is duration, not load.
-    is_pr = (not is_time) and (prior_max is None or body.weight_kg > prior_max)
+    if body.added_weight_kg is not None and not is_time:
+        is_pr = prior_bw_best is None or body.added_weight_kg * 10000 + body.reps > prior_bw_best
+    else:
+        is_pr = (not is_time) and (prior_max is None or body.weight_kg > prior_max)
     current_pr = body.weight_kg if is_pr else prior_max
 
     webhook_url = os.environ.get("WEBHOOK_URL", "").strip()

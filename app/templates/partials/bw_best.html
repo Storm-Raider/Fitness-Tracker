@@ -1,0 +1,7 @@
+{# A bodyweight exercise's best set (pr_utils.bodyweight_bests): "BW × 12",
+   "BW +10 kg × 6", or "BW · 1:30" for a hold. Added load converts with the
+   weight unit like every other .weight-display. #}
+{%- macro bw_best(b) -%}
+BW{% if b.added %} +<span class="weight-display" data-kg="{{ b.added }}">{{ b.added }} kg</span>{% endif %}
+{%- if b.secs %} · {{ '%d:%02d' | format(b.secs // 60, b.secs % 60) }}{% else %} × {{ b.reps }}{% endif -%}
+{%- endmacro -%}

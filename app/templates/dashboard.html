@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% block title %}Home — Zenkai{% endblock %}
 {% block content %}
+{% from "partials/bw_best.html" import bw_best %}
 <style>
   /* Home (DESIGN.md): the day, one orange button to train, the week in numbers. */
   .home { display: grid; grid-template-columns: minmax(0, 1fr); gap: 1rem; }
@@ -210,7 +211,8 @@
         <li><a href="/exercises/{{ pr.id }}">
           <span class="nm">{{ pr.name }}</span>
           <span class="when">{{ pr.pr_date | human_date }}</span>
-          <span class="val weight-display" data-kg="{{ pr.pr_kg }}">{{ pr.pr_kg }} kg</span>
+          {% if pr.is_bodyweight %}<span class="val">{{ bw_best(pr.bw) }}</span>
+          {% else %}<span class="val weight-display" data-kg="{{ pr.pr_kg }}">{{ pr.pr_kg }} kg</span>{% endif %}
         </a></li>
         {% endfor %}
       </ul>
