@@ -111,6 +111,7 @@ async def list_workouts(
         """
         SELECT w.id, w.started_at, w.ended_at, w.notes,
                COUNT(s.id) AS set_count,
+               COUNT(DISTINCT s.exercise_id) AS exercise_count,
                COALESCE(SUM(s.weight_kg * s.reps), 0) AS volume_kg,
                CASE WHEN w.ended_at IS NOT NULL
                     THEN CAST(ROUND((JULIANDAY(w.ended_at) - JULIANDAY(w.started_at)) * 1440) AS INTEGER)

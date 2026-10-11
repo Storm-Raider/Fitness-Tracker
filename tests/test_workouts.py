@@ -215,6 +215,27 @@ async def test_workout_list_shows_start_when_no_active(client):
 
 
 @pytest.mark.asyncio
+async def test_workout_list_more_counts_exercises_not_sets(client):
+    """Three exercises over nine sets are all listed: no "+more". A fourth
+    exercise adds "+1 more"."""
+    w = (await client.post("/workouts", json={"notes": None})).json()["id"]
+    ids = [(await client.post("/exercises", json={"name": f"More Test {i}"})).json()["id"] for i in range(4)]
+    for ex_id in ids[:3]:
+        for _ in range(3):
+            await client.post(f"/workouts/{w}/sets", json={"exercise_id": ex_id, "reps": 5, "weight_kg": 50.0})
+    await client.post(f"/workouts/{w}/finish")
+    page = (await client.get("/workouts", headers={"Accept": "text/html"})).text
+    assert "More Test 2" in page and "&thinsp;+" not in page
+
+    w2 = (await client.post("/workouts", json={"notes": None})).json()["id"]
+    for ex_id in ids:
+        await client.post(f"/workouts/{w2}/sets", json={"exercise_id": ex_id, "reps": 5, "weight_kg": 50.0})
+    await client.post(f"/workouts/{w2}/finish")
+    page = (await client.get("/workouts", headers={"Accept": "text/html"})).text
+    assert "+1 more" in page
+
+
+@pytest.mark.asyncio
 async def test_dashboard_shows_active_session_card(client):
     await client.post("/workouts", json={"notes": None})
     resp = await client.get("/", headers={"Accept": "text/html"})

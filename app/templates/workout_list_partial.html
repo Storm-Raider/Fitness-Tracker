@@ -92,7 +92,7 @@
       </div>
       {% if w.exercise_preview or w.notes %}
       <div class="wl-preview">
-        {% if w.exercise_preview %}{{ w.exercise_preview }}{% if w.set_count > 3 %}&thinsp;+more{% endif %}{% endif %}{% if w.notes and w.exercise_preview %}&ensp;·&ensp;{% endif %}{% if w.notes %}{{ w.notes }}{% endif %}
+        {% if w.exercise_preview %}{{ w.exercise_preview }}{% if w.exercise_count > 3 %}&thinsp;+{{ w.exercise_count - 3 }} more{% endif %}{% endif %}{% if w.notes and w.exercise_preview %}&ensp;·&ensp;{% endif %}{% if w.notes %}{{ w.notes }}{% endif %}
       </div>
       {% endif %}
     </a>
