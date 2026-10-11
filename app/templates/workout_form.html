@@ -727,14 +727,21 @@
   align-items: center;
   gap: 0.4rem;
 }
+.set-main {
+  display: block; width: 100%; min-height: 54px; padding: 0.35rem 0;
+  background: none; border: 0; border-radius: var(--radius-xs);
+  font: inherit; color: inherit; text-align: left; cursor: pointer;
+}
+.set-main:hover .set-detail { color: var(--text); }
 .set-detail {
+  display: block;
   font-size: 0.95rem;
   color: var(--muted);
   font-variant-numeric: tabular-nums;
   overflow-wrap: anywhere;
 }
-.set-detail .weight-display { font-family: var(--f-display); font-stretch: 72%; font-weight: 800; font-size: 1.15rem; color: var(--text); }
-.set-del, .set-edit-btn {
+.set-detail .weight-display, .set-detail .set-reps { font-family: var(--f-display); font-stretch: 72%; font-weight: 800; font-size: 1.15rem; color: var(--text); }
+.set-del {
   background: transparent;
   border: 1px solid transparent;
   color: var(--muted);
@@ -749,7 +756,6 @@
   transition: color 0.13s, background 0.13s;
 }
 .set-del:hover { color: var(--danger); background: var(--danger-dim); }
-.set-edit-btn:hover { color: var(--text); background: var(--surface-hover); }
 
 /* Exercise groups */
 .ex-group + .ex-group { border-top: 1px solid var(--border); }
@@ -810,7 +816,8 @@
 /* ── Finished view ───────────────────────────────────────────── */
 .finish-stats {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  /* volume ("10,123 kg") gets the widest column so it never wraps */
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.7fr);
   gap: 1rem;
   text-align: center;
   padding: 1.5rem 1rem;
@@ -824,9 +831,10 @@
   font-stretch: 72%;
   font-weight: 800;
   font-variant-numeric: tabular-nums;
-  font-size: clamp(1.9rem, 8vw, 2.6rem);
+  font-size: clamp(1.7rem, 7vw, 2.6rem);
   color: var(--text);
   line-height: 1;
+  white-space: nowrap;
 }
 .finish-stat-lbl {
   font-size: 0.875rem;
@@ -893,9 +901,9 @@
 {%- if s.duration_seconds is not none -%}
 {%- if s.added_weight_kg is not none -%}{% if s.added_weight_kg and s.added_weight_kg > 0 %}BW +<span class="weight-display" data-kg="{{ s.added_weight_kg }}">{{ s.added_weight_kg }}</span>{% else %}BW{% endif %}{%- else -%}<span class="weight-display" data-kg="{{ s.weight_kg }}">{{ s.weight_kg }}</span>{%- endif %} · {{ '%d:%02d'|format(s.duration_seconds // 60, s.duration_seconds % 60) }}
 {%- elif s.added_weight_kg is not none -%}
-{% if s.added_weight_kg and s.added_weight_kg > 0 %}BW +<span class="weight-display" data-kg="{{ s.added_weight_kg }}">{{ s.added_weight_kg }}</span>{% else %}BW{% endif %} × {{ s.reps }}
+{% if s.added_weight_kg and s.added_weight_kg > 0 %}BW +<span class="weight-display" data-kg="{{ s.added_weight_kg }}">{{ s.added_weight_kg }}</span>{% else %}BW{% endif %} × <span class="set-reps">{{ s.reps }}</span>
 {%- else -%}
-<span class="weight-display" data-kg="{{ s.weight_kg }}">{{ s.weight_kg }}</span> × {{ s.reps }}
+<span class="weight-display" data-kg="{{ s.weight_kg }}">{{ s.weight_kg }}</span> × <span class="set-reps">{{ s.reps }}</span>
 {%- endif -%}
 {%- endmacro -%}
 
@@ -905,18 +913,15 @@
      data-rpe="{{ s.rpe or '' }}" data-notes="{{ s.notes or '' }}">
   <div class="set-bar"></div>
   <div class="set-body">
-    <div class="set-name">{{ s.exercise_name }}</div>
-    <div class="set-detail" id="detail-{{ s.id }}">
-      {{ set_metric(s) }}{% if s.rpe %} · RPE {{ s.rpe }}{% endif %}{% if s.notes %} · {{ s.notes }}{% endif %}
-    </div>
+    {# Tap a set to fix it or delete it, as in a live session (DESIGN.md). #}
+    <button type="button" class="set-main" onclick="startEdit({{ s.id }})" aria-label="Edit set: {{ s.exercise_name }}">
+      <span class="set-name">{{ s.exercise_name }}</span>
+      <span class="set-detail" id="detail-{{ s.id }}">
+        {{ set_metric(s) }}{% if s.rpe %} · RPE {{ s.rpe }}{% endif %}{% if s.notes %} · {{ s.notes }}{% endif %}
+      </span>
+    </button>
     <div class="set-edit-row" id="edit-{{ s.id }}"></div>
   </div>
-  <button class="set-edit-btn" onclick="startEdit({{ s.id }})" aria-label="Edit set">
-    <i data-lucide="pencil" style="width:16px;height:16px;pointer-events:none;"></i>
-  </button>
-  <button class="set-del" onclick="deleteSet({{ s.id }}, this)" aria-label="Delete set">
-    <i data-lucide="x" style="width:18px;height:18px;pointer-events:none;"></i>
-  </button>
   <div class="set-row-swipe-bg"><i data-lucide="trash-2" style="width:18px;height:18px;pointer-events:none;"></i></div>
 </div>
 {%- endmacro -%}
@@ -2693,7 +2698,7 @@ function regroupSets() {
 function startEdit(id) {
   const row    = document.getElementById('set-' + id);
   const editEl = document.getElementById('edit-' + id);
-  if (!row || !editEl) return;
+  if (!row || !editEl || editEl.style.display === 'flex') return;
   const kg    = parseFloat(row.dataset.kg) || 0;
   const reps  = parseInt(row.dataset.reps) || 1;
   const rpe   = row.dataset.rpe  || '';
@@ -2714,9 +2719,10 @@ function startEdit(id) {
     `</select>` +
     `<input type="text" class="edit-notes" value="${escHtml(notes)}" placeholder="Notes" aria-label="Set notes" autocorrect="off" spellcheck="false">` +
     `<button onclick="saveEdit(${id})" class="btn btn-ghost">Save</button>` +
-    `<button onclick="cancelEdit(${id})" class="btn btn-ghost" aria-label="Cancel edit">✕</button>`;
+    `<button onclick="cancelEdit(${id})" class="btn btn-ghost">Cancel</button>` +
+    `<button onclick="deleteSet(${id})" class="btn btn-ghost" style="color:var(--danger);">Delete</button>`;
 
-  document.getElementById('detail-' + id).style.display = 'none';
+  document.getElementById('detail-' + id).closest('.set-main').style.display = 'none';
   editEl.style.display = 'flex';
   const wIn = editEl.querySelector('.edit-w');
   const rIn = editEl.querySelector('.edit-r');
@@ -2727,7 +2733,7 @@ function startEdit(id) {
 }
 
 function cancelEdit(id) {
-  document.getElementById('detail-' + id).style.display = '';
+  document.getElementById('detail-' + id).closest('.set-main').style.display = '';
   document.getElementById('edit-' + id).style.display = 'none';
 }
 
@@ -2759,7 +2765,7 @@ async function saveEdit(id) {
   row.dataset.rpe   = rpe || '';
   row.dataset.notes = notes || '';
 
-  let html = `<span class="weight-display" data-kg="${weightKg}">${fmtWeight(weightKg, unit)}</span> × ${reps}`;
+  let html = `<span class="weight-display" data-kg="${weightKg}">${fmtWeight(weightKg, unit)}</span> × <span class="set-reps">${reps}</span>`;
   if (rpe)   html += ` · RPE ${rpe}`;
   if (notes) html += ` · ${escHtml(notes)}`;
 
