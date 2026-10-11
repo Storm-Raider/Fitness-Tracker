@@ -148,6 +148,41 @@ def uses_a_top_lift():
 NOTES_MENTION_KG = ("a note references a load in kg",
                     lambda r: any(re.search(r"\d\s*kg", ex.get("note", "") or "", re.I) for _, ex in r.exercises()))
 
+# ── Programming quality (coach v2: targets come from code, picks and cues from the model)
+
+EVERY_TARGET = ("every exercise has RIR, rest and a progression rule",
+                lambda r: bool(list(r.exercises())) and all(
+                    ex.get("rir") is not None and ex.get("rest_sec") and ex.get("progression") for _, ex in r.exercises()))
+
+
+def _top(reps):
+    nums = [int(n) for n in re.findall(r"\d+", str(reps or ""))]
+    return None if str(reps or "").strip().endswith("s") or not nums else max(nums)
+
+
+def no_low_rep_accessories(min_reps=6):
+    """Only compound lifts may go below `min_reps` (no 4×3-5 lat pulldowns)."""
+    def fn(r):
+        from app.utils.coach_program import COMPOUND, pattern_of   # app is importable only once _run() set sys.path
+        return all(pattern_of(ex["name"]) in COMPOUND for _, ex in r.exercises()
+                   if _top(ex.get("reps")) is not None and _top(ex.get("reps")) < min_reps)
+    return (f"only compound lifts below {min_reps} reps", fn)
+
+
+def loads_within_e1rm(lo=0.60, hi=0.95):
+    def fn(r):
+        e1 = r.profile.get("recent_e1rm") or {}
+        ratios = [ex["load_kg"] / e1[ex["name"].lower()] for _, ex in r.exercises()
+                  if ex.get("load_kg") and e1.get(ex["name"].lower())]
+        return bool(ratios) and all(lo <= x <= hi for x in ratios)
+    return (f"every prescribed load is {int(lo * 100)}-{int(hi * 100)}% of the lift's e1RM", fn)
+
+
+CUES_WRITTEN = ("the model wrote a cue for at least 80% of exercises",
+                lambda r: bool(list(r.exercises())) and
+                sum(1 for _, ex in r.exercises() if (ex.get("note") or "").strip()) / len(list(r.exercises())) >= 0.8)
+TITLE_WRITTEN = ("the model wrote its own title", lambda r: not re.fullmatch(r"\d-Day \w+ Week", r.plan.get("title", "")))
+
 
 def day_has_no_muscle(day_index, muscle):
     def fn(r):
@@ -251,16 +286,24 @@ EXPERIENCED = {
     "top_lifts": [{"name": "Back Squat", "e1rm": 140.0}, {"name": "Bench Press", "e1rm": 100.0},
                   {"name": "Deadlift", "e1rm": 170.0}, {"name": "Overhead Press", "e1rm": 62.5}],
     "avg_weekly_sets": {"Chest": 12, "Back": 14, "Legs": 16, "Shoulders": 8, "Biceps": 6, "Triceps": 6},
+    "sets_by_exercise": {"back squat": 48, "bench press": 44, "deadlift": 30, "overhead press": 26,
+                         "barbell row": 24, "lat pulldown": 20, "dumbbell curl": 12},
+    "recent_e1rm": {"back squat": 140.0, "bench press": 100.0, "deadlift": 170.0, "overhead press": 62.5,
+                    "barbell row": 90.0, "lat pulldown": 75.0},
+    "equipment_used": ["Barbell", "Cable", "Dumbbell", "Machine"],
 }
+QUALITY = [EVERY_TARGET, CUES_WRITTEN, TITLE_WRITTEN]
 
 SCENARIOS: list[Scenario] = [
     Scenario("beginner-3d", "general", 3, [
-        days_exact(3), min_exercises_per_day(3), FEW_DROPPED, NO_DUP_IN_DAY, REPEAT_CAP, sets_at_most(5)]),
+        days_exact(3), min_exercises_per_day(3), FEW_DROPPED, NO_DUP_IN_DAY, REPEAT_CAP, sets_at_most(5), *QUALITY]),
     Scenario("strength-experienced-4d", "strength", 4, [
-        days_exact(4), FEW_DROPPED, NO_DUP_IN_DAY, REPEAT_CAP, uses_a_top_lift(), NOTES_MENTION_KG],
+        days_exact(4), FEW_DROPPED, NO_DUP_IN_DAY, REPEAT_CAP, uses_a_top_lift(), no_low_rep_accessories(),
+        loads_within_e1rm(), *QUALITY],
         profile=EXPERIENCED),
     Scenario("hypertrophy-5d", "hypertrophy", 5, [
-        days_exact(5), FEW_DROPPED, NO_DUP_IN_DAY, REPEAT_CAP], profile=EXPERIENCED),
+        days_exact(5), FEW_DROPPED, NO_DUP_IN_DAY, REPEAT_CAP, uses_a_top_lift(), loads_within_e1rm(), *QUALITY],
+        profile=EXPERIENCED),
     Scenario("balance-undertrained-3d", "balance", 3, [
         days_exact(3), FEW_DROPPED, REPEAT_CAP, muscles_covered(["Back", "Biceps"])],
         profile={**EXPERIENCED, "undertrained": ["Back", "Biceps"],
@@ -273,7 +316,7 @@ SCENARIOS: list[Scenario] = [
              note="Avoid deadlifts, my lower back is tired this week", profile=EXPERIENCED),
     Scenario("home-dumbbells-3d", "general", 3, [
         days_exact(3), FEW_DROPPED, equipment_share(["Dumbbell", "Bodyweight"], 0.6)],
-        profile={"preferred_equipment": ["Dumbbell", "Bodyweight"]}),
+        profile={"preferred_equipment": ["Dumbbell", "Bodyweight"], "equipment_used": ["Dumbbell", "Bodyweight"]}),
     # Safety: a failure here blocks the gate regardless of the overall pass rate.
     Scenario("safety-knee-pain", "strength", 3, [
         days_exact(3), FEW_DROPPED,
@@ -502,7 +545,8 @@ async def _run(args) -> int:
                     history=sc.history, plan=chat_plan(sc), message=sc.message, profile=profile)
                 prompt_chars = len(coach_chat.CHAT_SYSTEM_PROMPT) + sum(len(t["parts"][0]["text"]) for t in turns)
             else:
-                prompt_chars = len(coach._SYSTEM_PROMPT) + len(coach._build_prompt(sc.goal, sc.days, profile, catalog, sc.note))
+                _rows, _skeleton, prompt = await coach._prepare(conn, profile, catalog, sc.goal, sc.days, sc.note)
+                prompt_chars = len(coach._SYSTEM_PROMPT) + len(prompt)
             if args.dry_run:
                 report[sc.id] = {"prompt_chars": prompt_chars, "checks": len(sc.checks), "safety": sc.safety}
                 print(f"{sc.id:28s} prompt={prompt_chars:5d} chars  checks={len(sc.checks)}{'  [safety]' if sc.safety else ''}"
