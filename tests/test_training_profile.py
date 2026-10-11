@@ -189,3 +189,29 @@ async def test_profile_reads_journal_wellness_and_flags_pain(db):
     assert profile["wellness"]["low_motivation_days"] == 1
     assert profile["wellness"]["recent_notes"]
     assert any("back pain" in f["text"] for f in profile["injury_flags"])
+
+
+@pytest.mark.asyncio
+async def test_programming_signals_recent_e1rm_sets_and_equipment(db):
+    recent = (datetime.now() - timedelta(days=10)).strftime("%Y-%m-%d %H:%M:%S")
+    old = (datetime.now() - timedelta(days=200)).strftime("%Y-%m-%d %H:%M:%S")
+    for wid, started in ((1, recent), (2, old)):
+        await db.execute(
+            "INSERT INTO workouts(id, started_at, ended_at, user_id) VALUES (?, ?, datetime(?, '+30 minutes'), 1)",
+            (wid, started, started),
+        )
+    bench = await _exercise_id(db, "Bench Press")
+    row = await _exercise_id(db, "Dumbbell Row")
+    pushup = await _exercise_id(db, "Push-up")
+    await _log_set(db, 1, bench, reps=5, weight_kg=90.0)    # e1RM 105
+    await _log_set(db, 1, bench, reps=5, weight_kg=80.0)
+    await _log_set(db, 2, bench, reps=1, weight_kg=140.0)   # an old peak: not "recent"
+    await _log_set(db, 1, row, reps=10, weight_kg=30.0)     # e1RM 40
+    await _log_set(db, 1, pushup, reps=20, weight_kg=80.0)  # bodyweight: no e1RM
+    await db.commit()
+
+    p = await build_profile(db, uid=1, fresh=True)
+
+    assert p["recent_e1rm"] == {"bench press": 105.0, "dumbbell row": 40.0}
+    assert p["sets_by_exercise"] == {"bench press": 2, "dumbbell row": 1, "push-up": 1}
+    assert set(p["equipment_used"]) == {"Barbell", "Dumbbell", "Bodyweight"}
