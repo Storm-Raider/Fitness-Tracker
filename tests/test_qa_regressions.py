@@ -296,3 +296,33 @@ async def test_analytics_bodyweight_is_the_latest_dated_entry(client, db):
     await client.post(f"/workouts/{w}/sets", json={"exercise_id": ex, "reps": 5, "weight_kg": 60})
     page = (await client.get("/analytics", headers={"Accept": "text/html"})).text
     assert "const BW_KG = 80.0;" in page or "const BW_KG = 80;" in page
+
+
+# Regression: ISSUE-016 — achievement toasts only fired after visiting /achievements
+@pytest.mark.asyncio
+async def test_an_unlock_toasts_on_the_next_page_without_visiting_achievements(client):
+    import app.routes.achievements as ach
+    ach._last_sync.clear()
+    ex = (await client.post("/exercises", json={"name": "QA Toast Lift"})).json()["id"]
+    w = (await client.post("/workouts", json={})).json()["id"]
+    await client.post(f"/workouts/{w}/sets", json={"exercise_id": ex, "reps": 5, "weight_kg": 60.0})
+    html = (await client.get("/achievements/unseen")).text
+    assert "First Rep" in html
+    assert (await client.get("/achievements/unseen")).text == ""      # shown once
+
+
+@pytest.mark.asyncio
+async def test_unlock_check_is_throttled(client, monkeypatch):
+    import app.routes.achievements as ach
+    ach._last_sync.clear()
+    calls = []
+    real = ach._compute_earned
+
+    async def counting(conn, uid):
+        calls.append(uid)
+        return await real(conn, uid)
+
+    monkeypatch.setattr(ach, "_compute_earned", counting)
+    for _ in range(3):
+        await client.get("/achievements/unseen")
+    assert len(calls) == 1

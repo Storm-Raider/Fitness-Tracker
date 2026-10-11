@@ -1,4 +1,5 @@
 import logging
+import time
 from datetime import datetime
 
 import aiosqlite
@@ -266,12 +267,45 @@ _TIER_COLORS = {
 }
 
 
+_last_sync: dict[int, float] = {}
+_SYNC_EVERY_S = 30
+
+
+async def _sync_earned(conn: aiosqlite.Connection, uid: int) -> dict[str, str]:
+    """Save any newly earned achievements (unseen, so they toast) and return
+    {achievement_id: unlocked_at} for everything stored."""
+    _last_sync[uid] = time.monotonic()
+    earned_now = await _compute_earned(conn, uid)
+    async with conn.execute(
+        "SELECT achievement_id, unlocked_at FROM user_achievements WHERE user_id=?", (uid,)
+    ) as c:
+        stored = {r["achievement_id"]: r["unlocked_at"] for r in await c.fetchall()}
+    newly = {aid: ts for aid, ts in earned_now.items() if aid not in stored}
+    for aid, ts in newly.items():
+        try:
+            await conn.execute(
+                "INSERT OR IGNORE INTO user_achievements(user_id, achievement_id, unlocked_at) VALUES (?,?,?)",
+                (uid, aid, ts),
+            )
+        except aiosqlite.Error as exc:
+            logging.warning("achievement insert failed user=%s aid=%s: %s", uid, aid, exc)
+    if newly:
+        await conn.commit()
+        stored.update(newly)
+    return stored
+
+
 @router.get("/achievements/unseen", response_class=HTMLResponse)
 async def achievements_unseen(
     conn: aiosqlite.Connection = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
     uid = current_user["id"]
+    # Unlocks used to be saved only by GET /achievements, so a toast appeared
+    # only after the user went to look. Every page polls here, so check for new
+    # ones too (at most every 30 s per user: it is ~15 queries on a Pi).
+    if time.monotonic() - _last_sync.get(uid, 0) >= _SYNC_EVERY_S:
+        await _sync_earned(conn, uid)
     async with conn.execute(
         "SELECT achievement_id FROM user_achievements WHERE user_id=? AND seen=0", (uid,)
     ) as c:
@@ -330,28 +364,7 @@ async def achievements_page(
     current_user=Depends(get_current_user),
 ):
     uid = current_user["id"]
-
-    earned_now = await _compute_earned(conn, uid)
-
-    # Load already-stored unlock times
-    async with conn.execute(
-        "SELECT achievement_id, unlocked_at FROM user_achievements WHERE user_id=?", (uid,)
-    ) as c:
-        stored = {r["achievement_id"]: r["unlocked_at"] for r in await c.fetchall()}
-
-    # Persist newly earned
-    newly = {aid: ts for aid, ts in earned_now.items() if aid not in stored}
-    for aid, ts in newly.items():
-        try:
-            await conn.execute(
-                "INSERT OR IGNORE INTO user_achievements(user_id, achievement_id, unlocked_at) VALUES (?,?,?)",
-                (uid, aid, ts),
-            )
-        except aiosqlite.Error as exc:
-            logging.warning("achievement insert failed user=%s aid=%s: %s", uid, aid, exc)
-    if newly:
-        await conn.commit()
-        stored.update(newly)
+    stored = await _sync_earned(conn, uid)
 
     # Build display list
     achievements = []
