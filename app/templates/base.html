@@ -767,6 +767,10 @@
       color: #ffffff;
     }
     .confirm-sheet-confirm:hover { background: #b32f26; }
+    /* opts.primary: a confirm that isn't destructive (start another session)
+       is the orange "press" button, not delete red. */
+    .confirm-sheet-confirm.is-primary { background: var(--primary); border-color: var(--primary); color: var(--on-primary); }
+    .confirm-sheet-confirm.is-primary:hover { background: var(--primary-hover); }
     .confirm-sheet-overlay {
       position: fixed;
       inset: 0;
@@ -1494,7 +1498,8 @@
 
     // A modal confirm (alertdialog) for destructive actions. Built here rather
     // than on sheet.js: that one is a single, full-height sheet, and this has to
-    // open on top of it (the coach chat). opts: confirmLabel, onCancel.
+    // open on top of it (the coach chat). opts: confirmLabel, onCancel, primary
+    // (an orange confirm for an action that destroys nothing).
     window.showConfirm = function(message, onConfirm, opts) {
       opts = opts || {};
       var prev = document.getElementById('confirm-sheet');
@@ -1530,7 +1535,7 @@
 
       var confirmBtn = document.createElement('button');
       confirmBtn.type = 'button';
-      confirmBtn.className = 'confirm-sheet-confirm';
+      confirmBtn.className = 'confirm-sheet-confirm' + (opts.primary ? ' is-primary' : '');
       confirmBtn.textContent = opts.confirmLabel || 'Confirm';
 
       actions.appendChild(cancelBtn);

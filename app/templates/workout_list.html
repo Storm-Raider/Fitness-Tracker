@@ -91,7 +91,7 @@ async function startSession(btn) {
   if (_activeWorkoutId) {
     window.showConfirm('You have a session in progress. Start a new one anyway?\n\nYour current session will remain open until you finish it.', async function() {
       await _doStartSession(btn);
-    });
+    }, {confirmLabel: 'Start new', primary: true});
     return;
   }
   await _doStartSession(btn);

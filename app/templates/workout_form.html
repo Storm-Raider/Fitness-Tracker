@@ -1047,7 +1047,7 @@ async function repeatSession(btn) {
     window.location.href = `/workouts/${data.id}?repeat=${WORKOUT_ID}`;
   };
   {% if active_workout_id %}
-  window.showConfirm('You have a session in progress. Start a new one anyway?', go, {confirmLabel: 'Start new'});
+  window.showConfirm('You have a session in progress. Start a new one anyway?', go, {confirmLabel: 'Start new', primary: true});
   {% else %}
   await go();
   {% endif %}
