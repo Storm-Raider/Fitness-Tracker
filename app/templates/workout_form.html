@@ -2925,7 +2925,7 @@ function _refreshFinishStats() {
   const n = document.getElementById('finish-sets');
   if (n) n.textContent = SESSION_SETS.length;
   const v = document.getElementById('finish-volume');
-  if (v) { v.dataset.kg = sessionVolume; v.textContent = fmtWeight(Math.round(sessionVolume), getAppUnit()); }
+  if (v) { v.dataset.kg = sessionVolume; v.textContent = fmtWeight(sessionVolume, getAppUnit()); }
   if (!SESSION_SETS.length) {
     document.getElementById('repeat-btn')?.remove();
     document.getElementById('save-tpl-wrap')?.remove();
