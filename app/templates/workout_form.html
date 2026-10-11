@@ -1080,16 +1080,28 @@ function hideSaveTpl() {
   document.getElementById('save-tpl-btn').style.display='flex';
   document.getElementById('save-tpl-form').style.display='none';
 }
+let _tplSaving = false;   // a double tap saved two templates
 async function doSaveTpl() {
+  if (_tplSaving) return;
   const name = document.getElementById('tpl-name-input').value.trim();
   const errEl = document.getElementById('tpl-save-err');
   errEl.style.display='none';
   if (!name) { errEl.textContent='Enter a name.'; errEl.style.display='block'; return; }
-  const resp = await fetch('/templates', {
-    method:'POST',
-    headers:{'Content-Type':'application/json'},
-    body: JSON.stringify({name, workout_id: {{ workout.id }} })
-  });
+  _tplSaving = true;
+  let resp;
+  try {
+    resp = await fetch('/templates', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({name, workout_id: {{ workout.id }} })
+    });
+  } catch (e) {
+    errEl.textContent = "No connection: the template wasn't saved. Try again when you're back online.";
+    errEl.style.display = 'block';
+    return;
+  } finally {
+    _tplSaving = false;
+  }
   if (resp.ok) {
     document.getElementById('tpl-save-ok').style.display='block';
     document.getElementById('tpl-name-input').disabled=true;
@@ -2115,7 +2127,8 @@ function openRoutineSave() {
 }
 
 // ── Routine save ──────────────────────────────────────────────
-async function saveRoutine() {
+function saveRoutine() { return _once('routine', _saveRoutine); }
+async function _saveRoutine() {
   const name  = document.getElementById('routine-name-input').value.trim();
   const errEl = document.getElementById('routine-save-error');
   errEl.style.display = 'none';
@@ -2124,11 +2137,16 @@ async function saveRoutine() {
   if (!exerciseIds.length) {
     errEl.textContent = 'Log at least one set first.'; errEl.style.display = 'block'; return;
   }
-  const resp = await fetch('/routines', {
-    method: 'POST',
-    headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({name, exercise_ids: exerciseIds}),
-  });
+  let resp;
+  try {
+    resp = await fetch('/routines', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({name, exercise_ids: exerciseIds}),
+    });
+  } catch (e) {
+    errEl.textContent = _offlineMsg("the routine wasn't saved"); errEl.style.display = 'block'; return;
+  }
   if (resp.ok) {
     document.getElementById('routine-save-modal').style.display = 'none';
     document.getElementById('routine-name-input').value = '';
@@ -2189,7 +2207,17 @@ function _updateCardioCount() {
   if (el) el.textContent = n ? `${n} logged` : '';
 }
 
-async function logCardio() {
+// One save at a time per action: a double tap on a slow connection created
+// duplicate cardio entries, routines and templates.
+const _busy = {};
+async function _once(key, fn) {
+  if (_busy[key]) return;
+  _busy[key] = true;
+  try { return await fn(); } finally { _busy[key] = false; }
+}
+
+function logCardio() { return _once('cardio', _logCardio); }
+async function _logCardio() {
   const errEl     = document.getElementById('cardio-error');
   errEl.style.display = 'none';
   const exerciseId = parseInt(document.getElementById('cardio-exercise-select').value);
