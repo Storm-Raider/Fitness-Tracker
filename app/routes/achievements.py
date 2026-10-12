@@ -21,10 +21,10 @@ ACHIEVEMENTS = [
     {"id": "sets_1000",    "name": "Iron Veteran",        "desc": "Log 1,000 sets",                        "icon": "layers",         "tier": "silver", "category": "Sets"},
     {"id": "sets_10000",   "name": "Legendary",           "desc": "Log 10,000 sets",                       "icon": "infinity",       "tier": "gold",   "category": "Sets"},
     # Weight Lifted
-    {"id": "lift_60kg",    "name": "First Plate",         "desc": "Log a set with 60 kg+",                 "icon": "dumbbell",       "tier": "bronze", "category": "Weight Lifted"},
-    {"id": "lift_100kg",   "name": "Century Lift",        "desc": "Log a set with 100 kg+",                "icon": "dumbbell",       "tier": "silver", "category": "Weight Lifted"},
-    {"id": "lift_150kg",   "name": "Beast Mode",          "desc": "Log a set with 150 kg+",                "icon": "flame",          "tier": "silver", "category": "Weight Lifted"},
-    {"id": "lift_200kg",   "name": "Elite",               "desc": "Log a set with 200 kg+",                "icon": "crown",          "tier": "gold",   "category": "Weight Lifted"},
+    {"id": "lift_60kg",    "name": "First Plate",         "desc": "Log a set with 60 kg+",                 "icon": "dumbbell",       "tier": "bronze", "category": "Weight lifted"},
+    {"id": "lift_100kg",   "name": "Century Lift",        "desc": "Log a set with 100 kg+",                "icon": "dumbbell",       "tier": "silver", "category": "Weight lifted"},
+    {"id": "lift_150kg",   "name": "Beast Mode",          "desc": "Log a set with 150 kg+",                "icon": "flame",          "tier": "silver", "category": "Weight lifted"},
+    {"id": "lift_200kg",   "name": "Elite",               "desc": "Log a set with 200 kg+",                "icon": "crown",          "tier": "gold",   "category": "Weight lifted"},
     # Volume
     {"id": "vol_10k",      "name": "Volume King",         "desc": "10,000 kg in one session",              "icon": "trending-up",    "tier": "silver", "category": "Volume"},
     {"id": "vol_100k",     "name": "Hundred Tonnes",      "desc": "100,000 kg total volume lifted",        "icon": "bar-chart-2",    "tier": "silver", "category": "Volume"},
@@ -44,10 +44,10 @@ ACHIEVEMENTS = [
     {"id": "streak_14",    "name": "Two Weeks Strong",    "desc": "14-day training streak",                "icon": "target",         "tier": "silver", "category": "Streaks"},
     {"id": "streak_30",    "name": "Iron Discipline",     "desc": "30-day training streak",                "icon": "shield",         "tier": "gold",   "category": "Streaks"},
     # Personal Records
-    {"id": "prs_1",        "name": "First Record",        "desc": "Set your first personal record",        "icon": "plus-circle",    "tier": "bronze", "category": "Personal Records"},
-    {"id": "prs_10",       "name": "PR Machine",          "desc": "Set 10 personal records",               "icon": "trophy",         "tier": "bronze", "category": "Personal Records"},
-    {"id": "prs_50",       "name": "Record Breaker",      "desc": "Set 50 personal records",               "icon": "star",           "tier": "silver", "category": "Personal Records"},
-    {"id": "prs_100",      "name": "Century PR",          "desc": "Set 100 personal records",              "icon": "sparkles",       "tier": "gold",   "category": "Personal Records"},
+    {"id": "prs_1",        "name": "First Record",        "desc": "Set your first personal record",        "icon": "plus-circle",    "tier": "bronze", "category": "Personal records"},
+    {"id": "prs_10",       "name": "PR Machine",          "desc": "Set 10 personal records",               "icon": "trophy",         "tier": "bronze", "category": "Personal records"},
+    {"id": "prs_50",       "name": "Record Breaker",      "desc": "Set 50 personal records",               "icon": "star",           "tier": "silver", "category": "Personal records"},
+    {"id": "prs_100",      "name": "Century PR",          "desc": "Set 100 personal records",              "icon": "sparkles",       "tier": "gold",   "category": "Personal records"},
     # Variety
     {"id": "variety_5",    "name": "Well Rounded",        "desc": "5 different exercises in one session",  "icon": "shuffle",        "tier": "bronze", "category": "Variety"},
     {"id": "variety_7",    "name": "Variety Pack",        "desc": "7 different exercises in one session",  "icon": "shuffle",        "tier": "silver", "category": "Variety"},
@@ -57,9 +57,9 @@ ACHIEVEMENTS = [
     {"id": "cardio_50",    "name": "Endurance Builder",   "desc": "Log 50 cardio sessions",                "icon": "wind",           "tier": "silver", "category": "Cardio"},
     {"id": "cardio_100km", "name": "Century Runner",      "desc": "Log 100 km total cardio distance",      "icon": "navigation",     "tier": "silver", "category": "Cardio"},
     # Body & Metrics
-    {"id": "measurement",  "name": "Body Tracker",        "desc": "Log a body measurement",                "icon": "ruler",          "tier": "bronze", "category": "Body & Metrics"},
-    {"id": "bw_log_7",     "name": "Scale Watcher",       "desc": "Log bodyweight 7 times",                "icon": "scale",          "tier": "bronze", "category": "Body & Metrics"},
-    {"id": "bw_log_30",    "name": "Scale Devotee",       "desc": "Log bodyweight 30 times",               "icon": "scale",          "tier": "silver", "category": "Body & Metrics"},
+    {"id": "measurement",  "name": "Body Tracker",        "desc": "Log a body measurement",                "icon": "ruler",          "tier": "bronze", "category": "Body & metrics"},
+    {"id": "bw_log_7",     "name": "Scale Watcher",       "desc": "Log bodyweight 7 times",                "icon": "scale",          "tier": "bronze", "category": "Body & metrics"},
+    {"id": "bw_log_30",    "name": "Scale Devotee",       "desc": "Log bodyweight 30 times",               "icon": "scale",          "tier": "silver", "category": "Body & metrics"},
     # Journal
     {"id": "journal_7",    "name": "Mindful",             "desc": "Write 7 journal entries",               "icon": "book-open",      "tier": "bronze", "category": "Journal"},
     {"id": "journal_30",   "name": "Reflective",          "desc": "Write 30 journal entries",              "icon": "book",           "tier": "silver", "category": "Journal"},
