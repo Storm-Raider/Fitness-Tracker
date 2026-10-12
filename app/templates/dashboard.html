@@ -44,6 +44,17 @@
   .delta { font-size: 0.9rem; font-weight: 700; }
   /* charts.py draws at phone size and scales to fit; past ~480px its labels get too big */
   .vol-card svg, .split-card svg { max-width: 480px; }
+  .split-card .k { color: var(--muted); font-size: 0.9rem; font-weight: 600; margin-bottom: 0.75rem; }
+  .split-card { padding-bottom: 1rem; }
+  /* Desktop: the two chart cards side by side. The charts are drawn at phone
+     size, so a half-width column fits them; across the full width they sat in
+     the left half of an empty card. Dense packing lifts the split card up next
+     to the volume card; everything else keeps the full width and phone order. */
+  @media (min-width: 900px) {
+    .home.has-split { grid-template-columns: repeat(2, minmax(0, 1fr)); grid-auto-flow: row dense; }
+    .home.has-split > * { grid-column: 1 / -1; }
+    .home.has-split > .vol-card { grid-column: auto; }
+  }
   .nudges { display: grid; gap: 0.6rem; }
   .nudge {
     display: flex; align-items: center; gap: 0.85rem; min-height: 60px; padding: 0.7rem 1rem;
@@ -76,7 +87,7 @@
   .oura-msg { color: var(--muted); font-size: 0.9rem; }
 </style>
 
-<div class="home">
+<div class="home{% if muscle_bar_svg %} has-split{% endif %}">
 
   <div>
     <h1 class="home-day" id="home-day">Today</h1>
@@ -218,9 +229,9 @@
   {% endif %}
 
   {% if muscle_bar_svg %}
-  <div>
-    <div class="section-title">Muscle split this week</div>
-    <div class="card split-card">{{ muscle_bar_svg | safe }}</div>
+  <div class="vol-card split-card">
+    <div class="k">Muscle split this week</div>
+    {{ muscle_bar_svg | safe }}
   </div>
   {% endif %}
 
