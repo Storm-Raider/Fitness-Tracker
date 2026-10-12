@@ -122,7 +122,7 @@
       <div class="ach-name">{{ ach.name }}</div>
       <div class="ach-desc">{{ ach.desc }}</div>
       {% if ach.unlocked and ach.unlocked_at %}
-        <div class="ach-date">{{ ach.unlocked_at[:10] }}</div>
+        <div class="ach-date">{{ ach.unlocked_at | human_date }}</div>
       {% else %}
         <span style="display:inline-flex;align-items:center;gap:0.3rem;font-size:0.8125rem;font-weight:600;color:var(--muted);"><i data-lucide="lock" class="ach-lock" aria-hidden="true"></i>Locked</span>
       {% endif %}
