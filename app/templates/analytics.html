@@ -101,11 +101,9 @@
 <div style="margin-bottom:1.5rem;">
   <div class="section-title">Strength levels — bodyweight ratios</div>
   <div class="card" style="padding:1.1rem 1.25rem;">
-    <div style="font-size:0.8125rem;color:var(--muted);margin-bottom:1rem;display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;">
-      <span>Based on your bodyweight of <strong style="color:var(--text);"><span class="weight-display" id="bw-display" data-kg="{{ bodyweight_kg | round(1) }}">{{ bodyweight_kg | round(1) }} kg</span></strong></span>
-      <span style="color:var(--border-mid);">·</span>
-      <span>Standard strength classification benchmarks</span>
-    </div>
+    <p style="font-size:0.8125rem;color:var(--muted);margin:0 0 1rem;">
+      Standard strength benchmarks for your bodyweight of <strong style="color:var(--text);"><span class="weight-display num" id="bw-display" data-kg="{{ bodyweight_kg | round(1) }}">{{ bodyweight_kg | round(1) }} kg</span></strong>.
+    </p>
     <div id="percentile-grid" style="display:flex;flex-direction:column;"></div>
   </div>
 </div>
@@ -391,7 +389,7 @@ document.getElementById('pr-search').addEventListener('keydown', e => {
       <i data-lucide="bar-chart-2" style="width:22px;height:22px;color:var(--muted-hi);pointer-events:none;"></i>
     </div>
     <p style="color:var(--muted);font-size:0.875rem;max-width:240px;line-height:1.5;">No sets logged yet — your analytics will appear here.</p>
-    <a href="/workouts" class="btn btn-primary" style="margin-top:0.25rem;">Start a workout</a>
+    <a href="/workouts" class="btn btn-primary" style="margin-top:0.25rem;">Start a session</a>
   </div>
 </div>
 {% endif %}

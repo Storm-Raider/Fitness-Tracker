@@ -44,11 +44,11 @@
   <div>
     <h1>Routines</h1>
     <div class="subtitle">
-      {{ own_routines | length }} saved
-      {%- if lib_routines %} · {{ lib_routines | length }} library{% endif %}
+      <span class="num">{{ own_routines | length }}</span> saved
+      {%- if lib_routines %} · <span class="num">{{ lib_routines | length }}</span> library{% endif %}
     </div>
   </div>
-  <a href="/workouts" class="btn btn-primary">Start session</a>
+  <a href="/workouts" class="btn btn-primary">Start a session</a>
 </div>
 
 {% if not routines %}

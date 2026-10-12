@@ -130,6 +130,7 @@ Two families, both SIL OFL, self-hosted as woff2 in `app/static/fonts/` so the a
 Scale (phone): the next set's fields and logged-set numbers 1.25rem (weight 700); screen titles 2rem; exercise names 1.2rem; body 1rem; labels and captions no smaller than 0.8125rem (13px).
 
 - **Sentence case** for every title, section heading and button: "Body metrics", "Start session", "Log entry". Proper names keep their capitals ("Bench Press").
+- **Say "session", not "workout".** A link that takes you to Sessions reads "Start a session"; only the Sessions page's own button, which starts one at once, reads "Start session". Empty states say "No sessions yet".
 - **Numbers in the number face,** including reps next to a weight ("70 kg × 8") and chart axes (`window.CHART_AXIS_FONT`, Archivo 700 13px). Atkinson's slashed zero never shows in a figure.
 - **Dates read "Sep 13"** (`human_date` in templates, `window.fmtShortDate` in chart scripts), "Today" for today, and "Sunday, Oct 11" as a page subtitle. Never "09-13" or a raw ISO date.
 
@@ -225,5 +226,6 @@ Radii: sm 10px (small buttons, keys), md 14px (inputs, messages), lg 18px (cards
 | 2026-10-11 | Weight/reps as visible fields; picker opens without the keyboard | From the user's iPhone test: the borderless 2.6rem numbers didn't read as fields and were too big, and the exercise picker opened full screen because focusing its search box raised the keyboard. |
 | 2026-10-11 | Audit follow-ups, the user's call on all five | One toggle style (the existing `.seg-toggle`); repeat/delete moved off session rows; bodyweight records are best sets; the Plan page hides the model id and shows setup to the admin only; achievement toasts capped at two. |
 | 2026-10-11 | Design audit consistency pass | A full audit at 390px and 1280px found drift, not new direction: Title Case next to sentence case, reps and chart axes in the body face, "09-13" dates, amber on every row of the records table, two buttons back into a live session, pencil and × icons on every finished set, tables cutting numbers off on a phone, the heatmap opening on last year. Each was brought back to the rules above. |
+| 2026-10-12 | Second consistency pass | Drift since the first pass, plus the new Oura surfaces: raw ISO dates and Title Case categories on Achievements, counts and bodyweight in the body face, a finished session's sets laid out unlike the live ones, "Start a workout" next to "Start session", two orange buttons on an empty Templates page, a weight goal offered on a new bodyweight exercise, Arial on stepper and × buttons, "1 days". Each brought back to the rules above. |
 
 The previous system (Redline Console) is preserved in `docs/design-history/DESIGN-redline-console.md`.

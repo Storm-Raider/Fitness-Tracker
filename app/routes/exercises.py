@@ -283,6 +283,7 @@ async def exercise_detail(
             "total_sets": 0,
             "total_volume": 0,
             "exercise_goal_kg": exercise_goal_kg,
+            "is_bw": exercise["equipment"] == "Bodyweight",
             "user": dict(current_user),
         })
 

@@ -129,8 +129,8 @@
     <textarea id="j-notes" maxlength="1000" placeholder="Anything else worth noting…">{{ today_log.notes or '' }}</textarea>
   </div>
 
-  <div style="display:flex;align-items:center;gap:0.75rem;">
-    <button class="btn btn-primary" id="save-btn" onclick="saveLog()" style="min-height:56px;min-width:140px;">
+  <div style="display:flex;flex-direction:column;gap:0.5rem;">
+    <button class="btn btn-primary" id="save-btn" onclick="saveLog()" style="width:100%;min-height:56px;">
       <i data-lucide="save" style="width:16px;height:16px;pointer-events:none;"></i>
       Save
     </button>

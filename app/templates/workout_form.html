@@ -758,6 +758,15 @@
   white-space: nowrap;
 }
 .ex-group .set-row { border-bottom: none; }
+/* Finished view: grouped sets read like the live session's logged sets: set
+   number, "60 kg × 8" on the 1.25rem number scale, the done fill, centred in
+   the 54px row (the text used to sit at the top of an empty row). */
+.ex-group { counter-reset: setn; padding-bottom: 0.75rem; }
+.ex-group .set-row { counter-increment: setn; background: var(--surface-2); border-radius: 12px; padding: 0 6px; margin-top: 4px; }
+.ex-group .set-main { display: grid; grid-template-columns: 28px minmax(0, 1fr); align-items: center; gap: 6px; padding: 0; }
+.ex-group .set-main::before { content: counter(setn); color: var(--muted); font-size: 0.9rem; text-align: center; }
+.ex-group .set-metric { font-family: var(--f-display); font-stretch: 72%; font-weight: 700; font-size: 1.25rem; color: var(--text); }
+.ex-group .set-metric .weight-display, .ex-group .set-metric .set-reps { font-size: inherit; font-weight: inherit; }
 
 /* Inline set edit (finished view) */
 .set-edit-row {

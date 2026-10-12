@@ -158,8 +158,8 @@
   <div class="tiles">
     <div class="tile"><div class="k">Sessions this week</div><div class="v">{{ weekly_sessions }}</div></div>
     <div class="tile"><div class="k">Avg session length</div><div class="v">{{ avg_duration_min if avg_duration_min is not none else "—" }}{% if avg_duration_min is not none %}<small>min</small>{% endif %}</div></div>
-    <div class="tile"><div class="k">Current streak</div><div class="v">{{ streak }}<small>days</small></div></div>
-    <div class="tile"><div class="k">Best streak</div><div class="v">{{ best_streak }}<small>days</small></div></div>
+    <div class="tile"><div class="k">Current streak</div><div class="v">{{ streak }}<small>{{ "day" if streak == 1 else "days" }}</small></div></div>
+    <div class="tile"><div class="k">Best streak</div><div class="v">{{ best_streak }}<small>{{ "day" if best_streak == 1 else "days" }}</small></div></div>
   </div>
 
   <div class="vol-card">
@@ -209,7 +209,7 @@
       <i data-lucide="scale" style="width:20px;height:20px;flex-shrink:0;"></i>
       <div style="flex:1;min-width:0;">
         <div class="t">Bodyweight</div>
-        <div class="s"><span class="weight-display" data-kg="{{ latest_bodyweight }}">{{ "{:,.1f}".format(latest_bodyweight) }} kg</span></div>
+        <div class="s"><span class="weight-display num" data-kg="{{ latest_bodyweight }}">{{ "{:,.1f}".format(latest_bodyweight) }} kg</span></div>
       </div>
       <i data-lucide="chevron-right" style="width:18px;height:18px;color:var(--muted);flex-shrink:0;"></i>
     </a>
