@@ -313,6 +313,9 @@ async def get_workout(
         "latest_bodyweight": latest_bodyweight,
         "started_at_ms": started_at_ms,
         "active_workout_id": active_workout_id,
+        # Oura readiness for the line under the header before the first set
+        # (live sessions only; None when Oura is off, not connected or not synced today).
+        "oura_today": await _oura_today(conn, current_user["id"]) if not is_finished else None,
     })
 
 
@@ -614,3 +617,11 @@ async def delete_set(
     token, label = await trash.soft_delete_set(conn, uid, set_id)
     await conn.commit()
     return _undo_response(token, label)
+
+
+async def _oura_today(conn, uid: int) -> dict | None:
+    from app.utils import oura, oura_sync
+    if not oura.is_configured() or not await oura_sync.connection(conn, uid):
+        return None
+    d = await oura_sync.today_for(conn, uid)
+    return d if d and d["is_today"] and d["readiness_score"] is not None else None

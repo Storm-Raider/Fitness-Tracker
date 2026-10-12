@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import os
 from contextlib import asynccontextmanager
@@ -16,7 +17,8 @@ from starlette.responses import RedirectResponse
 from app.db import open_db, set_db, clear_db, WriteConflict
 from app.routes.coach_chat import ChatError, router as coach_chat_router
 import app.db as _db
-from app.utils import coach_plan
+from app.utils import coach_plan, oura, oura_sync
+from app.routes import oura as oura_routes
 from app.routes import achievements, analytics, cardio, challenges, coach, dashboard, exercises, export, feedback, import_, journal, metrics, plan, planner, prs, routines, settings, stats, templates, trash, webhooks, workouts
 from app.routes.auth import router as auth_router, COOKIE_NAME, _serializer, _hash_password, _verify_password
 from app.routes.workouts import set_http_client
@@ -29,7 +31,9 @@ _templates = Jinja2Templates(directory=Path(__file__).parent / "templates")
 
 DATABASE_PATH = os.environ.get("DATABASE_PATH", "/data/fitness.db")
 
-_EXEMPT_PATHS = {"/health", "/login", "/logout", "/sw.js", "/forgot-password"}
+# /oura/callback: Oura's redirect back arrives without the SameSite=Strict
+# cookie; the route authenticates by its signed single-use state (app/routes/oura.py).
+_EXEMPT_PATHS = {"/health", "/login", "/logout", "/sw.js", "/forgot-password", "/oura/callback"}
 
 
 def _is_exempt(path: str) -> bool:
@@ -102,6 +106,19 @@ class _AuthMiddleware(BaseHTTPMiddleware):
         return RedirectResponse(url=f"/login?next={quote(next_url, safe='')}", status_code=302)
 
 
+async def _oura_loop(conn, client) -> None:
+    while True:
+        await asyncio.sleep(OURA_SYNC_EVERY_S)
+        if oura.is_configured():
+            try:
+                await oura_sync.sync_all(conn, client)
+            except Exception:                       # never let the loop die
+                logging.getLogger(__name__).exception("oura: periodic sync failed")
+
+
+OURA_SYNC_EVERY_S = 6 * 3600
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     admin_username = os.environ.get("ADMIN_USERNAME", "")
@@ -163,11 +180,15 @@ async def lifespan(app: FastAPI):
 
     client = httpx.AsyncClient()
     set_http_client(client)
+    oura_routes.set_http_client(client)
+    # Oura: every connected user is synced every 6 hours (pages also sync when stale).
+    oura_task = asyncio.create_task(_oura_loop(conn, client))
     # Pre-populate exercise caches (synchronous with startup — DB is open, costs ~5 ms).
     await coach_plan.warm_caches(conn)
     try:
         yield
     finally:
+        oura_task.cancel()
         await client.aclose()
         await conn.close()
         clear_db()
@@ -239,6 +260,7 @@ app.include_router(coach.router)
 app.include_router(coach_chat_router)
 app.include_router(trash.router)
 app.include_router(challenges.router)
+app.include_router(oura_routes.router)
 
 
 @app.get("/health")

@@ -93,6 +93,81 @@
     </script>
   </div>
 
+  {# ── Oura Ring (app/routes/oura.py). Four states: not set up, connect, connected, reconnect. ── #}
+  <div class="card" id="oura-card">
+    <div class="section-title" style="margin-bottom:0.5rem;">Oura Ring</div>
+    {% if oura.flash == 'connected' %}
+    <div class="flash flash-success" role="status" style="margin-bottom:0.85rem;"><b>Connected.</b> Your Oura days are in Zenkai.</div>
+    {% elif oura.flash == 'denied' %}
+    <div class="flash" role="status" style="margin-bottom:0.85rem;">Oura wasn't connected: access wasn't approved on Oura's page.</div>
+    {% elif oura.flash == 'failed' %}
+    <div class="flash flash-error" role="alert" style="margin-bottom:0.85rem;"><b>Couldn't connect.</b> Oura didn't accept the sign-in. Try Connect again.</div>
+    {% endif %}
+
+    {% if not oura.configured %}
+    <p style="font-size:0.9375rem;color:var(--muted);">Oura isn't set up on this server.</p>
+    {% if user.is_admin %}
+    <p style="font-size:0.875rem;color:var(--muted);margin-top:0.5rem;">
+      To turn it on, register an API application at cloud.ouraring.com with the redirect URI
+      <code style="overflow-wrap:anywhere;">{{ oura.redirect_uri }}</code>, then set <code>OURA_CLIENT_ID</code>
+      and <code>OURA_CLIENT_SECRET</code> in <code>.env</code> and restart Zenkai.
+    </p>
+    {% endif %}
+
+    {% elif not oura.connection %}
+    <p style="font-size:0.9375rem;color:var(--muted);margin-bottom:1rem;">
+      Bring your sleep, readiness and activity into Zenkai. It reads only Oura's daily data and keeps it on this server.
+    </p>
+    <a href="/oura/connect" class="btn btn-primary" style="width:100%;min-height:56px;">Connect Oura</a>
+
+    {% elif oura.connection.needs_reconnect %}
+    <p style="font-size:0.9375rem;margin-bottom:1rem;"><b style="color:var(--danger);">Oura stopped accepting this connection.</b>
+      This happens when access is removed in the Oura app. Your synced days are kept.</p>
+    <a href="/oura/connect" class="btn btn-primary" style="width:100%;min-height:56px;">Reconnect Oura</a>
+
+    {% else %}
+    {% set c = oura.connection %}
+    <p style="font-size:0.9375rem;margin-bottom:0.35rem;"><b style="color:var(--success);">Connected.</b>
+      {% if c.last_sync_at %}Last synced {{ c.last_sync_at | human_date }} at <span class="num">{{ c.last_sync_at[11:16] }}</span>.{% else %}Not synced yet.{% endif %}</p>
+    {% if c.last_error %}<p style="font-size:0.875rem;color:var(--muted);">Last sync: {{ c.last_error }}</p>{% endif %}
+    <p id="oura-msg" role="status" style="font-size:0.875rem;color:var(--muted);min-height:1.2em;margin-top:0.25rem;"></p>
+    <div style="display:flex;gap:0.5rem;flex-wrap:wrap;margin-top:0.75rem;">
+      <button type="button" class="btn btn-ghost" id="oura-sync-btn" onclick="ouraSync(this)">Sync now</button>
+      <button type="button" class="btn btn-ghost" style="color:var(--danger);" onclick="ouraDisconnect()">Disconnect</button>
+    </div>
+    <label style="display:flex;align-items:center;gap:0.5rem;margin-top:0.75rem;font-size:0.875rem;color:var(--muted);">
+      <input type="checkbox" id="oura-delete-days" style="width:20px;height:20px;min-height:0;"> Also delete the synced Oura days when disconnecting
+    </label>
+    <script>
+    async function ouraSync(btn) {
+      const msg = document.getElementById('oura-msg');
+      btn.disabled = true; msg.textContent = 'Syncing…';
+      try {
+        const r = await fetch('/oura/sync', {method: 'POST'});
+        const d = await r.json();
+        if (d.status === 'ok') { location.reload(); return; }
+        msg.textContent = d.status === 'reconnect' ? 'Oura stopped accepting this connection. Reconnect below.'
+                        : "Oura didn't respond. Try again in a few minutes.";
+        if (d.status === 'reconnect') location.reload();
+      } catch (e) {
+        msg.textContent = 'No connection. Check your signal and try again.';
+      } finally { btn.disabled = false; }
+    }
+    function ouraDisconnect() {
+      const del = document.getElementById('oura-delete-days').checked;
+      window.showConfirm(del ? 'Disconnect Oura and delete its days from Zenkai?' : 'Disconnect Oura? The days already synced stay in Zenkai.',
+        async function() {
+          try {
+            const r = await fetch('/oura/disconnect', {method: 'POST', headers: {'Content-Type': 'application/json'},
+                                                     body: JSON.stringify({keep_data: !del})});
+            if (r.ok) location.reload();
+          } catch (e) { document.getElementById('oura-msg').textContent = 'No connection. Try again.'; }
+        }, {confirmLabel: 'Disconnect'});
+    }
+    </script>
+    {% endif %}
+  </div>
+
   <div class="card">
     <div class="section-title" style="margin-bottom:1.25rem;">Security</div>
     <form method="post" action="/settings/password">

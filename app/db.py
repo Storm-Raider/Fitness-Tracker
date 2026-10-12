@@ -392,6 +392,34 @@ _MIGRATIONS = [
     # The coach plan's target for this exercise (sets, reps, load, RIR, rest, cue,
     # progression) as JSON, shown in the workout logger. NULL for hand-made routines.
     "ALTER TABLE routine_exercises ADD COLUMN target_json TEXT",
+    # Oura Ring (app/utils/oura_sync.py). One connection per user; tokens live
+    # only here, in the encrypted database, never in the browser or the logs.
+    """CREATE TABLE IF NOT EXISTS oura_connections (
+        user_id         INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+        access_token    TEXT    NOT NULL,
+        refresh_token   TEXT,
+        expires_at      TEXT    NOT NULL,
+        scope           TEXT,
+        connected_at    TEXT    NOT NULL DEFAULT (datetime('now','localtime')),
+        last_sync_at    TEXT,
+        last_error      TEXT,
+        needs_reconnect INTEGER NOT NULL DEFAULT 0
+    )""",
+    # One row per user per Oura day; every value may be missing.
+    """CREATE TABLE IF NOT EXISTS oura_daily (
+        user_id         INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        day             TEXT    NOT NULL,
+        sleep_score     INTEGER,
+        readiness_score INTEGER,
+        sleep_hours     REAL,
+        hrv_ms          REAL,
+        resting_hr      REAL,
+        steps           INTEGER,
+        active_calories INTEGER,
+        temp_deviation  REAL,
+        updated_at      TEXT    NOT NULL DEFAULT (datetime('now','localtime')),
+        PRIMARY KEY (user_id, day)
+    )""",
 ]
 
 
