@@ -41,6 +41,7 @@
   color: var(--text);
 }
 .session-oura { display: block; margin-top: 0.2rem; font-size: 0.875rem; color: var(--muted); }
+.session-oura[hidden] { display: none; }   /* display:block would override the hidden attribute */
 .session-oura b { color: var(--text); font-size: 1rem; }
 .session-meta {
   font-size: 0.9rem;
