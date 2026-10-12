@@ -130,7 +130,7 @@
     <p style="font-size:0.9375rem;margin-bottom:0.35rem;"><b style="color:var(--success);">Connected.</b>
       {% if c.last_sync_at %}Last synced {{ c.last_sync_at | human_date }} at <span class="num">{{ c.last_sync_at[11:16] }}</span>.{% else %}Not synced yet.{% endif %}</p>
     {% if c.last_error %}<p style="font-size:0.875rem;color:var(--muted);">Last sync: {{ c.last_error }}</p>{% endif %}
-    <p id="oura-msg" role="status" style="font-size:0.875rem;color:var(--muted);min-height:1.2em;margin-top:0.25rem;"></p>
+    <p id="oura-msg" role="status" style="font-size:0.875rem;color:var(--muted);"></p>
     <div style="display:flex;gap:0.5rem;flex-wrap:wrap;margin-top:0.75rem;">
       <button type="button" class="btn btn-ghost" id="oura-sync-btn" onclick="ouraSync(this)">Sync now</button>
       <button type="button" class="btn btn-ghost" style="color:var(--danger);" onclick="ouraDisconnect()">Disconnect</button>
