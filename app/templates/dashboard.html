@@ -65,6 +65,15 @@
   .pr-list li:first-child .val { color: var(--pr); }
   .see-all { font-size: 0.9rem; font-weight: 600; color: var(--muted); display: inline-flex; align-items: center; min-height: 44px; }
   .see-all:hover { color: var(--text); }
+  .oura-card { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; min-height: 56px;
+               padding: 0.7rem 1rem; background: var(--surface); border-radius: var(--radius-sm);
+               box-shadow: var(--shadow-sm); color: var(--text); text-decoration: none; }
+  .oura-card:hover { color: var(--text); background: var(--surface-2); }
+  .oura-k { color: var(--muted); font-size: 0.875rem; font-weight: 600; }
+  .oura-vals { display: flex; flex-wrap: wrap; gap: 0.25rem 1rem; font-size: 0.95rem; }
+  .oura-vals b { font-size: 1.2rem; }
+  .oura-vals em { font-style: normal; color: var(--muted); font-size: 0.875rem; font-weight: 600; }
+  .oura-msg { color: var(--muted); font-size: 0.9rem; }
 </style>
 
 <div class="home">
@@ -85,6 +94,26 @@
   <a href="/workouts" class="start-btn">
     <b>Start a session <i data-lucide="arrow-right" style="width:22px;height:22px;"></i></b>
     <span>Pick a routine or log as you go</span>
+  </a>
+  {% endif %}
+
+  {# Oura (connected users only): today's readiness, sleep and HRV. Ink numbers,
+     Oura's own band word; never yesterday passed off as today. #}
+  {% if oura %}
+  <a href="/journal" class="oura-card">
+    {% if oura.needs_reconnect %}
+    <span class="oura-k">Oura</span><span class="oura-msg">Reconnect Oura in Settings to keep your recovery up to date.</span>
+    {% elif oura.day and oura.day.is_today %}
+    {% set d = oura.day %}
+    <span class="oura-k">Today</span>
+    <span class="oura-vals">
+      {% if d.readiness_score is not none %}<span>Readiness <b class="num">{{ d.readiness_score }}</b>{% if d.band %} <em>{{ d.band }}</em>{% endif %}</span>{% endif %}
+      {% if d.sleep_score is not none %}<span>Sleep <b class="num">{{ d.sleep_score }}</b></span>{% endif %}
+      {% if d.hrv_ms is not none %}<span>HRV <b class="num">{{ d.hrv_ms | round | int }}</b> ms</span>{% endif %}
+    </span>
+    {% else %}
+    <span class="oura-k">Oura</span><span class="oura-msg">Waiting for today's Oura sync.</span>
+    {% endif %}
   </a>
   {% endif %}
 

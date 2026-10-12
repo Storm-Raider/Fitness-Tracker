@@ -6,6 +6,7 @@ from fastapi.responses import HTMLResponse
 
 from app.db import get_db
 from app.routes.auth import get_current_user
+from app.utils import oura, oura_sync
 from app.utils import challenges as ch
 from app.utils.charts import generate_muscle_bars, generate_weekly_bar_chart
 from app.utils.heatmap import generate_heatmap_svg, heatmap_start
@@ -282,6 +283,7 @@ async def dashboard(
             "avg_duration_min": avg_duration_min,
             "best_streak": best_streak,
             "active_workout": active_workout,
+            "oura": await _oura_card(conn, uid),
             "weekly_bar_svg": weekly_bar_svg,
             "muscle_bar_svg": muscle_bar_svg,
             "volume_delta_pct": volume_delta_pct,
@@ -291,3 +293,14 @@ async def dashboard(
             "user": dict(current_user),
         },
     )
+
+
+async def _oura_card(conn, uid: int) -> dict | None:
+    """Home's recovery card: today's Oura day (or why there isn't one). None
+    when Oura is off or this user hasn't connected a ring."""
+    if not oura.is_configured():
+        return None
+    status = await oura_sync.connection(conn, uid)
+    if not status:
+        return None
+    return {"needs_reconnect": bool(status["needs_reconnect"]), "day": await oura_sync.today_for(conn, uid)}

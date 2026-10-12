@@ -7,6 +7,7 @@ from pydantic import BaseModel, Field, field_validator
 
 from app.db import get_db
 from app.routes.auth import get_current_user
+from app.utils import oura, oura_sync
 from app.utils.render import templates
 
 router = APIRouter()
@@ -79,6 +80,7 @@ async def journal_page(
     return templates.TemplateResponse(request, "journal.html", {
         "user": dict(current_user),
         "today": today,
+        "oura_today": await _oura_day(conn, uid, today),
         "today_log": today_log,
         "active_day": active_day,
         "history": history,
@@ -138,4 +140,16 @@ async def get_entry_for_date(
         "SELECT * FROM daily_logs WHERE user_id=? AND log_date=?", (uid, date_str)
     ) as c:
         row = await c.fetchone()
-    return JSONResponse({"entry": dict(row) if row else None})
+    return JSONResponse({"entry": dict(row) if row else None, "oura": await _oura_day(conn, uid, date_str)})
+
+
+async def _oura_day(conn, uid: int, day: str) -> dict | None:
+    """That day's Oura numbers for the log's pre-fill (None when not connected
+    or nothing synced): the form fills only EMPTY fields with them."""
+    if not oura.is_configured():
+        return None
+    d = await oura_sync.day_for(conn, uid, day)
+    if not d:
+        return None
+    keys = ("sleep_hours", "steps", "resting_hr", "hrv_ms", "readiness_score", "sleep_score")
+    return {**{k: d[k] for k in keys}, "band": oura.band(d["readiness_score"])}

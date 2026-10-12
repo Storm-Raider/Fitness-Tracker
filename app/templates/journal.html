@@ -4,6 +4,8 @@
 <style>
 .jf-row { display:flex; flex-direction:column; gap:0.3rem; margin-bottom:1rem; }
 .jf-row label { margin-bottom:0; }
+.oura-tag { font-size:0.8125rem; font-weight:600; color:var(--muted); margin-left:0.35rem; }
+.oura-line { font-size:0.875rem; color:var(--muted); margin:-0.25rem 0 0.75rem; }
 .jf-row input[type=text], .jf-row input[type=number], .jf-row input[type=date], .jf-row textarea {
   width:100%; }
 .jf-row textarea { resize:vertical; min-height:80px; }
@@ -88,16 +90,17 @@
     </div>
 
     <div class="jf-row">
-      <label for="j-sleep">Sleep (hrs)</label>
+      <label for="j-sleep">Sleep (hrs) <span class="oura-tag" id="oura-tag-sleep" hidden>from Oura</span></label>
       <input type="number" id="j-sleep" min="0" max="24" step="0.5" placeholder="e.g. 8"
              value="{{ today_log.sleep_hrs if today_log and today_log.sleep_hrs is not none else '' }}">
     </div>
 
     <div class="jf-row">
-      <label for="j-steps">Steps</label>
+      <label for="j-steps">Steps <span class="oura-tag" id="oura-tag-steps" hidden>from Oura</span></label>
       <input type="number" id="j-steps" min="0" placeholder="e.g. 4000"
              value="{{ today_log.steps if today_log and today_log.steps is not none else '' }}">
     </div>
+    <p id="oura-line" class="oura-line" hidden></p>
 
   </div>
 
@@ -232,6 +235,29 @@ async function saveLog() {
 // Fully clears and repopulates every field from `entry` (or blanks them all
 // if `entry` is null) — never leaves a stale value from a previously-loaded
 // date sitting in a field the new entry doesn't have.
+// Oura (when connected): fill sleep and steps only where the field is EMPTY
+// (what you typed always wins), tag them "from Oura", and show the numbers the
+// log has no field for. Typing in a tagged field drops its tag.
+const OURA_TODAY = {{ oura_today | tojson }};
+function applyOura(o) {
+  const line = document.getElementById('oura-line');
+  [['j-sleep', 'oura-tag-sleep', o && o.sleep_hours != null ? Math.round(o.sleep_hours * 10) / 10 : null],
+   ['j-steps', 'oura-tag-steps', o && o.steps != null ? o.steps : null]].forEach(([id, tagId, v]) => {
+    const inp = document.getElementById(id), tag = document.getElementById(tagId);
+    const fill = v != null && inp.value === '';
+    if (fill) inp.value = v;
+    tag.hidden = !fill;
+    inp.oninput = () => { tag.hidden = true; };
+  });
+  const bits = [];
+  if (o && o.readiness_score != null) bits.push(`readiness ${o.readiness_score}${o.band ? ' (' + o.band + ')' : ''}`);
+  if (o && o.resting_hr != null) bits.push(`resting HR ${Math.round(o.resting_hr)} bpm`);
+  if (o && o.hrv_ms != null) bits.push(`HRV ${Math.round(o.hrv_ms)} ms`);
+  line.textContent = bits.length ? 'Oura: ' + bits.join(' · ') : '';
+  line.hidden = !bits.length;
+}
+document.addEventListener('DOMContentLoaded', () => applyOura(OURA_TODAY));
+
 function populateForm(dateStr, entry) {
   document.getElementById('j-day').value =
     (entry && entry.day_number) ? entry.day_number
@@ -269,7 +295,10 @@ async function loadEntryForDate(dateStr, entry) {
   document.getElementById('j-date').value = dateStr;
   if (entry !== undefined) {
     populateForm(dateStr, entry);
+    applyOura(null);
     window.scrollTo({top:0, behavior:'smooth'});
+    fetch('/journal/entry?date=' + encodeURIComponent(dateStr))      // that day's Oura numbers
+      .then(r => r.ok ? r.json() : {}).then(d => applyOura(d.oura || null)).catch(() => {});
     return;
   }
   let data;
@@ -280,6 +309,7 @@ async function loadEntryForDate(dateStr, entry) {
     data = {entry: null}; // network failure — fall back to a blank form for this date
   }
   populateForm(dateStr, data.entry);
+  applyOura(data.oura || null);
 }
 
 function onDateChanged(dateStr) {

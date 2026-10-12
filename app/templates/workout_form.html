@@ -40,6 +40,8 @@
   line-height: 1.05;
   color: var(--text);
 }
+.session-oura { display: block; margin-top: 0.2rem; font-size: 0.875rem; color: var(--muted); }
+.session-oura b { color: var(--text); font-size: 1rem; }
 .session-meta {
   font-size: 0.9rem;
   color: var(--muted);
@@ -942,6 +944,10 @@
       <span aria-hidden="true">·</span>
       <span class="num" id="session-volume">{{ "{:,.0f}".format(session_volume) }} kg</span>
     </span>
+    {% if oura_today %}
+    {# Today's Oura readiness before the first set; gone once a set is logged. #}
+    <span class="session-oura" id="session-oura" {% if sets %}hidden{% endif %}>Readiness <b class="num">{{ oura_today.readiness_score }}</b>{% if oura_today.band %} ({{ oura_today.band }}){% endif %}</span>
+    {% endif %}
     {% endif %}
   </div>
   <div class="session-hdr-actions">
@@ -1476,6 +1482,8 @@ function epley1RM(weight, reps) {
 // Header: "12m · 9 sets · 1,440 kg"
 function updateSessionMeta() {
   const n = SESSION_SETS.length;
+  const ouraLine = document.getElementById('session-oura');
+  if (ouraLine) ouraLine.hidden = n > 0;
   const nEl = document.getElementById('meta-sets');
   if (nEl) nEl.textContent = n;
   const lbl = document.getElementById('meta-sets-lbl');

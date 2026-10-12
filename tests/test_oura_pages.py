@@ -65,3 +65,59 @@ async def test_page_load_starts_a_stale_sync(client, anon_client, db, fake):
     await client.get("/achievements/unseen")
     await asyncio.gather(*list(oura_sync._tasks))
     assert len(fake.requests) > n
+
+
+async def _put_day(db, day, **vals):
+    base = {"sleep_score": 80, "readiness_score": 82, "sleep_hours": 7.25, "hrv_ms": 48.0, "resting_hr": 52.0,
+            "steps": 9000, "active_calories": 300, "temp_deviation": 0.1}
+    base.update(vals)
+    await db.execute(f"INSERT OR REPLACE INTO oura_daily(user_id, day, {', '.join(base)}) VALUES (1, ?, {', '.join('?' for _ in base)})",
+                     (day, *base.values()))
+    await db.commit()
+
+
+async def _connect_only(db):
+    await oura_sync.save_tokens(db, 1, {"access_token": "A", "refresh_token": "R",
+                                        "expires_at": (datetime.now() + timedelta(days=1)).isoformat(timespec="seconds")})
+
+
+@pytest.mark.asyncio
+async def test_daily_log_offers_oura_values_for_empty_fields_only(client, db):
+    from datetime import date
+    today = date.today().isoformat()
+    await _connect_only(db)
+    await _put_day(db, today)
+    page = (await client.get("/journal")).text
+    assert '"steps": 9000' in page and '"sleep_hours": 7.25' in page and 'id="oura-tag-sleep"' in page
+    # past day via the entry API carries that day's Oura numbers
+    await _put_day(db, "2026-01-05", steps=1234)
+    data = (await client.get("/journal/entry?date=2026-01-05")).json()
+    assert data["oura"]["steps"] == 1234 and data["oura"]["band"] == "Good"
+    assert (await client.get("/journal/entry?date=2026-01-06")).json()["oura"] is None
+
+
+@pytest.mark.asyncio
+async def test_home_card_today_waiting_and_absent(client, db):
+    from datetime import date
+    H = {"Accept": "text/html"}
+    assert 'class="oura-card"' not in (await client.get("/", headers=H)).text      # not connected
+    await _connect_only(db)
+    page = (await client.get("/", headers=H)).text
+    assert "Waiting for today's Oura sync." in page
+    await _put_day(db, date.today().isoformat())
+    page = (await client.get("/", headers=H)).text
+    assert "Readiness <b class=\"num\">82</b> <em>Good</em>" in page and "HRV <b class=\"num\">48</b>" in page
+
+
+@pytest.mark.asyncio
+async def test_session_line_before_the_first_set(client, db):
+    from datetime import date
+    await _connect_only(db)
+    await _put_day(db, date.today().isoformat(), readiness_score=64)
+    w = (await client.post("/workouts", json={})).json()["id"]
+    page = (await client.get(f"/workouts/{w}")).text
+    assert 'id="session-oura" >Readiness' in page and "(Fair)" in page          # shown, not hidden
+    ex = (await client.post("/exercises", json={"name": "Oura Line Lift"})).json()["id"]
+    await client.post(f"/workouts/{w}/sets", json={"exercise_id": ex, "reps": 5, "weight_kg": 50})
+    page = (await client.get(f"/workouts/{w}")).text
+    assert 'id="session-oura" hidden' in page
