@@ -78,6 +78,9 @@
       touch-action: manipulation;
     }
     html { font-family: var(--f-ui); -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+    /* Form controls don't inherit the page font by default: the steppers' − and +
+       and the × buttons rendered in Arial. Classes that set a face still win. */
+    button, input, select, textarea { font-family: inherit; }
     /* The page is never wider than the screen. If anything overflows sideways,
        iOS lays the page out wider, zooms out to fit, and zooms back in whenever
        a field is focused (the "zoom when I type"). Overflow is fixed at its
