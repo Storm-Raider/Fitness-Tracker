@@ -101,11 +101,9 @@
 <div style="margin-bottom:1.5rem;">
   <div class="section-title">Strength levels — bodyweight ratios</div>
   <div class="card" style="padding:1.1rem 1.25rem;">
-    <div style="font-size:0.8125rem;color:var(--muted);margin-bottom:1rem;display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;">
-      <span>Based on your bodyweight of <strong style="color:var(--text);"><span class="weight-display num" id="bw-display" data-kg="{{ bodyweight_kg | round(1) }}">{{ bodyweight_kg | round(1) }} kg</span></strong></span>
-      <span style="color:var(--border-mid);">·</span>
-      <span>Standard strength classification benchmarks</span>
-    </div>
+    <p style="font-size:0.8125rem;color:var(--muted);margin:0 0 1rem;">
+      Standard strength benchmarks for your bodyweight of <strong style="color:var(--text);"><span class="weight-display num" id="bw-display" data-kg="{{ bodyweight_kg | round(1) }}">{{ bodyweight_kg | round(1) }} kg</span></strong>.
+    </p>
     <div id="percentile-grid" style="display:flex;flex-direction:column;"></div>
   </div>
 </div>
