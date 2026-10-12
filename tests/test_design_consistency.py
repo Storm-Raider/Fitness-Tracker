@@ -13,4 +13,4 @@ async def test_a_new_bodyweight_exercise_offers_no_weight_goal(client):
     ex = await _pullup_id(client)
     page = (await client.get(f"/exercises/{ex}", headers=HTML)).text
     assert "No sets logged for this exercise" in page
-    assert "goal-set-trigger" not in page
+    assert "Set a weight goal" not in page and 'id="goal-set-trigger"' not in page
