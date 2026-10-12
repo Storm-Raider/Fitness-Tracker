@@ -119,6 +119,8 @@ All settings go in `.env` (copied from `.env.example`):
 | `GEMINI_CHAT_MODEL` | No | `GEMINI_MODEL` | Model for the Coach chat |
 | `COACH_AI_MAX_PER_DAY` | No | `300` | App-wide cap on Gemini requests per day (Pacific time, when Google's quota resets). Set it to about 80% of your real limit from <https://ai.dev/rate-limit> |
 | `COACH_CHAT_ENABLED` | No | `true` | `false` turns the Coach chat off (undo and note management keep working) |
+| `OURA_CLIENT_ID` | For Oura | — | Client ID of your Oura API application (see [Oura Ring](#oura-ring)). Oura is off unless this and the secret are set |
+| `OURA_CLIENT_SECRET` | For Oura | — | Its client secret (never commit) |
 
 ---
 
@@ -208,6 +210,27 @@ the key, set `COACH_CHAT_ENABLED=false` to keep generation but turn the chat off
 `GEMINI_API_KEY` unset and the Coach stays disabled (everything else is unaffected).
 
 ---
+
+## Oura Ring
+
+Each user can connect their own Oura ring. Zenkai reads Oura's **daily data** (sleep, readiness, activity) and stores it on this server; it never writes to Oura.
+
+**Setup (once, admin):**
+
+1. Make sure `PUBLIC_URL` is the **https** address Zenkai is opened at (a Tailscale `https://….ts.net` name works).
+2. At [cloud.ouraring.com](https://cloud.ouraring.com) → *API Applications*, create an application with the redirect URI `{PUBLIC_URL}/oura/callback`.
+3. Put its ID and secret in `.env` as `OURA_CLIENT_ID` and `OURA_CLIENT_SECRET`, and restart Zenkai.
+
+**Connecting:** Settings → *Oura Ring* → **Connect Oura**, approve on Oura's page. The first sync fetches the last 90 days.
+
+**What it does:**
+- **Daily log:** empty sleep and steps fields are pre-filled from Oura ("from Oura"); anything you typed wins. Resting heart rate, HRV and readiness show beside them.
+- **Home:** today's readiness (with Oura's word: Optimal, Good, Fair, Pay attention), sleep score and HRV.
+- **Session:** the readiness shows under the header until the first set.
+
+**Syncing:** whenever you open a page and the last sync is over 30 minutes old (in the background), every 6 hours, and on *Sync now*. Each sync re-fetches the last 3 days, since Oura revises recent days.
+
+**Privacy:** tokens and data stay in Zenkai's (encrypted) database; tokens are never sent to the browser or logged. Disconnect removes the tokens and, if you tick the box, the synced days. Personal access tokens no longer exist at Oura (retired December 2025), so the OAuth app is required.
 
 ## Auto-deploy on merge
 
