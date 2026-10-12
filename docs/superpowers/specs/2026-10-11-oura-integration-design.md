@@ -139,6 +139,7 @@ The only module that talks to Oura. Pure functions plus thin async HTTP, using t
     - `resting_hr_vs_baseline_bpm`
   - These are prompt lines, e.g. "Recovery: readiness 7-day avg 68 (Fair), HRV 14% below the 30-day baseline". They are sent to Gemini.
   - Rule: if `avg_readiness_7d < 70` or `hrv_vs_baseline_pct <= -15`, `_volume_delta` gives −1. It stays clamped to [−1, 1] with the existing wellness and feedback signals.
+  - As built: Oura and the journal's sleep/energy signal count as one "run down" step, not two, since they usually report the same bad night. So "too easy" feedback plus a run-down week nets 0.
 - **Analytics:** a **Recovery** section, shown only when there are Oura days in the last 12 weeks.
   - One canvas line chart with the shared `.seg-toggle`: Readiness / Sleep / HRV / Resting HR.
   - Weekly averages over 12 weeks, keyed by week Monday like the volume chart.

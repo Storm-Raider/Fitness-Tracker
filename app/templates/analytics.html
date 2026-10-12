@@ -423,6 +423,28 @@ document.getElementById('pr-search').addEventListener('keydown', e => {
   </div>
 </div>
 
+{# ── 5b. Oura recovery (only with Oura days in the last 12 weeks) ── #}
+{% if recovery_json %}
+<div style="margin-bottom:1.5rem;">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.6rem;flex-wrap:wrap;gap:0.5rem;">
+    <div class="section-title" style="margin-bottom:0;">Recovery (Oura) — last 12 weeks</div>
+    <div class="seg-toggle" role="group" aria-label="Recovery measure">
+      <button type="button" aria-pressed="true" data-key="readiness">Readiness</button>
+      <button type="button" aria-pressed="false" data-key="sleep">Sleep</button>
+      <button type="button" aria-pressed="false" data-key="hrv">HRV</button>
+      <button type="button" aria-pressed="false" data-key="rhr">Resting HR</button>
+    </div>
+  </div>
+  <div class="card" style="padding:0.85rem 1.25rem 0.65rem;">
+    <div style="position:relative;">
+      <canvas id="rec-chart" role="img" aria-label="Weekly Oura readiness" style="display:block;width:100%;cursor:crosshair;"></canvas>
+      <div id="rec-chart-tip" style="display:none;position:absolute;top:4px;background:var(--surface);border:1px solid var(--border-mid);border-radius:var(--radius-xs);padding:0.45rem 0.7rem;pointer-events:none;z-index:10;white-space:nowrap;box-shadow:var(--shadow);"></div>
+    </div>
+    <p id="rec-chart-note" style="margin:0.4rem 0 0;font-size:0.8125rem;color:var(--muted);">Weekly average readiness score, out of 100.</p>
+  </div>
+</div>
+{% endif %}
+
 {# ── 6. Stalled exercises ────────────────────────────────────────── #}
 {% if stalled %}
 <div style="margin-bottom:1.5rem;">
@@ -604,6 +626,132 @@ document.getElementById('pr-search').addEventListener('keydown', e => {
   canvas.style.cursor = 'pointer';
   window.addEventListener('unitchange', draw);
   window.addEventListener('resize',     clearH);
+  requestAnimationFrame(draw);
+})();
+</script>
+{% endif %}
+
+{% if recovery_json %}
+<script>
+(function () {
+  const RECOVERY = {{ recovery_json | safe }};
+  const MEASURES = {
+    readiness: { name: 'readiness', unit: '',     note: 'Weekly average readiness score, out of 100.' },
+    sleep:     { name: 'sleep',     unit: '',     note: 'Weekly average sleep score, out of 100.' },
+    hrv:       { name: 'HRV',       unit: ' ms',  note: 'Weekly average overnight HRV, in milliseconds. Higher usually means better recovered.' },
+    rhr:       { name: 'resting HR', unit: ' bpm', note: 'Weekly average lowest overnight heart rate, in beats per minute. Lower usually means better recovered.' },
+  };
+  let key = 'readiness', hoverIdx = -1;
+
+  const canvas = document.getElementById('rec-chart');
+  const tip    = document.getElementById('rec-chart-tip');
+  const note   = document.getElementById('rec-chart-note');
+  const ctx    = canvas.getContext('2d');
+  const PL = 40, PR = 16, PT = 14, PB = 32, H = 180;
+  const tok = (n, fb) => (getComputedStyle(document.documentElement).getPropertyValue(n).trim() || fb);
+  const C = { data: tok('--data', '#141414'), grid: tok('--border', '#dddcd6'),
+              axis: tok('--muted', '#5d5d58'), ring: tok('--ring', '#8f8e88'), surface: tok('--surface', '#ffffff') };
+  const AXIS_FONT = window.CHART_AXIS_FONT;
+  const n = RECOVERY.length;
+  const xAt = (i, W) => PL + (n <= 1 ? (W-PL-PR)/2 : (i/(n-1))*(W-PL-PR));
+
+  function draw() {
+    const dpr = window.devicePixelRatio || 1;
+    const W = canvas.offsetWidth || 600;
+    canvas.width = W * dpr; canvas.height = H * dpr; canvas.style.height = H + 'px';
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, W, H);
+    const vs = RECOVERY.map(d => d[key]);
+    const have = vs.filter(v => v != null);
+    if (!have.length) {
+      ctx.fillStyle = C.axis; ctx.font = "400 14px system-ui, sans-serif"; ctx.textAlign = 'center';
+      ctx.fillText('No ' + MEASURES[key].name + ' data in these weeks', W / 2, H / 2);
+      return;
+    }
+    const cH = H - PT - PB;
+    // Pad the range so a flat line sits mid-chart instead of on an edge.
+    let lo = Math.min(...have), hi = Math.max(...have);
+    const pad = Math.max(2, (hi - lo) * 0.2);
+    lo = Math.max(0, Math.floor(lo - pad)); hi = Math.ceil(hi + pad);
+    const gy = v => PT + (1 - (v - lo) / (hi - lo)) * cH;
+
+    ctx.font = AXIS_FONT;
+    [lo, Math.round((lo + hi) / 2), hi].forEach(gv => {
+      const y = gy(gv);
+      ctx.strokeStyle = C.grid; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(PL, y); ctx.lineTo(W - PR, y); ctx.stroke();
+      ctx.fillStyle = C.axis; ctx.textAlign = 'right';
+      ctx.fillText(gv, PL - 6, y + 4);
+    });
+    if (hoverIdx >= 0) {
+      ctx.strokeStyle = C.ring; ctx.setLineDash([3, 3]);
+      ctx.beginPath(); ctx.moveTo(xAt(hoverIdx, W), PT); ctx.lineTo(xAt(hoverIdx, W), PT + cH); ctx.stroke();
+      ctx.setLineDash([]);
+    }
+    // The line breaks over weeks without data rather than inventing a value.
+    ctx.strokeStyle = C.data; ctx.lineWidth = 2; ctx.lineJoin = 'round';
+    ctx.beginPath();
+    let pen = false;
+    vs.forEach((v, i) => {
+      if (v == null) { pen = false; return; }
+      pen ? ctx.lineTo(xAt(i, W), gy(v)) : ctx.moveTo(xAt(i, W), gy(v));
+      pen = true;
+    });
+    ctx.stroke();
+    let last = -1;
+    vs.forEach((v, i) => { if (v != null) last = i; });
+    vs.forEach((v, i) => {
+      if (v == null) return;
+      const big = i === last || i === hoverIdx;
+      ctx.fillStyle = C.data;
+      ctx.beginPath(); ctx.arc(xAt(i, W), gy(v), big ? 5 : 3, 0, Math.PI * 2); ctx.fill();
+      if (big) {   // the newest week: a hollow centre marks it
+        ctx.fillStyle = C.surface;
+        ctx.beginPath(); ctx.arc(xAt(i, W), gy(v), 2, 0, Math.PI * 2); ctx.fill();
+      }
+    });
+    ctx.fillStyle = C.axis;
+    const step = Math.max(1, Math.ceil(n / Math.max(1, Math.floor((W - PL - PR) / 64))));
+    RECOVERY.forEach((d, i) => {
+      if ((n - 1 - i) % step !== 0) return;
+      ctx.textAlign = i === 0 ? 'left' : i === n - 1 ? 'right' : 'center';
+      ctx.fillText(d.label, xAt(i, W), H - 8);
+    });
+  }
+
+  function showTip(idx) {
+    const d = RECOVERY[idx], m = MEASURES[key], v = d[key];
+    tip.innerHTML =
+      `<div style="font-size:0.8125rem;color:var(--muted);margin-bottom:0.2rem;">Week of ${d.label}</div>` +
+      (v == null ? `<span style="font-size:0.875rem;color:var(--muted);">No Oura data</span>`
+                 : `<span class="num" style="color:var(--text);font-size:1rem;">${v}${m.unit}</span>`);
+    tip.style.display = 'block';
+    const W = canvas.offsetWidth, tw = tip.offsetWidth;
+    tip.style.left = Math.max(0, Math.min(W - tw, xAt(idx, W) - tw / 2)) + 'px';
+  }
+  function hover(cx) {
+    const rect = canvas.getBoundingClientRect(), W = canvas.offsetWidth;
+    const frac = Math.max(0, Math.min(1, (cx - rect.left - PL) / (W - PL - PR)));
+    const idx = Math.round(frac * (n - 1));
+    if (idx !== hoverIdx) { hoverIdx = idx; draw(); }
+    showTip(idx);
+  }
+  function clearH() { hoverIdx = -1; tip.style.display = 'none'; draw(); }
+
+  document.querySelectorAll('[aria-label="Recovery measure"] button').forEach(btn => {
+    btn.addEventListener('click', () => {
+      key = btn.dataset.key;
+      btn.parentElement.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', String(b === btn)));
+      note.textContent = MEASURES[key].note;
+      canvas.setAttribute('aria-label', 'Weekly Oura ' + MEASURES[key].name);
+      clearH();
+    });
+  });
+  canvas.addEventListener('mousemove',  e => hover(e.clientX));
+  canvas.addEventListener('mouseleave', clearH);
+  canvas.addEventListener('touchmove',  e => { e.preventDefault(); hover(e.touches[0].clientX); }, { passive: false });
+  canvas.addEventListener('touchend',   clearH);
+  window.addEventListener('resize', clearH);
   requestAnimationFrame(draw);
 })();
 </script>
