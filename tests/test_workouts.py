@@ -301,7 +301,7 @@ async def test_log_set_with_rpe(client):
     assert '"rpe": 8' in page.text
     await client.post(f"/workouts/{w_id}/finish")
     page = await client.get(f"/workouts/{w_id}", headers={"Accept": "text/html"})
-    assert "RPE 8" in page.text
+    assert "Hard effort" in page.text          # RPE is shown as a plain effort word
 
 
 @pytest.mark.asyncio

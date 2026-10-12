@@ -26,6 +26,8 @@ All notable changes to Zenkai are documented here.
 
 ### Fixed
 - **The exercise picker opens partway, without the keyboard.** It focused the search box on open, so on an iPhone the keyboard came up at once and the sheet filled the screen. It now opens with the list showing; tap the search box to type.
+- **"RPE" is now "How hard was it?"** with Easy, Medium, Hard and Max, and it and the set note are always shown instead of behind a "RPE and set notes" tap. Logged sets read "Hard effort". Older RPE values show as the nearest word and are kept as they are.
+- **The muscle diagram no longer looks shifted sideways.** The body outline was wider on its right than its left while the muscles were drawn symmetrically; the outline is now mirrored about the centre.
 - **Weight and reps look like fields you can type in,** with a white box and outline at a smaller size, instead of borderless oversized numbers.
 - **The coach no longer makes Push-up your main lift.** The plan picks each day's heavy main and secondary lifts from what you train most, so a bodyweight lift you log a lot (Push-up) took the 5 × 3-5 bench slot. Bodyweight lifts you never add load to now rank behind loaded lifts in those slots; one you do load (weighted dips or pull-ups) keeps its place, and with bodyweight-only gear it is still picked.
 - **Bodyweight exercises no longer show your bodyweight as a record.** "Pull-up 80 kg, est. 1RM 101 kg" was your bodyweight. A bodyweight record is now the best set (added load, then hold, then reps), shown as "BW × 12" or "BW +10 kg × 5" on Home, Analytics, Exercises and the exercise page, which charts reps instead of weight and drops the kg goal. Logging a set at a heavier bodyweight with fewer reps no longer celebrates a record.
