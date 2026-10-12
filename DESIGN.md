@@ -127,7 +127,7 @@ Two families, both SIL OFL, self-hosted as woff2 in `app/static/fonts/` so the a
   - Numbers: weight 800, width 72%, `font-variant-numeric: tabular-nums` (every digit the same width, so a changing weight never makes the layout jump). Use the `.num` class.
 - **Atkinson Hyperlegible Next** (Braille Institute), weights 400/600/700. All interface and body text. Chosen for legibility at a glance mid-workout.
 
-Scale (phone): active-set numbers 2.6rem; logged-set numbers 1.55rem; screen titles 2rem; exercise names 1.2rem; body 1rem; labels and captions no smaller than 0.8125rem (13px).
+Scale (phone): active-set fields 1.6rem; logged-set numbers 1.55rem; screen titles 2rem; exercise names 1.2rem; body 1rem; labels and captions no smaller than 0.8125rem (13px).
 
 - **Sentence case** for every title, section heading and button: "Body metrics", "Start session", "Log entry". Proper names keep their capitals ("Bench Press").
 - **Numbers in the number face,** including reps next to a weight ("70 kg × 8") and chart axes (`window.CHART_AXIS_FONT`, Archivo 700 13px). Atkinson's slashed zero never shows in a figure.
@@ -143,9 +143,9 @@ Scale (phone): active-set numbers 2.6rem; logged-set numbers 1.55rem; screen tit
   - Header: "In session", a live line (elapsed · N sets · volume), a ⋯ button and the orange Finish button. The ⋯ opens a sheet with the weight unit, Save as routine and Delete session, so nothing destructive sits next to Finish.
   - Exercise strip: a sideways-scrolling row of chips for this session's exercises: logged ones with their set count and a tick, planned ones (routine, template or repeat) dashed with "0/3" when the routine sets a target, the current one filled in ink, and "+ Exercise" last. A tap switches exercise.
   - The current exercise card: name and muscles with a Change button, "Last time" (from before this session), the coach target and cue if any, and +2.5 kg / +1 rep chips before the first set. Then the logged sets and the next set.
-  - Search, routine and muscle filters live in a "Choose exercise" sheet (Change, + Exercise, or the empty state's button). A name with no match offers to log it as a new exercise.
+  - Search, routine and muscle filters live in a "Choose exercise" sheet (Change, + Exercise, or the empty state's button). It opens partway with the list showing and focus on its title, so the keyboard stays down until the search box is tapped (focusing the box raised the iPhone keyboard at once, and with the keyboard up the sheet fills the screen). A name with no match offers to log it as a new exercise.
   - Set rows: set number, the set ("60 kg × 8") and a round tick (44px), each row at least 54px tall. Tap a logged set to fix its numbers or delete it; swipe left also deletes. Both ask first.
-  - The next set is outlined in orange and shows big numbers: this session's last set of the exercise, else last time's, else blank (never a number carried over from another exercise). Tapping a number selects it, so typing replaces it. The round orange tick logs the set. RPE and set notes sit behind a one-line disclosure.
+  - The next set is outlined in orange; its weight and reps are fields that show this session's last set of the exercise, else last time's, else blank (never a number carried over from another exercise). Tapping a number selects it, so typing replaces it. The round orange tick logs the set. RPE and set notes sit behind a one-line disclosure.
   - After a set, when the session has a plan, a "Next: <exercise>" button moves to the next planned exercise not started yet.
   - The rest timer is pinned above the tab bar: countdown, −30, +30, Skip and a draining line. Fixed, so starting or stopping it never moves the sets; the page gets matching bottom padding, so it never covers them. A routine's prescribed rest sets its length.
   - Session notes, Cardio and Muscles worked are collapsed rows in one card under the exercise.
@@ -174,10 +174,10 @@ Radii: sm 10px (small buttons, keys), md 14px (inputs, messages), lg 18px (cards
 - **Set row:**
   - todo: pencil numbers
   - done: `done` fill and an ink tick
-  - active: orange tint, orange outline, big numbers as buttons
+  - active: orange tint, orange outline, weight and reps as white fields
   - record: amber tint, amber numbers and tick, "Best ever" label, and one amber light sweep (0.9s) when ticked
 - **Tick:** round. 2px `ring` outline when empty, filled ink (or amber for a record) with a white check when done. Accessible name "Complete set N".
-- **Number entry:** the weight and reps on the next set are big number fields (`inputmode="decimal"` / `"numeric"`), so a tap opens the phone's own number keypad; the field being edited shows a 2px ink outline. A custom in-page pad was prototyped and dropped in favour of the native keypad (less code, works with every assistive tech).
+- **Number entry:** the weight and reps on the next set look like every other input: a white box with a `ring` outline, 52px tall, numbers in the number face at 1.6rem (`inputmode="decimal"` / `"numeric"`, so a tap opens the phone's own number keypad); the field being edited gets an ink outline. They were borderless 2.6rem numbers until the user found them neither obviously editable nor in proportion (2026-10-11). A custom in-page pad was prototyped and dropped in favour of the native keypad (less code, works with every assistive tech).
 - **Rest bar:** ink background, white countdown (green "Done!"), ghost buttons for −30, +30 and Skip, and a 3px orange draining line.
 - **Messages:** a white card with a bold lead word in the status color, for example "No connection." in red or "Saved." in green.
 - Every component has defined empty, loading and error states. Icon-only buttons have an `aria-label`. Errors use `role="alert"`, and logged sets are announced through `#sr-announcer`.
@@ -219,6 +219,7 @@ Radii: sm 10px (small buttons, keys), md 14px (inputs, messages), lg 18px (cards
 | 2026-10-10 | Set list with tap-to-type numbers and an inline rest timer | The user's adjustments: no −/+ steppers, round ticks, rest timer under the last set, softer done state. |
 | 2026-10-10 | Native number keypad instead of a custom pad; activity heatmap in ink | Built the rebuild: the native keypad is the same tap-to-type flow with less to break. Activity is data (ink); amber stays for records. |
 | 2026-10-11 | Session screen reworked: exercise strip, picker sheet, pinned rest timer | The user found the screen cluttered and switching exercises slow. Chose "focused, cleaned up" over a Strong/Hevy-style list of every exercise. Filters moved into the picker, delete and units into a ⋯ menu, the duplicate "This session" list and the segmented progress bar removed. The rest timer moved from inline to pinned so it stops shifting the sets. Its countdown is now white: orange text broke the no-orange-text rule. |
+| 2026-10-11 | Weight/reps as visible fields; picker opens without the keyboard | From the user's iPhone test: the borderless 2.6rem numbers didn't read as fields and were too big, and the exercise picker opened full screen because focusing its search box raised the keyboard. |
 | 2026-10-11 | Audit follow-ups, the user's call on all five | One toggle style (the existing `.seg-toggle`); repeat/delete moved off session rows; bodyweight records are best sets; the Plan page hides the model id and shows setup to the admin only; achievement toasts capped at two. |
 | 2026-10-11 | Design audit consistency pass | A full audit at 390px and 1280px found drift, not new direction: Title Case next to sentence case, reps and chart axes in the body face, "09-13" dates, amber on every row of the records table, two buttons back into a live session, pencil and × icons on every finished set, tables cutting numbers off on a phone, the heatmap opening on last year. Each was brought back to the rules above. |
 

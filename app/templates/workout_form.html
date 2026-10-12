@@ -357,24 +357,27 @@
 .cur-sets:not(:empty) + .active-set { margin-top: 4px; }
 .as-n { color: var(--muted); font-size: 0.9rem; text-align: center; }
 .as-field { display: grid; gap: 0; min-width: 0; }
+/* Weight and reps look like the app's other fields (white box, ring outline),
+   at a size that reads as a number to type, not a headline (the user found the
+   borderless 2.6rem numbers neither obviously editable nor in proportion). */
 .as-field .sx-val {
   width: 100%;
   min-width: 0;
-  height: 60px;
-  padding: 0 6px;
-  border: none;
-  border-radius: 10px;
-  background: transparent;
+  height: 52px;
+  padding: 0 10px;
+  border: 1.5px solid var(--ring);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
   color: var(--text);
   font-family: var(--f-display) !important;
   font-stretch: 72%;
   font-weight: 800;
   font-variant-numeric: tabular-nums;
-  font-size: 2.6rem !important;   /* overrides the global 16px field rule; still ≥16px, so no iOS focus zoom */
+  font-size: 1.6rem !important;   /* overrides the global 16px field rule; still ≥16px, so no iOS focus zoom */
   line-height: 1;
 }
 .as-field .sx-val::placeholder { color: var(--ring); }
-.as-field .sx-val:focus { outline: none; background: var(--surface); box-shadow: inset 0 0 0 2px var(--text); }
+.as-field .sx-val:focus { outline: none; border-color: var(--text); box-shadow: inset 0 0 0 1px var(--text); }
 .as-field label {
   margin: 0;
   padding: 0 6px;
@@ -581,6 +584,7 @@
   padding: 0 1rem 0.5rem;
 }
 .picker-hdr h2 { font-size: 1.2rem; }
+.picker-hdr h2:focus { outline: none; }   /* focused on open for screen readers, not a control */
 .picker-close {
   min-width: 44px; min-height: 44px;
   border: none; background: transparent; color: var(--muted);
@@ -1333,7 +1337,7 @@ document.getElementById('tpl-name-input')?.addEventListener('keydown', e => { if
 {# ── Exercise picker: opened as a sheet by "Choose exercise", "Change" or "+ Exercise" ── #}
 <div id="ex-picker" class="ex-picker">
   <div class="picker-hdr">
-    <h2>Choose exercise</h2>
+    <h2 id="picker-title" tabindex="-1">Choose exercise</h2>
     <button type="button" class="picker-close" onclick="closePicker()" aria-label="Close">
       <i data-lucide="x" style="width:20px;height:20px;pointer-events:none;"></i>
     </button>
@@ -1979,9 +1983,11 @@ function openPicker(opener) {
   document.getElementById('exercise-dropdown').textContent = '';
   updateNewExPicker('', null);
   _renderPickList();
-  // Synchronous inside the tap: iOS raises the keyboard only then.
+  // Focus the title, not the search box: focusing the box raised the iOS
+  // keyboard at once, and with the keyboard up the sheet fills the screen. The
+  // sheet now opens partway, showing the list; tapping the box brings the keyboard.
   _pickerSheet = Sheet.open(root, {
-    label: 'Choose exercise', initialFocus: input, returnFocus: opener,
+    label: 'Choose exercise', initialFocus: document.getElementById('picker-title'), returnFocus: opener,
     onClose: () => { _pickerSheet = null; input.value = _currentExName; },
   });
 }
