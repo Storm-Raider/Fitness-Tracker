@@ -5,6 +5,7 @@ All notable changes to Zenkai are documented here.
 ## [Unreleased]
 
 ### Added
+- **The coach and Analytics use your Oura recovery.** The coach now sees today's readiness, your 7-day readiness and sleep, and how your HRV and resting heart rate compare with your own 30-day normal. A run-down week (readiness under 70, or HRV 15% or more below normal) trims a set from accessory work. Analytics has a new Recovery chart: 12 weeks of weekly averages for readiness, sleep, HRV or resting heart rate.
 - **Oura Ring.** Connect your ring in Settings and Zenkai pulls Oura's daily sleep, readiness and activity (the last 90 days on first connect, then in the background). Your Daily log's empty sleep and steps fill themselves (what you type wins), Home shows today's readiness, sleep score and HRV, and a session shows your readiness before the first set. Setup needs an Oura API application; see the README's "Oura Ring" section.
 - **Swipe the coach chat sheet down to close it.** On a phone, the chat sheet has a grab handle: drag it down past a quarter of the way, or flick it, and the sheet closes; a shorter drag springs back. Only the handle starts the gesture, so scrolling the conversation never closes it. Close and Escape still work.
 

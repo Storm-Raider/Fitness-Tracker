@@ -227,10 +227,12 @@ Each user can connect their own Oura ring. Zenkai reads Oura's **daily data** (s
 - **Daily log:** empty sleep and steps fields are pre-filled from Oura ("from Oura"); anything you typed wins. Resting heart rate, HRV and readiness show beside them.
 - **Home:** today's readiness (with Oura's word: Optimal, Good, Fair, Pay attention), sleep score and HRV.
 - **Session:** the readiness shows under the header until the first set.
+- **Coach:** plans see your recovery: today's readiness, the 7-day average readiness and sleep score, and your HRV and resting heart rate against your own 30-day baseline (7-day averages need 3 days of data, the baseline 14). When the 7-day readiness is under 70 or HRV is 15% or more below baseline, accessory and isolation work drops a set, the same single step as poor sleep in the Daily log (the two don't stack). These numbers go to Gemini with the rest of the prompt.
+- **Analytics:** a *Recovery (Oura)* chart of weekly averages over 12 weeks, switchable between readiness, sleep, HRV and resting heart rate.
 
 **Syncing:** whenever you open a page and the last sync is over 30 minutes old (in the background), every 6 hours, and on *Sync now*. Each sync re-fetches the last 3 days, since Oura revises recent days.
 
-**Privacy:** tokens and data stay in Zenkai's (encrypted) database; tokens are never sent to the browser or logged. Disconnect removes the tokens and, if you tick the box, the synced days. Personal access tokens no longer exist at Oura (retired December 2025), so the OAuth app is required.
+**Privacy:** tokens and data stay in Zenkai's (encrypted) database, except the recovery summary above, which the coach sends to Gemini; tokens are never sent to the browser or logged. Disconnect removes the tokens and, if you tick the box, the synced days. Personal access tokens no longer exist at Oura (retired December 2025), so the OAuth app is required.
 
 ## Auto-deploy on merge
 

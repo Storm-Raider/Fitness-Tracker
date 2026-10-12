@@ -15,6 +15,7 @@ import re
 
 import aiosqlite
 
+from app.utils.oura import band
 from app.utils.training_profile import has_pain_words
 
 
@@ -307,6 +308,32 @@ def plan_quality_issues(plan: dict) -> list[str]:
     return issues
 
 
+def recovery_line(rec: dict | None) -> str | None:
+    """The Oura recovery summary as one prompt line, or None without one."""
+    if not rec:
+        return None
+    bits = []
+    if rec.get("today_readiness") is not None:
+        bits.append(f"today readiness {rec['today_readiness']} ({band(rec['today_readiness'])})")
+    if rec.get("avg_readiness_7d") is not None:
+        bits.append(f"7-day avg readiness {rec['avg_readiness_7d']} ({rec['avg_readiness_band']})")
+    if rec.get("avg_sleep_score_7d") is not None:
+        bits.append(f"avg sleep score {rec['avg_sleep_score_7d']}")
+    hrv = rec.get("hrv_vs_baseline_pct")
+    if hrv is not None:
+        bits.append("HRV at the 30-day baseline" if hrv == 0 else
+                    f"HRV {abs(hrv)}% {'below' if hrv < 0 else 'above'} the 30-day baseline")
+    rhr = rec.get("resting_hr_vs_baseline_bpm")
+    if rhr is not None:
+        bits.append("resting HR at the 30-day baseline" if rhr == 0 else
+                    f"resting HR {abs(rhr)} bpm {'above' if rhr > 0 else 'below'} the 30-day baseline")
+    if not bits:
+        return None
+    return ("- RECOVERY (Oura ring, scores out of 100): " + ", ".join(bits)
+            + ". When readiness is low or HRV is well below baseline, favour moderate volume"
+              " and hold loads rather than pushing for a jump.")
+
+
 def athlete_context(profile: dict, goal: str) -> list[str]:
     """Render what the coach knows about the athlete as prompt lines: feedback on
     the last plan, flagged pain (placed early: a small model attends best near the
@@ -459,6 +486,10 @@ def athlete_context(profile: dict, goal: str) -> list[str]:
     if wellness.get("recent_notes"):
         notes = "; ".join(f"\"{n['note']}\" ({n['date']})" for n in wellness["recent_notes"][:3])
         lines.append(f"- Athlete's recent journal comments: {notes}.")
+
+    rec_line = recovery_line(profile.get("recovery"))
+    if rec_line:
+        lines.append(rec_line)
 
     if profile.get("recent_set_notes"):
         notes = "; ".join(

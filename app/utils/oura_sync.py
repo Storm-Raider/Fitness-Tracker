@@ -229,3 +229,85 @@ async def today_for(conn: aiosqlite.Connection, uid: int, today: date | None = N
     d["is_today"] = d["day"] == today.isoformat()
     d["band"] = oura.band(d["readiness_score"])
     return d
+
+
+# ── Recovery for the coach ───────────────────────────────────────────
+# Last 7 days against the last 30 (which include them). A 7-day average needs 3
+# days with a value, a 30-day baseline 14, so a few nights off the ring don't
+# swing the plan.
+RECENT_DAYS, BASELINE_DAYS = 7, 30
+_MIN_RECENT, _MIN_BASELINE = 3, 14
+
+
+def _avg(rows: list[dict], key: str, need: int) -> float | None:
+    vals = [r[key] for r in rows if r[key] is not None]
+    return sum(vals) / len(vals) if len(vals) >= need else None
+
+
+def summarise_recovery(rows: list[dict], today: date) -> dict | None:
+    """Readiness, sleep, HRV and resting HR trends from oura_daily rows.
+
+    None when there is no Oura day in the last week (not connected, or the ring
+    hasn't been worn): stale numbers mustn't steer this week's plan."""
+    recent_from = (today - timedelta(days=RECENT_DAYS - 1)).isoformat()
+    base_from = (today - timedelta(days=BASELINE_DAYS - 1)).isoformat()
+    t = today.isoformat()
+    recent = [r for r in rows if recent_from <= r["day"] <= t]
+    base = [r for r in rows if base_from <= r["day"] <= t]
+    if not recent:
+        return None
+    today_row = next((r for r in recent if r["day"] == t), None)
+
+    def _vs_baseline(key: str) -> tuple[float, float] | None:
+        r7, r30 = _avg(recent, key, _MIN_RECENT), _avg(base, key, _MIN_BASELINE)
+        return (r7, r30) if r7 is not None and r30 else None
+
+    readiness = _avg(recent, "readiness_score", _MIN_RECENT)
+    sleep = _avg(recent, "sleep_score", _MIN_RECENT)
+    hrv = _vs_baseline("hrv_ms")
+    rhr = _vs_baseline("resting_hr")
+    return {
+        "today_readiness": today_row["readiness_score"] if today_row else None,
+        "avg_readiness_7d": round(readiness) if readiness is not None else None,
+        "avg_readiness_band": oura.band(round(readiness)) if readiness is not None else None,
+        "avg_sleep_score_7d": round(sleep) if sleep is not None else None,
+        "hrv_vs_baseline_pct": round((hrv[0] / hrv[1] - 1) * 100) if hrv else None,
+        "resting_hr_vs_baseline_bpm": round(rhr[0] - rhr[1]) if rhr else None,
+    }
+
+
+async def recovery_for(conn: aiosqlite.Connection, uid: int, today: date | None = None) -> dict | None:
+    today = today or date.today()
+    async with conn.execute(
+        "SELECT day, readiness_score, sleep_score, hrv_ms, resting_hr FROM oura_daily "
+        "WHERE user_id = ? AND day BETWEEN ? AND ?",
+        (uid, (today - timedelta(days=BASELINE_DAYS - 1)).isoformat(), today.isoformat()),
+    ) as cur:
+        rows = [dict(r) for r in await cur.fetchall()]
+    return summarise_recovery(rows, today)
+
+
+async def weekly_recovery(conn: aiosqlite.Connection, uid: int, mondays: list[str]) -> list[dict] | None:
+    """Weekly averages for the Analytics chart, one entry per Monday given
+    (None values for weeks without data). None when no week has any."""
+    async with conn.execute(
+        """
+        SELECT DATE(day, 'weekday 0', '-6 days') AS week,
+               AVG(readiness_score) AS readiness, AVG(sleep_score) AS sleep,
+               AVG(hrv_ms) AS hrv, AVG(resting_hr) AS rhr
+        FROM oura_daily
+        WHERE user_id = ? AND day >= ?
+        GROUP BY week
+        """,
+        (uid, mondays[0]),
+    ) as cur:
+        by_week = {r["week"]: dict(r) for r in await cur.fetchall()}
+    if not by_week:
+        return None
+
+    def _r(v):
+        return round(v) if v is not None else None
+    return [
+        {"week_start": m, **{k: _r((by_week.get(m) or {}).get(k)) for k in ("readiness", "sleep", "hrv", "rhr")}}
+        for m in mondays
+    ]

@@ -11,6 +11,7 @@ import time
 
 import aiosqlite
 
+from app.utils import oura_sync
 from app.utils.pr_utils import stalled_lifts
 
 # 30-minute TTL cache keyed by uid. Invalidated automatically on expiry.
@@ -343,6 +344,9 @@ async def build_profile(conn: aiosqlite.Connection, uid: int, *, fresh: bool = F
             injury_flags.append({"text": n["note"].strip(), "exercise": None, "days_ago": None})
     injury_flags = injury_flags[:5]
 
+    # Oura recovery (readiness, sleep, HRV and resting HR trends), None without a ring.
+    recovery = await oura_sync.recovery_for(conn, uid)
+
     profile = {
         "total_workouts": freq["n"],
         "first_day": freq["first_day"],
@@ -364,6 +368,7 @@ async def build_profile(conn: aiosqlite.Connection, uid: int, *, fresh: bool = F
         "high_effort_lifts": high_effort_lifts,
         "low_effort_lifts": low_effort_lifts,
         "wellness": wellness,
+        "recovery": recovery,
         "injury_flags": injury_flags,
         "sets_by_exercise": sets_by_exercise,
         "recent_e1rm": recent_e1rm,

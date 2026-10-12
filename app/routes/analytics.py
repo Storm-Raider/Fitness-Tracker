@@ -7,6 +7,7 @@ from fastapi.responses import HTMLResponse
 
 from app.db import get_db
 from app.routes.auth import get_current_user
+from app.utils import oura_sync
 from app.utils.pr_utils import fetch_prs, stalled_lifts
 from app.utils.render import render
 
@@ -162,6 +163,10 @@ async def analytics(
         for w in all_weeks
     ])
 
+    # ── Oura recovery (12 weeks, same Monday keys) ────────────────────
+    recovery_weeks = await oura_sync.weekly_recovery(conn, uid, all_weeks)
+    recovery_json = json.dumps([{**w, "label": _week_label(w["week_start"])} for w in recovery_weeks]) if recovery_weeks else None
+
     # ── Muscle recovery ───────────────────────────────────────────────
     async with conn.execute(
         """
@@ -210,6 +215,7 @@ async def analytics(
             "weekly_json": weekly_json,
             "weekly_rows": weekly_rows,
             "has_cardio": any(_cardio.values()),
+            "recovery_json": recovery_json,
             "muscle_recovery": muscle_recovery,
             "stalled": stalled,
             "muscle_data_json": muscle_data_json,
