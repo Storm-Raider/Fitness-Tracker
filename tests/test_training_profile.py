@@ -215,3 +215,19 @@ async def test_programming_signals_recent_e1rm_sets_and_equipment(db):
     assert p["recent_e1rm"] == {"bench press": 105.0, "dumbbell row": 40.0}
     assert p["sets_by_exercise"] == {"bench press": 2, "dumbbell row": 1, "push-up": 1}
     assert set(p["equipment_used"]) == {"Barbell", "Dumbbell", "Bodyweight"}
+
+
+@pytest.mark.asyncio
+async def test_loaded_bodyweight_lists_only_lifts_with_added_load(db):
+    """The coach may put a bodyweight lift in a heavy slot only if the athlete loads it."""
+    today = datetime.now().strftime("%Y-%m-%d")
+    await db.execute("INSERT INTO workouts(id, started_at, ended_at, user_id) VALUES (1, ?, ?, 1)",
+                     (f"{today} 10:00:00", f"{today} 10:30:00"))
+    dip, push = await _exercise_id(db, "Dip"), await _exercise_id(db, "Push-up")
+    await db.execute("INSERT INTO sets(workout_id, exercise_id, reps, weight_kg, added_weight_kg, user_id) "
+                     "VALUES (1, ?, 6, 100, 20, 1)", (dip,))
+    await db.execute("INSERT INTO sets(workout_id, exercise_id, reps, weight_kg, added_weight_kg, user_id) "
+                     "VALUES (1, ?, 20, 80, 0, 1)", (push,))
+    await db.commit()
+    profile = await build_profile(db, uid=1)
+    assert profile["loaded_bodyweight"] == ["dip"]
