@@ -8,7 +8,7 @@ from app.db import get_db
 from app.routes.auth import get_current_user
 from app.utils import challenges as ch
 from app.utils.charts import generate_muscle_bars, generate_weekly_bar_chart
-from app.utils.heatmap import generate_heatmap_svg
+from app.utils.heatmap import generate_heatmap_svg, heatmap_start
 from app.utils.pr_utils import fetch_prs
 from app.utils.render import render
 from app.utils.streak import compute_streak, max_streak
@@ -68,14 +68,14 @@ async def dashboard(
         SELECT DISTINCT day FROM (
             SELECT DATE(started_at) AS day
             FROM workouts
-            WHERE user_id = ? AND started_at >= date('now', '-364 days', 'localtime')
+            WHERE user_id = ? AND DATE(started_at) >= ?
             UNION
             SELECT logged_date AS day
             FROM cardio_logs
-            WHERE user_id = ? AND logged_date >= date('now', '-364 days', 'localtime')
+            WHERE user_id = ? AND logged_date >= ?
         ) ORDER BY day
         """,
-        (uid, uid),
+        (uid, heatmap_start().isoformat(), uid, heatmap_start().isoformat()),
     ) as cur:
         heatmap_dates = [r["day"] for r in await cur.fetchall()]
 

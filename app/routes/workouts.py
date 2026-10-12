@@ -93,12 +93,15 @@ async def list_workouts(
 ):
     uid = current_user["id"]
 
-    # Cleanup ghost sessions: unfinished workouts with no sets older than 1 hour
+    # Cleanup ghost sessions: unfinished workouts with nothing logged (no sets,
+    # no cardio) older than 1 hour. Cardio counts: cardio_logs references the
+    # workout without a cascade, so deleting it would fail the whole page.
     await conn.execute(
         """DELETE FROM workouts
            WHERE user_id = ?
              AND ended_at IS NULL
              AND NOT EXISTS (SELECT 1 FROM sets WHERE workout_id = workouts.id)
+             AND NOT EXISTS (SELECT 1 FROM cardio_logs WHERE workout_id = workouts.id)
              AND started_at < datetime('now', 'localtime', '-1 hour')""",
         (uid,),
     )
@@ -140,6 +143,7 @@ async def list_workouts(
                ))
         GROUP BY w.id
         HAVING w.ended_at IS NULL OR COUNT(s.id) > 0
+            OR EXISTS (SELECT 1 FROM cardio_logs c WHERE c.workout_id = w.id)  -- a cardio-only session
         ORDER BY w.started_at DESC
         """,
         (uid, uid, like, like, like, like),
@@ -147,6 +151,19 @@ async def list_workouts(
         workouts = [dict(r) for r in await cur.fetchall()]
 
     active_workout = next((w for w in workouts if w["ended_at"] is None), None)
+    if active_workout is None and search:
+        # A search can filter the live session out of the list; it is still
+        # live, so the page keeps its Resume card and the start-anyway warning.
+        async with conn.execute(
+            """SELECT w.id, w.started_at, w.ended_at, w.notes,
+                      (SELECT COUNT(*) FROM sets s WHERE s.workout_id = w.id) AS set_count,
+                      CAST(ROUND((JULIANDAY('now','localtime') - JULIANDAY(w.started_at)) * 1440) AS INTEGER) AS elapsed_min
+               FROM workouts w WHERE w.user_id = ? AND w.ended_at IS NULL
+               ORDER BY w.started_at DESC LIMIT 1""",
+            (uid,),
+        ) as cur:
+            row = await cur.fetchone()
+        active_workout = dict(row) if row else None
     return render(request, "workout_list", {
         "workouts": workouts,
         "active_workout": active_workout,
@@ -339,7 +356,9 @@ async def add_set(
             (body.exercise_id, uid),
         ) as cur:
             prior_row = await cur.fetchone()
-        prior_max = prior_row["max_kg"] if prior_row and prior_row["max_kg"] else None
+        # "is not None": a prior best of 0 kg is a best, not "no sets yet"
+        # (else every 0 kg set after the first read as a new record).
+        prior_max = prior_row["max_kg"] if prior_row and prior_row["max_kg"] is not None else None
 
         # A bodyweight set (added_weight_kg set) is a record by its added load,
         # then reps; its weight_kg is the lifter's bodyweight (pr_utils.bw_key).
@@ -552,18 +571,26 @@ async def patch_set(
 ):
     uid = current_user["id"]
     async with conn.execute(
-        "SELECT id FROM sets WHERE id = ? AND workout_id = ? AND user_id = ?",
+        "SELECT id, reps, weight_kg, added_weight_kg, duration_seconds FROM sets "
+        "WHERE id = ? AND workout_id = ? AND user_id = ?",
         (set_id, workout_id, uid),
     ) as cur:
-        if not await cur.fetchone():
-            raise HTTPException(status_code=404, detail="Set not found")
+        existing = await cur.fetchone()
+    if not existing:
+        raise HTTPException(status_code=404, detail="Set not found")
+    reps, weight_kg = body.reps, body.weight_kg
+    if existing["duration_seconds"] is not None or existing["added_weight_kg"] is not None:
+        # A hold (reps 0, out of volume) or a bodyweight set (weight_kg is
+        # bodyweight + load) keeps its numbers: only RPE and the note change.
+        # Overwriting them turned a plank into 80 kg x 1 of volume.
+        reps, weight_kg = existing["reps"], existing["weight_kg"]
     await conn.execute(
         "UPDATE sets SET reps = ?, weight_kg = ?, notes = ?, rpe = ? WHERE id = ? AND user_id = ?",
-        (body.reps, body.weight_kg, body.notes, body.rpe, set_id, uid),
+        (reps, weight_kg, body.notes, body.rpe, set_id, uid),
     )
     await conn.commit()
     return JSONResponse({
-        "id": set_id, "reps": body.reps, "weight_kg": body.weight_kg,
+        "id": set_id, "reps": reps, "weight_kg": weight_kg,
         "notes": body.notes, "rpe": body.rpe,
     })
 

@@ -1,6 +1,15 @@
 from datetime import date, timedelta
 
 
+def heatmap_start(today: date | None = None) -> date:
+    """First day drawn: the Monday of the week 52 weeks ago. The query feeding
+    the heatmap must start here too, or that first column shows real days
+    blank (it used to fetch only the last 364 days)."""
+    today = today or date.today()
+    start = today - timedelta(weeks=52)
+    return start - timedelta(days=start.weekday())
+
+
 def generate_heatmap_svg(workout_dates: list[str]) -> str:
     """
     Generate a 52-week activity heatmap SVG.
@@ -9,9 +18,7 @@ def generate_heatmap_svg(workout_dates: list[str]) -> str:
     """
     workout_set = set(workout_dates)
     today = date.today()
-    # Start from 52 weeks ago, aligned to Monday of that week
-    start = today - timedelta(weeks=52)
-    start -= timedelta(days=start.weekday())  # back to Monday
+    start = heatmap_start(today)
 
     CELL = 10
     GAP = 2

@@ -289,7 +289,11 @@
 const BMI_MIN = 15, BMI_MAX = 40;
 
 function getWeightKg() {
-  const val = parseFloat(document.getElementById('weight-input').value) || 0;
+  const el = document.getElementById('weight-input');
+  // Untouched since the page filled it in: send the exact stored kg (lbs shown
+  // to 0.1 turned an unchanged 80 kg into 80.0145 kg).
+  if (el.dataset.shown !== undefined && el.value === el.dataset.shown) return parseFloat(el.dataset.exactKg);
+  const val = parseFloat(el.value) || 0;
   return window.getAppUnit && window.getAppUnit() === 'lbs' ? val / 2.2046 : val;
 }
 function onWeightInput() {
@@ -408,7 +412,9 @@ async function logMetric() {
       input.value = unit === 'lbs'
         ? Math.round(kg * 2.2046 * 10) / 10
         : Math.round(kg * 10) / 10;
+      input.dataset.kg = kg;
     }
+    if (input) { input.dataset.shown = input.value; input.dataset.exactKg = input.dataset.kg; }
   });
 })();
 </script>

@@ -85,9 +85,11 @@ async def add_standalone_cardio(
     log_date = logged_date.strip() or None
     if log_date is not None:
         try:
-            date.fromisoformat(log_date)
+            parsed = date.fromisoformat(log_date)
         except ValueError:
             raise HTTPException(status_code=422, detail="Invalid logged_date; expected YYYY-MM-DD")
+        if parsed > date.today():
+            raise HTTPException(status_code=422, detail="logged_date cannot be in the future")
 
     await conn.execute(
         """INSERT INTO cardio_logs(user_id, exercise_id, logged_date, duration_minutes, distance_km, notes)

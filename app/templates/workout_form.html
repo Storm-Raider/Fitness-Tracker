@@ -910,14 +910,15 @@
 {%- macro set_row(s) -%}
 <div class="set-row" id="set-{{ s.id }}" data-exercise-id="{{ s.exercise_id }}"
      data-kg="{{ s.weight_kg }}" data-reps="{{ s.reps }}"
-     data-rpe="{{ s.rpe or '' }}" data-notes="{{ s.notes or '' }}">
+     data-rpe="{{ s.rpe or '' }}" data-notes="{{ s.notes or '' }}"
+     {% if s.duration_seconds is not none or s.added_weight_kg is not none %}data-fixed="1"{% endif %}>
   <div class="set-bar"></div>
   <div class="set-body">
     {# Tap a set to fix it or delete it, as in a live session (DESIGN.md). #}
     <button type="button" class="set-main" onclick="startEdit({{ s.id }})" aria-label="Edit set: {{ s.exercise_name }}">
       <span class="set-name">{{ s.exercise_name }}</span>
       <span class="set-detail" id="detail-{{ s.id }}">
-        {{ set_metric(s) }}{% if s.rpe %} · RPE {{ s.rpe }}{% endif %}{% if s.notes %} · {{ s.notes }}{% endif %}
+        <span class="set-metric">{{ set_metric(s) }}</span>{% if s.rpe %} · RPE {{ s.rpe }}{% endif %}{% if s.notes %} · {{ s.notes }}{% endif %}
       </span>
     </button>
     <div class="set-edit-row" id="edit-{{ s.id }}"></div>
@@ -994,12 +995,12 @@
     <div class="finish-stat-lbl">minutes</div>
   </div>
   <div>
-    <div class="finish-stat-val">{{ sets|length }}</div>
+    <div class="finish-stat-val" id="finish-sets">{{ sets|length }}</div>
     <div class="finish-stat-lbl">sets</div>
   </div>
   <div>
     <div class="finish-stat-val">
-      <span class="weight-display" data-kg="{{ session_volume }}">{{ "{:,.0f}".format(session_volume) }}</span>
+      <span class="weight-display" id="finish-volume" data-kg="{{ session_volume }}">{{ "{:,.0f}".format(session_volume) }}</span>
     </div>
     <div class="finish-stat-lbl">volume</div>
   </div>
@@ -1079,16 +1080,28 @@ function hideSaveTpl() {
   document.getElementById('save-tpl-btn').style.display='flex';
   document.getElementById('save-tpl-form').style.display='none';
 }
+let _tplSaving = false;   // a double tap saved two templates
 async function doSaveTpl() {
+  if (_tplSaving) return;
   const name = document.getElementById('tpl-name-input').value.trim();
   const errEl = document.getElementById('tpl-save-err');
   errEl.style.display='none';
   if (!name) { errEl.textContent='Enter a name.'; errEl.style.display='block'; return; }
-  const resp = await fetch('/templates', {
-    method:'POST',
-    headers:{'Content-Type':'application/json'},
-    body: JSON.stringify({name, workout_id: {{ workout.id }} })
-  });
+  _tplSaving = true;
+  let resp;
+  try {
+    resp = await fetch('/templates', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({name, workout_id: {{ workout.id }} })
+    });
+  } catch (e) {
+    errEl.textContent = "No connection: the template wasn't saved. Try again when you're back online.";
+    errEl.style.display = 'block';
+    return;
+  } finally {
+    _tplSaving = false;
+  }
   if (resp.ok) {
     document.getElementById('tpl-save-ok').style.display='block';
     document.getElementById('tpl-name-input').disabled=true;
@@ -1421,6 +1434,9 @@ document.getElementById('tpl-name-input')?.addEventListener('keydown', e => { if
 
 <script>
 const WORKOUT_ID = {{ workout.id }};
+// The exercise on screen, kept across a reload of this session (an undo
+// reloads the page; it should come back where the user was).
+const _CUR_EX_KEY = `zenkai_cur_ex_${WORKOUT_ID}`;
 const IS_FINISHED = {{ 'true' if is_finished else 'false' }};
 let exercises = [];
 let lastSets = {};       // exercise id -> its latest set from before this session
@@ -1638,6 +1654,7 @@ function _curEditor(s) {
     const w = document.createElement('input');
     w.type = 'text'; w.inputMode = 'decimal'; w.className = 'cur-edit-w';
     w.value = unit === 'lbs' ? Math.round(s.weight_kg * 2.2046 * 10) / 10 : Math.round(s.weight_kg * 100) / 100;
+    w.dataset.shown = w.value;   // unchanged → keep the exact kg (saveCurEdit)
     w.setAttribute('aria-label', `Weight (${unit})`);
     const x = document.createElement('span'); x.textContent = '×';
     const r = document.createElement('input');
@@ -1686,10 +1703,13 @@ async function saveCurEdit(id) {
   const row = document.getElementById('cur-' + id);
   if (!s || !row) return;
   const unit = getAppUnit();
-  const displayW = _num(row.querySelector('.cur-edit-w'));
+  const wInput = row.querySelector('.cur-edit-w');
+  const displayW = _num(wInput);
   const reps = Math.round(_num(row.querySelector('.cur-edit-r')));
   if (!(displayW >= 0) || !(reps >= 1)) { showErr(reps >= 1 ? 'Enter a valid weight.' : 'Enter at least 1 rep.'); return; }
-  const weightKg = unit === 'lbs' ? displayW / 2.2046 : displayW;
+  // An untouched weight keeps its exact kg (lbs rounding made 100 kg 100.018 kg).
+  const weightKg = wInput.value.trim() === wInput.dataset.shown ? s.weight_kg
+    : (unit === 'lbs' ? displayW / 2.2046 : displayW);
   const rpe = parseInt(row.querySelector('.cur-edit-rpe')?.value) || null;
   const notes = (row.querySelector('.cur-edit-notes')?.value || '').trim() || null;
   let resp;
@@ -2110,7 +2130,8 @@ function openRoutineSave() {
 }
 
 // ── Routine save ──────────────────────────────────────────────
-async function saveRoutine() {
+function saveRoutine() { return _once('routine', _saveRoutine); }
+async function _saveRoutine() {
   const name  = document.getElementById('routine-name-input').value.trim();
   const errEl = document.getElementById('routine-save-error');
   errEl.style.display = 'none';
@@ -2119,11 +2140,16 @@ async function saveRoutine() {
   if (!exerciseIds.length) {
     errEl.textContent = 'Log at least one set first.'; errEl.style.display = 'block'; return;
   }
-  const resp = await fetch('/routines', {
-    method: 'POST',
-    headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({name, exercise_ids: exerciseIds}),
-  });
+  let resp;
+  try {
+    resp = await fetch('/routines', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({name, exercise_ids: exerciseIds}),
+    });
+  } catch (e) {
+    errEl.textContent = _offlineMsg("the routine wasn't saved"); errEl.style.display = 'block'; return;
+  }
   if (resp.ok) {
     document.getElementById('routine-save-modal').style.display = 'none';
     document.getElementById('routine-name-input').value = '';
@@ -2142,9 +2168,14 @@ async function loadExercises() {
     lastSets  = data.last_sets || {};
     _populateMuscleDropdown(exercises);
     if (!_resumePicked && !_currentExId()) {
-      // Pick up where the session is: the last exercise logged, else the first planned one.
+      // Pick up where the user was (this tab, this session), else the last
+      // exercise logged, else the first planned one.
+      let saved = null;
+      try { saved = parseInt(sessionStorage.getItem(_CUR_EX_KEY)); } catch {}
+      const savedEx = saved ? exercises.find(e => e.id === saved) : null;
       const last = SESSION_SETS[SESSION_SETS.length - 1];
-      const first = last ? {id: last.exercise_id, name: last.exercise_name} : (_nextPlannedFromStart() || null);
+      const first = savedEx ? {id: savedEx.id, name: savedEx.name}
+        : last ? {id: last.exercise_id, name: last.exercise_name} : (_nextPlannedFromStart() || null);
       if (first) selectExercise(first.id, first.name);
     }
   } catch {}
@@ -2184,7 +2215,17 @@ function _updateCardioCount() {
   if (el) el.textContent = n ? `${n} logged` : '';
 }
 
-async function logCardio() {
+// One save at a time per action: a double tap on a slow connection created
+// duplicate cardio entries, routines and templates.
+const _busy = {};
+async function _once(key, fn) {
+  if (_busy[key]) return;
+  _busy[key] = true;
+  try { return await fn(); } finally { _busy[key] = false; }
+}
+
+function logCardio() { return _once('cardio', _logCardio); }
+async function _logCardio() {
   const errEl     = document.getElementById('cardio-error');
   errEl.style.display = 'none';
   const exerciseId = parseInt(document.getElementById('cardio-exercise-select').value);
@@ -2435,7 +2476,9 @@ function selectExercise(id, name) {
   document.getElementById('exercise-input').value  = name;
   const ex = exercises.find(e => e.id === id) || {id, name};
   applyExerciseSelection(ex);
+  try { sessionStorage.setItem(_CUR_EX_KEY, String(id)); } catch {}
 }
+
 
 // A name that isn't in the library: log under it (the first set creates it).
 function useNewExercise() {
@@ -2733,15 +2776,22 @@ function startEdit(id) {
   const notes = row.dataset.notes || '';
   const unit  = getAppUnit();
   const displayW = unit === 'lbs' ? Math.round(kg * 2.2046 * 10) / 10 : kg;
+  // A hold or bodyweight set keeps its numbers (weight_kg is bodyweight plus
+  // load; a hold stores reps 0): only RPE and the note change here, as in the
+  // live view. Editing them as weight × reps corrupted the set.
+  const fixed = row.dataset.fixed === '1';
+  row.dataset.shownW = String(displayW);
 
   const rpeOpts = [1,2,3,4,5,6,7,8,9,10].map(n =>
     `<option value="${n}"${String(rpe)===String(n)?' selected':''}>${n}</option>`
   ).join('');
 
   editEl.innerHTML =
-    `<input type="text" class="edit-w" value="${displayW}" inputmode="decimal" aria-label="Weight">` +
-    `<span style="color:var(--muted);flex-shrink:0;">×</span>` +
-    `<input type="text" class="edit-r" value="${reps}" inputmode="numeric" aria-label="Reps">` +
+    (fixed
+      ? `<span style="color:var(--muted);font-size:0.875rem;flex-basis:100%;">To change a hold or bodyweight set, delete it and log it again.</span>`
+      : `<input type="text" class="edit-w" value="${displayW}" inputmode="decimal" aria-label="Weight">` +
+        `<span style="color:var(--muted);flex-shrink:0;">×</span>` +
+        `<input type="text" class="edit-r" value="${reps}" inputmode="numeric" aria-label="Reps">`) +
     `<select class="edit-rpe" title="RPE" aria-label="RPE">` +
       `<option value="">RPE</option>${rpeOpts}` +
     `</select>` +
@@ -2754,8 +2804,8 @@ function startEdit(id) {
   editEl.style.display = 'flex';
   const wIn = editEl.querySelector('.edit-w');
   const rIn = editEl.querySelector('.edit-r');
-  wIn.focus(); wIn.select();
-  [wIn, rIn].forEach(inp => {
+  if (wIn) { wIn.focus(); wIn.select(); } else editEl.querySelector('.edit-rpe').focus();
+  [wIn, rIn].filter(Boolean).forEach(inp => {
     inp.onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); saveEdit(id); } };
   });
 }
@@ -2770,36 +2820,62 @@ async function saveEdit(id) {
   const editEl = document.getElementById('edit-' + id);
   if (!row || !editEl) return;
   const unit     = getAppUnit();
-  const displayW = _num(editEl.querySelector('.edit-w'));
-  const reps     = Math.round(_num(editEl.querySelector('.edit-r')));
+  const fixed    = row.dataset.fixed === '1';
+  const origKg   = parseFloat(row.dataset.kg) || 0;
+  const wInput   = editEl.querySelector('.edit-w');
+  const displayW = fixed ? origKg : _num(wInput);
+  const reps     = fixed ? (parseInt(row.dataset.reps) || 1) : Math.round(_num(editEl.querySelector('.edit-r')));
   if (!(displayW >= 0) || !(reps >= 1)) {
     showErr(reps >= 1 ? 'Enter a valid weight.' : 'Enter at least 1 rep.');
     return;
   }
-  const weightKg = unit === 'lbs' ? displayW / 2.2046 : displayW;
+  // An unchanged weight keeps its exact kg: lbs → kg → lbs rounding turned an
+  // untouched 100 kg into 100.018 kg.
+  const unchanged = fixed || (wInput && wInput.value.trim() === row.dataset.shownW);
+  const weightKg = unchanged ? origKg : (unit === 'lbs' ? displayW / 2.2046 : displayW);
   const rpeRaw   = editEl.querySelector('.edit-rpe')?.value;
   const rpe      = rpeRaw ? parseInt(rpeRaw) : null;
   const notes    = editEl.querySelector('.edit-notes')?.value.trim() || null;
 
-  const resp = await fetch(`/workouts/${WORKOUT_ID}/sets/${id}`, {
-    method: 'PATCH',
-    headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({reps, weight_kg: weightKg, notes: notes || null, rpe: rpe || null}),
-  });
+  let resp;
+  try {
+    resp = await fetch(`/workouts/${WORKOUT_ID}/sets/${id}`, {
+      method: 'PATCH',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({reps, weight_kg: weightKg, notes: notes || null, rpe: rpe || null}),
+    });
+  } catch (e) {
+    showErr(_offlineMsg("the change wasn't saved"));
+    return;
+  }
   if (!resp.ok) { showErr('Failed to save — try again.'); return; }
 
-  row.dataset.kg    = weightKg;
-  row.dataset.reps  = reps;
+  // Keep the summary's volume in step; a hold or bodyweight set's numbers
+  // don't change (only RPE and the note), so its volume stays as it was.
+  if (!fixed && setVolumes[id] !== undefined) {
+    sessionVolume += weightKg * reps - setVolumes[id];
+    setVolumes[id] = weightKg * reps;
+  }
+  const model = SESSION_SETS.find(x => x.id === id);
+  if (model) {
+    if (!fixed) { model.weight_kg = weightKg; model.reps = reps; }
+    model.rpe = rpe; model.notes = notes;
+  }
+  if (!fixed) { row.dataset.kg = weightKg; row.dataset.reps = reps; }
   row.dataset.rpe   = rpe || '';
   row.dataset.notes = notes || '';
 
-  let html = `<span class="weight-display" data-kg="${weightKg}">${fmtWeight(weightKg, unit)}</span> × <span class="set-reps">${reps}</span>`;
+  const metricEl = document.querySelector(`#detail-${id} .set-metric`);
+  let html = fixed && metricEl
+    ? metricEl.outerHTML
+    : `<span class="set-metric"><span class="weight-display" data-kg="${weightKg}">${fmtWeight(weightKg, unit)}</span> × <span class="set-reps">${reps}</span></span>`;
   if (rpe)   html += ` · RPE ${rpe}`;
   if (notes) html += ` · ${escHtml(notes)}`;
 
   const detailEl = document.getElementById('detail-' + id);
   detailEl.innerHTML = html;
   cancelEdit(id);
+  _refreshFinishStats();
 
   // Brief save confirmation
   const tick = document.createElement('span');
@@ -2838,7 +2914,22 @@ async function deleteSet(id) {
       }
     }
     if (!IS_FINISHED) { updateSessionMeta(); renderCurrentSets(); renderStrip(); }
+    else _refreshFinishStats();
   });
+}
+
+// Finished view: the summary at the top follows edits and deletes (it kept the
+// old set count and volume until a reload), and Repeat / Save as template go
+// once no sets are left.
+function _refreshFinishStats() {
+  const n = document.getElementById('finish-sets');
+  if (n) n.textContent = SESSION_SETS.length;
+  const v = document.getElementById('finish-volume');
+  if (v) { v.dataset.kg = sessionVolume; v.textContent = fmtWeight(sessionVolume, getAppUnit()); }
+  if (!SESSION_SETS.length) {
+    document.getElementById('repeat-btn')?.remove();
+    document.getElementById('save-tpl-wrap')?.remove();
+  }
 }
 
 async function finishWorkout() {

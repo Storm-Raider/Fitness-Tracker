@@ -278,9 +278,16 @@ async def test_fully_missed_day_before_last_day_fails_on_final_day(client, db):
     assert r.status_code == 200
     async with db.execute("SELECT status, ended_on FROM challenge_attempts WHERE id=?", (aid,)) as c:
         row = await c.fetchone()
-    assert row["status"] == "failed"
+    # On day 75, day 74 is "yesterday" and still in its 1-day grace (the page
+    # offers it), so the run is not failed yet; it must not read as completed.
+    assert row["status"] == "active"
+    # Once the grace passes (day 76), the skipped day 74 fails the run.
+    from app.utils import challenges as ch
+    async with db.execute("SELECT * FROM challenge_attempts WHERE id=?", (aid,)) as c:
+        attempt = dict(await c.fetchone())
+    view = await ch.evaluate_attempt(db, attempt, today + timedelta(days=1))
     day_74 = start + timedelta(days=73)  # day_n=74 is the 74th day, i.e. start+73
-    assert row["ended_on"] == day_74.isoformat()
+    assert (view["status"], view["ended_on"]) == ("failed", day_74.isoformat())
 
 
 @pytest.mark.asyncio

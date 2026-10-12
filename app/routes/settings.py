@@ -151,5 +151,11 @@ async def settings_password_post(
     await conn.execute(
         "UPDATE users SET password_hash = ? WHERE id = ?", (hashed, current_user["id"])
     )
+    # Sign out every other device, as a password reset does: a changed
+    # password is often a response to someone else having it.
+    await conn.execute(
+        "DELETE FROM sessions WHERE user_id = ? AND id != ?",
+        (current_user["id"], getattr(request.state, "sid", None) or ""),
+    )
     await conn.commit()
     return RedirectResponse(url="/settings?success=password", status_code=303)
