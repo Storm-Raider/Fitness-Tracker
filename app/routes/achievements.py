@@ -8,6 +8,7 @@ from fastapi.responses import HTMLResponse
 
 from app.db import get_db
 from app.routes.auth import get_current_user
+from app.utils import oura_sync
 from app.utils.render import render
 from app.utils.streak import max_streak
 
@@ -301,6 +302,10 @@ async def achievements_unseen(
     current_user=Depends(get_current_user),
 ):
     uid = current_user["id"]
+    # Every page polls here once on load: also the moment to start a background
+    # Oura sync when the last one is stale (never blocks; no-op when not connected).
+    from app.routes import oura as oura_routes      # late import: avoids a cycle at startup
+    await oura_sync.maybe_sync(conn, oura_routes.http_client(), uid)
     # Unlocks used to be saved only by GET /achievements, so a toast appeared
     # only after the user went to look. Every page polls here, so check for new
     # ones too (at most every 30 s per user: it is ~15 queries on a Pi).

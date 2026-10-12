@@ -11,9 +11,20 @@ from app.routes.auth import (
     _verify_password,
     get_current_user,
 )
+from app.utils import oura, oura_sync
 from app.utils.render import templates
 
 router = APIRouter()
+
+
+async def _oura_card(conn, uid: int, request: Request) -> dict:
+    """What the Settings page's Oura card shows (never the tokens)."""
+    return {
+        "configured": oura.is_configured(),
+        "connection": await oura_sync.connection(conn, uid) if oura.is_configured() else None,
+        "flash": request.query_params.get("oura"),
+        "redirect_uri": oura.redirect_uri(),
+    }
 
 
 class GoalIn(BaseModel):
@@ -65,6 +76,7 @@ async def settings_get(
         "success": success,
         "email_errors": {},
         "password_errors": {},
+        "oura": await _oura_card(conn, current_user["id"], request),
     })
 
 
@@ -92,6 +104,7 @@ async def settings_email_post(
             "success": None,
             "email_errors": errors,
             "password_errors": {},
+            "oura": await _oura_card(conn, current_user["id"], request),
         })
 
     try:
@@ -110,6 +123,7 @@ async def settings_email_post(
             "success": None,
             "email_errors": {"email": "An account with that email already exists"},
             "password_errors": {},
+            "oura": await _oura_card(conn, current_user["id"], request),
         })
 
     return RedirectResponse(url="/settings?success=email", status_code=303)
@@ -145,6 +159,7 @@ async def settings_password_post(
             "success": None,
             "email_errors": {},
             "password_errors": errors,
+            "oura": await _oura_card(conn, current_user["id"], request),
         })
 
     hashed = _hash_password(new_password)
