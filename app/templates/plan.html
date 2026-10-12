@@ -599,7 +599,7 @@
       {% if draft_plan %}
       <div id="ai-draft-notice" class="draft-notice">
         <i data-lucide="clock" style="width:16px;height:16px;color:var(--text);flex-shrink:0;"></i>
-        <span style="flex:1;color:var(--muted);">Unsaved plan from <b style="color:var(--text);">{{ draft_plan.created_at[:10] }}</b> — review it below.</span>
+        <span style="flex:1;color:var(--muted);">Unsaved plan from <b style="color:var(--text);">{% set d = draft_plan.created_at | human_date %}{{ d | lower if d in ('Today', 'Yesterday') else d }}</b> — review it below.</span>
         <button onclick="dismissDraft()" class="btn btn-ghost">Dismiss</button>
       </div>
       {% endif %}
