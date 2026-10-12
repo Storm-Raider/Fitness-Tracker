@@ -247,9 +247,9 @@
 .cur-val {
   font-family: var(--f-display);
   font-stretch: 72%;
-  font-weight: 800;
+  font-weight: 700;
   font-variant-numeric: tabular-nums;
-  font-size: 1.45rem;
+  font-size: 1.25rem;   /* same scale as the next set's fields */
   line-height: 1.1;
   color: var(--text);
   min-width: 0;
@@ -371,9 +371,12 @@
   color: var(--text);
   font-family: var(--f-display) !important;
   font-stretch: 72%;
-  font-weight: 800;
+  font-weight: 700;
   font-variant-numeric: tabular-nums;
-  font-size: 1.6rem !important;   /* overrides the global 16px field rule; still ≥16px, so no iOS focus zoom */
+  /* 20px: in proportion with the page's 16px text and 19px exercise names (1.6rem
+     still read as oversized on the user's iPhone). Overrides the global 16px field
+     rule; still >= 16px, so no iOS focus zoom. */
+  font-size: 1.25rem !important;
   line-height: 1;
 }
 .as-field .sx-val::placeholder { color: var(--ring); }
