@@ -1,29 +1,30 @@
 from datetime import date, timedelta
 
 
-def heatmap_start(today: date | None = None) -> date:
-    """First day drawn: the Monday of the week 52 weeks ago. The query feeding
-    the heatmap must start here too, or that first column shows real days
-    blank (it used to fetch only the last 364 days)."""
+def heatmap_start(today: date | None = None, weeks: int = 52) -> date:
+    """First day drawn: the Monday of the week `weeks` weeks ago. The query
+    feeding the heatmap must start at the 52-week start, or that first column
+    shows real days blank (it used to fetch only the last 364 days)."""
     today = today or date.today()
-    start = today - timedelta(weeks=52)
+    start = today - timedelta(weeks=weeks)
     return start - timedelta(days=start.weekday())
 
 
-def generate_heatmap_svg(workout_dates: list[str]) -> str:
+def generate_heatmap_svg(workout_dates: list[str], weeks: int = 52) -> str:
     """
-    Generate a 52-week activity heatmap SVG.
+    Generate an activity heatmap SVG of the last `weeks` weeks (52, or 26 for a
+    phone, where 52 columns can't fit at a readable size).
     workout_dates: list of ISO date strings (YYYY-MM-DD) within the last 52 weeks.
     Each week is a column; each day is a 10x10 cell with 2px gap.
     """
     workout_set = set(workout_dates)
     today = date.today()
-    start = heatmap_start(today)
+    start = heatmap_start(today, weeks)
 
     CELL = 10
     GAP = 2
     STEP = CELL + GAP
-    WEEKS = 53  # enough columns to cover 52 weeks + partial
+    WEEKS = weeks + 1  # the weeks plus the partial current one
     DAYS = 7
     WIDTH = WEEKS * STEP + 2
     HEIGHT = DAYS * STEP + 2
@@ -51,9 +52,8 @@ def generate_heatmap_svg(workout_dates: list[str]) -> str:
         f'<svg xmlns="http://www.w3.org/2000/svg" '
         f'width="{WIDTH}" height="{HEIGHT}" '
         f'viewBox="0 0 {WIDTH} {HEIGHT}" '
-        # Fills a wide card; on a phone it keeps its natural width and the
-        # wrapper scrolls (opening on the newest week, see dashboard.html).
-        f'style="display:block;width:100%;min-width:{WIDTH}px;height:auto">'
+        # Scales to its card; never wider, so the card never scrolls sideways.
+        f'style="display:block;width:100%;height:auto">'
         + "".join(cells)
         + "</svg>"
     )

@@ -36,3 +36,14 @@ def test_only_last_52_weeks_shown():
     # Both should be identical — old date ignored by SQL filter upstream
     # (heatmap.py itself doesn't filter; SQL does; we just check it doesn't crash)
     assert svg_with.startswith("<svg")
+
+
+def test_a_shorter_heatmap_fits_a_phone_without_scrolling():
+    # 26 weeks of 12-unit columns fit a 390px phone's card at full cell size;
+    # the svg scales to the card instead of forcing a scrollable min-width.
+    svg = generate_heatmap_svg([], weeks=26)
+    assert 'viewBox="0 0 326 ' in svg
+    assert "min-width" not in svg and "width:100%" in svg
+    old = (date.today() - timedelta(weeks=30)).isoformat()
+    assert old not in generate_heatmap_svg([old], weeks=26)      # out of range: no cell
+    assert old in generate_heatmap_svg([old])                    # the 52-week map still has it

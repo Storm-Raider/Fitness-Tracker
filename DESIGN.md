@@ -138,6 +138,8 @@ Scale (phone): the next set's fields and logged-set numbers 1.25rem (weight 700)
 
 - Phone first, at 390px wide. Single column with 16px side gutters. Desktop max-width 1100px, reusing the same components.
 - Tables fit their card on a phone: secondary columns carry `.col-wide` and drop out below 560px, so a number is never cut in half at the card edge.
+- **Nothing inside a card scrolls sideways** (the user's rule, 2026-10-12), down to a 360px phone. Tables have no minimum width and tighten their cell padding below 380px; rows of cards wrap into a grid; the activity heatmap shows 26 weeks on a phone (52 on a wide screen) instead of a scrollable year. The one deliberate exception is the live session's exercise strip, which is not a card.
+- **Home on desktop** puts the volume and muscle-split cards side by side (their charts are drawn at phone size).
 - Desktop nav and the phone tab bar list sections in the same order: Home, Sessions, Analytics, Plan (then Exercises and More).
 - Bottom tab bar: Home, Sessions, Analytics, Plan, More.
 - **Session screen:** one exercise at a time.
@@ -227,5 +229,6 @@ Radii: sm 10px (small buttons, keys), md 14px (inputs, messages), lg 18px (cards
 | 2026-10-11 | Audit follow-ups, the user's call on all five | One toggle style (the existing `.seg-toggle`); repeat/delete moved off session rows; bodyweight records are best sets; the Plan page hides the model id and shows setup to the admin only; achievement toasts capped at two. |
 | 2026-10-11 | Design audit consistency pass | A full audit at 390px and 1280px found drift, not new direction: Title Case next to sentence case, reps and chart axes in the body face, "09-13" dates, amber on every row of the records table, two buttons back into a live session, pencil and × icons on every finished set, tables cutting numbers off on a phone, the heatmap opening on last year. Each was brought back to the rules above. |
 | 2026-10-12 | Second consistency pass | Drift since the first pass, plus the new Oura surfaces: raw ISO dates and Title Case categories on Achievements, counts and bodyweight in the body face, a finished session's sets laid out unlike the live ones, "Start a workout" next to "Start session", two orange buttons on an empty Templates page, a weight goal offered on a new bodyweight exercise, Arial on stepper and × buttons, "1 days". Each brought back to the rules above. |
+| 2026-10-12 | No sideways scrolling in cards | The user: remove horizontal scrolls from the cards unless absolutely necessary. A scan at 360, 375 and 390px found the heatmap, the Recently used strip, three tables held at a 360px minimum width and the strength rows. Each now fits. |
 
 The previous system (Redline Console) is preserved in `docs/design-history/DESIGN-redline-console.md`.

@@ -605,7 +605,7 @@
 
     /* ── Tables ──────────────────────────────────────── */
     .card { overflow-x: auto; }
-    table { width: 100%; border-collapse: collapse; font-size: 0.95rem; min-width: 360px; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.95rem; }
     th {
       text-align: left;
       color: var(--muted);
@@ -627,6 +627,9 @@
     /* Secondary columns drop out on a phone, so a table fits its card instead
        of cutting a number in half at the edge. */
     @media (max-width: 559px) { .col-wide { display: none; } }
+    /* Small phones (360px): tighter cells, so a four-column table still fits
+       without a sideways scroll. */
+    @media (max-width: 380px) { th, td { padding-left: 0.6rem; padding-right: 0.6rem; } }
 
     /* ── Badges ──────────────────────────────────────── */
     .badge {

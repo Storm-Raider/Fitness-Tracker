@@ -81,6 +81,7 @@ async def dashboard(
         heatmap_dates = [r["day"] for r in await cur.fetchall()]
 
     heatmap_svg = generate_heatmap_svg(heatmap_dates)
+    heatmap_svg_phone = generate_heatmap_svg(heatmap_dates, weeks=26)   # 52 columns don't fit a phone
 
     async with conn.execute(
         """
@@ -275,6 +276,7 @@ async def dashboard(
             "prs": prs,
             "recent_prs": recent_prs,
             "heatmap_svg": heatmap_svg,
+            "heatmap_svg_phone": heatmap_svg_phone,
             "streak": streak,
             "weekly_volume": weekly_volume,
             "weekly_sessions": vol_row["weekly_sessions"],
