@@ -331,3 +331,37 @@ def test_amrap_gets_a_rep_based_rule_not_a_hold_rule():
 def test_the_recovery_day_stops_well_short_of_failure():
     recovery = cp.build_skeleton(ROWS, _profile(), "hypertrophy", 7)[6]
     assert recovery["template"] == "RECOVERY" and all(s["rir"] == 3 for s in recovery["slots"])
+
+
+# ── Bodyweight in heavy slots ────────────────────────────────────────
+
+def _main_of(week, template):
+    day = next(d for d in week if d["template"] == template)
+    return day["slots"][0]["default"]
+
+
+def test_an_unloaded_bodyweight_lift_is_not_the_main_lift():
+    """Push-up had the most logged sets, so it took Day 1's 5 x 3-5 main slot over the
+    bench press. A bodyweight lift the athlete never loads can't be a heavy main lift."""
+    prof = _profile(sets_by_exercise={"push-up": 120, "bench press": 30, "dumbbell bench press": 12},
+                    recent_e1rm={"bench press": 80.0, "dumbbell bench press": 30.0},
+                    equipment_used=["Barbell", "Bodyweight", "Dumbbell"])
+    week = cp.build_skeleton(ROWS, prof, "strength", 5)
+    assert _main_of(week, "UPPER_A") == "Bench Press"
+    assert _main_of(week, "PUSH_A") != "Push-up"
+    assert all(s["default"] != "Push-up" for d in week for s in d["slots"] if s["role"] in ("main", "secondary"))
+
+
+def test_a_bodyweight_lift_the_athlete_loads_keeps_its_rank():
+    prof = _profile(sets_by_exercise={"dip": 120, "bench press": 30}, recent_e1rm={"bench press": 80.0},
+                    loaded_bodyweight=["dip"], equipment_used=["Barbell", "Bodyweight"])
+    week = cp.build_skeleton(ROWS, prof, "strength", 5)
+    heavy = {s["default"] for d in week for s in d["slots"] if s["role"] in ("main", "secondary")}
+    assert "Dip" in heavy
+
+
+def test_bodyweight_only_gear_still_gets_a_main_lift():
+    rows = [r for r in ROWS if r["equipment"] == "Bodyweight"]
+    prof = _profile(sets_by_exercise={"push-up": 50}, equipment_used=["Bodyweight"])
+    week = cp.build_skeleton(rows, prof, "strength", 3)
+    assert all(d["slots"] and d["slots"][0]["default"] for d in week)

@@ -124,7 +124,8 @@ async def build_profile(conn: aiosqlite.Connection, uid: int, *, fresh: bool = F
         """
         SELECT e.name, COALESCE(e.equipment, 'Other') AS equipment, COUNT(*) AS sets,
                MAX(CASE WHEN s.weight_kg > 0 AND COALESCE(e.equipment, '') != 'Bodyweight'
-                        THEN ROUND(e1rm(s.weight_kg, s.reps), 1) END) AS e1rm
+                        THEN ROUND(e1rm(s.weight_kg, s.reps), 1) END) AS e1rm,
+               MAX(COALESCE(s.added_weight_kg, 0)) AS max_added
         FROM sets s
         JOIN exercises e ON e.id = s.exercise_id
         JOIN workouts w ON w.id = s.workout_id
@@ -138,6 +139,10 @@ async def build_profile(conn: aiosqlite.Connection, uid: int, *, fresh: bool = F
     sets_by_exercise = {r["name"].lower(): r["sets"] for r in per_exercise}
     recent_e1rm = {r["name"].lower(): r["e1rm"] for r in per_exercise if r["e1rm"]}
     equipment_used = sorted({r["equipment"] for r in per_exercise})
+    # Bodyweight lifts the athlete adds load to (weighted dips/pull-ups): only these may
+    # take a heavy main/secondary slot in the coach's skeleton.
+    loaded_bodyweight = sorted(r["name"].lower() for r in per_exercise
+                               if r["equipment"] == "Bodyweight" and (r["max_added"] or 0) > 0)
 
     # Sessions per week estimate.
     sessions_per_week = None
@@ -362,6 +367,7 @@ async def build_profile(conn: aiosqlite.Connection, uid: int, *, fresh: bool = F
         "injury_flags": injury_flags,
         "sets_by_exercise": sets_by_exercise,
         "recent_e1rm": recent_e1rm,
+        "loaded_bodyweight": loaded_bodyweight,
         "equipment_used": equipment_used,
     }
     _PROFILE_CACHE[uid] = (profile, time.monotonic())

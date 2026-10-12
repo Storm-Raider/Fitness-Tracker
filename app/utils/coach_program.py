@@ -338,6 +338,14 @@ def exercise_targets(row: dict, role: str, sets: int, reps: str, rir: int, rest_
 
 # ── Skeleton ─────────────────────────────────────────────────────────
 
+def _unloaded_bodyweight(row: dict, profile: dict) -> bool:
+    """A bodyweight lift the athlete never adds load to (Push-up, not weighted Dips):
+    it can't carry a heavy main/secondary slot, however often it is logged."""
+    if row.get("equipment") != "Bodyweight":
+        return False
+    return row["name"].lower() not in {n.lower() for n in profile.get("loaded_bodyweight") or []}
+
+
 def _rank_key(row: dict, profile: dict, goal: str):
     key = row["name"].lower()
     used = set(profile.get("equipment_used") or [])
@@ -463,7 +471,11 @@ def build_skeleton(rows: list[dict], profile: dict, goal: str, days: int, focus_
                     if heavy_ok or r["name"].lower() not in _HEAVY_ONLY]
             # A slot open to several patterns prefers one the day has not covered yet
             # (Full Body C: a row after a pulldown, not two pulldowns).
-            pool.sort(key=lambda r: (pattern_of(r["name"]) in day_patterns, _rank_key(r, profile, goal)))
+            # A heavy slot puts unloaded bodyweight lifts last: Push-up, logged most, took
+            # Day 1's 5 x 3-5 main slot over the bench press. Still picked if nothing else fits.
+            pool.sort(key=lambda r: (pattern_of(r["name"]) in day_patterns,
+                                     heavy_ok and _unloaded_bodyweight(r, profile),
+                                     _rank_key(r, profile, goal)))
             fresh = [r for r in pool if r["name"] not in day_names]
             # Main and secondary lifts repeat the athlete's best lift (up to the weekly cap):
             # practising the big lift twice a week is the point. Accessories rotate
