@@ -18,7 +18,7 @@ from app.routes import coach
 from app.routes.auth import get_current_user
 from app.utils import coach_budget, gemini
 from app.utils.render import render
-from app.utils.coach_program import run_down_reasons
+from app.utils.coach_program import volume_note
 from app.utils.training_profile import build_profile
 
 router = APIRouter()
@@ -147,8 +147,8 @@ async def plan_page(
             "saved_plans": saved_plans,
             "draft_plan": draft_plan,
             "llm_available": gemini.is_configured(),
-            # Shown under the profile: what will make the coach trim accessory volume.
-            "run_down_reasons": run_down_reasons(profile) if profile else [],
+            # Shown under the profile: how recovery moves the next plan's accessory volume.
+            "volume_note": volume_note(profile) if profile else None,
             # The chat panel is not rendered at all when switched off (COACH_CHAT_ENABLED=false)
             # or when there is no key to talk to.
             "coach_chat_enabled": coach_budget.chat_enabled() and gemini.is_configured(),

@@ -396,6 +396,47 @@ def run_down_reasons(profile: dict) -> list[str]:
     return reasons
 
 
+def _and(items: list[str]) -> str:
+    return items[0] if len(items) == 1 else ", ".join(items[:-1]) + " and " + items[-1]
+
+
+def recovery_trim(profile: dict) -> dict | None:
+    """What a plan made now records when recovery cuts its accessory volume, so the
+    next plan can say whether the athlete bounced back. None when it doesn't."""
+    reasons = run_down_reasons(profile)
+    if not reasons or _volume_delta(profile) >= 0:
+        return None
+    return {"reasons": reasons, "readiness_7d": (profile.get("recovery") or {}).get("avg_readiness_7d")}
+
+
+def volume_note(profile: dict) -> str | None:
+    """One sentence on recovery and accessory volume for the plan's header and the
+    Plan page: lighter and why, still lighter, or back to full volume since the
+    last (lighter) plan. None when recovery changes nothing."""
+    reasons = run_down_reasons(profile)
+    delta = _volume_delta(profile)
+    last = profile.get("last_plan_trim")
+    now_r = (profile.get("recovery") or {}).get("avg_readiness_7d")
+    then_r = last.get("readiness_7d") if last else None
+    if reasons:
+        if delta >= 0:      # only "too easy" feedback outweighs a run-down week
+            return (f"Accessory work keeps its usual sets: you rated your last plan too easy, "
+                    f"which outweighs {_and(reasons)}.")
+        note = f"{'Still one' if last else 'One'} set fewer on accessory work for recovery, because of {_and(reasons)}."
+        if then_r is not None and now_r is not None:
+            note += f" Your 7-day readiness was {then_r} at your last plan."
+        return note
+    if not last:
+        return None
+    if delta < 0:
+        return ("Recovered since your last plan, but accessory work still loses a set "
+                "because you rated that plan too hard.")
+    if then_r is not None and now_r is not None and now_r > then_r:
+        return f"Back to full accessory volume: your 7-day readiness is up from {then_r} to {now_r} since your last plan."
+    return (f"Back to full accessory volume: your last plan was lighter because of "
+            f"{_and(last['reasons'])}, and that has cleared.")
+
+
 def _slots_per_day(profile: dict) -> int:
     asm = profile.get("avg_session_minutes")
     n = max(4, min(10, round(asm / 7))) if asm else 6

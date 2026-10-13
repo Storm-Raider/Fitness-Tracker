@@ -37,8 +37,8 @@ from app.utils.coach_plan import (
     athlete_context, catalog_lines, exercise_catalog, exercise_rows, name_to_id_map,
     pain_constraint,
 )
-from app.utils.coach_program import assemble_plan, build_skeleton
-from app.utils.training_profile import build_profile
+from app.utils.coach_program import assemble_plan, build_skeleton, recovery_trim, volume_note
+from app.utils.training_profile import build_profile, invalidate_profile
 
 router = APIRouter()
 
@@ -196,12 +196,20 @@ class PlanDay(BaseModel):
     exercises: list[PlanExercise]
 
 
+class RecoveryTrimIn(BaseModel):
+    reasons: list[str] = Field(min_length=1, max_length=6)
+    readiness_7d: int | None = Field(default=None, ge=0, le=100)
+
+
 class PlanIn(BaseModel):
     title: str = Field(min_length=1, max_length=120)
     summary: str = Field(default="", max_length=1000)
     goal: str = Field(pattern=r"^(strength|hypertrophy|balance|general)$")
     days_per_week: int = Field(ge=1, le=7)
     days: list[PlanDay]
+    # Carried through from generation (see _generate_plan) so a plan saved without a draft keeps them.
+    volume_note: str = Field(default="", max_length=400)
+    recovery_trim: RecoveryTrimIn | None = None
 
 
 class ConfirmIn(BaseModel):
@@ -254,6 +262,9 @@ def _build_prompt(goal: str, days: int, profile: dict, skeleton: list[dict], cat
         lines.append(f'ATHLETE REQUEST (written by the athlete): "{note}"')
 
     lines.extend(athlete_context(profile, goal))
+    vol = volume_note(profile)
+    if vol:
+        lines.append(f"- RECOVERY AND VOLUME (accessory sets are set in code): {vol}")
     block = notes_block(notes or [])
     if block:
         lines.extend([block, ""])
@@ -401,6 +412,13 @@ async def _generate_plan(
                                   allow_outside=bool(focus_note.strip() or notes))
     if dropped:
         logging.info("coach: %d pick(s) replaced by a candidate: %s", len(dropped), ", ".join(dropped))
+    # The header says why accessory volume moved; the trim lets the next plan say
+    # whether the athlete bounced back (training_profile reads it from the saved plan).
+    note, trim = volume_note(profile), recovery_trim(profile)
+    if note:
+        plan["volume_note"] = note
+    if trim:
+        plan["recovery_trim"] = trim
     return plan, dropped, model_used
 
 
@@ -679,6 +697,11 @@ async def save_plan(
         "days_per_week": body.days_per_week,
         "days": stored_days,
     }
+    if body.volume_note.strip():
+        plan_obj["volume_note"] = body.volume_note.strip()
+    if body.recovery_trim:
+        plan_obj["recovery_trim"] = {"reasons": [r[:160] for r in body.recovery_trim.reasons],
+                                     "readiness_7d": body.recovery_trim.readiness_7d}
 
     async with write_tx(conn):
         async with conn.execute(
@@ -713,6 +736,7 @@ async def save_plan(
             "UPDATE coach_plans SET plan_json=? WHERE id=?",
             (json.dumps(plan_obj), plan_id),
         )
+    invalidate_profile(uid)   # the profile reads the last saved plan
     return JSONResponse({"id": plan_id, "routine_ids": routine_ids}, status_code=201)
 
 
@@ -797,6 +821,7 @@ async def confirm_plan(
             "UPDATE coach_plans SET title=?, plan_json=? WHERE id=?",
             (title, json.dumps(plan_obj), plan_id),
         )
+    invalidate_profile(uid)   # the profile reads the last saved plan
     return JSONResponse({"id": plan_id, "routine_ids": routine_ids}, status_code=201)
 
 
@@ -823,6 +848,7 @@ async def delete_plan(
                 (*routine_ids, uid),
             )
         await conn.execute("DELETE FROM coach_plans WHERE id = ? AND user_id = ?", (plan_id, uid))
+    invalidate_profile(uid)
 
 
 @router.post("/coach/plans/{plan_id}/feedback", status_code=204)
@@ -843,3 +869,4 @@ async def set_plan_feedback(
             "UPDATE coach_plans SET feedback = ? WHERE id = ? AND user_id = ?",
             (body.feedback, plan_id, current_user["id"]),
         )
+    invalidate_profile(current_user["id"])   # feedback moves accessory volume

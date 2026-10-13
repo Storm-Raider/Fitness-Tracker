@@ -94,6 +94,8 @@
   letter-spacing: -0.005em;
 }
 .plan-out-summary { color: var(--muted); font-size: 0.9375rem; margin-top: 0.35rem; line-height: 1.5; }
+/* Why accessory volume moved this week (recovery); ink, not a warning colour. */
+.plan-out-volume { font-size: 0.9375rem; margin-top: 0.6rem; line-height: 1.5; }
 .plan-out-dropped { font-size: 0.8125rem; color: var(--muted); margin-bottom: 0.75rem; }
 
 /* ── AI day cards ── */
@@ -586,8 +588,8 @@
       {% if rec.resting_hr_vs_baseline_bpm is not none %}{% set r = rec.resting_hr_vs_baseline_bpm %}{% set _ = bits.append('resting HR at your normal' if r == 0 else 'resting HR <b class="num">%s</b> bpm %s your normal' % (r | abs, 'above' if r > 0 else 'below')) %}{% endif %}
       {% if bits %}<div class="plan-note">Recovery from Oura: {{ bits | join(' · ') | safe }}</div>{% endif %}
       {% endif %}
-      {% if llm_available and run_down_reasons %}
-      <div class="plan-note"><b>Your next plan drops a set from accessory work:</b> {% if run_down_reasons | length > 1 %}{{ run_down_reasons[:-1] | join(', ') }} and {{ run_down_reasons[-1] }}{% else %}{{ run_down_reasons[0] }}{% endif %}.</div>
+      {% if llm_available and volume_note %}
+      <div class="plan-note"><b>Next plan:</b> {{ volume_note[0] | lower }}{{ volume_note[1:] }}</div>
       {% endif %}
       {% endif %}
       </div>{# end ai-generate-panel #}
@@ -1004,7 +1006,11 @@ function renderAiPlan(plan, dropped) {
     document.getElementById('ai-save-title').value = plan.title || '';
     row.style.display = '';
   }
-  lucide.createIcons();
+  // A draft renders while the page is still parsing, before the deferred lucide
+  // script has run; base.html draws the icons on DOMContentLoaded then. Calling
+  // it bare threw, and the throw skipped the rest of this script (the planner's
+  // settings, the unit listener, resuming a running generation).
+  if (window.lucide) lucide.createIcons();
 }
 
 async function saveAiPlan() {
@@ -1032,6 +1038,8 @@ async function saveAiPlan() {
       const payload = {
         title: title,
         summary: currentPlan.summary || '',
+        volume_note: currentPlan.volume_note || '',
+        recovery_trim: currentPlan.recovery_trim || null,
         goal: currentPlan.goal,
         days_per_week: currentPlan.days_per_week,
         days: currentPlan.days.map(d => ({
