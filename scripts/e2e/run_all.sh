@@ -75,6 +75,33 @@ if [ ${#failed[@]} -eq 0 ]; then line+="PASS $passed/$total"; else line+="FAIL $
 echo "$line"
 echo "$line" >"$OUT/summary.txt"
 
+# E2E_NOTIFY=github (the cron line sets it): a failed run opens a GitHub issue,
+# or comments on the one already open; the next clean run closes it. Only full
+# runs report, and a check that passed on its retry doesn't open one. The
+# label keeps it out of scripts/triage-issues.sh (bug/enhancement only).
+notify_github() {
+  local label="nightly-checks" open body
+  gh label create "$label" --color FBCA04 --description "The nightly browser checks failed" >/dev/null 2>&1 || true
+  open="$(gh issue list --state open --label "$label" --limit 1 --json number -q '.[0].number' 2>/dev/null)"
+  if [ ${#failed[@]} -eq 0 ]; then
+    [ -n "$open" ] && gh issue close "$open" --comment "Clean again: \`$line\`" >/dev/null
+    return 0
+  fi
+  body="\`$line\`"$'\n'
+  for name in "${failed[@]}"; do
+    body+=$'\n'"**$name**"$'\n```\n'"$(grep -E 'FAIL|Error|error|Timeout|not ' "$OUT/$name.log" | grep -v '^INFO' | head -12)"$'\n```\n'
+  done
+  body+=$'\n'"Full output on the Pi: \`logs/e2e/$(basename "$OUT")/\`. Each check ran twice, on fresh servers."
+  if [ -n "$open" ]; then
+    gh issue comment "$open" --body "$body" >/dev/null
+  else
+    gh issue create --label "$label" --title "Nightly browser checks failing: ${failed[*]}" --body "$body" >/dev/null
+  fi
+}
+if [ "${E2E_NOTIFY:-}" = "github" ] && [ -z "${E2E_SUITES:-}" ]; then
+  notify_github || echo "$(date '+%F %H:%M')  could not update the GitHub issue"
+fi
+
 # Keep the last 14 runs' logs.
 ls -1d "$ROOT"/logs/e2e/*/ 2>/dev/null | sort | head -n -14 | xargs -r rm -rf
 [ ${#failed[@]} -eq 0 ]
