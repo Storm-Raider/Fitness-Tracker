@@ -11,7 +11,7 @@ const require = createRequire((process.env.PLAYWRIGHT_DIR ||
   `${process.env.HOME}/.claude/skills/gstack/node_modules`) + '/');
 const { chromium } = require('playwright');
 
-const BASE = 'http://127.0.0.1:8765';
+const BASE = process.env.E2E_BASE || 'http://127.0.0.1:8765';
 const WIDTH = 390;
 const browser = await chromium.launch();
 // isMobile: the layout viewport follows <meta name=viewport> and grows with

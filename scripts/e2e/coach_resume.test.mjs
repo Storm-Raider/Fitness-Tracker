@@ -10,7 +10,7 @@ const require = createRequire((process.env.PLAYWRIGHT_DIR ||
   `${process.env.HOME}/.claude/skills/gstack/node_modules`) + '/');
 const { chromium } = require('playwright');
 
-const BASE = 'http://127.0.0.1:8765';
+const BASE = process.env.E2E_BASE || 'http://127.0.0.1:8765';
 const JOB = 'feedface';
 const PLAN = {
   title: 'Resumed Plan', summary: 'From a job started on another page', goal: 'strength', days_per_week: 1,

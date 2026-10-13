@@ -8,7 +8,7 @@ const require = createRequire((process.env.PLAYWRIGHT_DIR ||
   `${process.env.HOME}/.claude/skills/gstack/node_modules`) + '/');
 const { chromium } = require('playwright');
 
-const BASE = 'http://127.0.0.1:8765';
+const BASE = process.env.E2E_BASE || 'http://127.0.0.1:8765';
 const results = [];
 function check(name, ok, detail = '') {
   results.push({ name, ok });
@@ -20,8 +20,34 @@ const ctx = await browser.newContext({ hasTouch: true, viewport: { width: 390, h
 const page = await ctx.newPage();
 page.on('dialog', d => d.dismiss());
 
-// Login (also registers the service worker)
+// ── 0. First visit: installing the worker doesn't reload the page ───────
+// It used to: activate reloaded every open window, so a moment after the
+// login page first opened it reloaded, wiping what was typed or cancelling a
+// sign-in already sent. Only a new version replacing an old one reloads.
+let loads = 0;
+page.on('framenavigated', f => { if (f === page.mainFrame()) loads++; });
 await page.goto(BASE + '/login');
+await page.fill('input[name=username]', 'e2eadmin');
+await page.waitForFunction(() => !!navigator.serviceWorker.controller, null, { timeout: 15000 }).catch(() => {});
+await page.waitForTimeout(1500);
+const typed = await page.inputValue('input[name=username]');
+check('First visit: installing the service worker does not reload the page',
+      loads === 1 && typed === 'e2eadmin', `${loads} load(s), username field "${typed}"`);
+
+// A new version replacing an old one still reloads open windows once (a phone
+// stuck on a stale page heals itself). Simulated: an old version's cache is
+// left behind and the worker installs afresh.
+await page.evaluate(async () => {
+  await caches.open('fittrack-v0.0.1');
+  // A different script URL makes the browser install it as an update.
+  await navigator.serviceWorker.register('/sw.js?upgrade=1');
+}).catch(() => {});   // the reload may tear down this evaluate
+await page.waitForTimeout(3000);
+await page.waitForLoadState('load');
+const oldGone = await page.evaluate(async () => !(await caches.keys()).includes('fittrack-v0.0.1'));
+check('A new version replacing an old one reloads the page once', loads === 2 && oldGone, `${loads} load(s), old cache removed: ${oldGone}`);
+
+// Login (the worker is now installed)
 await page.fill('input[name=username]', 'e2eadmin');
 await page.fill('input[name=password]', 'e2e-admin-password-123');
 await Promise.all([page.waitForNavigation(), page.click('button[type=submit]')]);
@@ -176,7 +202,7 @@ await page.reload({ waitUntil: 'networkidle' });          // now controlled + ca
 // Stop the server: Playwright's offline switch doesn't reliably reach the
 // service worker's own fetches, and "Pi unreachable" is the real case anyway.
 const { execSync } = require('child_process');
-execSync('fuser -k 8765/tcp || true');
+execSync(`fuser -k ${new URL(BASE).port}/tcp || true`);
 await new Promise(r => setTimeout(r, 500));
 let visited = '', fallback = '';
 try { await page.reload(); visited = await page.title(); } catch (e) { visited = 'ERR ' + e.message.split('\n')[0]; }

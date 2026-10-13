@@ -37,6 +37,9 @@ cron/zenkai-enrich
 
 # Runtime logs (keep the dir via logs/.gitkeep, ignore the log files)
 logs/*.log
+# The nightly browser checks (scripts/e2e/run_all.sh): per-run output and its lock
+logs/e2e/
+logs/.e2e.lock
 
 # Auto-deploy marker: the commit the running server booted on (runtime state)
 logs/deployed-commit
