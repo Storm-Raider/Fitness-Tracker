@@ -6,6 +6,7 @@ from pydantic import BaseModel, Field
 
 from app.db import get_db, write_tx
 from app.routes.auth import get_current_user
+from app.utils import progression
 from app.utils.db_utils import require_owns
 from app.utils.render import templates
 
@@ -93,8 +94,8 @@ async def list_routines(
 ):
     async with conn.execute(
         """
-        SELECT r.id, r.name,
-               e.id AS ex_id, e.name AS ex_name,
+        SELECT r.id, r.name, r.user_id,
+               e.id AS ex_id, e.name AS ex_name, e.equipment,
                MIN(re.order_idx) AS ord,
                MAX(re.target_json) AS target_json,
                json_group_array(json_object('name', em.muscle, 'is_primary', em.is_primary))
@@ -112,17 +113,28 @@ async def list_routines(
         rows = await cur.fetchall()
 
     routines_map: dict = {}
+    targeted: list[dict] = []          # this user's plan exercises, for the weight suggestions
     for row in rows:
         r_id = row["id"]
         if r_id not in routines_map:
             routines_map[r_id] = {"id": r_id, "name": row["name"], "exercises": []}
         if row["ex_id"] is not None:
-            routines_map[r_id]["exercises"].append({
+            item = {
                 "id": row["ex_id"],
                 "name": row["ex_name"],
                 "muscles": json.loads(row["muscles"] or "[]"),
                 "target": json.loads(row["target_json"]) if row["target_json"] else None,
-            })
+            }
+            routines_map[r_id]["exercises"].append(item)
+            if isinstance(item["target"], dict) and row["user_id"] == current_user["id"]:
+                targeted.append({"exercise_id": row["ex_id"], "name": row["ex_name"],
+                                 "equipment": row["equipment"], "target": item["target"], "_item": item})
+
+    # The session shows "Ready for 62.5 kg" when the plan's own rule is met.
+    if targeted:
+        for t, r in zip(targeted, await progression.check_items(conn, current_user["id"], targeted)):
+            if r:
+                t["_item"]["target"]["ready"] = r
 
     return JSONResponse(list(routines_map.values()))
 
