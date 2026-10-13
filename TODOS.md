@@ -122,6 +122,8 @@ Deferred work from engineering + design reviews. Each item has enough context to
 
 **SHIPPED 2026-05-16** — "HTMX Interaction Map" section added to DESIGN.md. Documents 3 true HTMX usages (invite generate, delete workout, delete metric) and 8 vanilla fetch() interactions on the workout form. Includes rationale for why the workout form uses fetch() instead of HTMX.
 
+**Out of date (checked 2026-10-12):** the Daylight rewrite of DESIGN.md (c267058) moved the map to `docs/design-history/DESIGN-redline-console.md`, and HTMX is now used in more places than the 3 it lists (templates delete, invite revoke, body measurements, cardio, the achievement-toast loader in base.html). Rewrite it in the live DESIGN.md if HTMX bugs come back; render.py's full-page fallback (TODO-EL-8) already stops the 500s.
+
 ---
 
 ## TODO-v2-A: Pending Invite List for Admins
@@ -179,6 +181,8 @@ Without Alembic, this is a manual `sqlite3` operation on the Pi's live database 
 
 **Depends on:** v2 scope decision (auth, multi-user). Don't add before v2 planning is confirmed.
 
+**Status (2026-10-12): deferred by decision.** Multi-user shipped on the hand-rolled, append-only `_MIGRATIONS` list in `app/db.py`; DEVIATIONS.md says Alembic waits until that approach breaks down.
+
 ---
 
 ## TODO-EL-1: Fix N+1 query in list_routines
@@ -213,7 +217,7 @@ Then assemble routines + exercises in Python (two-pass: build routine dict, appe
 
 ## TODO-EL-2: Guard delete button on global routines in frontend
 
-**Status: VERIFIED NO-OP (2026-05-16)**
+**Status: DONE.** Was a verified no-op on 2026-05-16; the routine management page it waited for (f0624d6, `/routines/manage`) shows delete only on the user's own routines (`is_own` in `app/routes/routines.py`), library routines get only Start, and the backend checks ownership with `require_owns`.
 
 Routines in the current frontend are rendered as `<option>` elements inside a `<select>` dropdown only. No delete buttons exist in any template for routine entries. The DELETE endpoint has the correct backend guard (`WHERE id = ? AND user_id = ?`). Nothing to change until a routine management UI with per-row delete buttons is added.
 
@@ -276,6 +280,8 @@ Re-action if a dedicated routine management page is built: add `user_id` to `GET
 
 **Depends on:** User request or community feedback after v1 launch.
 
+**PARTLY SHIPPED 2026-05-21** (972cc86): `app/routes/import_.py` detects Hevy from the CSV headers and imports it; tests in `tests/test_import.py`. Still to do: check the column names against a real Hevy export (the parser assumes `Title`, `Start Time`, `Exercise Name`, `Weight`; real exports may use snake_case such as `exercise_title`, `weight_kg`), and say "Strong or Hevy" on the Export page and in the README, which still say Strong only.
+
 ## Completed
 
 - **#15/#16 — Body measurement unit toggle (cm ↔ in)** — `cm | in` toggle in the Body Metrics page header; preference persisted in `user_settings.pref_body_measurement`; measurements, BMI height, chart, and table all unit-aware; DB always stores cm. **Completed:** 2026-06-03
@@ -330,6 +336,8 @@ Re-action if a dedicated routine management page is built: add `user_id` to `GET
 
 
 ## ISSUE-27: [Feature] Acheivements
+
+**SHIPPED 2026-06-15** (116e38c): 18 new achievements and two new categories (cardio milestones, journal); the page lists 42 (up from 24), grouped by category (ce31110), with unlock toasts (04f45ff). GitHub #27 closed 2026-10-12.
 
 **Source:** auto-triage (2026-06-11)
 **Why major:** Vague feature request requiring product and design judgment to decide which new achievements, thresholds, and criteria to add — no fix is unambiguously correct.
