@@ -14,7 +14,7 @@ const require = createRequire((process.env.PLAYWRIGHT_DIR ||
   `${process.env.HOME}/.claude/skills/gstack/node_modules`) + '/');
 const { chromium } = require('playwright');
 
-const BASE = 'http://127.0.0.1:8765';
+const BASE = process.env.E2E_BASE || 'http://127.0.0.1:8765';
 const browser = await chromium.launch();
 const errors = [];
 
@@ -97,14 +97,22 @@ await api('POST', `/workouts/${live.id}/sets`, { exercise_id: bench.id, reps: 5,
 
 // An unsaved coach draft, when the test can reach the server's database.
 if (process.env.E2E_DB) {
-  const { DatabaseSync } = await import('node:sqlite');
-  const db = new DatabaseSync(process.env.E2E_DB);
   const days = [{ focus: 'Upper', exercises: [bench, squat].map(e => ({
     exercise_id: e.id, name: e.name, sets: 3, reps: '8-10', rir: 2, rest_sec: 120, note: '', progression: '' })) }];
-  db.prepare("INSERT INTO coach_plans(user_id, title, goal, days_per_week, plan_json, status) VALUES (1, 'Draft', 'general', 1, ?, 'draft')")
-    .run(JSON.stringify({ title: 'Draft', summary: 'A draft.', goal: 'general', days_per_week: 1, days,
-                          volume_note: 'One set fewer on accessory work for recovery, because of x.' }));
-  db.close();
+  const plan = JSON.stringify({ title: 'Draft', summary: 'A draft.', goal: 'general', days_per_week: 1, days,
+                                volume_note: 'One set fewer on accessory work for recovery, because of x.' });
+  const sql = "INSERT INTO coach_plans(user_id, title, goal, days_per_week, plan_json, status) VALUES (1, 'Draft', 'general', 1, ?, 'draft')";
+  let sqlite = null;
+  try { sqlite = await import('node:sqlite'); } catch { /* Node < 22.5: Python does it */ }
+  if (sqlite) {
+    const db = new sqlite.DatabaseSync(process.env.E2E_DB);
+    db.prepare(sql).run(plan);
+    db.close();
+  } else {
+    const { execFileSync } = await import('child_process');
+    execFileSync('python3', ['-c', 'import sqlite3,sys; c=sqlite3.connect(sys.argv[1]); c.execute(sys.argv[2], (sys.argv[3],)); c.commit()',
+                             process.env.E2E_DB, sql, plan]);
+  }
 }
 
 const detail = [`/workouts/${done.id}`, `/workouts/${live.id}`, `/exercises/${bench.id}`];

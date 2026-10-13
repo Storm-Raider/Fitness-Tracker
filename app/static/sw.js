@@ -56,17 +56,21 @@ self.addEventListener('install', event => {
 });
 
 self.addEventListener('activate', event => {
-  event.waitUntil(
-    caches.keys()
-      .then(keys => Promise.all(keys.filter(k => k !== CACHE_NAME && k !== PAGES_CACHE).map(k => caches.delete(k))))
-      .then(() => self.clients.claim())
-      // Force every open window to reload once when a NEW worker version takes
-      // over, so a device stuck on a stale cached page (common with installed
-      // iOS PWAs) self-heals on the next launch instead of needing a manual
-      // cache clear. Fires once per version bump — no reload loop.
-      .then(() => self.clients.matchAll({ type: 'window' }))
-      .then(clients => clients.forEach(c => { try { c.navigate(c.url); } catch (e) {} }))
-  );
+  event.waitUntil((async () => {
+    const old = (await caches.keys()).filter(k => k !== CACHE_NAME && k !== PAGES_CACHE);
+    await Promise.all(old.map(k => caches.delete(k)));
+    await self.clients.claim();
+    // Force every open window to reload once when a NEW worker version takes
+    // over, so a device stuck on a stale cached page (common with installed
+    // iOS PWAs) self-heals on the next launch instead of needing a manual
+    // cache clear. Fires once per version bump (an old version's cache is
+    // there to replace) — no reload loop. Not on a first install: that
+    // reloaded the login page a moment after it opened, cancelling a sign-in
+    // already sent.
+    if (!old.length) return;
+    const clients = await self.clients.matchAll({ type: 'window' });
+    clients.forEach(c => { try { c.navigate(c.url); } catch (e) {} });
+  })());
 });
 
 async function navigate(request, url) {

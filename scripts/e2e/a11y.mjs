@@ -12,7 +12,7 @@ const { chromium } = require('playwright');
 const AXE = readFileSync(process.env.AXE_PATH ||
   `${process.env.HOME}/Desktop/Git/Tamuru/node_modules/axe-core/axe.min.js`, 'utf8');
 
-const BASE = 'http://127.0.0.1:8765';
+const BASE = process.env.E2E_BASE || 'http://127.0.0.1:8765';
 const browser = await chromium.launch();
 const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true });
 const page = await ctx.newPage();

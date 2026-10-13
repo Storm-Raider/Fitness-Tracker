@@ -546,6 +546,25 @@ Tests:
 pytest tests/ -v
 ```
 
+Browser checks (Playwright; `scripts/e2e/`): accessibility, no page wider than a
+phone, no script errors on any page, offline logging, and a few interaction
+checks. Each runs against a throwaway server with a fresh database, never the
+real one:
+```bash
+scripts/e2e/serve.sh &                  # port 8765 (E2E_PORT), temp database
+node scripts/e2e/no_overflow.test.mjs   # or any other check
+scripts/e2e/run_all.sh                  # all of them, one fresh server each (port 8766)
+```
+
+`run_all.sh` prints one line (`PASS 8/8`, or `FAIL 7/8: a11y`, plus any check
+that only passed on a retry) and keeps each check's output in `logs/e2e/<run>/`
+(the last 14 runs). Nightly, from the user's crontab:
+```bash
+15 4 * * * /home/pi/Fitness-Tracker/scripts/e2e/run_all.sh >> /home/pi/Fitness-Tracker/logs/e2e-nightly.log 2>&1
+```
+It needs Node and Playwright (`PLAYWRIGHT_DIR`), and axe-core for the
+accessibility check (`AXE_PATH`).
+
 ---
 
 ## PWA / mobile install

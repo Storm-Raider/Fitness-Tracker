@@ -7,7 +7,7 @@ const require = createRequire((process.env.PLAYWRIGHT_DIR ||
   `${process.env.HOME}/.claude/skills/gstack/node_modules`) + '/');
 const { chromium } = require('playwright');
 
-const BASE = 'http://127.0.0.1:8765';
+const BASE = process.env.E2E_BASE || 'http://127.0.0.1:8765';
 let failures = 0;
 const check = (name, ok, detail = '') => { if (!ok) failures++; console.log(`${ok ? 'PASS' : 'FAIL'}  ${name}${detail ? '  — ' + detail : ''}`); };
 
