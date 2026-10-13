@@ -577,6 +577,18 @@
         Neglected lately: <b>{{ profile.undertrained | join(', ') }}</b>
       </div>
       {% endif %}
+      {% set rec = profile.recovery %}
+      {% if rec %}
+      {% set bits = [] %}
+      {% if rec.today_readiness is not none %}{% set _ = bits.append('readiness today <b class="num">%s</b> %s' % (rec.today_readiness, rec.today_readiness | oura_band)) %}{% endif %}
+      {% if rec.avg_readiness_7d is not none %}{% set _ = bits.append('7-day average <b class="num">%s</b>' % rec.avg_readiness_7d) %}{% endif %}
+      {% if rec.hrv_vs_baseline_pct is not none %}{% set h = rec.hrv_vs_baseline_pct %}{% set _ = bits.append('HRV at your normal' if h == 0 else 'HRV <b class="num">%s%%</b> %s your normal' % (h | abs, 'below' if h < 0 else 'above')) %}{% endif %}
+      {% if rec.resting_hr_vs_baseline_bpm is not none %}{% set r = rec.resting_hr_vs_baseline_bpm %}{% set _ = bits.append('resting HR at your normal' if r == 0 else 'resting HR <b class="num">%s</b> bpm %s your normal' % (r | abs, 'above' if r > 0 else 'below')) %}{% endif %}
+      {% if bits %}<div class="plan-note">Recovery from Oura: {{ bits | join(' · ') | safe }}</div>{% endif %}
+      {% endif %}
+      {% if llm_available and run_down_reasons %}
+      <div class="plan-note"><b>Your next plan drops a set from accessory work:</b> {% if run_down_reasons | length > 1 %}{{ run_down_reasons[:-1] | join(', ') }} and {{ run_down_reasons[-1] }}{% else %}{{ run_down_reasons[0] }}{% endif %}.</div>
+      {% endif %}
       {% endif %}
       </div>{# end ai-generate-panel #}
       {% if coach_chat_enabled %}{% include "partials/coach_chat.html" %}{% endif %}
@@ -587,7 +599,7 @@
       {% if draft_plan %}
       <div id="ai-draft-notice" class="draft-notice">
         <i data-lucide="clock" style="width:16px;height:16px;color:var(--text);flex-shrink:0;"></i>
-        <span style="flex:1;color:var(--muted);">Unsaved plan from <b style="color:var(--text);">{{ draft_plan.created_at[:10] }}</b> — review it below.</span>
+        <span style="flex:1;color:var(--muted);">Unsaved plan from <b style="color:var(--text);">{% set d = draft_plan.created_at | human_date %}{{ d | lower if d in ('Today', 'Yesterday') else d }}</b> — review it below.</span>
         <button onclick="dismissDraft()" class="btn btn-ghost">Dismiss</button>
       </div>
       {% endif %}

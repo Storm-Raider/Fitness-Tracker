@@ -6,6 +6,7 @@ from jinja2 import TemplateNotFound
 from pathlib import Path
 
 from app.utils.charts import MUSCLE_COLORS
+from app.utils.oura import band as _oura_band
 from app.utils.static_url import static_url
 
 templates = Jinja2Templates(directory=Path(__file__).parent.parent / "templates")
@@ -46,6 +47,7 @@ def _long_date(iso_str) -> str:
 
 
 templates.env.filters["long_date"] = _long_date
+templates.env.filters["oura_band"] = _oura_band   # 63 -> "Fair"
 
 
 def _has_template(name: str) -> bool:

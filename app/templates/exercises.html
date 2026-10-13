@@ -101,17 +101,14 @@
     background: var(--surface-hover);
     color: var(--text);
   }
-  /* Recently used: horizontal strip of small cards. */
+  /* Recently used: a grid of small cards (it was a sideways-scrolling strip). */
   .ex-recent-row {
-    display: flex;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 0.5rem;
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-    padding: 2px 2px 6px;
-    margin: 0 -2px;
   }
+  @media (min-width: 768px) { .ex-recent-row { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
   .ex-recent {
-    flex-shrink: 0;
     display: flex;
     flex-direction: column;
     gap: 0.15rem;
@@ -130,7 +127,6 @@
     font-size: 0.9375rem;
     font-weight: 600;
     white-space: nowrap;
-    max-width: 160px;
     overflow: hidden;
     text-overflow: ellipsis;
   }

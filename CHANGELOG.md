@@ -5,11 +5,13 @@ All notable changes to Zenkai are documented here.
 ## [Unreleased]
 
 ### Added
+- **The Plan page shows what the coach sees from your Oura ring.** Under "Your training profile": today's readiness, your 7-day average, and your HRV and resting heart rate against your 30-day normal. When you're run down, it says your next plan drops a set from accessory work, and why. The reasons come from the same rule that trims the plan, so the page and the plan always agree.
 - **The coach and Analytics use your Oura recovery.** The coach now sees today's readiness, your 7-day readiness and sleep, and how your HRV and resting heart rate compare with your own 30-day normal. A run-down week (readiness under 70, or HRV 15% or more below normal) trims a set from accessory work. Analytics has a new Recovery chart: 12 weeks of weekly averages for readiness, sleep, HRV or resting heart rate.
 - **Oura Ring.** Connect your ring in Settings and Zenkai pulls Oura's daily sleep, readiness and activity (the last 90 days on first connect, then in the background). Your Daily log's empty sleep and steps fill themselves (what you type wins), Home shows today's readiness, sleep score and HRV, and a session shows your readiness before the first set. Setup needs an Oura API application; see the README's "Oura Ring" section.
 - **Swipe the coach chat sheet down to close it.** On a phone, the chat sheet has a grab handle: drag it down past a quarter of the way, or flick it, and the sheet closes; a shorter drag springs back. Only the handle starts the gesture, so scrolling the conversation never closes it. Close and Escape still work.
 
 ### Design
+- **No more sideways scrolling inside cards.** On a phone the activity heatmap shows the last 26 weeks (a wide screen still shows the year), Recently used on Exercises is a grid instead of a strip, and the records, body metrics and exercise history tables fit their card down to a 360px phone. On desktop, Home's volume and muscle-split charts sit side by side instead of filling half an empty card.
 - **A consistency pass across the app.** From a full design audit at phone and desktop width:
   - The activity heatmap on Home opens on this week on a phone (it used to open a year back and look empty) and fills the card on desktop.
   - Tables fit a phone: the records table and an exercise's session history drop their secondary columns instead of cutting a number in half at the card's edge.

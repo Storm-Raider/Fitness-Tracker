@@ -165,3 +165,43 @@ async def test_analytics_recovery_section_shows_weekly_averages(client, db):
 async def test_analytics_recovery_is_per_user(client, db, user_b):
     await _put(db, _days(10, today=date.today()), uid=user_b["id"])
     assert "const RECOVERY" not in (await client.get("/analytics", headers=HTML)).text
+
+
+# ── Plan page: what the coach sees ───────────────────────────────────
+
+def test_run_down_reasons_name_each_signal():
+    assert cp.run_down_reasons(_profile()) == []
+    low = {"avg_readiness_7d": 66, "avg_readiness_band": "Fair", "hrv_vs_baseline_pct": -16}
+    assert cp.run_down_reasons(_profile(recovery=low)) == [
+        "a 7-day readiness of 66 (Fair)", "HRV 16% below your normal"]
+    tired = _profile(wellness={"avg_sleep_hrs": 5.8, "low_energy_days": 4})
+    assert cp.run_down_reasons(tired) == ["5.8 h average sleep in your daily log", "4 low-energy days in your daily log"]
+
+
+@pytest.mark.asyncio
+async def test_plan_page_shows_recovery_and_why_volume_drops(client, db, monkeypatch):
+    from app.utils.training_profile import invalidate_profile
+    monkeypatch.setenv("GEMINI_API_KEY", "test-key")
+    invalidate_profile(1)
+    page = (await client.get("/plan", headers=HTML)).text
+    assert "Recovery from Oura" not in page and "drops a set" not in page
+
+    rows = _days(7, today=date.today(), readiness_score=65, sleep_score=70, hrv_ms=40.0, resting_hr=55.0)
+    rows += _days(23, today=date.today() - timedelta(days=7))
+    await _put(db, rows)
+    invalidate_profile(1)
+    page = (await client.get("/plan", headers=HTML)).text
+    text = re.sub(r"<[^>]+>", "", page)
+    text = re.sub(r"\s+", " ", text)
+    assert "Recovery from Oura: readiness today 65 Fair · 7-day average 65 · HRV 16% below your normal · resting HR 2 bpm above your normal" in text
+    assert "Your next plan drops a set from accessory work: a 7-day readiness of 65 (Fair) and HRV 16% below your normal." in text
+
+
+@pytest.mark.asyncio
+async def test_plan_page_recovery_without_the_coach_has_no_volume_note(client, db, monkeypatch):
+    from app.utils.training_profile import invalidate_profile
+    monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+    await _put(db, _days(7, today=date.today(), readiness_score=60))
+    invalidate_profile(1)
+    page = (await client.get("/plan", headers=HTML)).text
+    assert "Recovery from Oura" in page and "drops a set" not in page

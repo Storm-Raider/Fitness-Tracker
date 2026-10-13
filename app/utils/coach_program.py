@@ -370,16 +370,30 @@ def _volume_delta(profile: dict) -> int:
         delta -= 1
     elif fb == "too_easy":
         delta += 1
-    w = profile.get("wellness") or {}
-    sleep = w.get("avg_sleep_hrs")
-    rec = profile.get("recovery") or {}
-    readiness, hrv = rec.get("avg_readiness_7d"), rec.get("hrv_vs_baseline_pct")
     # The journal and the ring often say the same thing ("slept badly"): one set off, not two.
-    run_down = ((sleep is not None and sleep < 6.5) or (w.get("low_energy_days") or 0) >= 4
-                or (readiness is not None and readiness < 70) or (hrv is not None and hrv <= -15))
-    if run_down:
+    if run_down_reasons(profile):
         delta -= 1
     return max(-1, min(1, delta))
+
+
+def run_down_reasons(profile: dict) -> list[str]:
+    """Why accessory volume drops a set, in words (the Plan page shows them):
+    short sleep or low energy in the daily log, low Oura readiness, or HRV well
+    below the athlete's own 30-day normal."""
+    reasons = []
+    w = profile.get("wellness") or {}
+    sleep = w.get("avg_sleep_hrs")
+    if sleep is not None and sleep < 6.5:
+        reasons.append(f"{sleep} h average sleep in your daily log")
+    if (w.get("low_energy_days") or 0) >= 4:
+        reasons.append(f"{w['low_energy_days']} low-energy days in your daily log")
+    rec = profile.get("recovery") or {}
+    readiness, hrv = rec.get("avg_readiness_7d"), rec.get("hrv_vs_baseline_pct")
+    if readiness is not None and readiness < 70:
+        reasons.append(f"a 7-day readiness of {readiness} ({rec.get('avg_readiness_band')})")
+    if hrv is not None and hrv <= -15:
+        reasons.append(f"HRV {abs(hrv)}% below your normal")
+    return reasons
 
 
 def _slots_per_day(profile: dict) -> int:
