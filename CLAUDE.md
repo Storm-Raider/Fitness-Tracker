@@ -1,7 +1,7 @@
 
 ## GBrain Search Guidance — check this FIRST
 
-Before grepping, exploring files, or spawning an Explore agent, query the knowledge graph first: `/graphify query "<question>"`. A knowledge graph of this codebase lives at `graphify-out/graph.json` (1,525 nodes, 2,707 edges, 122 communities) — it's faster and more complete than ad-hoc search for anything touching architecture or cross-file relationships.
+Before grepping, exploring files, or spawning an Explore agent, query the knowledge graph first: `/graphify query "<question>"`. A knowledge graph of this codebase lives at `graphify-out/graph.json` (3,421 nodes, 6,863 edges, 212 communities; rebuilt 2026-10-12) — it's faster and more complete than ad-hoc search for anything touching architecture or cross-file relationships.
 
 **Always query the graph first for:**
 - "How does X work?" / "What calls Y?" / "Where is Z implemented?"
