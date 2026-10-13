@@ -87,6 +87,14 @@
   .oura-vals b { font-size: 1.2rem; }
   .oura-vals em { font-style: normal; color: var(--muted); font-size: 0.875rem; font-weight: 600; }
   .oura-msg { color: var(--muted); font-size: 0.9rem; }
+  .recap { display: grid; gap: 0.3rem; min-height: 56px; padding: 0.75rem 1rem;
+           background: var(--surface); border-radius: var(--radius-sm); box-shadow: var(--shadow-sm);
+           color: var(--text); text-decoration: none; }
+  .recap:hover { color: var(--text); background: var(--surface-2); }
+  .recap-k { color: var(--muted); font-size: 0.875rem; font-weight: 600; }
+  .recap-vals { display: flex; flex-wrap: wrap; gap: 0.25rem 1rem; font-size: 0.95rem; }
+  .recap-vals b { font-size: 1.2rem; }
+  .recap-vals em { font-style: normal; color: var(--muted); font-size: 0.875rem; font-weight: 700; }
 </style>
 
 <div class="home{% if muscle_bar_svg %} has-split{% endif %}">
@@ -126,6 +134,25 @@
     </span>
     {% else %}
     <span class="oura-k">Oura</span><span class="oura-msg">Waiting for today's Oura sync.</span>
+    {% endif %}
+  </a>
+  {% endif %}
+
+  {# Monday to Wednesday: last calendar week in one line. Ink numbers; the
+     records count is amber because it is records (DESIGN.md). #}
+  {% if recap %}
+  <a href="/analytics" class="recap">
+    <span class="recap-k">Last week · {{ recap.label }}</span>
+    {% if recap.sessions == 0 %}
+    <span class="recap-vals"><span>No sessions logged.</span></span>
+    {% else %}
+    <span class="recap-vals">
+      <span>{% if weekly_goal %}<b class="num">{{ recap.sessions }}</b> of <span class="num">{{ weekly_goal }}</span> sessions{% else %}<b class="num">{{ recap.sessions }}</b> session{{ 's' if recap.sessions != 1 }}{% endif %}</span>
+      {% if recap.volume_kg > 0 %}<span><b class="num weight-display" data-kg="{{ recap.volume_kg }}">{{ "{:,.0f}".format(recap.volume_kg) }} kg</b> lifted{% if recap.volume_delta_pct is not none %}
+        {% if recap.volume_delta_pct > 0 %}<em style="color:var(--success);">▲ +{{ recap.volume_delta_pct }}%</em>{% elif recap.volume_delta_pct < 0 %}<em style="color:var(--danger);">▼ {{ recap.volume_delta_pct }}%</em>{% else %}<em>flat</em>{% endif %}{% endif %}</span>{% endif %}
+      {% if recap.records %}<span><b class="num" style="color:var(--pr);">{{ recap.records }}</b> record{{ 's' if recap.records != 1 }}</span>{% endif %}
+      {% if recap.readiness is not none %}<span>Readiness <b class="num">{{ recap.readiness }}</b> <em>{{ recap.readiness_band }}</em></span>{% endif %}
+    </span>
     {% endif %}
   </a>
   {% endif %}

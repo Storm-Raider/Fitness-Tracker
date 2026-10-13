@@ -6,7 +6,7 @@ from fastapi.responses import HTMLResponse
 
 from app.db import get_db
 from app.routes.auth import get_current_user
-from app.utils import oura, oura_sync
+from app.utils import oura, oura_sync, weekly_recap
 from app.utils import challenges as ch
 from app.utils.charts import generate_muscle_bars, generate_weekly_bar_chart
 from app.utils.heatmap import generate_heatmap_svg, heatmap_start
@@ -286,6 +286,7 @@ async def dashboard(
             "best_streak": best_streak,
             "active_workout": active_workout,
             "oura": await _oura_card(conn, uid),
+            "recap": await weekly_recap.last_week_recap(conn, uid),
             "weekly_bar_svg": weekly_bar_svg,
             "muscle_bar_svg": muscle_bar_svg,
             "volume_delta_pct": volume_delta_pct,
