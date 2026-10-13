@@ -1006,7 +1006,11 @@ function renderAiPlan(plan, dropped) {
     document.getElementById('ai-save-title').value = plan.title || '';
     row.style.display = '';
   }
-  lucide.createIcons();
+  // A draft renders while the page is still parsing, before the deferred lucide
+  // script has run; base.html draws the icons on DOMContentLoaded then. Calling
+  // it bare threw, and the throw skipped the rest of this script (the planner's
+  // settings, the unit listener, resuming a running generation).
+  if (window.lucide) lucide.createIcons();
 }
 
 async function saveAiPlan() {
