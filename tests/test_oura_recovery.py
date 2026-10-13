@@ -184,7 +184,7 @@ async def test_plan_page_shows_recovery_and_why_volume_drops(client, db, monkeyp
     monkeypatch.setenv("GEMINI_API_KEY", "test-key")
     invalidate_profile(1)
     page = (await client.get("/plan", headers=HTML)).text
-    assert "Recovery from Oura" not in page and "drops a set" not in page
+    assert "Recovery from Oura" not in page and "Next plan:" not in page
 
     rows = _days(7, today=date.today(), readiness_score=65, sleep_score=70, hrv_ms=40.0, resting_hr=55.0)
     rows += _days(23, today=date.today() - timedelta(days=7))
@@ -194,7 +194,7 @@ async def test_plan_page_shows_recovery_and_why_volume_drops(client, db, monkeyp
     text = re.sub(r"<[^>]+>", "", page)
     text = re.sub(r"\s+", " ", text)
     assert "Recovery from Oura: readiness today 65 Fair · 7-day average 65 · HRV 16% below your normal · resting HR 2 bpm above your normal" in text
-    assert "Your next plan drops a set from accessory work: a 7-day readiness of 65 (Fair) and HRV 16% below your normal." in text
+    assert "Next plan: one set fewer on accessory work for recovery, because of a 7-day readiness of 65 (Fair) and HRV 16% below your normal." in text
 
 
 @pytest.mark.asyncio
@@ -204,4 +204,4 @@ async def test_plan_page_recovery_without_the_coach_has_no_volume_note(client, d
     await _put(db, _days(7, today=date.today(), readiness_score=60))
     invalidate_profile(1)
     page = (await client.get("/plan", headers=HTML)).text
-    assert "Recovery from Oura" in page and "drops a set" not in page
+    assert "Recovery from Oura" in page and "Next plan:" not in page

@@ -42,12 +42,14 @@
       header: el('div', 'card card-accent plan-out-head'),
       title: el('div', 'plan-out-title'),
       summary: el('div', 'plan-out-summary'),
+      volume: el('div', 'plan-out-volume'),
       dropped: el('div', 'plan-out-dropped'),
       daysEl: el('div'),
       days: [],
     };
     pv.header.appendChild(pv.title);
     pv.header.appendChild(pv.summary);
+    pv.header.appendChild(pv.volume);
     container.appendChild(pv.header);
     container.appendChild(pv.dropped);
     container.appendChild(pv.daysEl);
@@ -138,6 +140,9 @@
       pv.title.textContent = fmt(plan.title);
       pv.summary.textContent = fmt(plan.summary);
       pv.summary.style.display = plan.summary ? '' : 'none';
+      // Why accessory volume moved for recovery (coach_program.volume_note); older plans have none.
+      pv.volume.textContent = fmt(plan.volume_note);
+      pv.volume.style.display = plan.volume_note ? '' : 'none';
 
       var dropped = opts.dropped || [];
       pv.dropped.textContent = dropped.length

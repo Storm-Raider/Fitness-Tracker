@@ -7,6 +7,7 @@ can be imported by other routes (e.g. /plan) without pulling in the full coach
 router.
 """
 
+import json
 import time
 
 import aiosqlite
@@ -268,6 +269,28 @@ async def build_profile(conn: aiosqlite.Connection, uid: int, *, fresh: bool = F
         fb_row = await cur.fetchone()
     last_plan_feedback = fb_row["feedback"] if fb_row else None
 
+    # Was the last saved plan lighter for recovery? The next one says whether the
+    # athlete bounced back. Drafts don't count: nobody trained on them.
+    async with conn.execute(
+        """
+        SELECT plan_json, created_at FROM coach_plans
+        WHERE user_id = ? AND (status IS NULL OR status = 'saved')
+        ORDER BY created_at DESC, id DESC LIMIT 1
+        """,
+        (uid,),
+    ) as cur:
+        lp_row = await cur.fetchone()
+    last_plan_trim = None
+    if lp_row:
+        try:
+            trim = (json.loads(lp_row["plan_json"] or "{}") or {}).get("recovery_trim")
+        except (ValueError, TypeError, AttributeError):
+            trim = None
+        if isinstance(trim, dict) and isinstance(trim.get("reasons"), list) and trim["reasons"]:
+            last_plan_trim = {"reasons": [str(r) for r in trim["reasons"]],
+                              "readiness_7d": trim.get("readiness_7d"),
+                              "date": str(lp_row["created_at"])[:10]}
+
     # Recent per-set comments — the athlete's own in-the-moment notes (form
     # cues, how a lift felt, pain). Previously never read by the coach at all.
     async with conn.execute(
@@ -364,6 +387,7 @@ async def build_profile(conn: aiosqlite.Connection, uid: int, *, fresh: bool = F
         "muscle_recovery": muscle_recovery,
         "stalled": stalled,
         "last_plan_feedback": last_plan_feedback,
+        "last_plan_trim": last_plan_trim,
         "recent_set_notes": recent_set_notes,
         "high_effort_lifts": high_effort_lifts,
         "low_effort_lifts": low_effort_lifts,
