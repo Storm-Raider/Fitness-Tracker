@@ -5,6 +5,7 @@ All notable changes to Zenkai are documented here.
 ## [Unreleased]
 
 ### Added
+- **A weekly recap on Home.** Monday to Wednesday, Home sums up last week (Monday to Sunday): sessions (against your goal, if you set one), kilograms lifted and the change on the week before, records you set, and your average Oura readiness. Tap it for Analytics.
 - **The Plan page shows what the coach sees from your Oura ring.** Under "Your training profile": today's readiness, your 7-day average, and your HRV and resting heart rate against your 30-day normal. When you're run down, it says your next plan drops a set from accessory work, and why. The reasons come from the same rule that trims the plan, so the page and the plan always agree.
 - **The coach and Analytics use your Oura recovery.** The coach now sees today's readiness, your 7-day readiness and sleep, and how your HRV and resting heart rate compare with your own 30-day normal. A run-down week (readiness under 70, or HRV 15% or more below normal) trims a set from accessory work. Analytics has a new Recovery chart: 12 weeks of weekly averages for readiness, sleep, HRV or resting heart rate.
 - **Oura Ring.** Connect your ring in Settings and Zenkai pulls Oura's daily sleep, readiness and activity (the last 90 days on first connect, then in the background). Your Daily log's empty sleep and steps fill themselves (what you type wins), Home shows today's readiness, sleep score and HRV, and a session shows your readiness before the first set. Setup needs an Oura API application; see the README's "Oura Ring" section.
