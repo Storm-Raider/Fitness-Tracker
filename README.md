@@ -158,6 +158,16 @@ the title and a summary of why the plan suits you.
 Saved routines keep these targets: pick the exercise in the workout logger and its
 target (e.g. `5 × 3-5 · 112.5 kg · RIR 2 · 3 min rest`) shows under "Last time".
 
+The progression rule is checked against what you log, in code (no model call,
+`app/utils/progression.py`). When your last two finished sessions of a plan exercise
+each had the planned sets at the top of the rep range, at the target load or more,
+with none rated Max and no pain in a set note, the newest saved plan on the Plan page
+lists it under **Ready to progress** (e.g. `Bench Press 60 kg → 62.5 kg`). **Apply**
+raises the target in the plan and its routine; **Not yet** hides it for two weeks.
+During a session the same step shows as an orange "Ready for 62.5 kg" chip. Steps:
++2.5 kg, +5 kg for a barbell or machine squat or hinge, one dumbbell (+2.5 kg), +1 rep
+a set for an unloaded bodyweight move, +10 s for a timed hold.
+
 Generation takes a few seconds to about a minute. Rate-limit and temporary
 Gemini errors are retried automatically.
 

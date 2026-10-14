@@ -444,6 +444,8 @@ Request to expand the achievements list beyond the current 24. Needs product dec
 
 ## TODO-CC-2: Coach progression suggestions (deterministic, lazy)
 
+**SHIPPED 2026-10-13** (`app/utils/progression.py`). Differences from the design below: the rule blocks only a Max-rated set (RPE 10) or a pain note, not RPE > 8; after Apply there is no 7-day cooldown, because the raised target itself has to be met again; Not yet hides an exercise for 14 days (`progression_snoozes`, keyed by user and exercise); the apply path on saved plans is a dedicated endpoint (`POST /coach/plans/{id}/progress/{exercise_id}`) that rechecks the rule and updates `plan_json` and the day's `routine_exercises.target_json`, so TODO-CC-3 wasn't needed; and the session logger shows an orange "Ready for …" chip from the same check.
+
 **What:** After chat ships, add progression suggestions to the Plan page: computed lazily when the page opens (a separate endpoint called after render), with NO hook in the workout-save path and NO LLM call. One-tap Apply bumps the prescribed load; Dismiss is remembered.
 
 **Why:** It is the most coach-like behaviour ("you owned all three sets, want 62.5 kg?") and costs zero API quota. It was fully designed in the 2026-10-04 Coach Chat CEO review (decisions 3 and 24) and then moved out of that effort (CM5) because lean v1 removed its apply path on saved plans and it shares no code with chat.

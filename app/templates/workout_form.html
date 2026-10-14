@@ -214,6 +214,9 @@
   white-space: nowrap;
 }
 .overload-chip:hover { border-color: var(--text); }
+/* The plan's progression rule is met: the step to press, so an orange fill. */
+.overload-chip.ready-chip { background: var(--primary); border-color: var(--primary); color: var(--on-primary); }
+.overload-chip.ready-chip:hover { background: var(--primary-hover); border-color: var(--primary-hover); }
 
 #bw-hint {
   margin: 0.6rem 0.25rem 0;
@@ -2445,6 +2448,7 @@ function _showTarget(ex) {
   const cue  = document.getElementById('target-cue');
   if (!hint) return;
   const t = ex ? _routineTarget(ex.id) : null;
+  _showReadyChip(t);
   if (!t || !t.sets) { hint.style.display = 'none'; cue.style.display = 'none'; return; }
   // Built with DOM nodes: the cue and rule come from a model.
   out.textContent = `${t.sets} × ${t.reps}`;
@@ -2467,6 +2471,34 @@ function _showTarget(ex) {
     cue.appendChild(span);
   }
   cue.style.display = cue.childNodes.length ? 'block' : 'none';
+}
+
+// The plan's own progression rule is met (app/utils/progression.py, sent with
+// the routine's target): one orange chip in front of the +2.5 kg / +1 rep
+// shortcuts fills in the next step. Like them, it shows before the first set.
+function _showReadyChip(t) {
+  const chips = document.getElementById('overload-chips');
+  if (!chips) return;
+  const old = chips.querySelector('.ready-chip');
+  if (old) old.remove();
+  const r = t && t.ready;
+  if (!r) return;
+  const b = document.createElement('button');
+  b.type = 'button';
+  b.className = 'overload-chip ready-chip';
+  if (r.kind === 'load') {
+    b.textContent = 'Ready for ' + fmtWeight(r.to_kg, getAppUnit());
+    b.onclick = () => {
+      document.getElementById('weight-input').value =
+        getAppUnit() === 'lbs' ? Math.round(r.to_kg * 2.2046 * 10) / 10 : r.to_kg;
+    };
+  } else {
+    const nums = (String(r.to_reps).match(/\d+/g) || ['0']).map(Number);
+    const top = Math.max(...nums) * (/min/i.test(r.to_reps) ? 60 : 1);
+    b.textContent = r.kind === 'reps' ? `Ready for ${r.to_reps} reps` : `Ready for ${top} s`;
+    b.onclick = () => { document.getElementById('reps-input').value = top; };
+  }
+  chips.prepend(b);
 }
 
 function applyOverload(weight, reps) {

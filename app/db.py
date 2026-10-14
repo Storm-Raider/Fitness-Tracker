@@ -420,6 +420,14 @@ _MIGRATIONS = [
         updated_at      TEXT    NOT NULL DEFAULT (datetime('now','localtime')),
         PRIMARY KEY (user_id, day)
     )""",
+    # Weight suggestions (app/utils/progression.py): "Not yet" hides an
+    # exercise's suggestion until this date.
+    """CREATE TABLE IF NOT EXISTS progression_snoozes (
+        user_id     INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        exercise_id INTEGER NOT NULL REFERENCES exercises(id) ON DELETE CASCADE,
+        until       TEXT    NOT NULL,
+        PRIMARY KEY (user_id, exercise_id)
+    )""",
 ]
 
 

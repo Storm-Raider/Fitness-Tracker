@@ -31,7 +31,7 @@ from pydantic import BaseModel, Field
 
 from app.db import WriteConflict, get_db, write_tx
 from app.routes.auth import get_current_user
-from app.utils import coach_budget, gemini
+from app.utils import coach_budget, gemini, progression
 from app.utils.coach_chat import notes_block
 from app.utils.coach_plan import (
     athlete_context, catalog_lines, exercise_catalog, exercise_rows, name_to_id_map,
@@ -849,6 +849,88 @@ async def delete_plan(
             )
         await conn.execute("DELETE FROM coach_plans WHERE id = ? AND user_id = ?", (plan_id, uid))
     invalidate_profile(uid)
+
+
+async def plan_items(conn: aiosqlite.Connection, plan_obj: dict) -> list[dict]:
+    """A saved plan's exercises as progression items (with each one's day index)."""
+    days = plan_obj.get("days") or []
+    ids = sorted({ex.get("exercise_id") for d in days for ex in d.get("exercises", []) if ex.get("exercise_id")})
+    equipment = {}
+    if ids:
+        marks = ",".join("?" * len(ids))
+        async with conn.execute(f"SELECT id, equipment FROM exercises WHERE id IN ({marks})", tuple(ids)) as cur:
+            equipment = {r["id"]: r["equipment"] for r in await cur.fetchall()}
+    return [
+        {"exercise_id": ex["exercise_id"], "name": ex.get("name", ""), "equipment": equipment.get(ex["exercise_id"]),
+         "target": {k: ex.get(k) for k in ("sets", "reps", "load_kg", "rir")}, "day": di}
+        for di, d in enumerate(days) for ex in d.get("exercises", []) if ex.get("exercise_id")
+    ]
+
+
+@router.post("/coach/plans/{plan_id}/progress/{exercise_id}")
+async def apply_progression(
+    plan_id: int,
+    exercise_id: int,
+    conn: aiosqlite.Connection = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    """Apply a weight suggestion: raise this exercise's target in the saved plan
+    and in its day's routine. Checked again here, never taken from the client;
+    409 when the last two sessions don't meet the rule (or it was applied already)."""
+    uid = current_user["id"]
+    async with conn.execute(
+        "SELECT plan_json FROM coach_plans WHERE id = ? AND user_id = ? AND (status IS NULL OR status = 'saved')",
+        (plan_id, uid),
+    ) as cur:
+        row = await cur.fetchone()
+    if not row:
+        raise HTTPException(status_code=404, detail="Plan not found")
+    plan_obj = json.loads(row["plan_json"] or "{}")
+    items = [i for i in await plan_items(conn, plan_obj) if i["exercise_id"] == exercise_id]
+    found = [(i, r) for i, r in zip(items, await progression.check_items(conn, uid, items)) if r]
+    if not found:
+        raise HTTPException(status_code=409, detail="Not ready to progress yet.")
+
+    routine_ids = plan_obj.get("routine_ids") or []
+    async with write_tx(conn):
+        for item, suggestion in found:
+            for ex in plan_obj["days"][item["day"]]["exercises"]:
+                if ex.get("exercise_id") == exercise_id:
+                    ex.update(progression.apply_to_target(ex, suggestion))
+            if item["day"] < len(routine_ids):
+                async with conn.execute(
+                    "SELECT re.rowid AS rid, re.target_json FROM routine_exercises re JOIN routines r ON r.id = re.routine_id "
+                    "WHERE re.routine_id = ? AND re.exercise_id = ? AND r.user_id = ?",
+                    (routine_ids[item["day"]], exercise_id, uid),
+                ) as cur:
+                    targets = await cur.fetchall()
+                for t in targets:
+                    try:
+                        old = json.loads(t["target_json"] or "{}")
+                    except ValueError:
+                        continue
+                    await conn.execute("UPDATE routine_exercises SET target_json = ? WHERE rowid = ?",
+                                       (json.dumps(progression.apply_to_target(old, suggestion)), t["rid"]))
+        await conn.execute(
+            "UPDATE coach_plans SET plan_json = ?, rev = rev + 1, updated_at = datetime('now','localtime') "
+            "WHERE id = ? AND user_id = ?",
+            (json.dumps(plan_obj), plan_id, uid),
+        )
+    return JSONResponse(found[0][1])
+
+
+@router.post("/coach/progress/{exercise_id}/snooze", status_code=204)
+async def snooze_progression(
+    exercise_id: int,
+    conn: aiosqlite.Connection = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    """Not yet: hide this exercise's weight suggestion for two weeks."""
+    async with conn.execute("SELECT 1 FROM exercises WHERE id = ?", (exercise_id,)) as cur:
+        if not await cur.fetchone():
+            raise HTTPException(status_code=404, detail="Exercise not found")
+    async with write_tx(conn):
+        await progression.snooze(conn, current_user["id"], exercise_id)
 
 
 @router.post("/coach/plans/{plan_id}/feedback", status_code=204)

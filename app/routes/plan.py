@@ -8,6 +8,7 @@ on their original routes in coach.py and planner.py.
 
 
 import json as _json
+import logging
 
 import aiosqlite
 from fastapi import APIRouter, Depends, Request
@@ -16,7 +17,7 @@ from fastapi.responses import HTMLResponse
 from app.db import get_db, write_tx
 from app.routes import coach
 from app.routes.auth import get_current_user
-from app.utils import coach_budget, gemini
+from app.utils import coach_budget, gemini, progression
 from app.utils.render import render
 from app.utils.coach_program import volume_note
 from app.utils.training_profile import build_profile
@@ -99,6 +100,7 @@ async def plan_page(
         (uid,),
     ) as c:
         coach_plans = []
+        newest_days = None             # the newest saved AI plan: where weight suggestions show
         for r in await c.fetchall():
             p = dict(r)
             # Parse plan_json to get routine_ids (new plans have it; legacy plans don't)
@@ -108,6 +110,8 @@ async def plan_page(
             except (ValueError, TypeError):
                 pass
 
+            if newest_days is None and plan_data.get("days"):
+                newest_days = (p["id"], plan_data)
             if "routine_ids" in plan_data:
                 p["routine_ids"] = plan_data["routine_ids"]
             else:
@@ -119,6 +123,21 @@ async def plan_page(
                     p["routine_ids"] = [row["id"] for row in await rc.fetchall()]
 
             coach_plans.append(p)
+
+    # Weight suggestions for the newest saved plan. Never breaks the page.
+    progress = None
+    if newest_days:
+        try:
+            items = await coach.plan_items(conn, newest_days[1])
+            seen, ready = set(), []
+            for r in await progression.check_items(conn, uid, items):
+                if r and r["exercise_id"] not in seen:
+                    seen.add(r["exercise_id"])
+                    ready.append(r)
+            if ready:
+                progress = {"plan_id": newest_days[0], "items": ready}
+        except Exception:
+            logging.warning("plan: weight suggestions failed for uid=%d", uid, exc_info=True)
 
     # Saved mesocycle plans
     async with conn.execute(
@@ -146,6 +165,7 @@ async def plan_page(
             "top_lifts": top_lifts,
             "saved_plans": saved_plans,
             "draft_plan": draft_plan,
+            "progress": progress,
             "llm_available": gemini.is_configured(),
             # Shown under the profile: how recovery moves the next plan's accessory volume.
             "volume_note": volume_note(profile) if profile else None,

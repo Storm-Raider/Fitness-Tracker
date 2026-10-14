@@ -370,6 +370,13 @@
   margin-right: 0.15rem;
   white-space: nowrap;
 }
+.plan-progress { width: 100%; padding-top: 0.6rem; border-top: 1px solid var(--border); display: grid; gap: 0.5rem; }
+.progress-row { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem 0.75rem; flex-wrap: wrap; }
+.progress-what { min-width: 0; font-size: 0.9375rem; }
+.progress-what b { font-weight: 700; margin-right: 0.35rem; }
+.progress-actions { display: flex; gap: 0.4rem; }
+.progress-actions .btn { min-height: 44px; padding: 0 0.9rem; font-size: 0.875rem; }
+.progress-done { color: var(--muted); font-size: 0.875rem; }
 .plan-fb-btn {
   font-family: inherit;
   font-size: 0.875rem;
@@ -789,6 +796,24 @@
         {% endfor %}
       </div>
       {% endif %}
+      {# Weight suggestions (app/utils/progression.py) on the newest saved plan #}
+      {% if progress and p.type == 'ai' and progress.plan_id == p.id %}
+      <div class="plan-progress">
+        <span class="plan-chip-label">Ready to progress</span>
+        {% for r in progress['items'] %}
+        <div class="progress-row" data-plan-id="{{ p.id }}" data-exercise-id="{{ r.exercise_id }}">
+          <span class="progress-what"><b>{{ r.name }}</b>
+            {% if r.kind == 'load' %}<span class="weight-display num" data-kg="{{ r.from_kg }}">{{ '%g' % r.from_kg }} kg</span> → <span class="weight-display num" data-kg="{{ r.to_kg }}">{{ '%g' % r.to_kg }} kg</span>
+            {%- else %}<span class="num">{{ r.reps }}</span> → <span class="num">{{ r.to_reps }}</span>{% if r.kind == 'reps' %} reps{% endif %}{% endif %}
+          </span>
+          <span class="progress-actions">
+            <button type="button" class="btn btn-primary" onclick="applyProgress(this)">Apply</button>
+            <button type="button" class="btn btn-ghost" onclick="snoozeProgress(this)">Not yet</button>
+          </span>
+        </div>
+        {% endfor %}
+      </div>
+      {% endif %}
       {% if p.type == 'ai' %}
       <div class="plan-feedback-row" data-plan-id="{{ p.id }}">
         <span class="plan-feedback-label">How was it?</span>
@@ -1011,6 +1036,38 @@ function renderAiPlan(plan, dropped) {
   // it bare threw, and the throw skipped the rest of this script (the planner's
   // settings, the unit listener, resuming a running generation).
   if (window.lucide) lucide.createIcons();
+}
+
+// Weight suggestions: Apply raises the plan's and its routine's target; Not yet
+// hides it for two weeks. The server checks the rule again either way.
+async function _progressPost(btn, path, done) {
+  const row = btn.closest('.progress-row');
+  row.querySelectorAll('button').forEach(b => { b.disabled = true; });
+  let msg;
+  try {
+    const r = await fetch(path, { method: 'POST' });
+    if (r.ok) msg = await done(r);
+    else msg = r.status === 409 ? 'Not ready any more: your last sessions changed.' : 'Could not save that. Try again.';
+  } catch (e) {
+    msg = 'No connection. Try again.';
+  }
+  const span = document.createElement('span');
+  span.className = 'progress-done';
+  span.textContent = msg;
+  row.querySelector('.progress-actions').replaceWith(span);
+}
+function applyProgress(btn) {
+  const row = btn.closest('.progress-row');
+  _progressPost(btn, `/coach/plans/${row.dataset.planId}/progress/${row.dataset.exerciseId}`, async r => {
+    const s = await r.json();
+    return s.kind === 'load'
+      ? `Applied: next target ${fmtWeight(s.to_kg, getAppUnit())}.`
+      : `Applied: next target ${s.to_reps}.`;
+  });
+}
+function snoozeProgress(btn) {
+  const row = btn.closest('.progress-row');
+  _progressPost(btn, `/coach/progress/${row.dataset.exerciseId}/snooze`, async () => 'Hidden for two weeks.');
 }
 
 async function saveAiPlan() {
