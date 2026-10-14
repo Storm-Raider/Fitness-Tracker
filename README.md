@@ -560,8 +560,13 @@ scripts/e2e/run_all.sh                  # all of them, one fresh server each (po
 that only passed on a retry) and keeps each check's output in `logs/e2e/<run>/`
 (the last 14 runs). Nightly, from the user's crontab:
 ```bash
-15 4 * * * /home/pi/Fitness-Tracker/scripts/e2e/run_all.sh >> /home/pi/Fitness-Tracker/logs/e2e-nightly.log 2>&1
+15 4 * * * E2E_NOTIFY=github /home/pi/Fitness-Tracker/scripts/e2e/run_all.sh >> /home/pi/Fitness-Tracker/logs/e2e-nightly.log 2>&1
 ```
+With `E2E_NOTIFY=github` a failed run opens a GitHub issue labelled
+`nightly-checks` (or comments on the open one) with the failing lines, and the
+next clean run closes it, so GitHub's own notifications tell you. It needs `gh`
+signed in for the user that runs cron. A check that only passed on its retry
+doesn't open one.
 It needs Node and Playwright (`PLAYWRIGHT_DIR`), and axe-core for the
 accessibility check (`AXE_PATH`).
 
