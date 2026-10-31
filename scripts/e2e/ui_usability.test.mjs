@@ -9,7 +9,7 @@
 //      shows on the finished session with the weight and reps typed.
 //   F4 The kg/lbs toggle changes every weight on the page and survives a reload.
 // Ease of use
-//   E1 Tap budget: Home to a live session in at most 2 taps; one set logged in
+//   E1 Tap budget: Home to a live session in 1 tap; one set logged in
 //      at most 5 (choose exercise, pick it, type weight, type reps, tick).
 //   E2 The way into a session is visible without scrolling on a 360x640 phone.
 //   E3 Touch targets: every visible button/link/input at least 44x44 px on a
@@ -23,6 +23,9 @@
 //   E8 Reflow: at 320px wide (400% zoom of a 1280 screen) nothing scrolls sideways.
 //   E9 Reduced motion: with prefers-reduced-motion no animation runs longer than 0.1s.
 //   E10 Speed: each main page is ready (DOMContentLoaded) in under 1.5 s.
+//   E11 Type scale: Home and the session screen use only the five sizes in
+//      DESIGN.md (13 / 15 / 18 / 22 / 30 px; 40 for the desktop headline; 16 for
+//      text typed into a field, which iOS needs to avoid zooming).
 //
 //   scripts/e2e/serve.sh &
 //   node scripts/e2e/ui_usability.test.mjs        # exit 1 if anything fails
@@ -40,6 +43,7 @@ try {
 const BASE = process.env.E2E_BASE || 'http://127.0.0.1:8765';
 const USER = process.env.E2E_USER || 'e2eadmin';
 const PASS = process.env.E2E_PASS || 'e2e-admin-password-123';
+const SCALE = ['13px', '15px', '18px', '22px', '30px'];
 const PAGES = ['/', '/workouts', '/analytics', '/plan', '/exercises', '/journal', '/metrics', '/settings'];
 const PHONE = { viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true };
 
@@ -179,8 +183,8 @@ await seedCtx.close();
   }
   check('F3', 'start a session, log a set, finish: the set is saved and shown',
         inSession && logged && shown, `inSession=${inSession} logged=${logged} shownAfterFinish=${shown}`);
-  check('E1', 'tap budget: Home→session ≤2, one set ≤5',
-        inSession && tapsToSession <= 2 && tapsToLog <= 5, `toSession=${tapsToSession} toLog=${tapsToLog}`);
+  check('E1', 'tap budget: Home→session 1 tap, one set ≤5',
+        inSession && tapsToSession <= 1 && tapsToLog <= 5, `toSession=${tapsToSession} toLog=${tapsToLog}`);
   await ctx.close();
 }
 
@@ -356,6 +360,35 @@ await seedCtx.close();
   }
   check('E10', 'each main page ready in under 1.5 s', !slow.length, `worst=${Math.round(worst)}ms ${slow.join(' ')}`);
   await ctx.close();
+}
+
+// ── E11 type scale on the redesigned screens ────────────────────────────────
+{
+  const off = [];
+  for (const [vp, extra] of [[PHONE, []], [{ viewport: { width: 1440, height: 900 } }, ['40px']]]) {
+    const ctx = await browser.newContext(vp);
+    const page = await login(ctx);
+    const live = await api(page, 'POST', '/workouts', {});
+    await api(page, 'POST', `/workouts/${live.id}/sets`, { exercise_id: bench.id, reps: 5, weight_kg: 60 });
+    for (const p of ['/', `/workouts/${live.id}`]) {
+      await page.goto(BASE + p, { waitUntil: 'networkidle' });
+      const bad = await page.evaluate(([ok]) => {
+        const out = new Set();
+        for (const el of document.querySelectorAll('body *')) {
+          if (!el.getClientRects().length || el.closest('svg, [aria-hidden=true], .sr-only')) continue;
+          if (![...el.childNodes].some(n => n.nodeType === 3 && n.textContent.trim())) continue;
+          const fs = getComputedStyle(el).fontSize;
+          const typed = el.matches('input, select, textarea') && fs === '16px';
+          if (!ok.includes(fs) && !typed) out.add(`${fs} "${el.textContent.trim().slice(0, 14)}"`);
+        }
+        return [...out];
+      }, [[...SCALE, ...extra]]);
+      if (bad.length) off.push(`${p}@${vp.viewport.width}: ${bad.slice(0, 3).join(', ')}`);
+    }
+    await api(page, 'DELETE', `/workouts/${live.id}`);
+    await ctx.close();
+  }
+  check('E11', 'type scale: Home and session use only the five sizes', !off.length, off.join(' | '));
 }
 
 await browser.close();

@@ -106,7 +106,7 @@ async def test_home_card_today_waiting_and_absent(client, db):
     assert "Waiting for today's Oura sync." in page
     await _put_day(db, date.today().isoformat())
     page = (await client.get("/", headers=H)).text
-    assert "Readiness <b class=\"num\">82</b> <em>Good</em>" in page and "HRV <b class=\"num\">48</b>" in page
+    assert "Readiness <b class=\"num\">82</b> <em>Good</em>" in page   # Home shows readiness only (2026-10-31)
 
 
 @pytest.mark.asyncio

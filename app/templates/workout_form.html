@@ -22,7 +22,7 @@
 .session-hdr-back {
   grid-column: 1 / -1;
   color: var(--muted);
-  font-size: 0.9rem;
+  font-size: var(--t-body);
   font-weight: 600;
   display: inline-flex;
   align-items: center;
@@ -35,16 +35,16 @@
 .session-hdr-info { display: flex; flex-direction: column; gap: 0.15rem; min-width: 0; }
 .session-title {
   font-family: var(--f-display);
-  font-size: clamp(1.45rem, 5.5vw, 1.8rem);
-  font-weight: 800;
+  font-size: var(--t-display);
+  font-weight: 600;
   line-height: 1.05;
   color: var(--text);
 }
-.session-oura { display: block; margin-top: 0.2rem; font-size: 0.875rem; color: var(--muted); }
+.session-oura { display: block; margin-top: 0.2rem; font-size: var(--t-body); color: var(--muted); }
 .session-oura[hidden] { display: none; }   /* display:block would override the hidden attribute */
-.session-oura b { color: var(--text); font-size: 1rem; }
+.session-oura b { color: var(--text); font-size: var(--t-body); }
 .session-meta {
-  font-size: 0.9rem;
+  font-size: var(--t-body);
   color: var(--muted);
   display: flex;
   align-items: center;
@@ -61,8 +61,8 @@
   animation: pulseDot 2s ease-in-out infinite;
 }
 @keyframes pulseDot {
-  0%,100% { box-shadow: 0 0 0 3px rgba(224,74,18,0.22); }
-  50%      { box-shadow: 0 0 0 6px rgba(224,74,18,0); }
+  0%,100% { box-shadow: 0 0 0 3px rgba(178,58,38,0.22); }
+  50%      { box-shadow: 0 0 0 6px rgba(178,58,38,0); }
 }
 .session-done-dot {
   width: 8px; height: 8px;
@@ -86,7 +86,7 @@
 }
 .hdr-icon-btn:hover { border-color: var(--text); }
 .hdr-icon-btn.danger:hover { color: var(--danger); border-color: var(--danger); }
-.finish-btn { min-height: 56px; padding: 0 1.4rem; font-size: 1rem; }
+.finish-btn { min-height: 56px; padding: 0 1.4rem; font-size: var(--t-body); }
 
 /* ── Exercise strip ──────────────────────────────────────────── */
 /* Bleeds to the screen edges and scrolls sideways inside itself, so it never
@@ -111,12 +111,12 @@
   min-height: 44px;
   max-width: 15rem;
   padding: 0 0.95rem;
-  border-radius: 999px;
+  border-radius: var(--radius);
   border: 1px solid var(--border-mid);
   background: var(--surface);
   color: var(--text);
   font-family: inherit;
-  font-size: 0.9375rem;
+  font-size: var(--t-body);
   font-weight: 600;
   white-space: nowrap;
   cursor: pointer;
@@ -125,10 +125,9 @@
 .strip-chip .sc-name { overflow: hidden; text-overflow: ellipsis; min-width: 0; }
 .strip-chip .sc-n {
   font-family: var(--f-display);
-  font-stretch: 72%;
-  font-weight: 800;
+  font-weight: 600;
   font-variant-numeric: tabular-nums;
-  font-size: 1rem;
+  font-size: var(--t-body);
   color: var(--muted-hi);
 }
 .strip-chip .sc-tick { width: 16px; height: 16px; flex-shrink: 0; stroke: currentColor; stroke-width: 3; fill: none; }
@@ -142,28 +141,28 @@
 /* ── Exercise card ───────────────────────────────────────────── */
 .ex-card {
   background: var(--surface);
+  border: 1.5px solid var(--text);
   border-radius: var(--radius);
   padding: 1rem 0.75rem 0.75rem;
-  box-shadow: var(--shadow-sm);
   margin-bottom: 1rem;
 }
 .ex-empty { text-align: center; padding: 1.25rem 0.5rem 1rem; }
 .ex-empty p { color: var(--muted); margin-bottom: 1rem; }
-.ex-empty-btn { min-height: 56px; width: 100%; max-width: 320px; font-size: 1rem; }
+.ex-empty-btn { min-height: 56px; width: 100%; max-width: 320px; font-size: var(--t-body); }
 
 .ex-hero { padding: 0 0.25rem; }
 .ex-hero-top { display: flex; align-items: flex-start; gap: 0.75rem; }
 .ex-hero-title { flex: 1; min-width: 0; }
 .ex-hero-name {
   font-family: var(--f-display);
-  font-size: 1.45rem;
+  font-size: var(--t-data);
   font-weight: 700;
   color: var(--text);
   line-height: 1.1;
   margin-bottom: 0.2rem;
   overflow-wrap: anywhere;
 }
-.ex-hero-muscles { font-size: 0.875rem; color: var(--muted); }
+.ex-hero-muscles { font-size: var(--t-body); color: var(--muted); }
 .ex-change-btn {
   flex-shrink: 0;
   min-height: 44px;
@@ -173,13 +172,13 @@
   background: var(--surface);
   color: var(--text);
   font-family: inherit;
-  font-size: 0.9rem;
+  font-size: var(--t-body);
   font-weight: 700;
   cursor: pointer;
 }
 .ex-change-btn:hover { border-color: var(--text); }
 .ex-hero-hint {
-  font-size: 0.9rem;
+  font-size: var(--t-body);
   color: var(--muted);
   display: flex;
   gap: 0.4rem;
@@ -189,24 +188,22 @@
 }
 .ex-hero-hint .last-val {
   font-family: var(--f-display);
-  font-stretch: 72%;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
-  font-size: 1rem;
+  font-size: var(--t-body);
   color: var(--text);
 }
-.ex-hero-cue { font-size: 0.875rem; color: var(--muted); margin-top: 0.25rem; }
+.ex-hero-cue { font-size: var(--t-body); color: var(--muted); margin-top: 0.25rem; }
 .ex-hero-cue span { display: block; }
 .overload-chips { display: none; gap: 0.4rem; flex-wrap: wrap; margin-top: 0.55rem; }
 .overload-chip {
   font-family: var(--f-display);
-  font-stretch: 72%;
-  font-size: 1rem;
+  font-size: var(--t-body);
   font-weight: 700;
   font-variant-numeric: tabular-nums;
   min-height: 44px;
   padding: 0.25rem 0.9rem;
-  border-radius: 999px;
+  border-radius: var(--radius);
   border: 1px solid var(--border-mid);
   background: var(--surface);
   color: var(--text);
@@ -220,7 +217,7 @@
 
 #bw-hint {
   margin: 0.6rem 0.25rem 0;
-  font-size: 0.875rem;
+  font-size: var(--t-body);
   color: var(--muted);
   background: var(--surface-2);
   border-radius: var(--radius-xs);
@@ -230,7 +227,7 @@
 /* ── Sets of this exercise ───────────────────────────────────── */
 .cur-sets { display: grid; gap: 4px; margin-top: 0.85rem; }
 .cur-sets:empty { display: none; }
-.cur-row { border-radius: 12px; background: var(--surface-2); position: relative; overflow: hidden; touch-action: pan-y; }
+.cur-row { border-radius: var(--radius); background: var(--surface-2); position: relative; overflow: hidden; touch-action: pan-y; }
 .cur-main {
   display: grid;
   grid-template-columns: 28px minmax(0, 1fr) 44px;
@@ -247,15 +244,14 @@
   cursor: pointer;
   position: relative;
   z-index: 1;
-  border-radius: 12px;
+  border-radius: var(--radius);
 }
-.cur-n { color: var(--muted); font-size: 0.9rem; text-align: center; }
+.cur-n { color: var(--muted); font-size: var(--t-body); text-align: center; }
 .cur-val {
   font-family: var(--f-display);
-  font-stretch: 72%;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
-  font-size: 1.25rem;   /* same scale as the next set's fields */
+  font-size: var(--t-data);   /* same scale as the next set's fields */
   line-height: 1.1;
   color: var(--text);
   min-width: 0;
@@ -263,8 +259,8 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.cur-sub { font-family: var(--f-ui); font-stretch: 100%; font-size: 0.875rem; font-weight: 600; color: var(--muted); margin-left: 0.4rem; }
-.cur-tag { font-family: var(--f-ui); font-stretch: 100%; font-size: 0.8125rem; font-weight: 700; color: var(--pr); margin-left: 0.4rem; }
+.cur-sub { font-family: var(--f-ui); font-size: var(--t-body); font-weight: 600; color: var(--muted); margin-left: 0.4rem; }
+.cur-tag { font-family: var(--f-ui); font-size: var(--t-label); font-weight: 700; color: var(--pr); margin-left: 0.4rem; }
 .cur-tick {
   justify-self: end;
   width: 44px; height: 44px;
@@ -323,8 +319,7 @@
   min-height: 48px;
   text-align: center;
   font-family: var(--f-display) !important;
-  font-stretch: 72%;
-  font-weight: 800;
+  font-weight: 600;
   font-variant-numeric: tabular-nums;
   font-size: 1.35rem !important;
   padding: 0 0.4rem;
@@ -342,7 +337,7 @@
   cursor: pointer;
 }
 .cur-del-btn:hover { border-color: var(--danger); background: var(--danger-dim); }
-.cur-edit-note { flex-basis: 100%; font-size: 0.875rem; color: var(--muted); }
+.cur-edit-note { flex-basis: 100%; font-size: var(--t-body); color: var(--muted); }
 .cur-edit-extra { display: flex; gap: 0.4rem; flex-basis: 100%; min-width: 0; }
 .cur-edit-extra select { flex: 0 0 6.5rem; min-height: 48px; padding: 0 0.6rem; }
 .cur-edit-extra input { flex: 1; min-width: 0; min-height: 48px; }
@@ -356,12 +351,12 @@
   margin-top: 0.85rem;
   min-height: 92px;
   padding: 6px;
-  border-radius: 14px;
+  border-radius: var(--radius);
   background: var(--primary-tint);
   box-shadow: inset 0 0 0 2px var(--primary-edge);
 }
 .cur-sets:not(:empty) + .active-set { margin-top: 4px; }
-.as-n { color: var(--muted); font-size: 0.9rem; text-align: center; }
+.as-n { color: var(--muted); font-size: var(--t-body); text-align: center; }
 .as-field { display: grid; gap: 0; min-width: 0; }
 /* Weight and reps look like the app's other fields (white box, ring outline),
    at a size that reads as a number to type, not a headline (the user found the
@@ -376,7 +371,6 @@
   background: var(--surface);
   color: var(--text);
   font-family: var(--f-display) !important;
-  font-stretch: 72%;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
   /* 20px: in proportion with the page's 16px text and 19px exercise names (1.6rem
@@ -390,7 +384,7 @@
 .as-field label {
   margin: 0;
   padding: 0 6px;
-  font-size: 0.8125rem;
+  font-size: var(--t-label);
   font-weight: 600;
   color: var(--muted);
   white-space: nowrap;
@@ -426,7 +420,7 @@
   background: var(--surface);
   color: var(--text);
   font-family: inherit;
-  font-size: 0.95rem;
+  font-size: var(--t-body);
   font-weight: 700;
   cursor: pointer;
   align-items: center;
@@ -441,8 +435,8 @@
    Easy/Medium/Hard/Max store RPE 5/7/9/10, which keeps the coach's
    high-effort (>= 8.5) and low-effort (<= 5.5) signals working. */
 .set-extras { margin-top: 0.75rem; padding: 0 0.25rem; display: grid; gap: 0.75rem; }
-.set-extras .xl { display: block; font-size: 0.875rem; font-weight: 600; color: var(--muted); margin-bottom: 0.4rem; }
-.set-extras .xl small { font-weight: 400; font-size: 0.8125rem; }
+.set-extras .xl { display: block; font-size: var(--t-body); font-weight: 600; color: var(--muted); margin-bottom: 0.4rem; }
+.set-extras .xl small { font-weight: 400; font-size: var(--t-label); }
 .set-extras .form-group { margin: 0; }
 
 /* ── Rest timer: pinned above the tab bar ─────────────────────── */
@@ -473,13 +467,12 @@
   to   { opacity: 1; transform: translateY(0); }
 }
 .rest-info { flex: 1; display: flex; align-items: baseline; gap: 0.6rem; min-width: 0; }
-.rest-lbl { font-size: 0.875rem; font-weight: 600; color: #c9c9c2; }
+.rest-lbl { font-size: var(--t-body); font-weight: 600; color: #c9c9c2; }
 .rest-count {
   font-family: var(--f-display);
-  font-stretch: 72%;
-  font-weight: 800;
+  font-weight: 600;
   font-variant-numeric: tabular-nums;
-  font-size: 1.75rem;
+  font-size: var(--t-display);
   line-height: 1;
   color: var(--bg);
 }
@@ -494,7 +487,7 @@
   background: transparent;
   color: var(--bg);
   font-family: inherit;
-  font-size: 0.9rem;
+  font-size: var(--t-body);
   font-weight: 700;
   cursor: pointer;
 }
@@ -512,8 +505,8 @@
 /* ── Notes · Cardio · Muscles ─────────────────────────────────── */
 .more-card {
   background: var(--surface);
+  border: 1.5px solid var(--text);
   border-radius: var(--radius);
-  box-shadow: var(--shadow-sm);
   margin-bottom: 1rem;
 }
 .more-item + .more-item { border-top: 1px solid var(--border); }
@@ -535,7 +528,7 @@
   min-width: 0;
   color: var(--muted);
   font-weight: 400;
-  font-size: 0.9rem;
+  font-size: var(--t-body);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -544,7 +537,7 @@
 .more-item > summary .mi-chev { width: 18px; height: 18px; flex-shrink: 0; transition: transform 0.2s; pointer-events: none; }
 .more-item[open] > summary .mi-chev { transform: rotate(180deg); }
 .more-body { padding: 0 1rem 1rem; }
-.notes-saved { font-size: 0.8125rem; color: var(--success); margin-top: 0.25rem; display: none; }
+.notes-saved { font-size: var(--t-label); color: var(--success); margin-top: 0.25rem; display: none; }
 #cardio-list:not(:empty) { margin-bottom: 0.75rem; }
 
 /* ── Exercise picker (a sheet) ───────────────────────────────── */
@@ -557,7 +550,7 @@
   gap: 0.75rem;
   padding: 0 1rem 0.5rem;
 }
-.picker-hdr h2 { font-size: 1.2rem; }
+.picker-hdr h2 { font-size: var(--t-head); }
 .picker-hdr h2:focus { outline: none; }   /* focused on open for screen readers, not a control */
 .picker-close {
   min-width: 44px; min-height: 44px;
@@ -598,7 +591,7 @@
   overscroll-behavior: contain;
   padding: 0.25rem 1rem calc(1rem + env(safe-area-inset-bottom, 0px));
 }
-.pick-lbl { font-size: 0.875rem; color: var(--muted); font-weight: 600; margin: 0.5rem 0 0.25rem; }
+.pick-lbl { font-size: var(--t-body); color: var(--muted); font-weight: 600; margin: 0.5rem 0 0.25rem; }
 .pick-list { display: flex; flex-direction: column; }
 .pick-item {
   display: flex;
@@ -612,19 +605,19 @@
   background: transparent;
   color: var(--text);
   font-family: inherit;
-  font-size: 1rem;
+  font-size: var(--t-body);
   text-align: left;
   cursor: pointer;
 }
 .pick-item:last-child { border-bottom: none; }
 .pick-item:hover, .pick-item.ex-active { background: var(--surface-hover); }
 .pick-item .pi-name { flex: 1; min-width: 0; overflow-wrap: anywhere; }
-.pick-item .pi-sub { flex-shrink: 0; font-size: 0.875rem; color: var(--muted); }
+.pick-item .pi-sub { flex-shrink: 0; font-size: var(--t-body); color: var(--muted); }
 .pick-item mark { background: transparent; color: var(--text); font-weight: 700; text-decoration: underline; text-underline-offset: 3px; }
-.pick-empty { color: var(--muted); font-size: 0.95rem; padding: 0.75rem 0.25rem; }
+.pick-empty { color: var(--muted); font-size: var(--t-body); padding: 0.75rem 0.25rem; }
 .chip-row { display: flex; flex-wrap: wrap; gap: 0.4rem; }
-.new-ex-chip { min-height: 44px; padding: 0.35rem 0.85rem; border: 1px solid var(--border-mid); border-radius: 999px;
-  background: var(--surface); color: var(--text); font-size: 0.875rem; font-weight: 600;
+.new-ex-chip { min-height: 44px; padding: 0.35rem 0.85rem; border: 1px solid var(--border-mid); border-radius: var(--radius);
+  background: var(--surface); color: var(--text); font-size: var(--t-body); font-weight: 600;
   cursor: pointer; font-family: inherit; }
 .new-ex-chip.active { border-color: var(--text); background: var(--text); color: var(--bg); }
 .new-ex-use { width: 100%; min-height: 52px; margin-top: 0.75rem; }
@@ -645,7 +638,7 @@
   background: transparent;
   color: var(--text);
   font-family: inherit;
-  font-size: 1rem;
+  font-size: var(--t-body);
   font-weight: 600;
   text-align: left;
   cursor: pointer;
@@ -664,7 +657,7 @@
 }
 .sets-hdr-lbl {
   font-family: var(--f-display);
-  font-size: 1.15rem;
+  font-size: var(--t-head);
   font-weight: 700;
   color: var(--text);
 }
@@ -695,7 +688,7 @@
 .set-bar { display: none; }
 .set-body { flex: 1; min-width: 0; }
 .set-name {
-  font-size: 0.95rem;
+  font-size: var(--t-body);
   font-weight: 600;
   color: var(--text);
   white-space: nowrap;
@@ -713,12 +706,12 @@
 .set-main:hover .set-detail { color: var(--text); }
 .set-detail {
   display: block;
-  font-size: 0.95rem;
+  font-size: var(--t-body);
   color: var(--muted);
   font-variant-numeric: tabular-nums;
   overflow-wrap: anywhere;
 }
-.set-detail .weight-display, .set-detail .set-reps { font-family: var(--f-display); font-stretch: 72%; font-weight: 800; font-size: 1.15rem; color: var(--text); }
+.set-detail .weight-display, .set-detail .set-reps { font-family: var(--f-display); font-weight: 600; font-size: var(--t-head); color: var(--text); }
 .set-del {
   background: transparent;
   border: 1px solid transparent;
@@ -745,7 +738,7 @@
 }
 .ex-group-name {
   font-family: var(--f-display);
-  font-size: 1.05rem;
+  font-size: var(--t-body);
   font-weight: 700;
   color: var(--text);
   flex: 1;
@@ -755,7 +748,7 @@
   white-space: nowrap;
 }
 .ex-group-badge {
-  font-size: 0.875rem;
+  font-size: var(--t-body);
   font-weight: 600;
   color: var(--muted);
   white-space: nowrap;
@@ -765,10 +758,10 @@
    number, "60 kg × 8" on the 1.25rem number scale, the done fill, centred in
    the 54px row (the text used to sit at the top of an empty row). */
 .ex-group { counter-reset: setn; padding-bottom: 0.75rem; }
-.ex-group .set-row { counter-increment: setn; background: var(--surface-2); border-radius: 12px; padding: 0 6px; margin-top: 4px; }
+.ex-group .set-row { counter-increment: setn; background: var(--surface-2); border-radius: var(--radius); padding: 0 6px; margin-top: 4px; }
 .ex-group .set-main { display: grid; grid-template-columns: 28px minmax(0, 1fr); align-items: center; gap: 6px; padding: 0; }
-.ex-group .set-main::before { content: counter(setn); color: var(--muted); font-size: 0.9rem; text-align: center; }
-.ex-group .set-metric { font-family: var(--f-display); font-stretch: 72%; font-weight: 700; font-size: 1.25rem; color: var(--text); }
+.ex-group .set-main::before { content: counter(setn); color: var(--muted); font-size: var(--t-body); text-align: center; }
+.ex-group .set-metric { font-family: var(--f-display); font-weight: 700; font-size: var(--t-data); color: var(--text); }
 .ex-group .set-metric .weight-display, .ex-group .set-metric .set-reps { font-size: inherit; font-weight: inherit; }
 
 /* Inline set edit (finished view) */
@@ -787,8 +780,7 @@
 }
 .set-edit-row .edit-w, .set-edit-row .edit-r {
   font-family: var(--f-display);
-  font-stretch: 72%;
-  font-weight: 800;
+  font-weight: 600;
   text-align: center;
   -moz-appearance: textfield;
   appearance: textfield;
@@ -798,7 +790,7 @@
 .set-edit-row .edit-w { width: 5rem !important; }
 .set-edit-row .edit-r { width: 4rem !important; }
 .set-edit-row .edit-notes { flex: 1; min-width: 6rem; }
-.set-edit-row .btn { min-height: 44px; padding: 0 0.8rem; font-size: 0.9rem; }
+.set-edit-row .btn { min-height: 44px; padding: 0 0.8rem; font-size: var(--t-body); }
 
 /* ── Finished view ───────────────────────────────────────────── */
 .finish-stats {
@@ -815,27 +807,26 @@
 }
 .finish-stat-val {
   font-family: var(--f-display);
-  font-stretch: 72%;
-  font-weight: 800;
+  font-weight: 600;
   font-variant-numeric: tabular-nums;
-  font-size: clamp(1.7rem, 7vw, 2.6rem);
+  font-size: var(--t-display);
   color: var(--text);
   line-height: 1;
   white-space: nowrap;
 }
 .finish-stat-lbl {
-  font-size: 0.875rem;
+  font-size: var(--t-body);
   font-weight: 600;
   color: var(--muted);
   margin-top: 0.4rem;
 }
-.lead-lbl { font-size: 0.875rem; font-weight: 600; color: var(--muted); margin-bottom: 0.35rem; }
+.lead-lbl { font-size: var(--t-body); font-weight: 600; color: var(--muted); margin-bottom: 0.35rem; }
 
 /* Coach's notes */
 .coach-notes-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.9rem; }
 @media (max-width: 520px) { .coach-notes-grid { grid-template-columns: minmax(0, 1fr); } }
 .coach-notes-grid ul { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.35rem; }
-.coach-notes-grid li { font-size: 0.95rem; color: var(--text); display: flex; align-items: flex-start; gap: 0.45rem; line-height: 1.45; }
+.coach-notes-grid li { font-size: var(--t-body); color: var(--text); display: flex; align-items: flex-start; gap: 0.45rem; line-height: 1.45; }
 .coach-notes-grid .lead-lbl.bad { color: var(--danger); }
 
 /* ── Record toast ────────────────────────────────────────────── */
@@ -848,8 +839,8 @@
   background: var(--pr-dim);
   color: var(--pr);
   padding: 0.55rem 1.2rem;
-  border-radius: 999px;
-  font-size: 0.95rem;
+  border-radius: var(--radius);
+  font-size: var(--t-body);
   font-weight: 700;
   z-index: 200;
   white-space: nowrap;
@@ -874,10 +865,10 @@
   padding: 1rem;
   padding-bottom: calc(1rem + env(safe-area-inset-bottom, 0px));
 }
-.modal-title { font-family: var(--f-display); font-size: 1.6rem; font-weight: 800; line-height: 1.1; margin-bottom: 0.3rem; }
+.modal-title { font-family: var(--f-display); font-size: var(--t-data); font-weight: 600; line-height: 1.1; margin-bottom: 0.3rem; }
 .modal-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.5rem; margin: 1.25rem 0 1.5rem; }
-.modal-stat-val { font-family: var(--f-display); font-stretch: 72%; font-weight: 800; font-variant-numeric: tabular-nums; font-size: 2rem; line-height: 1; }
-.modal-stat-lbl { font-size: 0.875rem; color: var(--muted); font-weight: 600; margin-top: 0.3rem; }
+.modal-stat-val { font-family: var(--f-display); font-weight: 600; font-variant-numeric: tabular-nums; font-size: var(--t-display); line-height: 1; }
+.modal-stat-lbl { font-size: var(--t-body); color: var(--muted); font-weight: 600; margin-top: 0.3rem; }
 </style>
 {% endblock %}
 
@@ -1000,7 +991,7 @@
 {% if workout.notes %}
 <div class="card" style="margin-bottom:1.25rem;">
   <div class="lead-lbl">Session notes</div>
-  <div style="font-size:1rem;color:var(--text);line-height:1.55;white-space:pre-wrap;overflow-wrap:anywhere;">{{ workout.notes }}</div>
+  <div style="font-size: var(--t-body);color:var(--text);line-height:1.55;white-space:pre-wrap;overflow-wrap:anywhere;">{{ workout.notes }}</div>
 </div>
 {% endif %}
 
@@ -1015,7 +1006,7 @@
     <p style="color:var(--muted);padding:0.75rem 0;">No sets recorded.</p>
   {% endif %}
 </div>
-<div id="log-error" role="alert" style="color:var(--danger);font-size:0.9rem;margin:0.5rem 0.25rem 0;display:none;"></div>
+<div id="log-error" role="alert" style="color:var(--danger);font-size: var(--t-body);margin:0.5rem 0.25rem 0;display:none;"></div>
 {% if sets %}
 <button onclick="repeatSession(this)" id="repeat-btn" class="btn btn-ghost" style="width:100%;min-height:56px;margin-top:1rem;">
   <i data-lucide="repeat-2" style="width:16px;height:16px;flex-shrink:0;pointer-events:none;"></i>
@@ -1057,8 +1048,8 @@ async function repeatSession(btn) {
       <button onclick="doSaveTpl()" class="btn btn-primary">Save</button>
       <button onclick="hideSaveTpl()" class="btn btn-ghost">Cancel</button>
     </div>
-    <div id="tpl-save-ok" style="display:none;margin-top:0.5rem;font-size:0.9rem;color:var(--success);">Saved. <a href="/templates" style="text-decoration:underline;">View templates</a></div>
-    <div id="tpl-save-err" role="alert" style="display:none;margin-top:0.5rem;font-size:0.9rem;color:var(--danger);"></div>
+    <div id="tpl-save-ok" style="display:none;margin-top:0.5rem;font-size: var(--t-body);color:var(--success);">Saved. <a href="/templates" style="text-decoration:underline;">View templates</a></div>
+    <div id="tpl-save-err" role="alert" style="display:none;margin-top:0.5rem;font-size: var(--t-body);color:var(--danger);"></div>
   </div>
 </div>
 <script>
@@ -1115,7 +1106,7 @@ document.getElementById('tpl-name-input')?.addEventListener('keydown', e => { if
     {% for ex_name, info in enrichment.items() %}
     {% if info and (info.cues or info.mistakes or info.reference) %}
     <div class="card">
-      <div style="font-family:var(--f-display);font-size:1.1rem;font-weight:700;margin-bottom:0.75rem;">{{ ex_name }}</div>
+      <div style="font-family:var(--f-display);font-size: var(--t-head);font-weight:700;margin-bottom:0.75rem;">{{ ex_name }}</div>
       <div class="coach-notes-grid">
         {% if info.cues %}
         <div>
@@ -1135,7 +1126,7 @@ document.getElementById('tpl-name-input')?.addEventListener('keydown', e => { if
         {% endif %}
       </div>
       {% if info.reference %}
-      <div style="margin-top:0.75rem;padding-top:0.65rem;border-top:1px solid var(--border);font-size:0.875rem;color:var(--muted);display:flex;align-items:center;gap:0.4rem;">
+      <div style="margin-top:0.75rem;padding-top:0.65rem;border-top:1px solid var(--border);font-size: var(--t-body);color:var(--muted);display:flex;align-items:center;gap:0.4rem;">
         <i data-lucide="book" style="width:14px;height:14px;pointer-events:none;flex-shrink:0;"></i>
         {{ info.reference }}
       </div>
@@ -1231,7 +1222,7 @@ document.getElementById('tpl-name-input')?.addEventListener('keydown', e => { if
     </div>
   </div>
   {# Outside #set-area, so an error shows even before an exercise is picked #}
-  <div id="log-error" role="alert" style="color:var(--danger);font-size:0.9rem;margin:0.5rem 0.25rem 0;display:none;"></div>
+  <div id="log-error" role="alert" style="color:var(--danger);font-size: var(--t-body);margin:0.5rem 0.25rem 0;display:none;"></div>
 </div>
 
 {# ── Notes · Cardio · Muscles worked ── #}
@@ -1282,7 +1273,7 @@ document.getElementById('tpl-name-input')?.addEventListener('keydown', e => { if
           <input type="text" id="cardio-notes" placeholder="e.g. treadmill, easy pace">
         </div>
         <button class="btn btn-ghost" style="width:100%;" onclick="logCardio()">Log cardio</button>
-        <div id="cardio-error" role="alert" style="color:var(--danger);font-size:0.9rem;margin-top:0.4rem;display:none;"></div>
+        <div id="cardio-error" role="alert" style="color:var(--danger);font-size: var(--t-body);margin-top:0.4rem;display:none;"></div>
       </div>
     </div>
   </details>
@@ -1296,7 +1287,7 @@ document.getElementById('tpl-name-input')?.addEventListener('keydown', e => { if
       <i data-lucide="chevron-down" class="mi-chev" id="muscle-panel-chevron"></i>
     </summary>
     <div id="muscle-panel-body" class="more-body">
-      <div style="font-size:0.875rem;color:var(--muted);margin-bottom:1rem;text-align:center;">
+      <div style="font-size: var(--t-body);color:var(--muted);margin-bottom:1rem;text-align:center;">
         Muscles worked in this session, scaled by volume logged.
       </div>
       {% set map_id = "workout" %}
@@ -1383,12 +1374,12 @@ document.getElementById('tpl-name-input')?.addEventListener('keydown', e => { if
 {# ── Routine save modal ── #}
 <div id="routine-save-modal" class="modal-backdrop">
   <div class="card" style="max-width:360px;width:100%;padding:1.5rem;" role="dialog" aria-labelledby="routine-save-title">
-    <h3 id="routine-save-title" style="font-size:1.3rem;margin-bottom:1rem;">Save as routine</h3>
+    <h3 id="routine-save-title" style="font-size: var(--t-data);margin-bottom:1rem;">Save as routine</h3>
     <div class="form-group">
       <label for="routine-name-input">Routine name</label>
       <input type="text" id="routine-name-input" placeholder="e.g. Push Day" autocomplete="off">
     </div>
-    <div id="routine-save-error" role="alert" style="color:var(--danger);font-size:0.9rem;margin-bottom:0.75rem;display:none;"></div>
+    <div id="routine-save-error" role="alert" style="color:var(--danger);font-size: var(--t-body);margin-bottom:0.75rem;display:none;"></div>
     <div style="display:flex;gap:0.5rem;">
       <button class="btn btn-primary" style="flex:1;" onclick="saveRoutine()">Save</button>
       <button class="btn btn-ghost" onclick="document.getElementById('routine-save-modal').style.display='none'">Cancel</button>
@@ -1400,7 +1391,7 @@ document.getElementById('tpl-name-input')?.addEventListener('keydown', e => { if
 <div id="finish-modal" class="modal-backdrop">
   <div class="card" style="max-width:360px;width:100%;text-align:center;padding:2rem 1.5rem;" role="dialog" aria-labelledby="finish-title">
     <div class="modal-title" id="finish-title">Session done</div>
-    <div style="font-size:1rem;color:var(--muted);">Nice work.</div>
+    <div style="font-size: var(--t-body);color:var(--muted);">Nice work.</div>
     <div class="modal-stats">
       <div>
         <div id="modal-duration" class="modal-stat-val"></div>
@@ -2820,7 +2811,7 @@ function startEdit(id) {
 
   editEl.innerHTML =
     (fixed
-      ? `<span style="color:var(--muted);font-size:0.875rem;flex-basis:100%;">To change a hold or bodyweight set, delete it and log it again.</span>`
+      ? `<span style="color:var(--muted);font-size: var(--t-body);flex-basis:100%;">To change a hold or bodyweight set, delete it and log it again.</span>`
       : `<input type="text" class="edit-w" value="${displayW}" inputmode="decimal" aria-label="Weight">` +
         `<span style="color:var(--muted);flex-shrink:0;">×</span>` +
         `<input type="text" class="edit-r" value="${reps}" inputmode="numeric" aria-label="Reps">`) +
@@ -2910,7 +2901,7 @@ async function saveEdit(id) {
 
   // Brief save confirmation
   const tick = document.createElement('span');
-  tick.textContent = ' Saved'; tick.style.cssText = 'color:var(--success);font-size:0.875rem;font-weight:600;';
+  tick.textContent = ' Saved'; tick.style.cssText = 'color:var(--success);font-size:var(--t-body);font-weight:600;';
   detailEl.appendChild(tick);
   setTimeout(() => tick.remove(), 1500);
 }

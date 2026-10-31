@@ -6,9 +6,9 @@ from fastapi.responses import HTMLResponse
 
 from app.db import get_db
 from app.routes.auth import get_current_user
-from app.utils import oura, oura_sync, weekly_recap
+from app.utils import home_story, oura, oura_sync, weekly_recap
 from app.utils import challenges as ch
-from app.utils.charts import generate_muscle_bars, generate_weekly_bar_chart
+from app.utils.charts import generate_muscle_bars, generate_progress_plot, generate_weekly_bar_chart
 from app.utils.heatmap import generate_heatmap_svg, heatmap_start
 from app.utils.pr_utils import fetch_prs
 from app.utils.render import render
@@ -266,10 +266,35 @@ async def dashboard(
     ) as cur:
         today_log_filled = (await cur.fetchone()) is not None
 
+    # The redesign's three blocks: the strength story, the next plan day, this week.
+    story = await home_story.strength_story(conn, uid, today)
+    story_plot = (generate_progress_plot(story["points"], story["target"], story["eta"], width=590, height=230)
+                  if story else "")
+    story_plot_phone = (generate_progress_plot(story["points"], story["target"], story["eta"], width=340, height=150)
+                        if story else "")
+    up_next = await home_story.next_up(conn, uid)
+    monday = today - timedelta(days=today.weekday())
+    async with conn.execute(
+        "SELECT DISTINCT DATE(started_at) AS d FROM workouts WHERE user_id=? AND DATE(started_at) BETWEEN ? AND ?",
+        (uid, monday.isoformat(), (monday + timedelta(days=6)).isoformat()),
+    ) as cur:
+        trained = {r["d"] for r in await cur.fetchall()}
+    week_days = [
+        {"letter": "MTWTFSS"[i], "date": d.isoformat(), "done": d.isoformat() in trained, "today": d == today,
+         "name": d.strftime("%A")}
+        for i, d in enumerate(monday + timedelta(days=k) for k in range(7))
+    ]
+
     return render(
         request,
         "dashboard",
         {
+            "story": story,
+            "story_plot": story_plot,
+            "story_plot_phone": story_plot_phone,
+            "up_next": up_next,
+            "week_days": week_days,
+            "today_label": today.strftime("%a %-d %b"),
             "active_challenges": active_challenges,
             "today_log_filled": today_log_filled,
             "workouts": workouts,

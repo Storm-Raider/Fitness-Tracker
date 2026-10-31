@@ -9,6 +9,7 @@ from app.db import get_db
 from app.routes.auth import get_current_user
 from app.utils import oura_sync
 from app.utils.pr_utils import fetch_prs, stalled_lifts
+from app.utils.heatmap import generate_heatmap_svg, heatmap_start
 from app.utils.render import render
 
 router = APIRouter()
@@ -205,10 +206,24 @@ async def analytics(
         {m["muscle"]: round(m["volume"] or 0, 1) for m in muscle_volumes}
     )
 
+    # Activity heatmap (moved here from Home in the 2026-10-31 redesign).
+    hs = heatmap_start().isoformat()
+    async with conn.execute(
+        """SELECT DISTINCT day FROM (
+               SELECT DATE(started_at) AS day FROM workouts WHERE user_id = ? AND DATE(started_at) >= ?
+               UNION SELECT logged_date AS day FROM cardio_logs WHERE user_id = ? AND logged_date >= ?
+           ) ORDER BY day""",
+        (uid, hs, uid, hs),
+    ) as cur:
+        heatmap_dates = [r["day"] for r in await cur.fetchall()]
+
     return render(
         request,
         "analytics",
         {
+            "heatmap_svg": generate_heatmap_svg(heatmap_dates),
+            "heatmap_svg_phone": generate_heatmap_svg(heatmap_dates, weeks=26),
+            "active_days": len(heatmap_dates),
             "records": records,
             "bodyweight_kg": bodyweight_kg,
             "trend_json": trend_json,

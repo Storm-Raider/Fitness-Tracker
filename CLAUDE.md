@@ -63,12 +63,12 @@ Key routing rules:
 
 ## Design System
 
-Read DESIGN.md before visual or UI work: it defines the fonts, colors, spacing, and
-aesthetic direction (Daylight, adopted 2026-10-10). Ask the user before departing from it.
+Read DESIGN.md before visual or UI work: it defines the font, colors, spacing, and
+aesthetic direction (drafting style, Instrument Sans, adopted 2026-10-31). Ask the user before departing from it.
 When reviewing or QA-ing UI, flag code that doesn't match DESIGN.md.
 Key rules:
-- Orange (`--primary`) = the thing to press, always a fill with ink text; never orange text.
-- Amber (`--record`) = a personal record or achievement only.
-- Light mode only (the user's choice, replacing the earlier dark-only rule).
-- Numbers use Archivo condensed with tabular figures via the `.num` class.
-- Touch targets: primary actions ≥56px, set ticks ≥44px; no text below 13px.
+- Ink (`--primary`) fill with paper text = the one thing to press. No orange anywhere.
+- Trace blue (`--data`) = plotted data only. Highlighter yellow (`--hi`) = what matters now, a fill behind ink, never text.
+- Five type sizes only: 13 / 15 / 18 / 22 / 30 px (`--t-label` … `--t-display`); 16px for typed field text.
+- Boxes: 1.5px ink outline, 4px corners, no shadows. 8px spacing step, 40px between sections.
+- Touch targets: primary actions ≥56px, everything else ≥44px; no text below 13px.

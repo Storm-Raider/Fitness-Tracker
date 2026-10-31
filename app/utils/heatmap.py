@@ -37,7 +37,7 @@ def generate_heatmap_svg(workout_dates: list[str], weeks: int = 52) -> str:
         x = col * STEP + 1
         y = row * STEP + 1
         filled = d.isoformat() in workout_set
-        color = "#141414" if filled else "#e7e6e1"  # ink = trained (data); amber is records only
+        color = "#1e5bb8" if filled else "#dde4db"  # trace blue = trained (data); grid when empty
         title = d.isoformat()
         cells.append(
             f'<rect x="{x}" y="{y}" width="{CELL}" height="{CELL}" '
