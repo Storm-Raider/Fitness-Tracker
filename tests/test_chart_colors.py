@@ -64,21 +64,24 @@ def test_muscle_bars_have_light_tracks_and_readable_labels():
         assert _contrast(fill, CARD) >= 4.5
 
 
-def test_weekly_volume_bars_are_ink_and_today_is_orange():
+TRACE = "#1e5bb8"   # plotted data (Instrument Sans redesign, 2026-10-31)
+GRAPHITE = "#23262b"
+
+
+def test_weekly_volume_bars_are_trace_blue_and_today_is_ink():
     today = date.today()
     days = [((today - timedelta(days=6 - i)).isoformat(), 100.0 * (i + 1)) for i in range(7)]
     svg = generate_weekly_bar_chart(days)
     bar_fills = re.findall(r'<rect[^>]*fill="(#[0-9a-fA-F]{6})"><title>', svg)
-    assert bar_fills[:-1] == [INK] * 6 and bar_fills[-1] == ORANGE
+    assert bar_fills[:-1] == [TRACE] * 6 and bar_fills[-1] == GRAPHITE
     assert not any(c in svg.lower() for c in OLD_DARK)
-    # orange is a mark, never text
-    assert ORANGE not in re.findall(r'<text[^>]*fill="(#[0-9a-fA-F]{6})"', svg)
+    assert ORANGE not in svg.lower()
     assert min(float(x) for x in re.findall(r'font-size="([\d.]+)"', svg)) >= 18
 
 
-def test_weekly_volume_bars_without_today_are_all_ink():
+def test_weekly_volume_bars_without_today_are_all_trace_blue():
     svg = generate_weekly_bar_chart([(f"2020-10-0{d}", 100.0 * d) for d in range(1, 8)])
-    assert INK in svg.lower() and ORANGE not in svg.lower()
+    assert TRACE in svg.lower() and ORANGE not in svg.lower()
 
 
 async def test_the_muscle_map_gets_the_same_colours(client, db):
@@ -87,11 +90,3 @@ async def test_the_muscle_map_gets_the_same_colours(client, db):
     assert '"Chest": "' + MUSCLE_COLORS["Chest"] + '"' in html
     assert "'Chest':     '#4f9cf9'" not in html
 
-
-def test_home_volume_tile_is_a_whole_number():
-    """The Home volume tile's data-kg must be rounded: the unit script re-renders
-    it with one decimal, so a raw 21367.5 showed as '21,367.5 kg'."""
-    import re
-    from pathlib import Path
-    src = Path(__file__).resolve().parent.parent / "app/templates/dashboard.html"
-    assert re.search(r'data-kg="\{\{ weekly_volume \| round \| int \}\}"', src.read_text())

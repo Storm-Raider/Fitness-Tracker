@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>{% block title %}Zenkai{% endblock %}</title>
   <link rel="manifest" href="/static/manifest.json">
-  <meta name="theme-color" content="#f4f4f1">
+  <meta name="theme-color" content="#eef1ec">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <link rel="apple-touch-icon" href="/static/icon-192.png">
@@ -22,46 +22,51 @@
       /* Height the fixed chat composer occupies (0 when absent); toasts, the
          achievement rack and the page's bottom padding clear it. */
       --composer-h: 0px;
-      --bg:           #f4f4f1;   /* paper */
-      --surface:      #ffffff;   /* card */
-      --surface-2:    #f7f7f4;   /* done sets, nested panels */
-      --surface-hover:#efefea;
-      --border:       #dddcd6;   /* hairlines (decorative) */
-      --border-mid:   #c9c8c2;   /* secondary-button borders */
-      --ring:         #8f8e88;   /* input and empty-tick outlines, 3.3:1 */
-      --text:         #141414;   /* ink */
-      --muted:        #5d5d58;   /* pencil, 6.0:1 on paper */
-      --muted-hi:     #4a4a46;
-      --accent:       #141414;   /* interactive text and active states: ink */
-      --accent-hover: #3a3a37;
-      --accent-dim:   rgba(20,20,20,0.06);
-      --primary:      #ff5a1f;   /* signal orange: always a fill with ink text */
-      --primary-hover:#f04e14;
-      --on-primary:   #141414;
-      --primary-edge: #e04a12;   /* orange outlines, 3.7:1; never text */
-      --primary-tint: #fff4ee;
+      --bg:           #eef1ec;   /* drafting paper */
+      --surface:      #eef1ec;   /* boxes: paper, outlined in ink */
+      --surface-2:    #e6eae4;   /* done sets, nested panels */
+      --surface-hover:#e6eae4;
+      --border:       #d3dbd1;   /* hairlines inside boxes */
+      --border-mid:   #23262b;   /* secondary-button borders: ink */
+      --ring:         #8a908a;   /* input and empty-tick outlines, 3.3:1 */
+      --text:         #23262b;   /* graphite ink */
+      --muted:        #5b615b;   /* pencil, 5.6:1 on paper */
+      --muted-hi:     #474c47;
+      --accent:       #23262b;   /* interactive text and active states: ink */
+      --accent-hover: #3a3e44;
+      --accent-dim:   rgba(35,38,43,0.06);
+      --primary:      #23262b;   /* the thing to press: an ink fill */
+      --primary-hover:#3a3e44;
+      --on-primary:   #eef1ec;
+      --primary-edge: #23262b;   /* the active set's outline */
+      --primary-tint: #f6e7a1;   /* highlighter yellow: the set you are on */
       --danger:       #c8372d;
       --danger-dim:   #fdecea;
       --success:      #1f7a4d;
       --success-dim:  #e8f4ee;
       --pr:           #8c5a00;   /* records only */
-      --pr-dim:       #fff3d6;
-      --pr-glow:      rgba(227,179,65,0.45);
-      --live:         #e04a12;   /* live-session marks (dots, outlines); never text */
-      --live-dim:     #fff4ee;
-      --live-glow:    rgba(224,74,18,0.3);
-      --data:         #141414;   /* single-series charts */
+      --pr-dim:       #f6e7a1;
+      --pr-glow:      rgba(245,213,71,0.55);
+      --live:         #b23a26;   /* live-session dot */
+      --live-dim:     #f6e7a1;
+      --live-glow:    rgba(178,58,38,0.25);
+      --data:         #1e5bb8;   /* plotted data: trace blue */
       --accent-glow:  rgba(20,20,20,0.2);
-      --shadow-sm:    0 1px 2px rgba(20,20,20,0.06), 0 4px 14px rgba(20,20,20,0.06);
-      --shadow:       0 6px 20px rgba(20,20,20,0.10);
+      --shadow-sm:    inset 0 0 0 1.5px var(--text);   /* a box's outline, for boxes without a border */
+      --shadow:       0 4px 16px rgba(35,38,43,0.12);   /* sheets and toasts only */
       --shadow-lg:    0 12px 36px rgba(20,20,20,0.16);
       --glow:         0 0 0 3px rgba(20,20,20,0.12);
       --glow-pr:      0 0 0 3px rgba(140,90,0,0.18);
-      --radius:       18px;
-      --radius-sm:    14px;
-      --radius-xs:    10px;
-      --f-display: 'Archivo', 'Arial', system-ui, sans-serif;
-      --f-ui: 'Atkinson Hyperlegible Next', 'Atkinson Hyperlegible', system-ui, sans-serif;
+      --radius:       4px;
+      --radius-sm:    4px;
+      --radius-xs:    4px;
+      --f-display: 'Instrument Sans', system-ui, sans-serif;
+      --f-ui: 'Instrument Sans', system-ui, sans-serif;
+      /* Type scale (DESIGN.md): one job per size. */
+      --t-label: 13px;  --t-body: 15px;  --t-head: 18px;  --t-data: 22px;  --t-display: 30px;
+      --hi: #f5d547;     /* highlighter: today, the newest record */
+      --datum: #b23a26;  /* targets and limits on plots */
+      --grid: #dde4db;   /* the paper's grid */
       /* Spacing scale — 8px base */
       --sp-2xs:  2px;
       --sp-xs:   4px;
@@ -88,11 +93,14 @@
        clip, not hidden: it makes no scroll container, so position: sticky works. */
     html, body { overflow-x: clip; }
     body {
-      background: var(--bg);
+      background-color: var(--bg);
+      background-image: linear-gradient(var(--grid) 1px, transparent 1px),
+                        linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+      background-size: 13px 13px;
       color: var(--text);
       font-family: var(--f-ui);
-      font-size: 16px;
-      line-height: 1.5;
+      font-size: var(--t-body);
+      line-height: 1.45;
       min-height: 100vh;
       -webkit-font-smoothing: antialiased;
       -moz-osx-font-smoothing: grayscale;
@@ -101,8 +109,8 @@
     }
     h1, h2, h3 {
       font-family: var(--f-display);
-      font-weight: 700;
-      letter-spacing: -0.01em;
+      font-weight: 600;
+      letter-spacing: -0.015em;
       line-height: 1.15;
       text-wrap: balance;
     }
@@ -127,8 +135,8 @@
     }
     nav .brand {
       font-family: var(--f-display);
-      font-weight: 800;
-      font-size: 1.2rem;
+      font-weight: 600;
+      font-size: var(--t-head);
       letter-spacing: -0.01em;
       color: var(--text);
       white-space: nowrap;
@@ -150,7 +158,7 @@
     .nav-more { position: relative; }
     .nav-more-btn {
       color: var(--muted);
-      font-size: 0.9rem;
+      font-size: var(--t-body);
       font-weight: 600;
       padding: 0 0.875rem;
       height: 56px;
@@ -182,7 +190,7 @@
     .nav-more-dropdown a {
       display: block;
       color: var(--muted);
-      font-size: 0.9rem;
+      font-size: var(--t-body);
       font-weight: 600;
       padding: 0.6rem 0.8rem;
       border-radius: var(--radius-xs);
@@ -196,7 +204,7 @@
 
     nav .nav-links a {
       color: var(--muted);
-      font-size: 0.9rem;
+      font-size: var(--t-body);
       font-weight: 600;
       padding: 0 0.875rem;
       height: 56px;
@@ -231,7 +239,7 @@
       flex-shrink: 0;
     }
     nav .nav-user .username {
-      font-size: 0.9rem;
+      font-size: var(--t-body);
       color: var(--text);
       white-space: nowrap;
       font-weight: 600;
@@ -280,7 +288,7 @@
     }
 
     @media (max-width: 767px) {
-      html { font-size: 16px; }
+      html { font-size: 16px; /* rem base, not text */ }
 
       /* Touch targets: Apple HIG recommends ≥44 px tap area */
       .btn { min-height: 48px; padding: 0.6rem 1.1rem; }
@@ -321,7 +329,7 @@
         justify-content: center;
         gap: 3px;
         color: var(--muted);
-        font-size: 13px;
+        font-size: var(--t-label);
         font-weight: 600;
         background: transparent;
         border: none;
@@ -377,7 +385,7 @@
       }
       .mob-more-title {
         font-family: var(--f-display);
-        font-size: 1.15rem;
+        font-size: var(--t-head);
         font-weight: 700;
         color: var(--text);
         padding: 0 1.25rem 0.75rem;
@@ -402,7 +410,7 @@
         background: var(--bg);
         border: 1px solid transparent;
         color: var(--text);
-        font-size: 13px;
+        font-size: var(--t-label);
         font-weight: 600;
         text-align: center;
         transition: background 0.15s, border-color 0.15s;
@@ -475,10 +483,10 @@
     /* ── Cards ───────────────────────────────────────── */
     .card {
       background: var(--surface);
-      border: 1px solid transparent;
+      border: 1.5px solid var(--text);
       border-radius: var(--radius);
       padding: 1.25rem;
-      box-shadow: var(--shadow-sm);
+      box-shadow: none;
       position: relative;
     }
     /* A live (in-progress) session card carries the orange outline. */
@@ -508,7 +516,7 @@
       gap: 0.5rem;
     }
     .kpi-label {
-      font-size: 0.875rem;
+      font-size: var(--t-body);
       font-weight: 600;
       color: var(--muted);
       line-height: 1.3;
@@ -524,10 +532,9 @@
     }
     .kpi-val {
       font-family: var(--f-display);
-      font-stretch: 72%;
-      font-weight: 800;
+      font-weight: 600;
       font-variant-numeric: tabular-nums;
-      font-size: clamp(2rem, 5vw, 2.6rem);
+      font-size: var(--t-display);
       line-height: 1;
     }
     .kpi-foot { display: none; }
@@ -541,10 +548,10 @@
       padding: 0.5rem 1.1rem;
       min-height: 44px;
       border-radius: var(--radius-sm);
-      border: 1px solid transparent;
+      border: 1.5px solid transparent;
       cursor: pointer;
-      font-size: 0.95rem;
-      font-weight: 700;
+      font-size: var(--t-body);
+      font-weight: 600;
       font-family: inherit;
       transition: background 0.15s, border-color 0.15s, color 0.15s;
       white-space: nowrap;
@@ -582,6 +589,7 @@
        inline font-sizes set per-field. This is what prevents focus zoom, so the
        viewport no longer locks zoom (WCAG 1.4.4). */
     input, select, textarea { font-size: 16px !important; }
+    input:not([type=checkbox]):not([type=radio]):not([type=range]), select, textarea { background-color: #ffffff; border-color: var(--text); }
     input:focus, select:focus, textarea:focus {
       outline: 2px solid var(--text);
       outline-offset: 0;
@@ -595,7 +603,7 @@
     input:focus-visible, select:focus-visible, textarea:focus-visible { outline-offset: 0; }
     input[type="checkbox"], input[type="radio"] { accent-color: var(--text); }
     label {
-      font-size: 0.875rem;
+      font-size: var(--t-body);
       color: var(--muted);
       font-weight: 600;
       display: block;
@@ -605,12 +613,12 @@
 
     /* ── Tables ──────────────────────────────────────── */
     .card { overflow-x: auto; }
-    table { width: 100%; border-collapse: collapse; font-size: 0.95rem; }
+    table { width: 100%; border-collapse: collapse; font-size: var(--t-body); }
     th {
       text-align: left;
       color: var(--muted);
       font-weight: 600;
-      font-size: 0.8125rem;
+      font-size: var(--t-label);
       padding: 0.65rem 0.9rem;
       border-bottom: 1px solid var(--border);
     }
@@ -636,7 +644,7 @@
       display: inline-block;
       padding: 0.2rem 0.65rem;
       border-radius: 999px;
-      font-size: 0.8125rem;
+      font-size: var(--t-label);
       font-weight: 700;
       background: var(--accent-dim);
       color: var(--text);
@@ -657,7 +665,7 @@
     /* ── Section title ───────────────────────────────── */
     .section-title {
       font-family: var(--f-display);
-      font-size: 1.1rem;
+      font-size: var(--t-head);
       font-weight: 700;
       color: var(--text);
       margin-bottom: 0.75rem;
@@ -675,12 +683,12 @@
       flex-wrap: wrap;
     }
     .page-hd h1 {
-      font-size: clamp(1.7rem, 6vw, 2rem);
-      font-weight: 800;
+      font-size: var(--t-display);
+      font-weight: 600;
       line-height: 1.05;
     }
     .page-hd .subtitle {
-      font-size: 0.9rem;
+      font-size: var(--t-body);
       color: var(--muted);
       margin-top: 0.3rem;
       font-variant-numeric: tabular-nums;
@@ -697,7 +705,7 @@
       background: var(--surface);
       color: var(--text);
       cursor: pointer;
-      font-size: 1.1rem;
+      font-size: var(--t-head);
       display: flex;
       align-items: center;
       justify-content: center;
@@ -711,8 +719,7 @@
        changing weight never moves the layout. */
     .num {
       font-family: var(--f-display);
-      font-stretch: 72%;
-      font-weight: 800;
+      font-weight: 600;
       font-variant-numeric: tabular-nums;
     }
 
@@ -721,7 +728,7 @@
       padding: 0.875rem 1.1rem;
       border-radius: var(--radius-sm);
       margin-bottom: 1rem;
-      font-size: 0.95rem;
+      font-size: var(--t-body);
       line-height: 1.5;
     }
     .flash-success { background: var(--success-dim); color: var(--success); }
@@ -741,7 +748,7 @@
     }
     .confirm-sheet.show { transform: translateY(0); }
     .confirm-sheet-msg {
-      font-size: 1rem;
+      font-size: var(--t-body);
       color: var(--text);
       margin-bottom: 1.1rem;
       line-height: 1.45;
@@ -755,7 +762,7 @@
       min-height: 52px;
       padding: 0.75rem;
       border-radius: var(--radius-sm);
-      font-size: 1rem;
+      font-size: var(--t-body);
       font-weight: 700;
       cursor: pointer;
       font-family: inherit;
@@ -800,7 +807,7 @@
       color: var(--text);
       cursor: pointer;
       font-family: inherit;
-      font-size: 0.875rem;
+      font-size: var(--t-body);
       font-weight: 600;
       transition: background 0.14s, border-color 0.14s, color 0.14s;
       -webkit-tap-highlight-color: transparent;
@@ -815,27 +822,30 @@
        <button aria-pressed> elements. */
     .seg-toggle {
       display: inline-flex;
-      gap: 2px;
-      padding: 3px;
+      gap: 0;
+      padding: 0;
+      border: 1.5px solid var(--text);
       border-radius: var(--radius-sm);
-      background: var(--surface-hover);
+      background: var(--surface);
+      overflow: hidden;
     }
+    .seg-toggle button + button { border-left: 1px solid var(--text) !important; }
     .seg-toggle button {
       min-height: 44px;
       padding: 0 1rem;
       border: none;
-      border-radius: var(--radius-xs);
+      border-radius: 0;
       background: transparent;
-      color: var(--muted);
+      color: var(--text);
       font-family: inherit;
-      font-size: 0.9rem;
+      font-size: var(--t-body);
       font-weight: 600;
       cursor: pointer;
       transition: background 0.14s, color 0.14s;
       -webkit-tap-highlight-color: transparent;
     }
     .seg-toggle button:hover:not(:disabled):not([aria-pressed="true"]) { color: var(--text); }
-    .seg-toggle button[aria-pressed="true"] { background: var(--surface); color: var(--text); box-shadow: 0 1px 2px rgba(20,20,20,0.1); }
+    .seg-toggle button[aria-pressed="true"] { background: var(--text); color: var(--bg); box-shadow: none; }
     /* Every one-of-N choice uses this control (DESIGN.md): sort, chart metric,
        page tabs, units, Low/Medium/High. .seg-fill spans the row. */
     .seg-toggle.seg-fill { display: flex; }
@@ -901,7 +911,7 @@
       border-radius: var(--radius-sm);
       box-shadow: var(--shadow-lg);
       padding: 0.6rem 0.6rem 0.6rem 1rem;
-      font-size: 0.95rem;
+      font-size: var(--t-body);
       color: var(--bg);
       max-width: calc(100vw - 2rem);
       opacity: 0;
@@ -918,7 +928,7 @@
       border: none;
       border-radius: var(--radius-xs);
       padding: 0.35rem 0.95rem;
-      font-size: 0.9rem;
+      font-size: var(--t-body);
       font-weight: 700;
       cursor: pointer;
       font-family: inherit;
@@ -958,7 +968,7 @@
     }
     .ach-toast-more {
       display: flex; align-items: center; min-height: 48px;
-      pointer-events: auto; color: var(--text); font-weight: 700; font-size: 0.9rem;
+      pointer-events: auto; color: var(--text); font-weight: 700; font-size: var(--t-body);
       border: 1px solid var(--border-mid);
     }
     .ach-toast-more:hover { color: var(--text); background: var(--surface-2); }
@@ -1037,7 +1047,7 @@
         <a href="/settings" class="username">{{ user.username }}</a>
         <form method="post" action="/logout">
           <button type="submit" class="btn btn-ghost"
-                  style="min-height:34px;padding:0.35rem 0.75rem;font-size:0.8rem;">
+                  style="min-height:44px;padding:0.35rem 0.75rem;font-size:var(--t-body);">
             Sign out
           </button>
         </form>
@@ -1047,7 +1057,7 @@
       <a href="/settings" class="username">{{ user.username }}</a>
       <form method="post" action="/logout" style="display:flex;align-items:center;">
         <button type="submit" class="btn btn-ghost"
-                style="min-height:36px;padding:0.3rem 0.8rem;font-size:0.875rem;white-space:nowrap;">
+                style="min-height:44px;padding:0.3rem 0.8rem;font-size:var(--t-body);white-space:nowrap;">
           Sign out
         </button>
       </form>
@@ -1089,7 +1099,7 @@
     <div class="mob-more-handle"></div>
     <div class="mob-more-title">
       <span>More</span>
-      <span style="color:var(--muted);font-family:var(--f-ui);font-weight:600;font-size:0.875rem;">{{ user.username }}</span>
+      <span style="color:var(--muted);font-family:var(--f-ui);font-weight:600;font-size:var(--t-label);">{{ user.username }}</span>
     </div>
     <div class="mob-more-grid">
       <a href="/exercises" class="mob-more-item" data-mob-more-path="/exercises" onclick="closeMobMore()">

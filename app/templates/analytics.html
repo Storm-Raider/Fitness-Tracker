@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% block title %}Analytics — Zenkai{% endblock %}
 {% block content %}
+<style>.hm-narrow{display:none}@media (max-width:700px){.hm-wide{display:none}.hm-narrow{display:block}}</style>
 {% from "partials/bw_best.html" import bw_best %}
 <div class="page-hd">
   <div>
@@ -393,6 +394,18 @@ document.getElementById('pr-search').addEventListener('keydown', e => {
   </div>
 </div>
 {% endif %}
+
+{# ── Activity: one cell a day (moved from Home, 2026-10-31) ─────────── #}
+<div style="margin-bottom:1.5rem;">
+  <div class="section-title" style="display:flex;justify-content:space-between;align-items:baseline;">
+    <span><span class="hm-wide">Activity, last 52 weeks</span><span class="hm-narrow">Activity, last 26 weeks</span></span>
+    <span style="font-size:var(--t-label);color:var(--muted);font-weight:500;"><span class="num" style="color:var(--text);">{{ active_days }}</span> active days</span>
+  </div>
+  <div class="card">
+    <div class="hm-wide" role="img" aria-label="Activity heatmap, last 52 weeks">{{ heatmap_svg | safe }}</div>
+    <div class="hm-narrow" role="img" aria-label="Activity heatmap, last 26 weeks">{{ heatmap_svg_phone | safe }}</div>
+  </div>
+</div>
 
 {# ── 5. Volume trend ─────────────────────────────────────────────── #}
 <div style="margin-bottom:1.5rem;">

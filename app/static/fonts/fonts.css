@@ -1,3 +1,12 @@
+/* Instrument Sans (2026-10-31): the whole interface, numbers included.
+   Archivo and Atkinson stay for any page not yet moved over. */
+@font-face {
+  font-family: 'Instrument Sans';
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url('instrument-sans-var-latin.woff2') format('woff2');
+}
 /* Daylight (2026-10-10): Archivo (titles + condensed tabular numbers) and
    Atkinson Hyperlegible Next (interface). Variable, Latin subset, SIL OFL
    (licences alongside). */

@@ -1,334 +1,183 @@
 {% extends "base.html" %}
 {% block title %}Home — Zenkai{% endblock %}
 {% block content %}
-{% from "partials/bw_best.html" import bw_best %}
 <style>
-  /* Home (DESIGN.md): the day, one orange button to train, the week in numbers. */
-  .home { display: grid; grid-template-columns: minmax(0, 1fr); gap: 1rem; }
-  .home-day { font-family: var(--f-display); font-weight: 800; font-size: clamp(2rem, 8vw, 2.6rem); line-height: 1; }
-  .home-sub { color: var(--muted); font-size: 0.95rem; margin-top: 0.35rem; }
-  .start-btn {
-    display: grid; align-content: center; gap: 2px;
-    min-height: 76px; padding: 0.8rem 1.25rem;
-    border-radius: var(--radius); background: var(--primary); color: var(--on-primary);
-    text-decoration: none;
+  /* Home (DESIGN.md, Instrument Sans redesign 2026-10-31): what changed in your
+     strength, what to do today, and the week. Five type sizes only. */
+  .home { display: grid; grid-template-columns: minmax(0, 1fr); column-gap: 56px; }
+  .home-top { display: flex; justify-content: space-between; gap: 1rem; font-size: var(--t-label); color: var(--muted); font-weight: 500; }
+  .home-top b { color: var(--text); font-weight: 600; }
+  .home h1 { font-size: var(--t-display); font-weight: 600; letter-spacing: -0.02em; line-height: 1.1; margin-top: 24px; }
+  .home .lede { font-size: var(--t-body); margin-top: 8px; }
+  .hl { background: linear-gradient(transparent 58%, var(--hi) 58%); }
+  .plot { margin-top: 24px; border: 1.5px solid var(--text); background: var(--bg); padding: 4px; }
+  .plot-wide { display: none; }
+  .home h2 { font-size: var(--t-head); font-weight: 600; letter-spacing: -0.01em; margin: 40px 0 16px;
+             display: flex; justify-content: space-between; align-items: baseline; gap: 1rem; }
+  .home h2 .lbl, .lbl { font-size: var(--t-label); color: var(--muted); font-weight: 500; letter-spacing: 0; }
+  .lbl b { color: var(--text); font-weight: 600; }
+  .plan-box { border: 1.5px solid var(--text); background: var(--bg); }
+  .plan-row { display: flex; justify-content: space-between; align-items: baseline; gap: 12px;
+              min-height: 60px; padding: 16px 18px; border-top: 1px solid var(--border); font-size: var(--t-body); }
+  .plan-row:first-child { border-top: none; }
+  .plan-row .v { font-size: var(--t-data); font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .plan-row .u { font-size: var(--t-label); color: var(--muted); font-weight: 500; margin-left: 3px; }
+  .plan-row .up { font-size: var(--t-label); color: var(--data); font-weight: 600; margin-right: 6px; }
+  .plan-more { padding: 14px 18px; border-top: 1px solid var(--border); font-size: var(--t-label); color: var(--muted); }
+  .start { margin-top: 24px; min-height: 56px; width: 100%; background: var(--primary); color: var(--on-primary);
+           display: flex; align-items: center; justify-content: space-between; padding: 0 20px; border: none;
+           border-radius: var(--radius); font: 600 var(--t-head) var(--f-ui); cursor: pointer; }
+  .start:hover { background: var(--primary-hover); color: var(--on-primary); }
+  .start:focus-visible { outline: 2px solid var(--text); outline-offset: 2px; }
+  .start small { font-size: var(--t-label); font-weight: 500; opacity: .85; }
+  .days { list-style: none; display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; }
+  .day { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 10px 0;
+         border: 1.5px solid transparent; font-size: var(--t-label); color: var(--muted); font-weight: 500; }
+  .day i { width: 20px; height: 20px; border: 1.5px solid var(--text); display: block; }
+  .day.done i { background: var(--text); }
+  .day:not(.done):not(.today) i { border-color: transparent; }
+  .day.today { background: var(--hi); border-color: var(--text); color: var(--text); font-weight: 600; }
+  .goal-form { display: none; gap: 8px; align-items: center; margin-top: 16px; }
+  .goal-form input { width: 72px; min-height: 44px; text-align: center; }
+  .linkish { background: none; border: none; color: var(--text); font: 500 var(--t-label) var(--f-ui);
+             text-decoration: underline; text-underline-offset: 3px; min-height: 44px; cursor: pointer; padding: 0; }
+  .to-analytics { display: flex; justify-content: space-between; align-items: center; min-height: 56px;
+                  margin-top: 40px; border-top: 1.5px solid var(--text); font-size: var(--t-body); color: var(--text); }
+  .nudge-line { display: flex; justify-content: space-between; align-items: center; min-height: 48px; margin-top: 16px;
+                padding: 0 18px; border: 1.5px dashed var(--ring); font-size: var(--t-body); color: var(--text); }
+  .home-top em { font-style: normal; }
+  .recap { margin-top: 16px; font-size: var(--t-label); color: var(--muted); }
+  .recap b { color: var(--text); font-weight: 600; }
+  .empty { border: 1.5px dashed var(--ring); padding: 18px; margin-top: 24px; font-size: var(--t-body); }
+  @media (min-width: 960px) {
+    .home { grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); padding-top: 16px; }
+    .home h1 { font-size: var(--t-display); }
+    .home .col-right h2:first-child { margin-top: 0; }
+    .plot-phone { display: none; }
+    .plot-wide { display: block; }
   }
-  .start-btn:hover { background: var(--primary-hover); color: var(--on-primary); }
-  .start-btn b { font-family: var(--f-display); font-weight: 800; font-size: 1.4rem; line-height: 1.1; display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
-  .start-btn span { font-weight: 600; font-size: 0.95rem; }
-  .tiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.75rem; }
-  @media (min-width: 768px) { .tiles { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
-  .tile { background: var(--surface); border-radius: var(--radius-sm); padding: 0.85rem 1rem; box-shadow: var(--shadow-sm); min-width: 0; }
-  .tile .k { color: var(--muted); font-size: 0.875rem; font-weight: 600; }
-  .tile .v { font-family: var(--f-display); font-stretch: 72%; font-weight: 800; font-variant-numeric: tabular-nums; font-size: 2.3rem; line-height: 1.05; margin-top: 0.15rem; }
-  .tile .v small { font-family: var(--f-ui); font-stretch: 100%; font-weight: 600; font-size: 0.9rem; color: var(--muted); margin-left: 0.2rem; }
-  .goal-card { background: var(--surface); border-radius: var(--radius-sm); padding: 0.9rem 1rem; box-shadow: var(--shadow-sm); display: grid; gap: 0.6rem; }
-  .goal-top { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; flex-wrap: wrap; }
-  .goal-top .k { color: var(--muted); font-size: 0.9rem; font-weight: 600; }
-  .goal-top .k b { color: var(--text); font-family: var(--f-display); font-stretch: 72%; font-weight: 800; font-size: 1.15rem; }
-  .goal-segs { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 4px; }
-  .goal-segs i { height: 10px; border-radius: 5px; background: var(--border); }
-  .goal-segs i.on { background: var(--text); }
-  .goal-actions { display: flex; gap: 0.4rem; align-items: center; }
-  .goal-actions .btn { min-height: 40px; padding: 0 0.8rem; font-size: 0.875rem; }
-  .goal-add {
-    display: flex; align-items: center; gap: 0.5rem; width: 100%; min-height: 52px; padding: 0 1rem;
-    background: transparent; border: 1px dashed var(--border-mid); border-radius: var(--radius-sm);
-    color: var(--muted); font-family: inherit; font-size: 0.95rem; font-weight: 600; cursor: pointer;
-  }
-  .goal-add:hover { color: var(--text); border-color: var(--text); }
-  .vol-card { background: var(--surface); border-radius: var(--radius); padding: 1rem 1.1rem 0.6rem; box-shadow: var(--shadow-sm); }
-  .vol-top { display: flex; justify-content: space-between; align-items: baseline; gap: 0.75rem; flex-wrap: wrap; margin-bottom: 0.6rem; }
-  .vol-top .k { color: var(--muted); font-size: 0.9rem; font-weight: 600; }
-  .vol-big { font-family: var(--f-display); font-stretch: 72%; font-weight: 800; font-variant-numeric: tabular-nums; font-size: clamp(2.2rem, 9vw, 3rem); line-height: 1; }
-  .delta { font-size: 0.9rem; font-weight: 700; }
-  /* charts.py draws at phone size and scales to fit; past ~480px its labels get too big */
-  .vol-card svg, .split-card svg { max-width: 480px; }
-  .split-card .k { color: var(--muted); font-size: 0.9rem; font-weight: 600; margin-bottom: 0.75rem; }
-  .split-card { padding-bottom: 1rem; }
-  .hm-wide { display: none; }
-  @media (min-width: 720px) { .hm-wide { display: revert; } .hm-narrow { display: none; } }
-  /* Desktop: the two chart cards side by side. The charts are drawn at phone
-     size, so a half-width column fits them; across the full width they sat in
-     the left half of an empty card. Dense packing lifts the split card up next
-     to the volume card; everything else keeps the full width and phone order. */
-  @media (min-width: 900px) {
-    .home.has-split { grid-template-columns: repeat(2, minmax(0, 1fr)); grid-auto-flow: row dense; }
-    .home.has-split > * { grid-column: 1 / -1; }
-    .home.has-split > .vol-card { grid-column: auto; }
-  }
-  .nudges { display: grid; gap: 0.6rem; }
-  .nudge {
-    display: flex; align-items: center; gap: 0.85rem; min-height: 60px; padding: 0.7rem 1rem;
-    background: var(--surface); border-radius: var(--radius-sm); box-shadow: var(--shadow-sm);
-    text-decoration: none; color: var(--text);
-  }
-  .nudge:hover { color: var(--text); background: var(--surface-2); }
-  .nudge .t { font-weight: 700; font-size: 1rem; }
-  .nudge .s { color: var(--muted); font-size: 0.875rem; margin-top: 0.05rem; }
-  .nudge-bar { height: 8px; width: 88px; background: var(--border); border-radius: 4px; overflow: hidden; flex-shrink: 0; }
-  .nudge-bar i { display: block; height: 100%; background: var(--primary); }
-  .pr-list { list-style: none; margin: 0; padding: 0; background: var(--surface); border-radius: var(--radius); box-shadow: var(--shadow-sm); }
-  .pr-list li + li { border-top: 1px solid var(--border); }
-  .pr-list a { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0 0.75rem; align-items: center; min-height: 60px; padding: 0.6rem 1rem; color: var(--text); }
-  .pr-list a:hover { background: var(--surface-2); }
-  .pr-list .nm { font-weight: 600; }
-  .pr-list .when { color: var(--muted); font-size: 0.875rem; }
-  .pr-list .val { grid-row: 1 / 3; grid-column: 2; font-family: var(--f-display); font-stretch: 72%; font-weight: 800; font-size: 1.4rem; color: var(--text); }
-  .pr-list li:first-child .val { color: var(--pr); }
-  .see-all { font-size: 0.9rem; font-weight: 600; color: var(--muted); display: inline-flex; align-items: center; min-height: 44px; }
-  .see-all:hover { color: var(--text); }
-  .oura-card { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; min-height: 56px;
-               padding: 0.7rem 1rem; background: var(--surface); border-radius: var(--radius-sm);
-               box-shadow: var(--shadow-sm); color: var(--text); text-decoration: none; }
-  .oura-card:hover { color: var(--text); background: var(--surface-2); }
-  .oura-k { color: var(--muted); font-size: 0.875rem; font-weight: 600; }
-  .oura-vals { display: flex; flex-wrap: wrap; gap: 0.25rem 1rem; font-size: 0.95rem; }
-  .oura-vals b { font-size: 1.2rem; }
-  .oura-vals em { font-style: normal; color: var(--muted); font-size: 0.875rem; font-weight: 600; }
-  .oura-msg { color: var(--muted); font-size: 0.9rem; }
-  .recap { display: grid; gap: 0.3rem; min-height: 56px; padding: 0.75rem 1rem;
-           background: var(--surface); border-radius: var(--radius-sm); box-shadow: var(--shadow-sm);
-           color: var(--text); text-decoration: none; }
-  .recap:hover { color: var(--text); background: var(--surface-2); }
-  .recap-k { color: var(--muted); font-size: 0.875rem; font-weight: 600; }
-  .recap-vals { display: flex; flex-wrap: wrap; gap: 0.25rem 1rem; font-size: 0.95rem; }
-  .recap-vals b { font-size: 1.2rem; }
-  .recap-vals em { font-style: normal; color: var(--muted); font-size: 0.875rem; font-weight: 700; }
 </style>
 
-<div class="home{% if muscle_bar_svg %} has-split{% endif %}">
-
-  <div>
-    <h1 class="home-day" id="home-day">Today</h1>
-    <div class="home-sub">
-      {% if streak > 0 %}<span class="num" style="color:var(--text);">{{ streak }}</span>-day streak. Keep it going.{% else %}Your training at a glance.{% endif %}
+<div class="home">
+  <section class="col-left" aria-labelledby="story-title">
+    <div class="home-top">
+      <span>{{ today_label }}</span>
+      {% if oura %}
+        {% if oura.needs_reconnect %}<a href="/settings" style="text-decoration:underline;">Reconnect Oura in Settings</a>
+        {% elif oura.day and oura.day.readiness_score is not none %}<span>Readiness <b class="num">{{ oura.day.readiness_score }}</b>{% if oura.day.band %} <em>{{ oura.day.band }}</em>{% endif %}</span>
+        {% else %}<span>Waiting for today's Oura sync.</span>{% endif %}
+      {% endif %}
     </div>
-  </div>
-
-  {% if active_workout %}
-  <a href="/workouts/{{ active_workout.id }}" class="start-btn">
-    <b>Resume session <i data-lucide="arrow-right" style="width:22px;height:22px;"></i></b>
-    <span>{{ 'Ready to log' if active_workout.set_count == 0 else (active_workout.set_count ~ ' set' ~ ('s' if active_workout.set_count != 1 else '')) }} · {{ active_workout.elapsed_min }} min in</span>
-  </a>
-  {% else %}
-  <a href="/workouts" class="start-btn">
-    <b>Start a session <i data-lucide="arrow-right" style="width:22px;height:22px;"></i></b>
-    <span>Pick a routine or log as you go</span>
-  </a>
-  {% endif %}
-
-  {# Oura (connected users only): today's readiness, sleep and HRV. Ink numbers,
-     Oura's own band word; never yesterday passed off as today. #}
-  {% if oura %}
-  <a href="/journal" class="oura-card">
-    {% if oura.needs_reconnect %}
-    <span class="oura-k">Oura</span><span class="oura-msg">Reconnect Oura in Settings to keep your recovery up to date.</span>
-    {% elif oura.day and oura.day.is_today %}
-    {% set d = oura.day %}
-    <span class="oura-k">Today</span>
-    <span class="oura-vals">
-      {% if d.readiness_score is not none %}<span>Readiness <b class="num">{{ d.readiness_score }}</b>{% if d.band %} <em>{{ d.band }}</em>{% endif %}</span>{% endif %}
-      {% if d.sleep_score is not none %}<span>Sleep <b class="num">{{ d.sleep_score }}</b></span>{% endif %}
-      {% if d.hrv_ms is not none %}<span>HRV <b class="num">{{ d.hrv_ms | round | int }}</b> ms</span>{% endif %}
-    </span>
+    {% if story and story.gain >= 1 %}
+      <h1 id="story-title">{{ story.name }} is up <span class="num weight-display" data-kg="{{ story.gain }}">{{ story.gain }} kg</span> since {{ story.since_label }}.</h1>
+      {% if story.target %}
+      <p class="lede">Estimated one-rep max is <span class="num">{{ story.current }}</span> kg. At this rate you reach <span class="hl">{{ story.target }} kg in {{ story.eta_label }}</span>.</p>
+      {% else %}
+      <p class="lede">Estimated one-rep max is <span class="num">{{ story.current }}</span> kg.</p>
+      {% endif %}
+    {% elif story %}
+      <h1 id="story-title">{{ story.name }} is holding at <span class="num">{{ story.current }}</span> kg.</h1>
+      <p class="lede">Your estimated one-rep max over the last 12 weeks.</p>
     {% else %}
-    <span class="oura-k">Oura</span><span class="oura-msg">Waiting for today's Oura sync.</span>
+      <h1 id="story-title">Your strength trend starts here.</h1>
+      <p class="lede">Log four sessions of a lift and Home shows how it is moving.</p>
     {% endif %}
-  </a>
-  {% endif %}
+    {% if story_plot %}
+    <figure class="plot">
+      <div class="plot-phone">{{ story_plot_phone | safe }}</div>
+      <div class="plot-wide">{{ story_plot | safe }}</div>
+    </figure>
+    {% endif %}
+  </section>
 
-  {# Monday to Wednesday: last calendar week in one line. Ink numbers; the
-     records count is amber because it is records (DESIGN.md). #}
-  {% if recap %}
-  <a href="/analytics" class="recap">
-    <span class="recap-k">Last week · {{ recap.label }}</span>
-    {% if recap.sessions == 0 %}
-    <span class="recap-vals"><span>No sessions logged.</span></span>
+  <section class="col-right" aria-label="Today and this week">
+    <h2>Today
+      {% if up_next and not active_workout %}<span class="lbl">{{ up_next.name }}</span>{% endif %}
+    </h2>
+    {% if active_workout %}
+      <a class="start" href="/workouts/{{ active_workout.id }}">Resume session <small>in progress</small></a>
     {% else %}
-    <span class="recap-vals">
-      <span>{% if weekly_goal %}<b class="num">{{ recap.sessions }}</b> of <span class="num">{{ weekly_goal }}</span> sessions{% else %}<b class="num">{{ recap.sessions }}</b> session{{ 's' if recap.sessions != 1 }}{% endif %}</span>
-      {% if recap.volume_kg > 0 %}<span><b class="num weight-display" data-kg="{{ recap.volume_kg }}">{{ "{:,.0f}".format(recap.volume_kg) }} kg</b> lifted{% if recap.volume_delta_pct is not none %}
-        {% if recap.volume_delta_pct > 0 %}<em style="color:var(--success);">▲ +{{ recap.volume_delta_pct }}%</em>{% elif recap.volume_delta_pct < 0 %}<em style="color:var(--danger);">▼ {{ recap.volume_delta_pct }}%</em>{% else %}<em>flat</em>{% endif %}{% endif %}</span>{% endif %}
-      {% if recap.records %}<span><b class="num" style="color:var(--pr);">{{ recap.records }}</b> record{{ 's' if recap.records != 1 }}</span>{% endif %}
-      {% if recap.readiness is not none %}<span>Readiness <b class="num">{{ recap.readiness }}</b> <em>{{ recap.readiness_band }}</em></span>{% endif %}
-    </span>
-    {% endif %}
-  </a>
-  {% endif %}
-
-  <div id="goal-widget">
-    {% if weekly_goal %}
-    {% set goal_done = weekly_sessions >= weekly_goal %}
-    <div class="goal-card">
-      <div class="goal-top">
-        <div class="k">Weekly goal · <b>{{ weekly_sessions }} of {{ weekly_goal }}</b>
-          <span style="margin-left:0.25rem;{% if goal_done %}color:var(--success);{% endif %}">
-            {% if goal_done %}Reached{% elif weekly_sessions == 0 %}{{ weekly_goal }} session{{ 's' if weekly_goal != 1 }} to go{% else %}{{ weekly_goal - weekly_sessions }} more to go{% endif %}
+      {% if up_next %}
+      <div class="plan-box">
+        {% for l in up_next.main %}
+        <div class="plan-row">
+          <span>{{ l.name }}</span>
+          <span>
+            {% if l.step %}<span class="up num">+{{ l.step | round(1) | replace('.0', '') }}</span>{% endif %}
+            <span class="v">{{ l.sets }} × {{ l.reps }}</span>{% if l.load_kg %}<span class="u">at</span> <span class="v weight-display" data-kg="{{ l.load_kg }}">{{ l.load_kg | round(1) | replace('.0', '') }} kg</span>{% endif %}
           </span>
         </div>
-        <div class="goal-actions">
-          <div id="goal-edit-form" style="display:none;align-items:center;gap:0.4rem;">
-            <input id="goal-input" type="number" min="1" max="14" value="{{ weekly_goal }}" aria-label="Sessions per week" class="num" style="width:64px;min-height:40px;text-align:center;padding:0.2rem;">
-            <button onclick="saveGoal()" class="btn btn-ghost">Save</button>
-          </div>
-          <button id="goal-edit-btn" class="btn btn-ghost" onclick="toggleGoalEdit()">Edit</button>
-          <button class="btn btn-ghost" onclick="deleteGoal()" aria-label="Remove goal" title="Remove goal">✕</button>
-        </div>
-      </div>
-      <div class="goal-segs" aria-hidden="true">
-        {% for i in range(weekly_goal) %}<i class="{{ 'on' if i < weekly_sessions }}"></i>{% endfor %}
-      </div>
-    </div>
-    {% else %}
-    {# The form sits beside the button, not inside it: a button can't contain a button. #}
-    <div style="display:flex;gap:0.5rem;align-items:center;flex-wrap:wrap;">
-      <button onclick="toggleGoalEdit()" class="goal-add" style="flex:1;width:auto;min-width:220px;">
-        <i data-lucide="target" style="width:18px;height:18px;flex-shrink:0;pointer-events:none;"></i>
-        Set a weekly session goal
-      </button>
-      <span id="goal-set-form" style="display:none;align-items:center;gap:0.4rem;">
-        <input id="goal-input" type="number" min="1" max="14" value="4" aria-label="Sessions per week" class="num" style="width:64px;min-height:48px;text-align:center;padding:0.2rem;">
-        <button onclick="saveGoal()" class="btn btn-primary" style="min-height:48px;">Set</button>
-      </span>
-    </div>
-    {% endif %}
-  </div>
-
-  <div class="tiles">
-    <div class="tile"><div class="k">Sessions this week</div><div class="v">{{ weekly_sessions }}</div></div>
-    <div class="tile"><div class="k">Avg session length</div><div class="v">{{ avg_duration_min if avg_duration_min is not none else "—" }}{% if avg_duration_min is not none %}<small>min</small>{% endif %}</div></div>
-    <div class="tile"><div class="k">Current streak</div><div class="v">{{ streak }}<small>{{ "day" if streak == 1 else "days" }}</small></div></div>
-    <div class="tile"><div class="k">Best streak</div><div class="v">{{ best_streak }}<small>{{ "day" if best_streak == 1 else "days" }}</small></div></div>
-  </div>
-
-  <div class="vol-card">
-    <div class="vol-top">
-      <div>
-        <div class="k">Volume this week</div>
-        <div class="vol-big weight-display" data-kg="{{ weekly_volume | round | int }}">{{ "{:,.0f}".format(weekly_volume) }} kg</div>
-      </div>
-      {% if volume_delta_pct is not none %}
-      <div class="delta">
-        {% if volume_delta_pct > 0 %}<span style="color:var(--success);">▲ +{{ volume_delta_pct }}%</span>
-        {% elif volume_delta_pct < 0 %}<span style="color:var(--danger);">▼ {{ volume_delta_pct }}%</span>
-        {% else %}<span style="color:var(--muted);">Flat</span>{% endif %}
-        <span style="color:var(--muted);font-weight:600;">vs last week</span>
-      </div>
-      {% endif %}
-    </div>
-    {{ weekly_bar_svg | safe }}
-  </div>
-
-  {% if active_challenges or not today_log_filled or latest_bodyweight is not none %}
-  <div class="nudges">
-    {% for c in active_challenges %}
-    <a href="/challenges/{{ c.id }}" class="nudge">
-      <i data-lucide="flame" style="width:20px;height:20px;flex-shrink:0;"></i>
-      <div style="flex:1;min-width:0;">
-        <div class="t">{{ c.title }} · Day <span class="num">{{ c.day_n }}</span> of <span class="num">{{ c.total_days }}</span></div>
-        <div class="s" {% if c.today_done == c.today_total %}style="color:var(--success);"{% endif %}>
-          {% if c.today_done == c.today_total %}All rules done today{% else %}{{ c.today_done }} of {{ c.today_total }} rules done today{% endif %}
-        </div>
-      </div>
-      <div class="nudge-bar" aria-hidden="true"><i style="width:{{ (c.day_n / c.total_days * 100) | round | int }}%;"></i></div>
-    </a>
-    {% endfor %}
-    {% if not today_log_filled %}
-    <a href="/journal" class="nudge">
-      <i data-lucide="notebook-pen" style="width:20px;height:20px;flex-shrink:0;"></i>
-      <div style="flex:1;min-width:0;">
-        <div class="t">Fill today's daily log</div>
-        <div class="s">Weight, meals, energy, sleep, steps</div>
-      </div>
-      <i data-lucide="chevron-right" style="width:18px;height:18px;color:var(--muted);flex-shrink:0;"></i>
-    </a>
-    {% endif %}
-    {% if latest_bodyweight is not none %}
-    <a href="/metrics" class="nudge">
-      <i data-lucide="scale" style="width:20px;height:20px;flex-shrink:0;"></i>
-      <div style="flex:1;min-width:0;">
-        <div class="t">Bodyweight</div>
-        <div class="s"><span class="weight-display num" data-kg="{{ latest_bodyweight }}">{{ "{:,.1f}".format(latest_bodyweight) }} kg</span></div>
-      </div>
-      <i data-lucide="chevron-right" style="width:18px;height:18px;color:var(--muted);flex-shrink:0;"></i>
-    </a>
-    {% endif %}
-  </div>
-  {% endif %}
-
-  {% if muscle_bar_svg %}
-  <div class="vol-card split-card">
-    <div class="k">Muscle split this week</div>
-    {{ muscle_bar_svg | safe }}
-  </div>
-  {% endif %}
-
-  <div class="grid-2" style="align-items:start;">
-    <div>
-      <div class="section-title">Recent sessions</div>
-      {% include "dashboard_partial.html" %}
-    </div>
-    <div>
-      <div style="display:flex;align-items:center;justify-content:space-between;">
-        <div class="section-title" style="margin-bottom:0;">Recent records</div>
-        <a href="/analytics" class="see-all">All records</a>
-      </div>
-      {% if recent_prs %}
-      <ul class="pr-list" style="margin-top:0.5rem;">
-        {% for pr in recent_prs %}
-        <li><a href="/exercises/{{ pr.id }}">
-          <span class="nm">{{ pr.name }}</span>
-          <span class="when">{{ pr.pr_date | human_date }}</span>
-          {% if pr.is_bodyweight %}<span class="val">{{ bw_best(pr.bw) }}</span>
-          {% else %}<span class="val weight-display" data-kg="{{ pr.pr_kg }}">{{ pr.pr_kg }} kg</span>{% endif %}
-        </a></li>
         {% endfor %}
-      </ul>
-      {% else %}
-      <div class="card" style="text-align:center;margin-top:0.5rem;">
-        <p style="color:var(--muted);">No new records in the last 30 days.</p>
+        {% if up_next.more %}
+        <div class="plan-more">+ {{ up_next.more | length }} more: {{ up_next.more | map(attribute='name') | join(', ') }}</div>
+        {% endif %}
       </div>
+      <button class="start" type="button" onclick="startHome(this, {{ up_next.routine_id or 'null' }})">Start {{ up_next.name }} <span aria-hidden="true">›</span></button>
+      {% else %}
+      <p class="lbl">No plan yet. <a href="/plan" style="text-decoration:underline;">Make one on Plan</a>, or just start and pick as you go.</p>
+      <button class="start" type="button" onclick="startHome(this, null)">Start session <span aria-hidden="true">›</span></button>
       {% endif %}
-    </div>
-  </div>
+    {% endif %}
 
-  <div>
-    {# A phone shows 26 weeks, which fit its card at full cell size; 52 would
-       need a sideways scroll. Wider screens show the whole year. #}
-    <div class="section-title"><span class="hm-wide">Activity, last 52 weeks</span><span class="hm-narrow">Activity, last 26 weeks</span></div>
-    <div class="card">
-      <div class="hm-wide" role="img" aria-label="Activity heatmap, last 52 weeks">{{ heatmap_svg | safe }}</div>
-      <div class="hm-narrow" role="img" aria-label="Activity heatmap, last 26 weeks">{{ heatmap_svg_phone | safe }}</div>
+    {% set n_done = week_days | selectattr('done') | list | length %}
+    <h2>This week
+      <span class="lbl">{% if weekly_goal %}<b class="num">{{ n_done }}</b> of <b class="num">{{ weekly_goal }}</b>{% else %}<b class="num">{{ n_done }}</b> session{{ 's' if n_done != 1 }}{% endif %}</span>
+    </h2>
+    <ol class="days" aria-label="Sessions this week">
+      {% for d in week_days %}
+      <li class="day{% if d.done %} done{% endif %}{% if d.today %} today{% endif %}" aria-label="{{ d.name }}: {{ 'trained' if d.done else ('today' if d.today else 'no session') }}">
+        <span aria-hidden="true">{{ d.letter }}</span><i aria-hidden="true"></i>
+      </li>
+      {% endfor %}
+    </ol>
+    {% if not weekly_goal %}
+    <button class="linkish" type="button" onclick="toggleGoal()">Set a weekly goal</button>
+    <div class="goal-form" id="goal-form">
+      <label for="goal-input" class="lbl">Sessions a week</label>
+      <input id="goal-input" class="num" type="number" min="1" max="14" value="4">
+      <button class="btn btn-primary" type="button" onclick="saveGoal()">Save</button>
     </div>
-  </div>
+    {% endif %}
 
+    {% if recap %}
+    <p class="recap">Last week ({{ recap.label }}):
+      {% if recap.sessions == 0 %}no sessions.{% elif weekly_goal %}<b class="num">{{ recap.sessions }}</b> of <span class="num">{{ weekly_goal }}</span> sessions{% else %}<b class="num">{{ recap.sessions }}</b> session{{ 's' if recap.sessions != 1 }}{% endif %}{% if recap.sessions and recap.volume_kg > 0 %}, <b class="num weight-display" data-kg="{{ recap.volume_kg }}">{{ "{:,.0f}".format(recap.volume_kg) }} kg</b>{% endif %}{% if recap.records %}, <b class="num">{{ recap.records }}</b> record{{ 's' if recap.records != 1 }}{% endif %}{% if recap.sessions %}.{% endif %}
+    </p>
+    {% endif %}
+    {% if not today_log_filled %}
+    <a class="nudge-line" href="/journal">Fill today's daily log <span aria-hidden="true">›</span></a>
+    {% endif %}
+
+    <a class="to-analytics" href="/analytics">Records, volume and activity <span aria-hidden="true">›</span></a>
+  </section>
 </div>
 
 <script>
-document.getElementById('home-day').textContent =
-  new Date().toLocaleDateString('en-US', { weekday: 'long' });
-function toggleGoalEdit() {
-  const form = document.getElementById('goal-edit-form') || document.getElementById('goal-set-form');
-  if (!form) return;
-  const vis = form.style.display === 'none' || form.style.display === '';
-  form.style.display = vis ? 'flex' : 'none';
-  const btn = document.getElementById('goal-edit-btn');
-  if (btn) btn.textContent = vis ? 'Cancel' : 'Edit';
-  if (vis) { const inp=document.getElementById('goal-input'); if(inp){inp.focus();inp.select();} }
+function toggleGoal() {
+  const f = document.getElementById('goal-form');
+  f.style.display = f.style.display === 'flex' ? 'none' : 'flex';
+  if (f.style.display === 'flex') document.getElementById('goal-input').focus();
 }
 async function saveGoal() {
-  const val = parseInt(document.getElementById('goal-input')?.value);
+  const val = parseInt(document.getElementById('goal-input').value);
   if (!val || val < 1 || val > 14) return;
-  await fetch('/settings/goal', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({sessions:val})});
+  await fetch('/settings/goal', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({sessions: val})});
   location.reload();
 }
-async function deleteGoal() {
-  window.showConfirm('Remove weekly goal?', async function() {
-    await fetch('/settings/goal', {method:'DELETE'});
-    location.reload();
-  });
+// One tap from Home into a live session (with the plan day's routine, if any).
+async function startHome(btn, routineId) {
+  btn.disabled = true;
+  const label = btn.innerHTML;
+  btn.textContent = 'Starting…';
+  try {
+    const r = await fetch('/workouts', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({notes: null})});
+    if (!r.ok) throw new Error(r.status);
+    const w = await r.json();
+    location.href = '/workouts/' + w.id + (routineId ? '?routine=' + routineId : '');
+  } catch (e) {
+    btn.disabled = false; btn.innerHTML = label;
+    alert('No connection: the session was not started. Try again.');
+  }
 }
-document.getElementById('goal-input')?.addEventListener('keydown', e => { if (e.key==='Enter') saveGoal(); });
 </script>
 {% endblock %}

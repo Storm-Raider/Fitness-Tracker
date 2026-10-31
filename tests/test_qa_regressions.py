@@ -353,9 +353,9 @@ async def test_heatmap_first_day_shows_its_workout(client, db):
     await db.execute("INSERT INTO workouts(user_id, started_at, ended_at) VALUES (1, ?, ?)",
                      (f"{first} 08:00:00", f"{first} 09:00:00"))
     await db.commit()
-    page = (await client.get("/", headers={"Accept": "text/html"})).text
+    page = (await client.get("/analytics", headers={"Accept": "text/html"})).text   # moved off Home
     cell = re.search(r'<rect[^>]*fill="([^"]+)"[^>]*><title>' + first + '</title>', page)
-    assert cell and cell.group(1) == "#141414"
+    assert cell and cell.group(1) == "#1e5bb8"
 
 
 # Regression: ISSUE-024 — challenge rules were mouse-only divs (no keyboard, no state)

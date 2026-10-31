@@ -9,18 +9,18 @@ def test_empty_dates_produces_svg():
     assert "</svg>" in svg
 
 
-def test_active_day_uses_ink():
+def test_active_day_uses_trace_blue():
     today = date.today().isoformat()
     svg = generate_heatmap_svg([today])
     # Daylight: activity is data, drawn in ink. Amber is reserved for records.
-    assert 'fill="#141414"' in svg
+    assert 'fill="#1e5bb8"' in svg
     assert "#f59e0b" not in svg and "#8c5a00" not in svg
 
 
-def test_inactive_day_uses_light_neutral():
+def test_inactive_day_uses_the_grid_color():
     svg = generate_heatmap_svg([])
-    assert 'fill="#e7e6e1"' in svg
-    assert 'fill="#141414"' not in svg
+    assert 'fill="#dde4db"' in svg
+    assert 'fill="#1e5bb8"' not in svg
 
 
 def test_svg_contains_rect_elements():

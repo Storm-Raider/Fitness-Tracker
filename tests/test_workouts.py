@@ -249,7 +249,7 @@ async def test_dashboard_shows_active_session_card(client):
 async def test_dashboard_no_active_session_shows_start(client):
     resp = await client.get("/", headers={"Accept": "text/html"})
     assert resp.status_code == 200
-    assert b"Start a session" in resp.content
+    assert b"Start session" in resp.content       # one tap: Home starts it directly
     assert b"Resume session" not in resp.content
 
 

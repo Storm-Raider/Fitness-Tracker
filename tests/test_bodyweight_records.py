@@ -33,8 +33,9 @@ async def test_bodyweight_record_shows_the_best_set_everywhere(client):
     await _bw_set(client, w, ex, 81, 0, 9)
     await client.post(f"/workouts/{w}/finish")
 
+    # Home no longer lists records (2026-10-31); Analytics, the detail page and the list do.
     home = (await client.get("/", headers={"Accept": "text/html"})).text
-    assert "BW × 12" in home and 'data-kg="81.0">81.0 kg' not in home
+    assert 'data-kg="81.0">81.0 kg' not in home
 
     analytics = (await client.get("/analytics", headers={"Accept": "text/html"})).text
     assert "BW × 12" in analytics

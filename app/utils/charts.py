@@ -2,12 +2,12 @@
 # use the base.html token values as literals: --data ink for a single series,
 # --primary orange for today's bar (a mark, never text), --muted for axis text,
 # --surface-hover for empty tracks/stubs.
-DATA_COLOR = "#141414"      # --data (ink)
-TODAY_COLOR = "#ff5a1f"     # --primary: today's bar only
-AXIS_TEXT = "#5d5d58"       # --muted: 6.6:1 on the white card
-LABEL_TEXT = "#141414"      # --text
-TRACK_COLOR = "#efefea"     # --surface-hover: empty track / zero-day stub
-_UI_FONT = "Atkinson Hyperlegible Next,system-ui,sans-serif"
+DATA_COLOR = "#1e5bb8"      # --data (trace blue)
+TODAY_COLOR = "#23262b"     # ink: today's bar only
+AXIS_TEXT = "#5b615b"       # --muted: 5.6:1 on paper
+LABEL_TEXT = "#23262b"      # --text
+TRACK_COLOR = "#dde4db"     # --grid: empty track / zero-day stub
+_UI_FONT = "Instrument Sans,system-ui,sans-serif"
 _NUM_FONT = "Archivo,system-ui,sans-serif"
 
 # One colour per muscle, used wherever muscles are charted (dashboard bars, the
@@ -162,3 +162,60 @@ def generate_muscle_bars(muscle_volumes: list[tuple[str, float]]) -> str:
 
     parts.append("</svg>")
     return "".join(parts)
+
+
+def generate_progress_plot(points: list[tuple[str, float]], target: float | None = None,
+                           eta: str | None = None, width: int = 640, height: int = 240) -> str:
+    """Home's lead chart: each session's best estimated 1RM as a trace-blue line,
+    today's value marked in highlighter yellow, and (when there is one) a dashed
+    projection to the target with the target as a red dotted datum line.
+
+    points: [(iso_date, kg), ...] in date order. Text is 13px (the label size),
+    so the chart reads the same at every width it is drawn."""
+    from datetime import date as _date
+    if len(points) < 2:
+        return ""
+    xs = [_date.fromisoformat(d) for d, _ in points]
+    ys = [v for _, v in points]
+    end = _date.fromisoformat(eta) if eta else xs[-1]
+    x0, x1 = xs[0], max(end, xs[-1])
+    lo = min(ys); hi = max(ys + ([target] if target else []))
+    pad = max(2.0, (hi - lo) * 0.12)
+    lo, hi = lo - pad, hi + pad
+    L, R, T, B = 40, 10, 22, 30
+    cw, ch = width - L - R, height - T - B
+    span = max(1, (x1 - x0).days)
+    X = lambda d: L + (d - x0).days / span * cw
+    Y = lambda v: T + (1 - (v - lo) / (hi - lo)) * ch
+    f = f'font-family="{_UI_FONT}" font-size="13" fill="{AXIS_TEXT}"'
+    out = [f'<svg viewBox="0 0 {width} {height}" width="100%" xmlns="http://www.w3.org/2000/svg" '
+           f'role="img" aria-label="Estimated one-rep max from {ys[0]:.0f} to {ys[-1]:.0f} kg'
+           f'{f", projected {target:.0f} kg" if target else ""}" style="display:block">']
+    out.append(f'<line x1="{L}" y1="{T}" x2="{L}" y2="{T + ch}" stroke="{LABEL_TEXT}" stroke-width="1"/>')
+    out.append(f'<line x1="{L}" y1="{T + ch}" x2="{L + cw}" y2="{T + ch}" stroke="{LABEL_TEXT}" stroke-width="1"/>')
+    # y labels: bottom, top and the target
+    step = 10 if hi - lo > 25 else 5
+    import math as _m
+    for v in range(int(_m.ceil(lo / step) * step), int(hi) + 1, step):
+        out.append(f'<text x="{L - 6}" y="{Y(v) + 4:.1f}" text-anchor="end" {f}>{v}</text>')
+    if target:
+        out.append(f'<line x1="{L}" y1="{Y(target):.1f}" x2="{L + cw}" y2="{Y(target):.1f}" '
+                   f'stroke="#b23a26" stroke-width="1.25" stroke-dasharray="2 4"/>')
+    # month labels
+    seen, m = set(), _date(x0.year, x0.month, 1)
+    while m <= x1:
+        if m >= x0 and m.strftime("%b") not in seen:
+            seen.add(m.strftime("%b"))
+            out.append(f'<text x="{X(m):.1f}" y="{height - 8}" {f}>{m.strftime("%b")}</text>')
+        m = _date(m.year + (m.month == 12), m.month % 12 + 1, 1)
+    pts = " ".join(f"{X(d):.1f},{Y(v):.1f}" for d, v in zip(xs, ys))
+    out.append(f'<polyline points="{pts}" fill="none" stroke="{DATA_COLOR}" stroke-width="2.5" '
+               f'stroke-linejoin="round" stroke-linecap="round"/>')
+    cx, cy = X(xs[-1]), Y(ys[-1])
+    if target and eta:
+        out.append(f'<line x1="{cx:.1f}" y1="{cy:.1f}" x2="{X(end):.1f}" y2="{Y(target):.1f}" '
+                   f'stroke="{DATA_COLOR}" stroke-width="2" stroke-dasharray="5 5"/>')
+        out.append(f'<circle cx="{X(end):.1f}" cy="{Y(target):.1f}" r="4" fill="none" stroke="{DATA_COLOR}" stroke-width="2"/>')
+    out.append(f'<circle cx="{cx:.1f}" cy="{cy:.1f}" r="5.5" fill="#f5d547" stroke="{LABEL_TEXT}" stroke-width="2"/>')
+    out.append("</svg>")
+    return "".join(out)

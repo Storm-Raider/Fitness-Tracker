@@ -30,14 +30,15 @@ async def test_dashboard_json_response(client):
 
 
 @pytest.mark.asyncio
-async def test_dashboard_stat_cards_present(client):
+async def test_dashboard_blocks_present(client):
+    """Home (2026-10-31 redesign): the strength story, Today with one way in,
+    This week, and the way to the rest in Analytics."""
     resp = await client.get("/", headers={"Accept": "text/html"})
     assert resp.status_code == 200
-    assert "Sessions this week" in resp.text
-    assert "Volume this week" in resp.text
-    assert "Avg session length" in resp.text
-    assert "Best streak" in resp.text
-    # Removed in the #26 declutter — must NOT come back.
+    assert 'id="story-title"' in resp.text
+    assert ">Today" in resp.text and "This week" in resp.text
+    assert 'href="/analytics"' in resp.text
+    # Removed in the #26 declutter and again in the redesign — must NOT come back.
     assert "Total workouts" not in resp.text
     assert "All-time volume" not in resp.text
 
