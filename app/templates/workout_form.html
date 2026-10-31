@@ -972,7 +972,9 @@
     <button class="hdr-icon-btn" id="session-menu-btn" onclick="openSessionMenu(this)" aria-label="Session options" aria-haspopup="dialog">
       <i data-lucide="more-horizontal" style="width:20px;height:20px;pointer-events:none;"></i>
     </button>
-    <button class="btn btn-primary finish-btn" onclick="finishWorkout()">Finish</button>
+    {# Finish is the thing to press only once a set is logged; before that the
+         page's own action (Choose exercise / log set) owns the orange. #}
+    <button class="btn {{ 'btn-primary' if sets else 'btn-ghost' }} finish-btn" id="finish-btn" onclick="finishWorkout()">Finish</button>
     {% endif %}
   </div>
 </div>
@@ -1497,6 +1499,11 @@ function updateSessionMeta() {
   const n = SESSION_SETS.length;
   const ouraLine = document.getElementById('session-oura');
   if (ouraLine) ouraLine.hidden = n > 0;
+  const finishBtn = document.getElementById('finish-btn');
+  if (finishBtn) {
+    finishBtn.classList.toggle('btn-primary', n > 0);
+    finishBtn.classList.toggle('btn-ghost', n === 0);
+  }
   const nEl = document.getElementById('meta-sets');
   if (nEl) nEl.textContent = n;
   const lbl = document.getElementById('meta-sets-lbl');

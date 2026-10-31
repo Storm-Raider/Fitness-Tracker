@@ -95,3 +95,12 @@ def test_home_volume_tile_is_a_whole_number():
     from pathlib import Path
     src = Path(__file__).resolve().parent.parent / "app/templates/dashboard.html"
     assert re.search(r'data-kg="\{\{ weekly_volume \| round \| int \}\}"', src.read_text())
+
+
+def test_finish_button_is_primary_only_once_a_set_is_logged():
+    """An empty live session keeps the orange for its own action (Choose
+    exercise); Finish turns primary when the first set lands."""
+    from pathlib import Path
+    src = (Path(__file__).resolve().parent.parent / "app/templates/workout_form.html").read_text()
+    assert "'btn-primary' if sets else 'btn-ghost'" in src
+    assert "finishBtn.classList.toggle('btn-primary', n > 0)" in src
