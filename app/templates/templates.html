@@ -2,10 +2,10 @@
 {% block title %}Templates — Zenkai{% endblock %}
 {% block content %}
 <style>
-.tpl-name { font-family: var(--f-display); font-weight: 700; font-size: 1.1rem; letter-spacing: -0.005em; margin-bottom: 0.35rem; }
+.tpl-name { font-family: var(--f-display); font-weight: 700; font-size: var(--t-head); letter-spacing: -0.005em; margin-bottom: 0.35rem; }
 .tpl-chip {
   background: var(--surface-2); border: 1px solid var(--border); border-radius: 999px;
-  padding: 0.15rem 0.65rem; font-size: 0.8125rem; color: var(--muted-hi);
+  padding: 0.15rem 0.65rem; font-size: var(--t-label); color: var(--muted-hi);
 }
 .tpl-del {
   width: 44px; height: 44px; display: inline-flex; align-items: center; justify-content: center;
@@ -39,9 +39,9 @@
         {% endfor %}
       </div>
       {% else %}
-      <span style="font-size:0.875rem;color:var(--muted);">No exercises</span>
+      <span style="font-size: var(--t-body);color:var(--muted);">No exercises</span>
       {% endif %}
-      <div style="font-size:0.8125rem;color:var(--muted);margin-top:0.4rem;font-variant-numeric:tabular-nums;">Saved {{ t.created_at[:10] }}</div>
+      <div style="font-size: var(--t-label);color:var(--muted);margin-top:0.4rem;font-variant-numeric:tabular-nums;">Saved {{ t.created_at[:10] }}</div>
     </div>
     <div style="display:flex;gap:0.5rem;flex-shrink:0;">
       <form method="post" action="/workouts/from-template/{{ t.id }}" style="margin:0;">
@@ -69,7 +69,7 @@
     <div class="tpl-empty-icon">
       <i data-lucide="layout-template" style="width:22px;height:22px;color:var(--muted-hi);pointer-events:none;"></i>
     </div>
-    <p style="color:var(--muted);font-size:0.9375rem;max-width:280px;line-height:1.5;">No templates yet — finish a session and save it as a template to reuse it later.</p>
+    <p style="color:var(--muted);font-size: var(--t-body);max-width:280px;line-height:1.5;">No templates yet — finish a session and save it as a template to reuse it later.</p>
     <a href="/workouts" class="btn btn-primary" style="margin-top:0.25rem;">Start a session</a>
   </div>
 </div>

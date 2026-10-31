@@ -70,7 +70,7 @@ Five sizes, one job each. Nothing else.
 - **Units are labels:** "77.5" at 22px, "kg" at 13px beside it.
 - **Weights:** 400 for body, 600 for headings and numbers. Nothing heavier.
 - **Sentence case** everywhere. Say "session", not "workout". Dates read "Sat 31 Oct", "Sep 13" in charts, "Today" for today.
-- `scripts/e2e/ui_usability.test.mjs` check E11 fails if Home or the session screen uses any other size.
+- `scripts/e2e/ui_usability.test.mjs` check E11 fails if any main page or the sign-in page uses any other size.
 
 ## Color
 

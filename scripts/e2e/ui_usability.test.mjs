@@ -23,7 +23,7 @@
 //   E8 Reflow: at 320px wide (400% zoom of a 1280 screen) nothing scrolls sideways.
 //   E9 Reduced motion: with prefers-reduced-motion no animation runs longer than 0.1s.
 //   E10 Speed: each main page is ready (DOMContentLoaded) in under 1.5 s.
-//   E11 Type scale: Home and the session screen use only the five sizes in
+//   E11 Type scale: every main page and the sign-in page use only the five sizes in
 //      DESIGN.md (13 / 15 / 18 / 22 / 30 px; 40 for the desktop headline; 16 for
 //      text typed into a field, which iOS needs to avoid zooming).
 //
@@ -370,7 +370,8 @@ await seedCtx.close();
     const page = await login(ctx);
     const live = await api(page, 'POST', '/workouts', {});
     await api(page, 'POST', `/workouts/${live.id}/sets`, { exercise_id: bench.id, reps: 5, weight_kg: 60 });
-    for (const p of ['/', `/workouts/${live.id}`]) {
+    for (const p of ['/', `/workouts/${live.id}`, ...PAGES.slice(1), '/achievements', '/challenges', '/routines',
+                     '/templates', '/cardio', '/export', '/feedback', `/exercises/${bench.id}`]) {
       await page.goto(BASE + p, { waitUntil: 'networkidle' });
       const bad = await page.evaluate(([ok]) => {
         const out = new Set();
@@ -388,7 +389,18 @@ await seedCtx.close();
     await api(page, 'DELETE', `/workouts/${live.id}`);
     await ctx.close();
   }
-  check('E11', 'type scale: Home and session use only the five sizes', !off.length, off.join(' | '));
+  // The sign-in page is standalone (its own stylesheet): check it signed out.
+  const out = await _newContext(PHONE);
+  const lp = await out.newPage();
+  await lp.goto(BASE + '/login', { waitUntil: 'networkidle' });
+  const lbad = await lp.evaluate(ok => [...document.querySelectorAll('body *')]
+    .filter(el => el.getClientRects().length && [...el.childNodes].some(n => n.nodeType === 3 && n.textContent.trim()))
+    .map(el => [getComputedStyle(el).fontSize, el])
+    .filter(([fs, el]) => !ok.includes(fs) && !(el.matches('input, select, textarea') && fs === '16px'))
+    .map(([fs, el]) => `${fs} "${el.textContent.trim().slice(0, 14)}"`), SCALE);
+  if (lbad.length) off.push(`/login: ${[...new Set(lbad)].slice(0, 3).join(', ')}`);
+  await out.close();
+  check('E11', 'type scale: every main page uses only the five sizes', !off.length, off.join(' | '));
 }
 
 await browser.close();

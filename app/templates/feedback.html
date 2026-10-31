@@ -6,13 +6,13 @@
 .fb-seg-btn {
   flex:1; min-height:88px; padding:0.85rem 0.5rem; border:1px solid var(--border-mid);
   border-radius:var(--radius-sm); background:var(--surface); color:var(--text);
-  cursor:pointer; font-family:inherit; font-size:1rem; font-weight:700;
+  cursor:pointer; font-family:inherit; font-size: var(--t-body); font-weight:700;
   transition:background 0.13s, border-color 0.13s, box-shadow 0.13s; text-align:center;
   display:flex; flex-direction:column; align-items:center; justify-content:center; gap:0.3rem;
 }
 .fb-seg-btn:hover { border-color:var(--text); }
 .fb-seg-btn.active { border-color:var(--text); box-shadow:inset 0 0 0 1px var(--text); background:var(--accent-dim); }
-.fb-seg-btn .fb-sub { font-size:0.8125rem; font-weight:400; color:var(--muted); }
+.fb-seg-btn .fb-sub { font-size: var(--t-label); font-weight:400; color:var(--muted); }
 .fb-seg-btn.active .fb-sub { color:var(--muted-hi); }
 .fb-row { display:flex; flex-direction:column; gap:0.4rem; margin-bottom:1.1rem; }
 .fb-row label { margin-bottom:0; }
@@ -35,7 +35,7 @@
       <i data-lucide="info" style="width:20px;height:20px;color:var(--text);flex-shrink:0;margin-top:0.1rem;"></i>
       <div>
         <div style="font-weight:600;margin-bottom:0.3rem;">Reporting isn't configured</div>
-        <div style="font-size:0.9375rem;color:var(--muted);line-height:1.55;">
+        <div style="font-size: var(--t-body);color:var(--muted);line-height:1.55;">
           The server admin needs to set a <code>GITHUB_TOKEN</code> (and optionally
           <code>GITHUB_REPO</code>) so reports can be filed to GitHub. Until then you
           can open an issue directly at
@@ -75,11 +75,11 @@
     </div>
 
     <div style="display:flex;align-items:center;gap:0.75rem;">
-      <button class="btn btn-primary" id="fb-submit" onclick="submitFeedback()" style="min-height:56px;padding:0 1.4rem;border-radius:var(--radius);font-size:1rem;">
+      <button class="btn btn-primary" id="fb-submit" onclick="submitFeedback()" style="min-height:56px;padding:0 1.4rem;border-radius:var(--radius);font-size: var(--t-body);">
         <i data-lucide="send" style="width:16px;height:16px;pointer-events:none;"></i>
         Submit
       </button>
-      <span id="fb-msg" role="status" style="font-size:0.9375rem;font-weight:600;display:none;"></span>
+      <span id="fb-msg" role="status" style="font-size: var(--t-body);font-weight:600;display:none;"></span>
     </div>
   </div>
 {% endif %}

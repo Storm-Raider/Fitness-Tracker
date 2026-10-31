@@ -1,5 +1,5 @@
 <div style="margin-top: 0.25rem;">
-  <p style="font-size: 0.875rem; color: var(--muted); margin-bottom: 0.5rem;">Share this link — expires in 7 days, up to {{ max_uses }} signups:</p>
+  <p style="font-size: var(--t-body); color: var(--muted); margin-bottom: 0.5rem;">Share this link — expires in 7 days, up to {{ max_uses }} signups:</p>
   <div style="display: flex; gap: 0.5rem; align-items: center;">
     <input type="text" id="invite-url" value="{{ invite_url | e }}" readonly
            style="flex: 1; background: var(--surface-2); cursor: text;">
@@ -27,14 +27,14 @@
       {% for inv in pending_invites %}
       <tr>
         <td>
-          <code style="font-size:0.875rem; color:var(--muted-hi);">…{{ inv.token[-8:] }}</code>
+          <code style="font-size: var(--t-body); color:var(--muted-hi);">…{{ inv.token[-8:] }}</code>
         </td>
-        <td style="font-size:0.875rem; color:var(--muted);">{{ inv.created_at[:16] }}</td>
-        <td style="font-size:0.875rem; color:var(--muted);">{{ inv.expires_at[:16] }}</td>
-        <td class="num" style="font-size:0.875rem; color:var(--muted);">{{ inv.uses_count }} / {{ inv.max_uses }}</td>
+        <td style="font-size: var(--t-body); color:var(--muted);">{{ inv.created_at[:16] }}</td>
+        <td style="font-size: var(--t-body); color:var(--muted);">{{ inv.expires_at[:16] }}</td>
+        <td class="num" style="font-size: var(--t-body); color:var(--muted);">{{ inv.uses_count }} / {{ inv.max_uses }}</td>
         <td style="text-align:right;">
           <button class="btn btn-ghost"
-                  style="font-size:0.875rem; color:var(--danger);"
+                  style="font-size: var(--t-body); color:var(--danger);"
                   hx-delete="/invite/{{ inv.token }}"
                   hx-target="closest tr"
                   hx-swap="outerHTML"
@@ -45,7 +45,7 @@
       </tr>
       {% else %}
       <tr id="pending-invites-empty">
-        <td colspan="5" style="padding:1rem; color:var(--muted); font-size:0.875rem;">No pending invites.</td>
+        <td colspan="5" style="padding:1rem; color:var(--muted); font-size: var(--t-body);">No pending invites.</td>
       </tr>
       {% endfor %}
     </tbody>

@@ -26,7 +26,7 @@
   color: var(--text);
   cursor: pointer;
   font-family: var(--f-ui);
-  font-size: 1rem;
+  font-size: var(--t-body);
   font-weight: 700;
   transition: background 0.15s, border-color 0.15s, box-shadow 0.15s;
   text-align: left;
@@ -43,7 +43,7 @@
   background: var(--accent-dim);
 }
 .goal-btn .goal-sub {
-  font-size: 0.8125rem;
+  font-size: var(--t-label);
   font-weight: 400;
   color: var(--muted);
 }
@@ -56,7 +56,7 @@
   align-items: center;
 }
 @media (max-width: 600px) {
-  .meso-goals .goal-btn { padding: 0.55rem 0.3rem; font-size: 0.9375rem; }
+  .meso-goals .goal-btn { padding: 0.55rem 0.3rem; font-size: var(--t-body); }
   .meso-goals .goal-btn .goal-sub { display: none; }
 }
 
@@ -69,34 +69,33 @@
   border: 1px solid var(--border);
   border-radius: 999px;
   padding: 0.25rem 0.75rem;
-  font-size: 0.875rem;
+  font-size: var(--t-body);
   color: var(--muted);
 }
 .profile-pill b {
   color: var(--text);
   font-family: var(--f-display);
-  font-stretch: 72%;
-  font-weight: 800;
+  font-weight: 600;
   font-variant-numeric: tabular-nums;
-  font-size: 1rem;
+  font-size: var(--t-body);
 }
-.plan-hint { font-size: 0.8125rem; color: var(--muted); margin-top: 0.5rem; text-align: center; }
-.plan-note { font-size: 0.875rem; color: var(--muted); margin-top: 0.6rem; line-height: 1.5; }
+.plan-hint { font-size: var(--t-label); color: var(--muted); margin-top: 0.5rem; text-align: center; }
+.plan-note { font-size: var(--t-body); color: var(--muted); margin-top: 0.6rem; line-height: 1.5; }
 .plan-note b { color: var(--text); font-weight: 600; }
-.plan-msg { font-size: 0.875rem; margin-top: 0.5rem; display: none; }
+.plan-msg { font-size: var(--t-body); margin-top: 0.5rem; display: none; }
 
 /* ── AI plan output (PlanView) ── */
 .plan-out-head { margin-bottom: 1rem; }
 .plan-out-title {
   font-family: var(--f-display);
-  font-size: 1.2rem;
+  font-size: var(--t-head);
   font-weight: 700;
   letter-spacing: -0.005em;
 }
-.plan-out-summary { color: var(--muted); font-size: 0.9375rem; margin-top: 0.35rem; line-height: 1.5; }
+.plan-out-summary { color: var(--muted); font-size: var(--t-body); margin-top: 0.35rem; line-height: 1.5; }
 /* Why accessory volume moved this week (recovery); ink, not a warning colour. */
-.plan-out-volume { font-size: 0.9375rem; margin-top: 0.6rem; line-height: 1.5; }
-.plan-out-dropped { font-size: 0.8125rem; color: var(--muted); margin-bottom: 0.75rem; }
+.plan-out-volume { font-size: var(--t-body); margin-top: 0.6rem; line-height: 1.5; }
+.plan-out-dropped { font-size: var(--t-label); color: var(--muted); margin-bottom: 0.75rem; }
 
 /* ── AI day cards ── */
 .day-card {
@@ -109,7 +108,7 @@
   position: relative;
 }
 .day-card h3 {
-  font-size: 1.1rem;
+  font-size: var(--t-head);
   display: flex;
   align-items: center;
   flex-wrap: wrap;
@@ -118,7 +117,7 @@
 }
 .day-num {
   font-family: var(--f-ui);
-  font-size: 0.8125rem;
+  font-size: var(--t-label);
   font-weight: 700;
   color: var(--text);
   background: var(--accent-dim);
@@ -136,31 +135,30 @@
 .ex-name { font-weight: 600; color: var(--text); flex: 1; min-width: 0; }
 .ex-scheme {
   font-family: var(--f-display);
-  font-stretch: 72%;
-  font-weight: 800;
+  font-weight: 600;
   font-variant-numeric: tabular-nums;
-  font-size: 1.1rem;
+  font-size: var(--t-head);
   color: var(--text);
   white-space: nowrap;
 }
 .ex-note {
   display: block;
-  font-size: 0.8125rem;
+  font-size: var(--t-label);
   color: var(--muted);
   margin-top: 0.15rem;
   font-weight: 400;
 }
 .ex-target {
   display: block;
-  font-size: 0.875rem;
+  font-size: var(--t-body);
   color: var(--muted);
   margin-top: 0.2rem;
   font-weight: 400;
 }
-.ex-target .num { font-size: 1rem; font-weight: 800; color: var(--text); }
+.ex-target .num { font-size: var(--t-body); font-weight: 600; color: var(--text); }
 .ex-prog {
   display: block;
-  font-size: 0.8125rem;
+  font-size: var(--t-label);
   color: var(--muted);
   margin-top: 0.1rem;
   font-weight: 400;
@@ -169,7 +167,7 @@
 .ex-row.changed { background: var(--surface-hover); margin: 0 -0.6rem; padding-left: 0.6rem; padding-right: 0.6rem; border-radius: 8px; border-bottom-color: transparent; }
 .edited-tag {
   font-family: var(--f-ui);
-  font-size: 0.8125rem;
+  font-size: var(--t-label);
   font-weight: 600;
   color: var(--muted);
   background: var(--surface-2);
@@ -188,7 +186,7 @@
   border: none;
   border-radius: var(--radius-xs);
   color: var(--muted);
-  font-size: 1.1rem;
+  font-size: var(--t-head);
   cursor: pointer;
 }
 .ex-more:hover { background: var(--surface-hover); color: var(--text); }
@@ -204,22 +202,22 @@
 .lift-row:last-child { border-bottom: none; }
 .lift-row .lift-name { flex: 1; min-width: 0; }
 .lift-row input[type=number] { width: 84px; text-align: center; flex-shrink: 0; }
-.lift-unit { font-size: 0.875rem; color: var(--muted); }
+.lift-unit { font-size: var(--t-body); color: var(--muted); }
 .lift-remove {
   width: 44px; height: 44px; flex-shrink: 0;
   display: inline-flex; align-items: center; justify-content: center;
   background: transparent; border: none; border-radius: var(--radius-xs);
-  color: var(--muted); cursor: pointer; font-size: 1.25rem;
+  color: var(--muted); cursor: pointer; font-size: var(--t-data);
   transition: color 0.12s, background 0.12s;
 }
 .lift-remove:hover { color: var(--danger); background: var(--danger-dim); }
-.meso-weeks-unit { font-size: 0.875rem; color: var(--muted); }
-.meso-scale { display: flex; justify-content: space-between; font-size: 0.8125rem; color: var(--muted); margin-top: 0.35rem; font-variant-numeric: tabular-nums; }
+.meso-weeks-unit { font-size: var(--t-body); color: var(--muted); }
+.meso-scale { display: flex; justify-content: space-between; font-size: var(--t-label); color: var(--muted); margin-top: 0.35rem; font-variant-numeric: tabular-nums; }
 
 /* ── Week table ── */
-.week-table { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
+.week-table { width: 100%; border-collapse: collapse; font-size: var(--t-body); }
 .week-table th {
-  font-size: 0.8125rem;
+  font-size: var(--t-label);
   color: var(--muted);
   font-weight: 600;
   padding: 0.5rem 0.75rem;
@@ -228,18 +226,18 @@
   text-align: left;
   vertical-align: bottom;
 }
-.week-table th .wk-e1rm { display: block; font-weight: 400; font-size: 0.8125rem; color: var(--muted); }
+.week-table th .wk-e1rm { display: block; font-weight: 400; font-size: var(--t-label); color: var(--muted); }
 .week-table td {
   padding: 0.55rem 0.75rem;
   border-bottom: 1px solid var(--border);
 }
 .week-table tr:last-child td { border-bottom: none; }
 .week-table tbody tr:hover td { background: var(--surface-2); }
-.wk-n { font-size: 1rem; color: var(--text); }
-.wk-load { font-size: 1.05rem; color: var(--text); }
-.wk-sub { font-size: 0.8125rem; color: var(--muted); font-family: var(--f-ui); font-weight: 400; font-stretch: 100%; }
+.wk-n { font-size: var(--t-body); color: var(--text); }
+.wk-load { font-size: var(--t-body); color: var(--text); }
+.wk-sub { font-size: var(--t-label); color: var(--muted); font-family: var(--f-ui); font-weight: 400; }
 @media (max-width: 600px) {
-  .week-table { font-size: 0.8125rem; table-layout: fixed; width: 100%; }
+  .week-table { font-size: var(--t-label); table-layout: fixed; width: 100%; }
   .week-table th, .week-table td { padding: 0.35rem 0.4rem; overflow: hidden; }
   .week-table th:first-child, .week-table td:first-child { width: 34px; padding: 0.35rem 0.3rem; }
   .week-table th:nth-child(2), .week-table td:nth-child(2) { width: 120px; padding: 0.35rem 0.3rem; }
@@ -251,7 +249,7 @@
   display: inline-block;
   padding: 0.1rem 0.5rem;
   border-radius: 999px;
-  font-size: 0.8125rem;
+  font-size: var(--t-label);
   font-weight: 700;
   white-space: nowrap;
 }
@@ -268,8 +266,8 @@
   box-shadow: var(--shadow-sm);
   padding: 0.55rem 0.9rem;
 }
-.meso-stat-label { font-size: 0.8125rem; color: var(--muted); font-weight: 600; }
-.meso-stat-val { font-size: 1.5rem; color: var(--text); line-height: 1.1; margin-top: 0.1rem; }
+.meso-stat-label { font-size: var(--t-label); color: var(--muted); font-weight: 600; }
+.meso-stat-val { font-size: var(--t-data); color: var(--text); line-height: 1.1; margin-top: 0.1rem; }
 
 /* ── Spinners ── */
 /* Inherits the button's text colour (ink on the orange fill). */
@@ -295,9 +293,9 @@
   display: flex;
   align-items: center;
   gap: 0.6rem;
-  font-size: 0.875rem;
+  font-size: var(--t-body);
 }
-.draft-notice .btn { min-height: 44px; padding: 0.3rem 0.9rem; font-size: 0.875rem; }
+.draft-notice .btn { min-height: 44px; padding: 0.3rem 0.9rem; font-size: var(--t-body); }
 .ai-empty {
   border: 1.5px dashed var(--border-mid);
   border-radius: var(--radius);
@@ -339,7 +337,7 @@
   color: var(--text);
   border-radius: var(--radius-xs);
   padding: 0.3rem 0.85rem;
-  font-size: 0.875rem;
+  font-size: var(--t-body);
   font-weight: 700;
   font-family: inherit;
   cursor: pointer;
@@ -364,7 +362,7 @@
 }
 .plan-feedback-label,
 .plan-chip-label {
-  font-size: 0.8125rem;
+  font-size: var(--t-label);
   color: var(--muted);
   font-weight: 600;
   margin-right: 0.15rem;
@@ -372,14 +370,14 @@
 }
 .plan-progress { width: 100%; padding-top: 0.6rem; border-top: 1px solid var(--border); display: grid; gap: 0.5rem; }
 .progress-row { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem 0.75rem; flex-wrap: wrap; }
-.progress-what { min-width: 0; font-size: 0.9375rem; }
+.progress-what { min-width: 0; font-size: var(--t-body); }
 .progress-what b { font-weight: 700; margin-right: 0.35rem; }
 .progress-actions { display: flex; gap: 0.4rem; }
-.progress-actions .btn { min-height: 44px; padding: 0 0.9rem; font-size: 0.875rem; }
-.progress-done { color: var(--muted); font-size: 0.875rem; }
+.progress-actions .btn { min-height: 44px; padding: 0 0.9rem; font-size: var(--t-body); }
+.progress-done { color: var(--muted); font-size: var(--t-body); }
 .plan-fb-btn {
   font-family: inherit;
-  font-size: 0.875rem;
+  font-size: var(--t-body);
   font-weight: 600;
   padding: 0.3rem 0.85rem;
   border-radius: 999px;
@@ -404,7 +402,7 @@
 }
 .saved-plan-name {
   font-weight: 700;
-  font-size: 1rem;
+  font-size: var(--t-body);
   color: var(--text);
   white-space: nowrap;
   overflow: hidden;
@@ -416,11 +414,11 @@
   flex-wrap: wrap;
   gap: 0.2rem 0.5rem;
   margin-top: 0.15rem;
-  font-size: 0.8125rem;
+  font-size: var(--t-label);
   color: var(--muted);
 }
 .saved-plan-date {
-  font-size: 0.8125rem;
+  font-size: var(--t-label);
   color: var(--muted);
   white-space: nowrap;
   flex-shrink: 0;
@@ -446,7 +444,7 @@
   border: 1px solid var(--border);
   border-radius: 999px;
   padding: 0.1rem 0.55rem;
-  font-size: 0.8125rem;
+  font-size: var(--t-label);
   font-weight: 700;
   white-space: nowrap;
   flex-shrink: 0;
@@ -457,14 +455,14 @@
   border: 1px solid transparent;
   border-radius: 999px;
   padding: 0.1rem 0.55rem;
-  font-size: 0.8125rem;
+  font-size: var(--t-label);
   font-weight: 700;
   white-space: nowrap;
   flex-shrink: 0;
 }
 .empty-state {
   color: var(--muted);
-  font-size: 0.9375rem;
+  font-size: var(--t-body);
   text-align: center;
   padding: 1.5rem;
 }
@@ -496,7 +494,7 @@
     <i data-lucide="info" style="width:18px;height:18px;flex-shrink:0;margin-top:2px;color:var(--muted);"></i>
     <div>
       <b>The AI coach is off on this server.</b> You can still build a mesocycle.
-      {% if user.is_admin %}<div style="color:var(--muted);font-size:0.875rem;margin-top:0.3rem;">To turn it on, set <code>GEMINI_API_KEY</code> (from Google AI Studio) and restart Zenkai.</div>{% endif %}
+      {% if user.is_admin %}<div style="color:var(--muted);font-size: var(--t-body);margin-top:0.3rem;">To turn it on, set <code>GEMINI_API_KEY</code> (from Google AI Studio) and restart Zenkai.</div>{% endif %}
     </div>
   </div>
   {% endif %}
@@ -542,7 +540,7 @@
           <input type="range" id="ai-days-slider" aria-label="Training days per week" min="1" max="7" value="4"
                  oninput="document.getElementById('ai-days-val').textContent=this.value;"
                  style="flex:1;accent-color:var(--accent);cursor:pointer;">
-          <div class="num" style="font-size:1.75rem;color:var(--text);min-width:1.5rem;text-align:right;line-height:1;">
+          <div class="num" style="font-size: var(--t-display);color:var(--text);min-width:1.5rem;text-align:right;line-height:1;">
             <span id="ai-days-val">4</span>
           </div>
         </div>
@@ -614,7 +612,7 @@
       {% endif %}
       <div id="ai-result-empty" class="ai-empty"{% if draft_plan %} style="display:none;"{% endif %}>
         <i data-lucide="clipboard-list" style="width:34px;height:34px;"></i>
-        <div style="margin-top:0.75rem;font-size:0.9375rem;">Pick a goal and days, then generate.<br>Your coach reads your history and writes a plan.</div>
+        <div style="margin-top:0.75rem;font-size: var(--t-body);">Pick a goal and days, then generate.<br>Your coach reads your history and writes a plan.</div>
       </div>
       <div id="ai-result-error" class="flash flash-error"{% if not failed_generation %} style="display:none;"{% endif %}>{% if failed_generation %}Your last plan request failed: {{ failed_generation }}{% endif %}</div>
       <div id="ai-plan-output"></div>
@@ -674,7 +672,7 @@
             <input type="range" id="meso-weeks-slider" min="4" max="16" value="12"
                    oninput="document.getElementById('meso-weeks-val').textContent=this.value;generatePlan()"
                    style="flex:1;accent-color:var(--accent);cursor:pointer;">
-            <div class="num" style="font-size:1.75rem;color:var(--text);min-width:2.5rem;text-align:right;line-height:1;">
+            <div class="num" style="font-size: var(--t-display);color:var(--text);min-width:2.5rem;text-align:right;line-height:1;">
               <span id="meso-weeks-val">12</span>
             </div>
             <div class="meso-weeks-unit">weeks</div>
@@ -690,7 +688,7 @@
         <div class="section-title" style="display:flex;align-items:center;justify-content:space-between;">
           <span>Lifts &amp; estimated 1RM</span>
           <button onclick="addLiftRow()" class="btn btn-ghost"
-                  style="font-size:0.875rem;padding:0.3rem 0.85rem;">
+                  style="font-size: var(--t-body);padding:0.3rem 0.85rem;">
             + Add lift
           </button>
         </div>
@@ -1226,7 +1224,7 @@ function generatePlan() {
 
   if (!lifts.length) {
     document.getElementById('meso-plan-preview').innerHTML =
-      '<div style="padding:1.5rem;color:var(--muted);font-size:0.9375rem;text-align:center;">Add at least one lift to generate a plan.</div>';
+      '<div style="padding:1.5rem;color:var(--muted);font-size: var(--t-body);text-align:center;">Add at least one lift to generate a plan.</div>';
     document.getElementById('meso-plan-summary').innerHTML = '';
     return;
   }

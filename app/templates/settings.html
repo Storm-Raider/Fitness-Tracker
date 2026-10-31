@@ -20,9 +20,9 @@
     <div class="section-title" style="margin-bottom:1.25rem;">Profile</div>
     <div class="form-group">
       <label>Username</label>
-      <div style="min-height:48px;padding:0.6rem 0.85rem;background:var(--surface-2);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--muted-hi);font-size:1rem;display:flex;align-items:center;justify-content:space-between;">
+      <div style="min-height:48px;padding:0.6rem 0.85rem;background:var(--surface-2);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--muted-hi);font-size: var(--t-body);display:flex;align-items:center;justify-content:space-between;">
         <span>{{ profile.username | e }}</span>
-        <span style="font-size:0.8125rem;font-weight:600;color:var(--muted);">Fixed</span>
+        <span style="font-size: var(--t-label);font-weight:600;color:var(--muted);">Fixed</span>
       </div>
     </div>
     <form method="post" action="/settings/email">
@@ -33,9 +33,9 @@
                autocomplete="email"
                placeholder="you@example.com">
         {% if email_errors.get('email') %}
-        <p style="font-size:0.875rem;color:var(--danger);margin-top:0.35rem;">{{ email_errors.email }}</p>
+        <p style="font-size: var(--t-body);color:var(--danger);margin-top:0.35rem;">{{ email_errors.email }}</p>
         {% else %}
-        <p style="font-size:0.875rem;color:var(--muted);margin-top:0.35rem;">Used for password recovery</p>
+        <p style="font-size: var(--t-body);color:var(--muted);margin-top:0.35rem;">Used for password recovery</p>
         {% endif %}
       </div>
       <button type="submit" class="btn btn-ghost">Update email</button>
@@ -44,10 +44,10 @@
 
   <div class="card">
     <div class="section-title" style="margin-bottom:0.5rem;">Units</div>
-    <p style="font-size:0.875rem;color:var(--muted);margin-bottom:1.25rem;">Saved to your account and synced across your devices and browsers.</p>
+    <p style="font-size: var(--t-body);color:var(--muted);margin-bottom:1.25rem;">Saved to your account and synced across your devices and browsers.</p>
     <div style="display:flex;flex-direction:column;gap:1rem;">
       <div>
-        <div id="lbl-weight-unit" style="font-size:0.875rem;font-weight:600;color:var(--muted);margin-bottom:0.4rem;">Weight</div>
+        <div id="lbl-weight-unit" style="font-size: var(--t-body);font-weight:600;color:var(--muted);margin-bottom:0.4rem;">Weight</div>
         <div class="seg-toggle" role="group" aria-labelledby="lbl-weight-unit" style="display:flex;">
           <button id="unit-kg" onclick="setUnit('kg')"
                   type="button" aria-pressed="false" style="flex:1;">kg</button>
@@ -56,7 +56,7 @@
         </div>
       </div>
       <div>
-        <div id="lbl-dist-unit" style="font-size:0.875rem;font-weight:600;color:var(--muted);margin-bottom:0.4rem;">Distance</div>
+        <div id="lbl-dist-unit" style="font-size: var(--t-body);font-weight:600;color:var(--muted);margin-bottom:0.4rem;">Distance</div>
         <div class="seg-toggle" role="group" aria-labelledby="lbl-dist-unit" style="display:flex;">
           <button id="dist-km" onclick="setDistance('km')"
                   type="button" aria-pressed="false" style="flex:1;">km</button>
@@ -105,9 +105,9 @@
     {% endif %}
 
     {% if not oura.configured %}
-    <p style="font-size:0.9375rem;color:var(--muted);">Oura isn't set up on this server.</p>
+    <p style="font-size: var(--t-body);color:var(--muted);">Oura isn't set up on this server.</p>
     {% if user.is_admin %}
-    <p style="font-size:0.875rem;color:var(--muted);margin-top:0.5rem;">
+    <p style="font-size: var(--t-body);color:var(--muted);margin-top:0.5rem;">
       To turn it on, register an API application at cloud.ouraring.com with the redirect URI
       <code style="overflow-wrap:anywhere;">{{ oura.redirect_uri }}</code>, then set <code>OURA_CLIENT_ID</code>
       and <code>OURA_CLIENT_SECRET</code> in <code>.env</code> and restart Zenkai.
@@ -115,27 +115,27 @@
     {% endif %}
 
     {% elif not oura.connection %}
-    <p style="font-size:0.9375rem;color:var(--muted);margin-bottom:1rem;">
+    <p style="font-size: var(--t-body);color:var(--muted);margin-bottom:1rem;">
       Bring your sleep, readiness and activity into Zenkai. It reads only Oura's daily data and keeps it on this server.
     </p>
     <a href="/oura/connect" class="btn btn-primary" style="width:100%;min-height:56px;">Connect Oura</a>
 
     {% elif oura.connection.needs_reconnect %}
-    <p style="font-size:0.9375rem;margin-bottom:1rem;"><b style="color:var(--danger);">Oura stopped accepting this connection.</b>
+    <p style="font-size: var(--t-body);margin-bottom:1rem;"><b style="color:var(--danger);">Oura stopped accepting this connection.</b>
       This happens when access is removed in the Oura app. Your synced days are kept.</p>
     <a href="/oura/connect" class="btn btn-primary" style="width:100%;min-height:56px;">Reconnect Oura</a>
 
     {% else %}
     {% set c = oura.connection %}
-    <p style="font-size:0.9375rem;margin-bottom:0.35rem;"><b style="color:var(--success);">Connected.</b>
+    <p style="font-size: var(--t-body);margin-bottom:0.35rem;"><b style="color:var(--success);">Connected.</b>
       {% if c.last_sync_at %}Last synced {{ c.last_sync_at | human_date }} at <span class="num">{{ c.last_sync_at[11:16] }}</span>.{% else %}Not synced yet.{% endif %}</p>
-    {% if c.last_error %}<p style="font-size:0.875rem;color:var(--muted);">Last sync: {{ c.last_error }}</p>{% endif %}
-    <p id="oura-msg" role="status" style="font-size:0.875rem;color:var(--muted);"></p>
+    {% if c.last_error %}<p style="font-size: var(--t-body);color:var(--muted);">Last sync: {{ c.last_error }}</p>{% endif %}
+    <p id="oura-msg" role="status" style="font-size: var(--t-body);color:var(--muted);"></p>
     <div style="display:flex;gap:0.5rem;flex-wrap:wrap;margin-top:0.75rem;">
       <button type="button" class="btn btn-ghost" id="oura-sync-btn" onclick="ouraSync(this)">Sync now</button>
       <button type="button" class="btn btn-ghost" style="color:var(--danger);" onclick="ouraDisconnect()">Disconnect</button>
     </div>
-    <label style="display:flex;align-items:center;gap:0.5rem;margin-top:0.75rem;font-size:0.875rem;color:var(--muted);">
+    <label style="display:flex;align-items:center;gap:0.5rem;margin-top:0.75rem;font-size: var(--t-body);color:var(--muted);">
       <input type="checkbox" id="oura-delete-days" style="width:20px;height:20px;min-height:0;"> Also delete the synced Oura days when disconnecting
     </label>
     <script>
@@ -176,7 +176,7 @@
         <input type="password" id="current_password" name="current_password"
                autocomplete="current-password" required>
         {% if password_errors.get('current_password') %}
-        <p style="font-size:0.875rem;color:var(--danger);margin-top:0.35rem;">{{ password_errors.current_password }}</p>
+        <p style="font-size: var(--t-body);color:var(--danger);margin-top:0.35rem;">{{ password_errors.current_password }}</p>
         {% endif %}
       </div>
       <div class="form-group">
@@ -184,9 +184,9 @@
         <input type="password" id="new_password" name="new_password"
                autocomplete="new-password" minlength="8" required>
         {% if password_errors.get('new_password') %}
-        <p style="font-size:0.875rem;color:var(--danger);margin-top:0.35rem;">{{ password_errors.new_password }}</p>
+        <p style="font-size: var(--t-body);color:var(--danger);margin-top:0.35rem;">{{ password_errors.new_password }}</p>
         {% else %}
-        <p style="font-size:0.875rem;color:var(--muted);margin-top:0.35rem;">Minimum 8 characters</p>
+        <p style="font-size: var(--t-body);color:var(--muted);margin-top:0.35rem;">Minimum 8 characters</p>
         {% endif %}
       </div>
       <div class="form-group">
@@ -194,7 +194,7 @@
         <input type="password" id="new_password_confirm" name="new_password_confirm"
                autocomplete="new-password" minlength="8" required>
         {% if password_errors.get('new_password_confirm') %}
-        <p style="font-size:0.875rem;color:var(--danger);margin-top:0.35rem;">{{ password_errors.new_password_confirm }}</p>
+        <p style="font-size: var(--t-body);color:var(--danger);margin-top:0.35rem;">{{ password_errors.new_password_confirm }}</p>
         {% endif %}
       </div>
       <button type="submit" class="btn btn-ghost">Change password</button>
