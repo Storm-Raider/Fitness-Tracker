@@ -86,3 +86,12 @@ async def test_the_muscle_map_gets_the_same_colours(client, db):
     html = (await client.get(f"/workouts/{w}", headers={"Accept": "text/html"})).text
     assert '"Chest": "' + MUSCLE_COLORS["Chest"] + '"' in html
     assert "'Chest':     '#4f9cf9'" not in html
+
+
+def test_home_volume_tile_is_a_whole_number():
+    """The Home volume tile's data-kg must be rounded: the unit script re-renders
+    it with one decimal, so a raw 21367.5 showed as '21,367.5 kg'."""
+    import re
+    from pathlib import Path
+    src = Path(__file__).resolve().parent.parent / "app/templates/dashboard.html"
+    assert re.search(r'data-kg="\{\{ weekly_volume \| round \| int \}\}"', src.read_text())
