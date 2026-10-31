@@ -170,3 +170,19 @@ async def test_api_exercises_flags_bodyweight(client):
     bench = next((e for e in data["exercises"] if e["name"] == "Bench Press"), None)
     assert pushup is not None and pushup["is_bodyweight"] is True
     assert bench is not None and bench["is_bodyweight"] is False
+
+
+@pytest.mark.asyncio
+async def test_api_exercises_returns_best_e1rm_from_before_this_session(client):
+    """The session screen shows 'Est. 1RM' beside 'Last time' (2026-10-31).
+    It comes from earlier sessions only, and ignores sets over 12 reps."""
+    ex = (await client.get("/api/exercises")).json()["exercises"]
+    bench = next(e for e in ex if e["name"] == "Bench Press")["id"]
+    old = (await client.post("/workouts", json={})).json()["id"]
+    await client.post(f"/workouts/{old}/sets", json={"exercise_id": bench, "reps": 5, "weight_kg": 75})
+    await client.post(f"/workouts/{old}/sets", json={"exercise_id": bench, "reps": 20, "weight_kg": 70})
+    await client.post(f"/workouts/{old}/finish")
+    now = (await client.post("/workouts", json={})).json()["id"]
+    await client.post(f"/workouts/{now}/sets", json={"exercise_id": bench, "reps": 5, "weight_kg": 100})
+    data = (await client.get(f"/api/exercises?exclude_workout={now}")).json()
+    assert data["best_e1rm"][str(bench)] == 87.5          # 75 x 5 (Epley); not 70 x 20, not today's 100
