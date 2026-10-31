@@ -79,9 +79,9 @@
         </div>
 
         <div id="pace-result-wrap" style="display:none;background:var(--surface-2);border-radius:var(--radius-sm);padding:0.6rem 1rem;margin-bottom:0.75rem;align-items:baseline;gap:0.5rem;">
-          <span style="font-size:0.875rem;font-weight:600;color:var(--muted);">Pace</span>
-          <span id="pace-val" class="num" style="font-size:1.6rem;color:var(--text);">—</span>
-          <span class="pace-unit-label" style="font-size:0.875rem;color:var(--muted);">min/km</span>
+          <span style="font-size: var(--t-body);font-weight:600;color:var(--muted);">Pace</span>
+          <span id="pace-val" class="num" style="font-size: var(--t-data);color:var(--text);">—</span>
+          <span class="pace-unit-label" style="font-size: var(--t-body);color:var(--muted);">min/km</span>
         </div>
 
         <button type="submit" class="btn btn-primary" style="width:100%;min-height:56px;">
@@ -144,7 +144,7 @@
           </tr>
           {% if log.notes %}
           <tr style="background:transparent;">
-            <td colspan="6" style="padding-top:0;padding-bottom:0.65rem;color:var(--muted);font-size:0.875rem;font-style:italic;">
+            <td colspan="6" style="padding-top:0;padding-bottom:0.65rem;color:var(--muted);font-size: var(--t-body);font-style:italic;">
               {{ log.notes }}
             </td>
           </tr>
@@ -159,7 +159,7 @@
         <div style="width:48px;height:48px;border-radius:50%;background:var(--surface-2);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;">
           <i data-lucide="activity" style="width:20px;height:20px;color:var(--muted-hi);pointer-events:none;"></i>
         </div>
-        <p style="color:var(--muted);font-size:0.9375rem;max-width:260px;line-height:1.55;">No cardio sessions yet. Log your first one using the form.</p>
+        <p style="color:var(--muted);font-size: var(--t-body);max-width:260px;line-height:1.55;">No cardio sessions yet. Log your first one using the form.</p>
       </div>
     </div>
     {% endif %}

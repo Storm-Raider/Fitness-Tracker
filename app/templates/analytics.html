@@ -19,7 +19,7 @@
 .pr-age-old   { color: var(--muted); }
 .badge-plateau {
   display: inline-flex; align-items: center; gap: 0.2rem;
-  font-size: 0.8125rem; font-weight: 600;
+  font-size: var(--t-label); font-weight: 600;
   padding: 0.05rem 0.45rem;
   border-radius: 999px; border: 1px solid var(--border-mid);
   background: var(--surface-2); color: var(--muted-hi);
@@ -43,16 +43,16 @@
   align-items: flex-start; gap: 0.1rem; min-width: 88px;
   background: var(--surface); color: var(--text);
 }
-.rec-chip .rec-muscle { font-size: 0.875rem; font-weight: 700; }
-.rec-chip .rec-state  { font-size: 0.8125rem; font-weight: 600; display: inline-flex; align-items: center; gap: 0.3rem; }
-.rec-chip .rec-state .num { font-size: 0.95rem; }
+.rec-chip .rec-muscle { font-size: var(--t-body); font-weight: 700; }
+.rec-chip .rec-state  { font-size: var(--t-label); font-weight: 600; display: inline-flex; align-items: center; gap: 0.3rem; }
+.rec-chip .rec-state .num { font-size: var(--t-body); }
 .rec-fatigued   { background: var(--danger-dim);  border-color: var(--danger); }
 .rec-fatigued .rec-state   { color: var(--danger); }
 .rec-recovering { background: var(--surface-2); }
 .rec-recovering .rec-state { color: var(--muted-hi); }
 .rec-fresh      { background: var(--success-dim); border-color: var(--success); }
 .rec-fresh .rec-state      { color: var(--success); }
-.rec-legend { display:flex; gap:0.5rem 1.25rem; margin-top:0.85rem; flex-wrap:wrap; font-size:0.8125rem; color:var(--muted); }
+.rec-legend { display:flex; gap:0.5rem 1.25rem; margin-top:0.85rem; flex-wrap:wrap; font-size: var(--t-label); color:var(--muted); }
 .rec-legend span { display:inline-flex; align-items:center; gap:0.35rem; }
 .rec-key { width:12px; height:12px; border-radius:3px; border:1px solid; display:inline-block; }
 </style>
@@ -102,7 +102,7 @@
 <div style="margin-bottom:1.5rem;">
   <div class="section-title">Strength levels — bodyweight ratios</div>
   <div class="card" style="padding:1.1rem 1.25rem;">
-    <p style="font-size:0.8125rem;color:var(--muted);margin:0 0 1rem;">
+    <p style="font-size: var(--t-label);color:var(--muted);margin:0 0 1rem;">
       Standard strength benchmarks for your bodyweight of <strong style="color:var(--text);"><span class="weight-display num" id="bw-display" data-kg="{{ bodyweight_kg | round(1) }}">{{ bodyweight_kg | round(1) }} kg</span></strong>.
     </p>
     <div id="percentile-grid" style="display:flex;flex-direction:column;"></div>
@@ -178,8 +178,8 @@
     row.className = 'strength-row';
     row.innerHTML = `
       <div style="flex:0 1 8.5rem;min-width:0;overflow:hidden;">
-        <div style="font-size:0.875rem;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${liftName}</div>
-        <div style="font-size:0.8125rem;font-weight:700;color:${level === 'Elite' ? 'var(--pr)' : 'var(--muted)'};margin-top:0.15rem;">${level}</div>
+        <div style="font-size: var(--t-body);font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${liftName}</div>
+        <div style="font-size: var(--t-label);font-weight:700;color:${level === 'Elite' ? 'var(--pr)' : 'var(--muted)'};margin-top:0.15rem;">${level}</div>
       </div>
       <div style="flex:1;min-width:40px;">
         <div style="height:8px;background:var(--surface-hover);border-radius:4px;overflow:hidden;">
@@ -187,15 +187,15 @@
         </div>
       </div>
       <div style="text-align:right;flex-shrink:0;width:5.5rem;">
-        <div class="num" data-e1rm="${rec.e1rm}" style="font-size:1.05rem;color:var(--text);line-height:1;">${display}</div>
-        <div style="font-size:0.8125rem;color:var(--muted);margin-top:0.2rem;"><span class="num">${ratio}</span>× BW</div>
+        <div class="num" data-e1rm="${rec.e1rm}" style="font-size: var(--t-body);color:var(--text);line-height:1;">${display}</div>
+        <div style="font-size: var(--t-label);color:var(--muted);margin-top:0.2rem;"><span class="num">${ratio}</span>× BW</div>
       </div>`;
     grid.appendChild(row);
     rendered++;
   }
 
   if (rendered === 0) {
-    grid.innerHTML = '<div style="color:var(--muted);font-size:0.85rem;padding:0.5rem 0;">Log bench press, squat, or deadlift to see strength levels.</div>';
+    grid.innerHTML = '<div style="color:var(--muted);font-size: var(--t-label);padding:0.5rem 0;">Log bench press, squat, or deadlift to see strength levels.</div>';
   }
 
   window.addEventListener('unitchange', function() {
@@ -220,7 +220,7 @@
         <i data-lucide="search" style="position:absolute;left:0.7rem;top:50%;transform:translateY(-50%);width:16px;height:16px;color:var(--muted);pointer-events:none;"></i>
         <input id="pr-search" type="search" aria-label="Filter records by exercise" placeholder="Filter exercises…"
                oninput="filterPRs()"
-               style="padding:0.3rem 0.75rem 0.3rem 2.1rem;height:44px;font-size:1rem;border-radius:var(--radius-xs);min-width:180px;">
+               style="padding:0.3rem 0.75rem 0.3rem 2.1rem;height:44px;font-size: var(--t-body);border-radius:var(--radius-xs);min-width:180px;">
       </div>
       <div class="seg-toggle" role="group" aria-label="Sort records">
         <button type="button" class="sort-btn" aria-pressed="true" data-sort="name" onclick="sortPRs('name', this)">A–Z</button>
@@ -270,7 +270,7 @@
           <td class="num col-wide" style="color:var(--muted);">{{ r.total_sets }}</td>
           <td class="col-wide" style="white-space:nowrap;">
             <span class="{% if r.days_ago is not none and r.days_ago <= 30 %}pr-age-fresh{% elif r.days_ago is not none and r.days_ago <= 90 %}pr-age-mid{% else %}pr-age-old{% endif %}"
-                  style="font-size:0.8125rem;font-weight:600;"
+                  style="font-size: var(--t-label);font-weight:600;"
                   title="{{ r.pr_date or '' }}">{{ r.time_ago }}</span>
           </td>
         </tr>
@@ -278,7 +278,7 @@
       </tbody>
     </table>
   </div>
-  <div id="pr-empty" style="display:none;text-align:center;padding:1.5rem;color:var(--muted);font-size:0.875rem;">
+  <div id="pr-empty" style="display:none;text-align:center;padding:1.5rem;color:var(--muted);font-size: var(--t-body);">
     No exercises match your search.
   </div>
 </div>
@@ -389,7 +389,7 @@ document.getElementById('pr-search').addEventListener('keydown', e => {
     <div style="width:52px;height:52px;border-radius:50%;background:var(--surface-2);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;">
       <i data-lucide="bar-chart-2" style="width:22px;height:22px;color:var(--muted-hi);pointer-events:none;"></i>
     </div>
-    <p style="color:var(--muted);font-size:0.875rem;max-width:240px;line-height:1.5;">No sets logged yet — your analytics will appear here.</p>
+    <p style="color:var(--muted);font-size: var(--t-body);max-width:240px;line-height:1.5;">No sets logged yet — your analytics will appear here.</p>
     <a href="/workouts" class="btn btn-primary" style="margin-top:0.25rem;">Start a session</a>
   </div>
 </div>
@@ -417,7 +417,7 @@ document.getElementById('pr-search').addEventListener('keydown', e => {
       <div id="vol-chart-tip" style="display:none;position:absolute;top:4px;background:var(--surface);border:1px solid var(--border-mid);border-radius:var(--radius-xs);padding:0.45rem 0.7rem;pointer-events:none;z-index:10;white-space:nowrap;box-shadow:var(--shadow);"></div>
     </div>
     {% if has_cardio %}
-    <div style="display:flex;gap:1rem;margin-top:0.5rem;font-size:0.8125rem;color:var(--muted);">
+    <div style="display:flex;gap:1rem;margin-top:0.5rem;font-size: var(--t-label);color:var(--muted);">
       <span style="display:flex;align-items:center;gap:0.35rem;"><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:var(--data);"></span>Strength volume</span>
       <span style="display:flex;align-items:center;gap:0.35rem;"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--muted);"></span>Cardio session</span>
     </div>
@@ -427,7 +427,7 @@ document.getElementById('pr-search').addEventListener('keydown', e => {
       <div style="width:48px;height:48px;border-radius:50%;background:var(--surface-2);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;">
         <i data-lucide="bar-chart-2" style="width:20px;height:20px;color:var(--muted-hi);pointer-events:none;"></i>
       </div>
-      <p style="color:var(--muted);font-size:0.875rem;max-width:240px;line-height:1.55;">Volume trend appears once you've logged a few sessions.</p>
+      <p style="color:var(--muted);font-size: var(--t-body);max-width:240px;line-height:1.55;">Volume trend appears once you've logged a few sessions.</p>
       <a href="/workouts" class="btn btn-primary" style="margin-top:0.1rem;">Start a session</a>
     </div>
     {% endif %}
@@ -451,7 +451,7 @@ document.getElementById('pr-search').addEventListener('keydown', e => {
       <canvas id="rec-chart" role="img" aria-label="Weekly Oura readiness" style="display:block;width:100%;cursor:crosshair;"></canvas>
       <div id="rec-chart-tip" style="display:none;position:absolute;top:4px;background:var(--surface);border:1px solid var(--border-mid);border-radius:var(--radius-xs);padding:0.45rem 0.7rem;pointer-events:none;z-index:10;white-space:nowrap;box-shadow:var(--shadow);"></div>
     </div>
-    <p id="rec-chart-note" style="margin:0.4rem 0 0;font-size:0.8125rem;color:var(--muted);">Weekly average readiness score, out of 100.</p>
+    <p id="rec-chart-note" style="margin:0.4rem 0 0;font-size: var(--t-label);color:var(--muted);">Weekly average readiness score, out of 100.</p>
   </div>
 </div>
 {% endif %}
@@ -605,11 +605,11 @@ document.getElementById('pr-search').addEventListener('keydown', e => {
     const v = cvt(d.volume);
     const disp = v >= 1000 ? (v/1000).toFixed(1) + 'k' : Math.round(v).toLocaleString();
     const cardioLine = d.cardio
-      ? `<div style="color:var(--muted-hi);font-size:0.8125rem;margin-top:0.15rem;">+ ${d.cardio} cardio</div>`
+      ? `<div style="color:var(--muted-hi);font-size: var(--t-label);margin-top:0.15rem;">+ ${d.cardio} cardio</div>`
       : '';
     tip.innerHTML =
-      `<div style="font-size:0.8125rem;color:var(--muted);margin-bottom:0.2rem;">${d.label}</div>` +
-      (v ? `<span class="num" style="color:var(--text);font-size:1rem;">${disp} ${u}</span>` : '') +
+      `<div style="font-size: var(--t-label);color:var(--muted);margin-bottom:0.2rem;">${d.label}</div>` +
+      (v ? `<span class="num" style="color:var(--text);font-size: var(--t-body);">${disp} ${u}</span>` : '') +
       cardioLine;
     tip.style.display = 'block';
     const W = canvas.offsetWidth, tw = tip.offsetWidth;
@@ -739,9 +739,9 @@ document.getElementById('pr-search').addEventListener('keydown', e => {
   function showTip(idx) {
     const d = RECOVERY[idx], m = MEASURES[key], v = d[key];
     tip.innerHTML =
-      `<div style="font-size:0.8125rem;color:var(--muted);margin-bottom:0.2rem;">Week of ${d.label}</div>` +
-      (v == null ? `<span style="font-size:0.875rem;color:var(--muted);">No Oura data</span>`
-                 : `<span class="num" style="color:var(--text);font-size:1rem;">${v}${m.unit}</span>`);
+      `<div style="font-size: var(--t-label);color:var(--muted);margin-bottom:0.2rem;">Week of ${d.label}</div>` +
+      (v == null ? `<span style="font-size: var(--t-body);color:var(--muted);">No Oura data</span>`
+                 : `<span class="num" style="color:var(--text);font-size: var(--t-body);">${v}${m.unit}</span>`);
     tip.style.display = 'block';
     const W = canvas.offsetWidth, tw = tip.offsetWidth;
     tip.style.left = Math.max(0, Math.min(W - tw, xAt(idx, W) - tw / 2)) + 'px';

@@ -6,7 +6,7 @@
    lifter's bodyweight (pr_utils.bw_key); a timed one (plank) charts its hold. #}
 {% set bw_timed = is_bw and bw and bw.secs %}
 <div style="margin-bottom:1rem;padding-top:0.5rem;">
-  <a href="/exercises" style="color:var(--muted);font-size:0.875rem;font-weight:600;display:inline-flex;align-items:center;gap:0.35rem;min-height:44px;transition:color 0.15s;"
+  <a href="/exercises" style="color:var(--muted);font-size: var(--t-body);font-weight:600;display:inline-flex;align-items:center;gap:0.35rem;min-height:44px;transition:color 0.15s;"
      onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='var(--muted)'">
     <i data-lucide="chevron-left" style="width:16px;height:16px;"></i>
     Exercises
@@ -15,46 +15,46 @@
 
 <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:1.5rem;margin-bottom:1.5rem;flex-wrap:wrap;">
   <div>
-    <h1 style="font-family:var(--f-display);font-size:1.7rem;font-weight:800;margin-bottom:0.3rem;">{{ exercise.name }}</h1>
+    <h1 style="font-family:var(--f-display);font-size: var(--t-display);font-weight: 600;margin-bottom:0.3rem;">{{ exercise.name }}</h1>
     {% if is_bw and bw %}
-    <span class="badge badge-pr num" style="font-size:0.875rem;">Best: {{ bw_best(bw) }}</span>
+    <span class="badge badge-pr num" style="font-size: var(--t-body);">Best: {{ bw_best(bw) }}</span>
     {% elif pr_kg and not is_bw %}
-    <span class="badge badge-pr" style="font-size:0.875rem;">PR: <span class="weight-display" data-kg="{{ pr_kg }}">{{ pr_kg }} kg</span></span>
+    <span class="badge badge-pr" style="font-size: var(--t-body);">PR: <span class="weight-display" data-kg="{{ pr_kg }}">{{ pr_kg }} kg</span></span>
     {% endif %}
     {% if exercise.category or exercise.equipment or exercise.muscles %}
     <div style="display:flex;gap:0.4rem;flex-wrap:wrap;margin-top:0.6rem;">
-      {% if exercise.category %}<span style="background:var(--surface-2);color:var(--muted-hi);border:1px solid var(--border);border-radius:var(--radius-xs);padding:0.2rem 0.6rem;font-size:0.8125rem;font-weight:600;">{{ exercise.category }}</span>{% endif %}
-      {% if exercise.equipment %}<span style="background:var(--surface-2);color:var(--muted-hi);border:1px solid var(--border);border-radius:var(--radius-xs);padding:0.2rem 0.6rem;font-size:0.8125rem;font-weight:600;">{{ exercise.equipment }}</span>{% endif %}
-      {% for m in exercise.muscles %}<span style="background:var(--surface-2);color:var(--muted-hi);border:1px solid var(--border);border-radius:var(--radius-xs);padding:0.2rem 0.6rem;font-size:0.8125rem;font-weight:600;">{{ m.name }}</span>{% endfor %}
+      {% if exercise.category %}<span style="background:var(--surface-2);color:var(--muted-hi);border:1px solid var(--border);border-radius:var(--radius-xs);padding:0.2rem 0.6rem;font-size: var(--t-label);font-weight:600;">{{ exercise.category }}</span>{% endif %}
+      {% if exercise.equipment %}<span style="background:var(--surface-2);color:var(--muted-hi);border:1px solid var(--border);border-radius:var(--radius-xs);padding:0.2rem 0.6rem;font-size: var(--t-label);font-weight:600;">{{ exercise.equipment }}</span>{% endif %}
+      {% for m in exercise.muscles %}<span style="background:var(--surface-2);color:var(--muted-hi);border:1px solid var(--border);border-radius:var(--radius-xs);padding:0.2rem 0.6rem;font-size: var(--t-label);font-weight:600;">{{ m.name }}</span>{% endfor %}
     </div>
     {% endif %}
     {% if exercise.cue %}
-    <p style="color:var(--muted);font-size:0.85rem;line-height:1.55;margin-top:0.6rem;max-width:60ch;">{{ exercise.cue }}</p>
+    <p style="color:var(--muted);font-size: var(--t-label);line-height:1.55;margin-top:0.6rem;max-width:60ch;">{{ exercise.cue }}</p>
     {% endif %}
   </div>
   {% if sessions %}
   <div style="display:flex;gap:1.25rem;flex-shrink:0;">
     <div style="text-align:center;">
-      <div class="num" style="font-size:1.9rem;line-height:1;">{{ total_sets }}</div>
-      <div style="font-size:0.8125rem;font-weight:600;color:var(--muted);margin-top:0.25rem;">Sets</div>
+      <div class="num" style="font-size: var(--t-display);line-height:1;">{{ total_sets }}</div>
+      <div style="font-size: var(--t-label);font-weight:600;color:var(--muted);margin-top:0.25rem;">Sets</div>
     </div>
     <div style="width:1px;background:var(--border);"></div>
     {% if not is_bw %}
     <div style="text-align:center;">
-      <div class="num" style="font-size:1.9rem;line-height:1;"><span class="weight-display" data-kg="{{ total_volume }}">{{ "{:,.0f}".format(total_volume) }} kg</span></div>
-      <div style="font-size:0.8125rem;font-weight:600;color:var(--muted);margin-top:0.25rem;">Volume</div>
+      <div class="num" style="font-size: var(--t-display);line-height:1;"><span class="weight-display" data-kg="{{ total_volume }}">{{ "{:,.0f}".format(total_volume) }} kg</span></div>
+      <div style="font-size: var(--t-label);font-weight:600;color:var(--muted);margin-top:0.25rem;">Volume</div>
     </div>
     <div style="width:1px;background:var(--border);"></div>
     {% elif not bw_timed %}
     <div style="text-align:center;">
-      <div class="num" style="font-size:1.9rem;line-height:1;">{{ "{:,}".format(sessions | sum(attribute='total_reps')) }}</div>
-      <div style="font-size:0.8125rem;font-weight:600;color:var(--muted);margin-top:0.25rem;">Reps</div>
+      <div class="num" style="font-size: var(--t-display);line-height:1;">{{ "{:,}".format(sessions | sum(attribute='total_reps')) }}</div>
+      <div style="font-size: var(--t-label);font-weight:600;color:var(--muted);margin-top:0.25rem;">Reps</div>
     </div>
     <div style="width:1px;background:var(--border);"></div>
     {% endif %}
     <div style="text-align:center;">
-      <div class="num" style="font-size:1.9rem;line-height:1;">{{ sessions|length }}</div>
-      <div style="font-size:0.8125rem;font-weight:600;color:var(--muted);margin-top:0.25rem;">Sessions</div>
+      <div class="num" style="font-size: var(--t-display);line-height:1;">{{ sessions|length }}</div>
+      <div style="font-size: var(--t-label);font-weight:600;color:var(--muted);margin-top:0.25rem;">Sessions</div>
     </div>
   </div>
   {% endif %}
@@ -66,12 +66,12 @@
 <div class="card" style="padding:0.85rem 1.25rem;margin-bottom:1rem;" id="goal-card">
   <div style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap;">
     <div style="flex:1;min-width:160px;">
-      <div style="font-size:0.8125rem;font-weight:600;color:var(--muted);margin-bottom:0.45rem;">Weight goal</div>
+      <div style="font-size: var(--t-label);font-weight:600;color:var(--muted);margin-bottom:0.45rem;">Weight goal</div>
       <div style="display:flex;align-items:center;gap:0.75rem;">
         <div style="flex:1;height:8px;background:var(--surface-hover);border-radius:4px;overflow:hidden;">
           <div style="height:100%;width:{{ [goal_pct, 100]|min }}%;background:{% if goal_pct >= 100 %}var(--success){% else %}var(--text){% endif %};border-radius:4px;"></div>
         </div>
-        <span class="num" style="font-size:1.05rem;white-space:nowrap;color:{% if goal_pct >= 100 %}var(--success){% else %}var(--text){% endif %};">
+        <span class="num" style="font-size: var(--t-body);white-space:nowrap;color:{% if goal_pct >= 100 %}var(--success){% else %}var(--text){% endif %};">
           <span class="weight-display" data-kg="{{ pr_kg or 0 }}">{{ pr_kg or 0 }} kg</span>
           / <span class="weight-display" data-kg="{{ exercise_goal_kg }}">{{ exercise_goal_kg }} kg</span>
           <span style="color:var(--muted);">({{ goal_pct }}%)</span>
@@ -81,26 +81,26 @@
     <div style="display:flex;gap:0.4rem;align-items:center;flex-shrink:0;" id="goal-actions">
       <div id="goal-edit-form" style="display:none;align-items:center;gap:0.4rem;">
         <input id="goal-input" type="number" min="0.5" max="2500" step="0.5" value="{{ exercise_goal_kg }}" data-kg="{{ exercise_goal_kg }}" class="num" style="width:84px;text-align:center;padding:0.25rem 0.4rem;">
-        <span style="font-size:0.875rem;color:var(--muted);" id="goal-unit-lbl">kg</span>
-        <button onclick="saveExGoal()" class="btn btn-ghost" style="font-size:0.875rem;min-height:44px;padding:0.2rem 0.85rem;">Save</button>
+        <span style="font-size: var(--t-body);color:var(--muted);" id="goal-unit-lbl">kg</span>
+        <button onclick="saveExGoal()" class="btn btn-ghost" style="font-size: var(--t-body);min-height:44px;padding:0.2rem 0.85rem;">Save</button>
       </div>
-      <button id="goal-edit-btn" onclick="toggleExGoal()" style="background:var(--surface);border:1px solid var(--border-mid);color:var(--text);border-radius:var(--radius-xs);cursor:pointer;padding:0.25rem 0.85rem;min-height:44px;font-size:0.875rem;font-weight:600;font-family:inherit;transition:border-color 0.13s;" onmouseover="this.style.borderColor='var(--text)'" onmouseout="this.style.borderColor='var(--border-mid)'">Edit</button>
-      <button onclick="deleteExGoal()" style="background:transparent;border:none;color:var(--muted);cursor:pointer;font-size:1rem;font-family:inherit;min-width:44px;min-height:44px;border-radius:var(--radius-xs);transition:color 0.13s;" onmouseover="this.style.color='var(--danger)'" onmouseout="this.style.color='var(--muted)'" title="Remove goal" aria-label="Remove goal">✕</button>
+      <button id="goal-edit-btn" onclick="toggleExGoal()" style="background:var(--surface);border:1px solid var(--border-mid);color:var(--text);border-radius:var(--radius-xs);cursor:pointer;padding:0.25rem 0.85rem;min-height:44px;font-size: var(--t-body);font-weight:600;font-family:inherit;transition:border-color 0.13s;" onmouseover="this.style.borderColor='var(--text)'" onmouseout="this.style.borderColor='var(--border-mid)'">Edit</button>
+      <button onclick="deleteExGoal()" style="background:transparent;border:none;color:var(--muted);cursor:pointer;font-size: var(--t-body);font-family:inherit;min-width:44px;min-height:44px;border-radius:var(--radius-xs);transition:color 0.13s;" onmouseover="this.style.color='var(--danger)'" onmouseout="this.style.color='var(--muted)'" title="Remove goal" aria-label="Remove goal">✕</button>
     </div>
   </div>
 </div>
 {% else %}
 <div style="margin-bottom:1rem;">
-  <button onclick="toggleExGoal()" id="goal-set-trigger" style="display:flex;align-items:center;gap:0.5rem;background:transparent;border:1px dashed var(--border-mid);color:var(--muted);border-radius:var(--radius);cursor:pointer;padding:0.55rem 1rem;min-height:48px;font-family:inherit;font-size:0.875rem;font-weight:600;width:100%;transition:border-color 0.15s, color 0.15s;" onmouseover="this.style.borderColor='var(--text)';this.style.color='var(--text)'" onmouseout="this.style.borderColor='var(--border-mid)';this.style.color='var(--muted)'">
+  <button onclick="toggleExGoal()" id="goal-set-trigger" style="display:flex;align-items:center;gap:0.5rem;background:transparent;border:1px dashed var(--border-mid);color:var(--muted);border-radius:var(--radius);cursor:pointer;padding:0.55rem 1rem;min-height:48px;font-family:inherit;font-size: var(--t-body);font-weight:600;width:100%;transition:border-color 0.15s, color 0.15s;" onmouseover="this.style.borderColor='var(--text)';this.style.color='var(--text)'" onmouseout="this.style.borderColor='var(--border-mid)';this.style.color='var(--muted)'">
     <i data-lucide="target" style="width:16px;height:16px;flex-shrink:0;pointer-events:none;"></i>
     Set a weight goal for this exercise
   </button>
   <div id="goal-edit-form" style="display:none;margin-top:0.5rem;align-items:center;gap:0.5rem;flex-wrap:wrap;padding:0.75rem 1rem;" class="card">
-    <span style="font-size:0.875rem;color:var(--muted);">Target:</span>
+    <span style="font-size: var(--t-body);color:var(--muted);">Target:</span>
     <input id="goal-input" type="number" min="0.5" max="2500" step="0.5" value="{{ pr_kg or 100 }}" data-kg="{{ pr_kg or 100 }}" class="num" style="width:96px;text-align:center;padding:0.3rem 0.4rem;">
-    <span style="font-size:0.875rem;color:var(--muted);" id="goal-unit-lbl">kg</span>
-    <button onclick="saveExGoal()" class="btn btn-primary" style="font-size:0.875rem;min-height:44px;padding:0.25rem 0.9rem;">Set goal</button>
-    <button onclick="toggleExGoal()" class="btn btn-ghost" style="font-size:0.875rem;min-height:44px;">Cancel</button>
+    <span style="font-size: var(--t-body);color:var(--muted);" id="goal-unit-lbl">kg</span>
+    <button onclick="saveExGoal()" class="btn btn-primary" style="font-size: var(--t-body);min-height:44px;padding:0.25rem 0.9rem;">Set goal</button>
+    <button onclick="toggleExGoal()" class="btn btn-ghost" style="font-size: var(--t-body);min-height:44px;">Cancel</button>
   </div>
 </div>
 {% endif %}
@@ -236,7 +236,7 @@ document.getElementById('goal-input')?.addEventListener('keydown', e => { if(e.k
     <div style="width:52px;height:52px;border-radius:50%;background:var(--surface-2);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;">
       <i data-lucide="dumbbell" style="width:22px;height:22px;color:var(--muted-hi);pointer-events:none;"></i>
     </div>
-    <p style="color:var(--muted);font-size:0.875rem;max-width:220px;line-height:1.5;">No sets logged for this exercise yet.</p>
+    <p style="color:var(--muted);font-size: var(--t-body);max-width:220px;line-height:1.5;">No sets logged for this exercise yet.</p>
     <a href="/workouts" class="btn btn-primary" style="margin-top:0.25rem;">Start a session</a>
   </div>
 </div>
@@ -383,10 +383,10 @@ document.getElementById('goal-input')?.addEventListener('keydown', e => { if(e.k
       const load = s.bw_added ? `BW +${+(s.bw_added * f).toFixed(1)} ${pu}` : 'BW';
       const best = s.bw_secs ? `${load} · ${fmtHold(s.bw_secs)}` : `${load} × ${s.bw_reps}`;
       tip.innerHTML =
-        `<div style="font-size:0.8125rem;color:var(--muted);margin-bottom:0.25rem;">${humanDate(s.date)}${s.is_best ? ' <span class="badge badge-pr" role="img" aria-label="Best set" style="vertical-align:middle;">Best</span>' : ''}</div>` +
+        `<div style="font-size: var(--t-label);color:var(--muted);margin-bottom:0.25rem;">${humanDate(s.date)}${s.is_best ? ' <span class="badge badge-pr" role="img" aria-label="Best set" style="vertical-align:middle;">Best</span>' : ''}</div>` +
         `<div style="display:flex;flex-direction:column;gap:0.1rem;">` +
-        `<span style="color:var(--text);font-size:0.875rem;font-weight:600;">${best} best set</span>` +
-        (s.bw_secs ? '' : `<span style="color:var(--muted-hi);font-size:0.875rem;font-weight:600;">${s.total_reps} reps total</span>`) +
+        `<span style="color:var(--text);font-size: var(--t-body);font-weight:600;">${best} best set</span>` +
+        (s.bw_secs ? '' : `<span style="color:var(--muted-hi);font-size: var(--t-body);font-weight:600;">${s.total_reps} reps total</span>`) +
         `</div>`;
       tip.style.display = 'block';
       const W = canvas.offsetWidth, tw = tip.offsetWidth, x = xAt(idx, W, RAW.length);
@@ -401,11 +401,11 @@ document.getElementById('goal-input')?.addEventListener('keydown', e => { if(e.k
     const vl = Math.round(s.volume_kg * f);
     const isPR = PR_KG !== null && s.max_kg >= PR_KG;
     tip.innerHTML =
-      `<div style="font-size:0.8125rem;color:var(--muted);margin-bottom:0.25rem;">${humanDate(s.date)}${isPR ? ' <span class="badge badge-pr" role="img" aria-label="Personal record" style="vertical-align:middle;">PR</span>' : ''}</div>` +
+      `<div style="font-size: var(--t-label);color:var(--muted);margin-bottom:0.25rem;">${humanDate(s.date)}${isPR ? ' <span class="badge badge-pr" role="img" aria-label="Personal record" style="vertical-align:middle;">PR</span>' : ''}</div>` +
       `<div style="display:flex;flex-direction:column;gap:0.1rem;">` +
-      `<span style="color:var(--text);font-size:0.875rem;font-weight:600;">${wt} ${pu} top set</span>` +
-      `<span style="color:var(--text);font-size:0.875rem;font-weight:600;">${o} ${pu} est 1RM</span>` +
-      `<span style="color:var(--muted-hi);font-size:0.875rem;font-weight:600;">${vl} ${pu} volume</span>` +
+      `<span style="color:var(--text);font-size: var(--t-body);font-weight:600;">${wt} ${pu} top set</span>` +
+      `<span style="color:var(--text);font-size: var(--t-body);font-weight:600;">${o} ${pu} est 1RM</span>` +
+      `<span style="color:var(--muted-hi);font-size: var(--t-body);font-weight:600;">${vl} ${pu} volume</span>` +
       `</div>`;
     tip.style.display = 'block';
 

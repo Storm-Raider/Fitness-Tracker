@@ -7,7 +7,7 @@
     min-height: 36px; margin-right: 0.75rem; padding: 0 0.9rem;
     border: 1px solid var(--border-mid); border-radius: var(--radius-xs);
     background: var(--surface); color: var(--text);
-    font-family: inherit; font-size: 0.9375rem; font-weight: 700; cursor: pointer;
+    font-family: inherit; font-size: var(--t-body); font-weight: 700; cursor: pointer;
   }
   #csv-file::file-selector-button:hover { border-color: var(--text); }
 </style>
@@ -24,17 +24,17 @@
 
   <div class="card">
     <div class="section-title" style="margin-bottom:0.5rem;">Export workouts</div>
-    <p style="font-size:0.875rem; color:var(--muted); margin-bottom:1.25rem;">
+    <p style="font-size: var(--t-body); color:var(--muted); margin-bottom:1.25rem;">
       Download all your sets as a CSV file — date, exercise, reps, weight, notes.
     </p>
-    <a href="/export/workouts.csv" class="btn btn-primary" style="min-height:56px;padding:0 1.4rem;border-radius:var(--radius);font-size:1rem;">
+    <a href="/export/workouts.csv" class="btn btn-primary" style="min-height:56px;padding:0 1.4rem;border-radius:var(--radius);font-size: var(--t-body);">
       Download workouts.csv
     </a>
   </div>
 
   <div class="card">
     <div class="section-title" style="margin-bottom:0.5rem;">Import from Strong</div>
-    <p style="font-size:0.875rem; color:var(--muted); margin-bottom:1.25rem;">
+    <p style="font-size: var(--t-body); color:var(--muted); margin-bottom:1.25rem;">
       Upload a CSV exported from the Strong app. Exercises are created automatically.
       Weights in lbs are converted to kg. Cardio rows are skipped.
     </p>

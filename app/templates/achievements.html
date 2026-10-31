@@ -35,18 +35,18 @@
 .ach-icon-wrap svg { width: 22px; height: 22px; color: var(--ach-color); }
 .ach-name {
   font-family: var(--f-display);
-  font-size: 1rem;
+  font-size: var(--t-body);
   font-weight: 700;
   color: var(--text);
   line-height: 1.25;
 }
 .ach-desc {
-  font-size: 0.8125rem;
+  font-size: var(--t-label);
   color: var(--muted);
   line-height: 1.4;
 }
 .ach-date {
-  font-size: 0.8125rem;
+  font-size: var(--t-label);
   font-weight: 600;
   color: var(--pr);
 }
@@ -84,15 +84,15 @@
               style="transition:stroke-dashoffset 1s cubic-bezier(0.16,1,0.3,1);"/>
     </svg>
     <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;">
-      <span class="num" style="font-size:1.6rem;color:var(--pr);line-height:1;">{{ unlocked_count }}</span>
-      <span class="num" style="font-size:0.95rem;color:var(--muted);">/ {{ total_count }}</span>
+      <span class="num" style="font-size: var(--t-data);color:var(--pr);line-height:1;">{{ unlocked_count }}</span>
+      <span class="num" style="font-size: var(--t-body);color:var(--muted);">/ {{ total_count }}</span>
     </div>
   </div>
   <div style="flex:1;min-width:180px;">
-    <div style="font-family:var(--f-display);font-size:1.2rem;font-weight:700;margin-bottom:0.35rem;">
+    <div style="font-family:var(--f-display);font-size: var(--t-head);font-weight:700;margin-bottom:0.35rem;">
       {{ "Complete!" if unlocked_count == total_count else ("Great progress!" if unlocked_count >= total_count * 0.6 else ("Keep going!" if unlocked_count >= total_count * 0.25 else "Just getting started")) }}
     </div>
-    <div style="font-size:0.875rem;color:var(--muted);line-height:1.5;">
+    <div style="font-size: var(--t-body);color:var(--muted);line-height:1.5;">
       {% set pct = (unlocked_count / total_count * 100) | round | int %}
       {{ pct }}% of all achievements unlocked.
       {% if total_count - unlocked_count > 0 %}
@@ -109,7 +109,7 @@
 <div style="margin-bottom:1.75rem;">
   <div class="section-title" style="display:flex;align-items:center;gap:0.5rem;">
     {{ cat.name }}
-    <span class="num" style="font-size:0.95rem;color:var(--muted);">
+    <span class="num" style="font-size: var(--t-body);color:var(--muted);">
       {{ cat.achievements | selectattr('unlocked') | list | length }}/{{ cat.achievements | length }}
     </span>
   </div>
@@ -124,7 +124,7 @@
       {% if ach.unlocked and ach.unlocked_at %}
         <div class="ach-date">{{ ach.unlocked_at | human_date }}</div>
       {% else %}
-        <span style="display:inline-flex;align-items:center;gap:0.3rem;font-size:0.8125rem;font-weight:600;color:var(--muted);"><i data-lucide="lock" class="ach-lock" aria-hidden="true"></i>Locked</span>
+        <span style="display:inline-flex;align-items:center;gap:0.3rem;font-size: var(--t-label);font-weight:600;color:var(--muted);"><i data-lucide="lock" class="ach-lock" aria-hidden="true"></i>Locked</span>
       {% endif %}
     </div>
     {% endfor %}

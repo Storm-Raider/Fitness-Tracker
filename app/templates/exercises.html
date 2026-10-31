@@ -24,7 +24,7 @@
     color: var(--text);
     min-height: 48px;
     padding: 0.7rem 1rem 0.7rem 2.5rem;
-    font-size: 1rem;
+    font-size: var(--t-body);
     font-family: inherit;
     transition: border-color 0.15s;
   }
@@ -44,7 +44,7 @@
   /* .muscle-pill extends the shared .pill (base.html); only the count is local. */
   .muscle-pill { min-height: 44px; }
   .muscle-pill-count {
-    font-size: 0.9375rem;
+    font-size: var(--t-body);
     color: var(--muted);
   }
   .muscle-pill.active .muscle-pill-count { color: inherit; }
@@ -59,7 +59,7 @@
   }
   .ex-group-label {
     font-family: var(--f-display);
-    font-size: 1.1rem;
+    font-size: var(--t-head);
     font-weight: 700;
     color: var(--text);
   }
@@ -69,7 +69,7 @@
     background: var(--border);
   }
   .ex-group-ct {
-    font-size: 0.9375rem;
+    font-size: var(--t-body);
     color: var(--muted);
   }
   /* One white card per muscle group; rows are separated by hairlines. */
@@ -92,7 +92,7 @@
     border-top: 1px solid var(--border);
     text-decoration: none;
     color: var(--text);
-    font-size: 1rem;
+    font-size: var(--t-body);
     font-weight: 600;
     transition: background 0.12s;
   }
@@ -124,17 +124,17 @@
   }
   .ex-recent:hover { background: var(--surface-hover); color: var(--text); }
   .ex-recent-name {
-    font-size: 0.9375rem;
+    font-size: var(--t-body);
     font-weight: 600;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
   }
-  .ex-recent-sub { font-size: 0.8125rem; color: var(--muted); font-weight: 600; }
+  .ex-recent-sub { font-size: var(--t-label); color: var(--muted); font-weight: 600; }
   .ex-recent-sub.is-pr { color: var(--pr); }
   .no-results {
     color: var(--muted);
-    font-size: 0.9rem;
+    font-size: var(--t-body);
     padding: 2.5rem 0;
     text-align: center;
   }

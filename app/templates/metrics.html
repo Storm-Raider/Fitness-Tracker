@@ -8,7 +8,7 @@
   </div>
   <button id="body-unit-toggle" onclick="window.toggleBodyUnit && window.toggleBodyUnit()"
     style="background:var(--surface-2);border:1px solid var(--border);color:var(--muted-hi);
-           font-family:inherit;font-size:0.875rem;font-weight:600;padding:0.35rem 0.85rem;
+           font-family:inherit;font-size: var(--t-body);font-weight:600;padding:0.35rem 0.85rem;
            border-radius:var(--radius-xs);cursor:pointer;min-width:44px;min-height:44px;">cm</button>
 </div>
 
@@ -154,8 +154,8 @@
     const u  = getUnit();
     const w  = cvt(r.weight_kg).toFixed(1);
     tip.innerHTML =
-      `<div style="font-size:0.8125rem;color:var(--muted);margin-bottom:0.2rem;">${humanDate(r.date)}</div>` +
-      `<span class="num" style="color:var(--text);font-size:1rem;">${w} ${u}</span>`;
+      `<div style="font-size: var(--t-label);color:var(--muted);margin-bottom:0.2rem;">${humanDate(r.date)}</div>` +
+      `<span class="num" style="color:var(--text);font-size: var(--t-body);">${w} ${u}</span>`;
     tip.style.display='block';
     const W=canvas.offsetWidth, tw=tip.offsetWidth;
     const x=xAt(idx,W,RAW.length);
@@ -230,7 +230,7 @@
         <div style="height:8px;border-radius:4px;background:linear-gradient(to right,var(--border-mid) 0% 14%,var(--success) 14% 40%,var(--border-mid) 40% 60%,var(--danger) 60% 100%);position:relative;">
           <div id="bmi-marker" style="position:absolute;top:50%;width:18px;height:18px;border-radius:50%;background:var(--surface);border:3px solid var(--text);transform:translate(-50%,-50%);transition:left 0.2s ease;display:none;box-shadow:var(--shadow-sm);"></div>
         </div>
-        <div class="num" style="display:flex;justify-content:space-between;margin-top:0.45rem;font-size:0.875rem;color:var(--muted);position:relative;height:1.3rem;">
+        <div class="num" style="display:flex;justify-content:space-between;margin-top:0.45rem;font-size: var(--t-body);color:var(--muted);position:relative;height:1.3rem;">
           <span style="position:absolute;left:0%;">15</span>
           <span style="position:absolute;left:14%;">18.5</span>
           <span style="position:absolute;left:40%;">25</span>
@@ -255,7 +255,7 @@
           <tr id="metric-{{ m.id }}">
             <td style="font-weight:500;white-space:nowrap;">{{ m.entry_date | human_date }}</td>
             <td class="num" style="white-space:nowrap;"><span class="weight-display" data-kg="{{ m.weight_kg }}">{{ m.weight_kg }} kg</span></td>
-            <td style="font-size:0.875rem;color:var(--muted);">{{ m.notes or '' }}</td>
+            <td style="font-size: var(--t-body);color:var(--muted);">{{ m.notes or '' }}</td>
             <td style="padding:0.2rem 0.4rem;text-align:center;">
               <button
                 hx-delete="/metrics/{{ m.id }}"
@@ -278,7 +278,7 @@
         <div style="width:44px;height:44px;border-radius:50%;background:var(--surface-2);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;">
           <i data-lucide="scale" style="width:20px;height:20px;color:var(--muted-hi);pointer-events:none;"></i>
         </div>
-        <p style="color:var(--muted);font-size:0.875rem;">No weight entries yet.</p>
+        <p style="color:var(--muted);font-size: var(--t-body);">No weight entries yet.</p>
       </div>
       {% endif %}
     </div>
@@ -342,8 +342,8 @@ function calcBmi() {
   markerEl.style.borderColor = color;
   const borderColor = 'var(--border)';
   resultEl.innerHTML =
-    '<div class="num" style="font-size:2.4rem;color:' + color + ';line-height:1;">' + bmi.toFixed(1) + '</div>' +
-    '<span class="badge" style="background:' + bg + ';color:' + color + ';font-size:0.875rem;border:1px solid ' + borderColor + ';">' + cat + '</span>';
+    '<div class="num" style="font-size: var(--t-display);color:' + color + ';line-height:1;">' + bmi.toFixed(1) + '</div>' +
+    '<span class="badge" style="background:' + bg + ';color:' + color + ';font-size: var(--t-body);border:1px solid ' + borderColor + ';">' + cat + '</span>';
 }
 async function logMetric() {
   const weight = getWeightKg();
@@ -484,9 +484,9 @@ async function logMetric() {
         <tbody>
           {% for m in measurements %}
           <tr id="meas-{{ m.id }}">
-            <td class="num" style="white-space:nowrap;font-size:0.95rem;color:var(--muted);">{{ m.logged_date }}</td>
-            <td style="font-weight:600;font-size:0.875rem;">{{ m.site }}</td>
-            <td class="num" style="font-size:1rem;" data-cm="{{ m.value_cm }}">{{ m.value_cm }}</td>
+            <td class="num" style="white-space:nowrap;font-size: var(--t-body);color:var(--muted);">{{ m.logged_date }}</td>
+            <td style="font-weight:600;font-size: var(--t-body);">{{ m.site }}</td>
+            <td class="num" style="font-size: var(--t-body);" data-cm="{{ m.value_cm }}">{{ m.value_cm }}</td>
             <td style="padding:0.2rem 0.4rem;text-align:center;">
               <button
                 hx-delete="/measurements/{{ m.id }}"
@@ -509,7 +509,7 @@ async function logMetric() {
         <div style="width:44px;height:44px;border-radius:50%;background:var(--surface-2);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;">
           <i data-lucide="ruler" style="width:20px;height:20px;color:var(--muted-hi);pointer-events:none;"></i>
         </div>
-        <p style="color:var(--muted);font-size:0.875rem;">No measurements logged yet.</p>
+        <p style="color:var(--muted);font-size: var(--t-body);">No measurements logged yet.</p>
       </div>
       {% endif %}
     </div>
@@ -554,7 +554,7 @@ async function logMetric() {
   sites.forEach(site => {
     const c = COLORS[site] || C.other;
     const chip = document.createElement('span');
-    chip.style.cssText = `display:inline-flex;align-items:center;gap:0.35rem;font-size:0.8125rem;font-weight:600;color:var(--text);`;
+    chip.style.cssText = `display:inline-flex;align-items:center;gap:0.35rem;font-size: var(--t-label);font-weight:600;color:var(--text);`;
     chip.innerHTML = `<span style="width:14px;height:4px;background:${c};border-radius:2px;display:inline-block;"></span>${site}`;
     legend.appendChild(chip);
   });
@@ -654,13 +654,13 @@ async function logMetric() {
     if (idx !== hoverX) { hoverX = idx; draw(); }
     // Tooltip
     const date = allDates[idx];
-    let html = `<div class="num" style="font-size:0.95rem;color:var(--muted);margin-bottom:0.3rem;">${date}</div>`;
+    let html = `<div class="num" style="font-size: var(--t-body);color:var(--muted);margin-bottom:0.3rem;">${date}</div>`;
     sites.forEach(site => {
       const pt = SITE_DATA[site].find(p => p.date === date);
       if (!pt) return;
       const c = COLORS[site] || C.other;
       const disp = window.fmtMeasurement ? window.fmtMeasurement(pt.value) : pt.value + ' cm';
-      html += `<div style="display:flex;align-items:center;gap:0.4rem;font-size:0.875rem;">
+      html += `<div style="display:flex;align-items:center;gap:0.4rem;font-size: var(--t-body);">
         <span style="width:12px;height:4px;background:${c};border-radius:2px;display:inline-block;flex-shrink:0;"></span>
         <span style="color:var(--muted-hi);">${site}</span>
         <span style="color:var(--text);font-weight:700;margin-left:auto;">${disp}</span></div>`;

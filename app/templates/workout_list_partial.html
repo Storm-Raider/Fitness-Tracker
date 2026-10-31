@@ -24,14 +24,14 @@
   }
   .wl-main:hover { color: inherit; }
   .wl-row { display: flex; align-items: center; gap: 1rem; min-width: 0; }
-  .wl-date { flex: 1; min-width: 0; white-space: nowrap; font-family: var(--f-display); font-weight: 700; font-size: 1.1rem; }
+  .wl-date { flex: 1; min-width: 0; white-space: nowrap; font-family: var(--f-display); font-weight: 700; font-size: var(--t-head); }
   .wl-stats { display: flex; align-items: center; gap: 1.1rem; flex-shrink: 0; }
   .wl-stat { text-align: right; }
-  .wl-stat-val { font-size: 1.35rem; line-height: 1.1; color: var(--text); }
-  .wl-stat-lbl { font-size: 0.8125rem; font-weight: 600; color: var(--muted); }
-  .wl-preview { color: var(--muted); font-size: 0.875rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .wl-stat-val { font-size: var(--t-data); line-height: 1.1; color: var(--text); }
+  .wl-stat-lbl { font-size: var(--t-label); font-weight: 600; color: var(--muted); }
+  .wl-preview { color: var(--muted); font-size: var(--t-body); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .wl-chev { color: var(--muted); flex-shrink: 0; }
-  .wl-q { font-size: 0.875rem; color: var(--muted); margin-bottom: 0.75rem; }
+  .wl-q { font-size: var(--t-body); color: var(--muted); margin-bottom: 0.75rem; }
   .wl-q a, .wl-empty a { color: var(--text); text-decoration: underline; text-underline-offset: 2px; font-weight: 600; }
   @media (max-width: 767px) {
     .wl-row { flex-wrap: wrap; row-gap: 0.35rem; }
@@ -91,12 +91,12 @@
       <i data-lucide="{% if q %}search-x{% else %}dumbbell{% endif %}" style="width:22px;height:22px;color:var(--muted);pointer-events:none;"></i>
     </div>
     {% if q %}
-    <p style="color:var(--muted);font-size:0.9375rem;max-width:260px;line-height:1.5;">
+    <p style="color:var(--muted);font-size: var(--t-body);max-width:260px;line-height:1.5;">
       No workouts match <strong style="color:var(--text);">{{ q }}</strong>.
       <a href="/workouts">Clear search</a>
     </p>
     {% else %}
-    <p style="color:var(--muted);font-size:0.9375rem;max-width:240px;line-height:1.5;">No sessions yet — hit <strong style="color:var(--text);">Start session</strong> above to begin.</p>
+    <p style="color:var(--muted);font-size: var(--t-body);max-width:240px;line-height:1.5;">No sessions yet — hit <strong style="color:var(--text);">Start session</strong> above to begin.</p>
     {% endif %}
   </div>
 </div>

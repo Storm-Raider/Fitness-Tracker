@@ -4,8 +4,8 @@
 <style>
 .jf-row { display:flex; flex-direction:column; gap:0.3rem; margin-bottom:1rem; }
 .jf-row label { margin-bottom:0; }
-.oura-tag { font-size:0.8125rem; font-weight:600; color:var(--muted); margin-left:0.35rem; }
-.oura-line { font-size:0.875rem; color:var(--muted); margin:-0.25rem 0 0.75rem; }
+.oura-tag { font-size: var(--t-label); font-weight:600; color:var(--muted); margin-left:0.35rem; }
+.oura-line { font-size: var(--t-body); color:var(--muted); margin:-0.25rem 0 0.75rem; }
 .jf-row input[type=text], .jf-row input[type=number], .jf-row input[type=date], .jf-row textarea {
   width:100%; }
 .jf-row textarea { resize:vertical; min-height:80px; }
@@ -19,10 +19,10 @@
 .hist-row:hover { background:var(--surface-2); }
 .hist-dot { width:10px; height:10px; border-radius:50%; flex-shrink:0; background:var(--surface); box-shadow:inset 0 0 0 2px var(--ring); }
 .hist-dot.filled { background:var(--text); box-shadow:none; }
-.hist-date { font-size:0.9375rem; font-weight:700; font-variant-numeric:tabular-nums; }
-.hist-day { font-size:0.8125rem; font-weight:600; color:var(--muted); margin-left:0.4rem; }
-.hist-sub { font-size:0.875rem; color:var(--muted); margin-top:0.1rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-.hist-steps { font-size:0.875rem; color:var(--muted-hi); flex-shrink:0; font-variant-numeric:tabular-nums; }
+.hist-date { font-size: var(--t-body); font-weight:700; font-variant-numeric:tabular-nums; }
+.hist-day { font-size: var(--t-label); font-weight:600; color:var(--muted); margin-left:0.4rem; }
+.hist-sub { font-size: var(--t-body); color:var(--muted); margin-top:0.1rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.hist-steps { font-size: var(--t-body); color:var(--muted-hi); flex-shrink:0; font-variant-numeric:tabular-nums; }
 </style>
 
 <div class="page-hd">
@@ -134,7 +134,7 @@
       <i data-lucide="save" style="width:16px;height:16px;pointer-events:none;"></i>
       Save
     </button>
-    <span id="save-msg" role="status" style="font-size:0.9375rem;font-weight:600;display:none;"></span>
+    <span id="save-msg" role="status" style="font-size: var(--t-body);font-weight:600;display:none;"></span>
   </div>
 </div>
 

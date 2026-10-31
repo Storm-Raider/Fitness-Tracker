@@ -13,7 +13,7 @@
   <div style="min-width:0;">
     <div class="section-title" style="margin-bottom:0.75rem;">Generate link</div>
     <div class="card">
-      <p style="font-size:0.875rem; color:var(--muted); margin-bottom:1.25rem;">
+      <p style="font-size: var(--t-body); color:var(--muted); margin-bottom:1.25rem;">
         Generate an invite link good for multiple signups. It expires after 7 days.
       </p>
       <div class="form-group">
@@ -21,7 +21,7 @@
         <input type="number" id="invite-max-uses" name="max_uses" value="5" min="1" max="50" style="min-height:48px;" onblur="if(!this.value) this.value=5;">
       </div>
       <button class="btn btn-primary"
-              style="width:100%;min-height:56px;border-radius:var(--radius);font-size:1rem;"
+              style="width:100%;min-height:56px;border-radius:var(--radius);font-size: var(--t-body);"
               hx-post="/invite"
               hx-include="#invite-max-uses"
               hx-target="#invite-result"
@@ -50,14 +50,14 @@
             {% for inv in pending_invites %}
             <tr>
               <td>
-                <code style="font-size:0.875rem; color:var(--muted-hi);">…{{ inv.token[-8:] }}</code>
+                <code style="font-size: var(--t-body); color:var(--muted-hi);">…{{ inv.token[-8:] }}</code>
               </td>
-              <td style="font-size:0.875rem; color:var(--muted);">{{ inv.created_at[:16] }}</td>
-              <td style="font-size:0.875rem; color:var(--muted);">{{ inv.expires_at[:16] }}</td>
-              <td class="num" style="font-size:0.875rem; color:var(--muted);">{{ inv.uses_count }} / {{ inv.max_uses }}</td>
+              <td style="font-size: var(--t-body); color:var(--muted);">{{ inv.created_at[:16] }}</td>
+              <td style="font-size: var(--t-body); color:var(--muted);">{{ inv.expires_at[:16] }}</td>
+              <td class="num" style="font-size: var(--t-body); color:var(--muted);">{{ inv.uses_count }} / {{ inv.max_uses }}</td>
               <td style="text-align:right;">
                 <button class="btn btn-ghost"
-                        style="font-size:0.875rem; color:var(--danger);"
+                        style="font-size: var(--t-body); color:var(--danger);"
                         hx-delete="/invite/{{ inv.token }}"
                         hx-target="closest tr"
                         hx-swap="outerHTML"
@@ -69,7 +69,7 @@
             {% endfor %}
           {% else %}
           <tr id="pending-invites-empty">
-            <td colspan="5" style="padding:1rem; color:var(--muted); font-size:0.875rem;">No pending invites.</td>
+            <td colspan="5" style="padding:1rem; color:var(--muted); font-size: var(--t-body);">No pending invites.</td>
           </tr>
           {% endif %}
         </tbody>
