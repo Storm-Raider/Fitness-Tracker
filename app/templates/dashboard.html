@@ -206,7 +206,7 @@
     <div class="vol-top">
       <div>
         <div class="k">Volume this week</div>
-        <div class="vol-big weight-display" data-kg="{{ weekly_volume }}">{{ "{:,.0f}".format(weekly_volume) }} kg</div>
+        <div class="vol-big weight-display" data-kg="{{ weekly_volume | round | int }}">{{ "{:,.0f}".format(weekly_volume) }} kg</div>
       </div>
       {% if volume_delta_pct is not none %}
       <div class="delta">
