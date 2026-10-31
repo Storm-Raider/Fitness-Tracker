@@ -18,7 +18,7 @@ NODE="${NODE:-$(ls -1d "$HOME"/.nvm/versions/node/*/bin/node 2>/dev/null | sort 
 NODE="${NODE:-$(command -v node)}"
 # E2E_SUITES picks some; offline stops its server, so it goes last.
 SUITES="${E2E_SUITES:-a11y.mjs no_overflow.test.mjs js_errors.test.mjs confirm_sheet.test.mjs
-        journal_zero.test.mjs sheet_drag.test.mjs coach_resume.test.mjs offline.test.mjs}"
+        journal_zero.test.mjs sheet_drag.test.mjs coach_resume.test.mjs ui_usability.test.mjs offline.test.mjs}"
 
 exec 9>"$ROOT/logs/.e2e.lock"
 flock -n 9 || { echo "$(date '+%F %H:%M')  SKIP: another run is still going"; exit 0; }
