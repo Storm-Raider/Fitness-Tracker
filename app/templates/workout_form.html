@@ -225,6 +225,20 @@
 }
 
 /* ── Sets of this exercise ───────────────────────────────────── */
+.set-head {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr) minmax(0, 1fr) 60px;
+  gap: 6px;
+  margin-top: 1rem;
+  padding: 0 6px 6px;
+  border-bottom: 1.5px solid var(--text);
+  font-size: var(--t-label);
+  font-weight: 500;
+  color: var(--muted);
+}
+.set-head span:first-child, .set-head span:last-child { text-align: center; }
+.set-head + .cur-sets { margin-top: 6px; }
+.set-head + .cur-sets:empty + .active-set { margin-top: 6px; }
 .cur-sets { display: grid; gap: 4px; margin-top: 0.85rem; }
 .cur-sets:empty { display: none; }
 .cur-row { border-radius: var(--radius); background: var(--surface-2); position: relative; overflow: hidden; touch-action: pan-y; }
@@ -249,7 +263,7 @@
 .cur-n { color: var(--muted); font-size: var(--t-body); text-align: center; }
 .cur-val {
   font-family: var(--f-display);
-  font-weight: 700;
+  font-weight: 600;
   font-variant-numeric: tabular-nums;
   font-size: var(--t-data);   /* same scale as the next set's fields */
   line-height: 1.1;
@@ -495,12 +509,15 @@
 .rest-btn:focus-visible { outline-color: var(--bg); }
 .rest-drain {
   position: absolute;
-  left: 0; bottom: 0;
+  left: 0; top: 0;
   height: 3px;
-  background: var(--primary);
+  background: var(--hi);   /* highlighter on the ink bar: the time left (DESIGN.md) */
   transition: width 0.9s linear;
 }
 @media (prefers-reduced-motion: reduce) { .rest-bar { animation: none; } .rest-drain { transition: none; } }
+
+/* Est. 1RM sits on the "Last time" line, after a rule */
+.e1rm-hint { margin-left: auto; padding-left: 12px; border-left: 1px solid var(--border); }
 
 /* ── Notes · Cardio · Muscles ─────────────────────────────────── */
 .more-card {
@@ -893,11 +910,12 @@
   <div class="set-bar"></div>
   <div class="set-body">
     {# Tap a set to fix it or delete it, as in a live session (DESIGN.md). #}
-    <button type="button" class="set-main" onclick="startEdit({{ s.id }})" aria-label="Edit set: {{ s.exercise_name }}">
+    <button type="button" class="set-main" onclick="startEdit({{ s.id }})">
       <span class="set-name">{{ s.exercise_name }}</span>
       <span class="set-detail" id="detail-{{ s.id }}">
         <span class="set-metric">{{ set_metric(s) }}</span>{% if s.rpe %} · {{ 'Easy' if s.rpe <= 5 else ('Medium' if s.rpe <= 7 else ('Hard' if s.rpe <= 9 else 'Max')) }} effort{% endif %}{% if s.notes %} · {{ s.notes }}{% endif %}
       </span>
+      <span class="sr-only">, edit set</span>
     </button>
     <div class="set-edit-row" id="edit-{{ s.id }}"></div>
   </div>
@@ -1163,6 +1181,7 @@ document.getElementById('tpl-name-input')?.addEventListener('keydown', e => { if
     </div>
     <div id="last-set-hint" class="ex-hero-hint" style="display:none;">
       Last time <span class="last-val" id="last-set-text"></span>
+      <span id="e1rm-hint" class="e1rm-hint" style="display:none;">Est. 1RM <span class="last-val num weight-display" id="e1rm-text"></span></span>
     </div>
     {# The coach plan's target for this exercise (routine_exercises.target_json); never pre-fills sets #}
     <div id="target-hint" class="ex-hero-hint" style="display:none;">
@@ -1177,6 +1196,8 @@ document.getElementById('tpl-name-input')?.addEventListener('keydown', e => { if
 
   <div id="set-area" style="display:none;">
     {# This exercise's logged sets (tap one to fix it), then the next set #}
+    {# Column heads for the set table (DESIGN.md). Decorative: each field has its own label. #}
+    <div class="set-head" aria-hidden="true"><span>Set</span><span>Weight</span><span>Reps</span><span>Done</span></div>
     <div class="cur-sets" id="cur-sets" role="list" aria-label="Sets of this exercise"></div>
 
     <div class="active-set" id="active-set">
@@ -1421,6 +1442,7 @@ const _CUR_EX_KEY = `zenkai_cur_ex_${WORKOUT_ID}`;
 const IS_FINISHED = {{ 'true' if is_finished else 'false' }};
 let exercises = [];
 let lastSets = {};       // exercise id -> its latest set from before this session
+let bestE1rm = {};       // exercise id -> best estimated 1RM (kg) from before this session
 let selectedMuscleGroup = '';
 
 // ── This session's sets: the one source of truth for the active view ──────
@@ -1532,7 +1554,9 @@ function renderStrip() {
     b.append(name);
     if (cnt.textContent) b.append(cnt);
     if (n && (!t || !t.sets || n >= t.sets)) b.insertAdjacentHTML('beforeend', _TICK_SVG.replace('<svg', '<svg class="sc-tick"'));
-    b.setAttribute('aria-label', `${it.name}, ${n} set${n === 1 ? '' : 's'} logged${t && t.sets ? ` of ${t.sets}` : ''}`);
+    const sr = document.createElement('span'); sr.className = 'sr-only';
+    sr.textContent = cnt.textContent ? ` set${n === 1 && !(t && t.sets) ? '' : 's'} logged` : ', no sets yet';
+    b.append(sr);
     if (isCur) b.setAttribute('aria-current', 'true');
     b.addEventListener('click', () => { if (it.id && it.id !== _currentExId()) selectExercise(it.id, it.name); });
     strip.appendChild(b);
@@ -1593,14 +1617,17 @@ function renderCurrentSets(justId) {
     main.type = 'button';
     main.className = 'cur-main';
     main.setAttribute('aria-expanded', s.id === _editingSetId ? 'true' : 'false');
+    // The button's name is its visible text plus screen-reader words, never a
+    // separate aria-label: Voice Control users say what they see (WCAG 2.5.3).
+    const pre = document.createElement('span'); pre.className = 'sr-only'; pre.textContent = 'Set ';
     const n = document.createElement('span'); n.className = 'cur-n'; n.textContent = i + 1;
     const v = document.createElement('span'); v.className = 'cur-val'; v.textContent = _setLabel(s, unit);
     const sub = [s.rpe ? `${effortLabel(s.rpe)} effort` : '', s.notes || ''].filter(Boolean).join(' · ');
     if (sub) { const r = document.createElement('span'); r.className = 'cur-sub'; r.textContent = sub; v.appendChild(r); }
     if (_prSetIds.has(id)) { const tag = document.createElement('span'); tag.className = 'cur-tag'; tag.textContent = 'Best ever'; v.appendChild(tag); }
     const t = document.createElement('span'); t.className = 'cur-tick'; t.innerHTML = _TICK_SVG;
-    main.append(n, v, t);
-    main.setAttribute('aria-label', `Set ${i + 1}: ${_setLabel(s, unit)}${s.rpe ? `, ${effortLabel(s.rpe)} effort` : ''}. Tap to edit.`);
+    const post = document.createElement('span'); post.className = 'sr-only'; post.textContent = '. Tap to edit.';
+    main.append(pre, n, v, t, post);
     main.addEventListener('click', () => toggleCurEdit(s.id));
     const bg = document.createElement('div'); bg.className = 'set-row-swipe-bg';
     bg.innerHTML = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></svg>';
@@ -2162,6 +2189,7 @@ async function loadExercises() {
     const data = await resp.json();
     exercises = data.exercises;
     lastSets  = data.last_sets || {};
+    bestE1rm  = data.best_e1rm || {};
     _populateMuscleDropdown(exercises);
     if (!_resumePicked && !_currentExId()) {
       // Pick up where the user was (this tab, this session), else the last
@@ -2352,6 +2380,12 @@ function _showLastTime(ex) {
   const last = lastSets[String(ex.id)];
   if (!last || !hint) { if (hint) hint.style.display = 'none'; return; }
   document.getElementById('last-set-text').textContent = _setLabel(last, getAppUnit());
+  const e1 = bestE1rm[String(ex.id)], eh = document.getElementById('e1rm-hint');
+  if (eh) {
+    const show = e1 && !ex.is_bodyweight && !ex.is_time;
+    eh.style.display = show ? '' : 'none';
+    if (show) { const t = document.getElementById('e1rm-text'); t.dataset.kg = e1; t.textContent = fmtWeight(e1, getAppUnit()); }
+  }
   hint.style.display = 'flex';
 }
 

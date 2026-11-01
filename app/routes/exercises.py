@@ -167,7 +167,21 @@ async def list_exercises_json(
             for r in await cur.fetchall()
         }
 
-    return JSONResponse({"exercises": exercises_list, "last_sets": last_sets})
+    # Best estimated 1RM per exercise from before this session (Epley, 1-12 reps,
+    # where the estimate holds up). Shown beside "Last time" on the session screen.
+    async with conn.execute(
+        """
+        SELECT exercise_id, MAX(e1rm(weight_kg, reps)) AS best
+        FROM sets
+        WHERE user_id = ? AND weight_kg > 0 AND reps BETWEEN 1 AND 12
+          AND (? IS NULL OR workout_id != ?)
+        GROUP BY exercise_id
+        """,
+        (current_user["id"], exclude_workout, exclude_workout),
+    ) as cur:
+        best_e1rm = {str(r["exercise_id"]): round(r["best"], 1) for r in await cur.fetchall() if r["best"]}
+
+    return JSONResponse({"exercises": exercises_list, "last_sets": last_sets, "best_e1rm": best_e1rm})
 
 
 @router.post("/exercises", status_code=201)
