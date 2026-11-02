@@ -45,7 +45,8 @@ async def cardio_page(
     return render(
         request,
         "cardio",
-        {"logs": logs, "cardio_exercises": cardio_exercises, "user": dict(current_user)},
+        {"logs": logs, "cardio_exercises": cardio_exercises, "user": dict(current_user),
+         "just_logged": next((l for l in logs if str(l["id"]) == request.query_params.get("logged", "")), None)},
     )
 
 
@@ -91,13 +92,15 @@ async def add_standalone_cardio(
         if parsed > date.today():
             raise HTTPException(status_code=422, detail="logged_date cannot be in the future")
 
-    await conn.execute(
+    cur = await conn.execute(
         """INSERT INTO cardio_logs(user_id, exercise_id, logged_date, duration_minutes, distance_km, notes)
            VALUES (?, ?, COALESCE(?, date('now','localtime')), ?, ?, ?)""",
         (uid, exercise_id, log_date, duration_minutes, dist, note),
     )
     await conn.commit()
-    return RedirectResponse("/cardio", status_code=303)
+    # Back to the page with the new entry named at the top: the form fills a
+    # phone screen, so the history row alone was out of sight (2026-11-02).
+    return RedirectResponse(f"/cardio?logged={cur.lastrowid}", status_code=303)
 
 
 @router.delete("/cardio/{log_id}", status_code=200)

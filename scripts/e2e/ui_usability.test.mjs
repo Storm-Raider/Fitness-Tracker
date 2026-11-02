@@ -23,6 +23,10 @@
 //   E8 Reflow: at 320px wide (400% zoom of a 1280 screen) nothing scrolls sideways.
 //   E9 Reduced motion: with prefers-reduced-motion no animation runs longer than 0.1s.
 //   E10 Speed: each main page is ready (DOMContentLoaded) in under 1.5 s.
+//   F5 Logging cardio (in a session and on the Cardio page) shows a visible
+//      "Logged." confirmation where you tapped, and the entry itself.
+//   E12 No zoom on tap: every page's viewport caps zoom at 1 and the whole page
+//      has touch-action: manipulation; no field is under 16px.
 //   E11 Type scale: every main page and the sign-in page use only the five sizes in
 //      DESIGN.md (13 / 15 / 18 / 22 / 30 px; 40 for the desktop headline; 16 for
 //      text typed into a field, which iOS needs to avoid zooming).
@@ -362,6 +366,64 @@ await seedCtx.close();
   await ctx.close();
 }
 
+// ── F5 cardio confirmation ──────────────────────────────────────────────────
+{
+  const ctx = await browser.newContext(PHONE);
+  const page = await login(ctx);
+  const live = await api(page, 'POST', '/workouts', {});
+  await page.goto(BASE + `/workouts/${live.id}`, { waitUntil: 'networkidle' });
+  await page.click('#cardio-panel > summary');
+  await page.selectOption('#cardio-exercise-select', { index: 1 });
+  await page.click('#cardio-log-btn');
+  const note = page.locator('#cardio-logged');
+  await note.waitFor({ state: 'visible', timeout: 3000 }).catch(() => {});
+  const inSession = await note.isVisible() && /Logged\./.test(await note.innerText()) && await note.isVisible()
+    && (await page.locator('#cardio-list .set-row').count()) === 1
+    && await page.locator('#meta-cardio').isVisible();
+  // The note sits right under the button, so it is on screen where the tap was.
+  const near = await page.evaluate(() => {
+    const b = document.getElementById('cardio-log-btn').getBoundingClientRect();
+    const n = document.getElementById('cardio-logged').getBoundingClientRect();
+    return n.top - b.bottom < 24;
+  });
+  await page.goto(BASE + '/cardio', { waitUntil: 'networkidle' });
+  await page.locator('form[action="/cardio"] button[type=submit]').click();
+  await page.waitForLoadState('networkidle');
+  const banner = page.locator('#logged-note');
+  const onPage = await banner.isVisible() && /Logged\./.test(await banner.innerText())
+    && (await banner.boundingBox()).y < 300;
+  check('F5', 'logging cardio shows a visible confirmation (session and Cardio page)',
+        inSession && near && onPage, `session=${inSession} nearButton=${near} cardioPage=${onPage}`);
+  await api(page, 'DELETE', `/workouts/${live.id}`);
+  await ctx.close();
+}
+
+// ── E12 no zoom on tap ──────────────────────────────────────────────────────
+{
+  const ctx = await browser.newContext(PHONE);
+  const page = await login(ctx);
+  const bad = [];
+  for (const p of [...PAGES, '/cardio', '/routines/manage', '/challenges']) {
+    await page.goto(BASE + p, { waitUntil: 'networkidle' });
+    const r = await page.evaluate(() => {
+      document.querySelectorAll('details').forEach(d => { d.open = true; });
+      const vp = document.querySelector('meta[name=viewport]')?.content || '';
+      const ta = getComputedStyle(document.documentElement).touchAction;
+      const small = [...document.querySelectorAll('input:not([type=hidden]):not([type=checkbox]):not([type=radio]):not([type=range]), select, textarea')]
+        .filter(e => parseFloat(getComputedStyle(e).fontSize) < 16).map(e => e.id || e.name);
+      return { capped: /maximum-scale=1(\.0)?\b/.test(vp), ta, small };
+    });
+    if (!r.capped || r.ta !== 'manipulation' || r.small.length) bad.push(`${p}: capped=${r.capped} touch=${r.ta} small=${r.small.join(',')}`);
+  }
+  const out = await _newContext(PHONE);
+  const lp = await out.newPage();
+  await lp.goto(BASE + '/login');
+  if (!/maximum-scale=1\b/.test(await lp.getAttribute('meta[name=viewport]', 'content'))) bad.push('/login: not capped');
+  await out.close();
+  check('E12', 'no zoom on tap: viewport capped, page-wide manipulation, fields ≥16px', !bad.length, bad.join(' | '));
+  await ctx.close();
+}
+
 // ── E11 type scale on the redesigned screens ────────────────────────────────
 {
   const off = [];
@@ -370,7 +432,7 @@ await seedCtx.close();
     const page = await login(ctx);
     const live = await api(page, 'POST', '/workouts', {});
     await api(page, 'POST', `/workouts/${live.id}/sets`, { exercise_id: bench.id, reps: 5, weight_kg: 60 });
-    for (const p of ['/', `/workouts/${live.id}`, ...PAGES.slice(1), '/achievements', '/challenges', '/routines',
+    for (const p of ['/', `/workouts/${live.id}`, ...PAGES.slice(1), '/achievements', '/challenges', '/routines/manage',
                      '/templates', '/cardio', '/export', '/feedback', `/exercises/${bench.id}`]) {
       await page.goto(BASE + p, { waitUntil: 'networkidle' });
       const bad = await page.evaluate(([ok]) => {

@@ -2,6 +2,13 @@
 {% block title %}Cardio — Zenkai{% endblock %}
 {% block content %}
 <style>
+  .logged-note { display: flex; align-items: center; gap: 10px; min-height: 56px; padding: 10px 16px; margin-bottom: 24px;
+                 background: var(--hi); border: 1.5px solid var(--text); border-radius: var(--radius); font-size: var(--t-body); }
+  .logged-note b { font-weight: 600; }
+  .logged-note a { margin-left: auto; min-height: 44px; display: flex; align-items: center; text-decoration: underline; white-space: nowrap; }
+  .just-logged td { background: var(--primary-tint); }
+</style>
+<style>
 .cardio-del {
   width: 44px; height: 44px; display: inline-flex; align-items: center; justify-content: center;
   background: transparent; border: none; border-radius: var(--radius-xs);
@@ -22,6 +29,14 @@
     <div class="subtitle">Log and track cardio sessions</div>
   </div>
 </div>
+
+{% if just_logged %}
+<div class="logged-note" role="status" id="logged-note">
+  <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+  <span><b>Logged.</b> {{ just_logged.exercise_name }}, <span class="num">{{ just_logged.duration_minutes | int }}</span> min{% if just_logged.distance_km %}, <span class="distance-display num" data-km="{{ just_logged.distance_km }}">{{ "%.1f"|format(just_logged.distance_km) }} km</span>{% endif %}, {{ just_logged.logged_date | human_date }}.</span>
+  <a href="#cardio-{{ just_logged.id }}">See it</a>
+</div>
+{% endif %}
 
 <div class="grid-2 cardio-grid" style="align-items:start;gap:1.5rem;">
 
@@ -103,13 +118,13 @@
             <th>Activity</th>
             <th>Duration</th>
             <th>Distance</th>
-            <th>Pace</th>
+            <th class="col-wide">Pace</th>
             <th style="width:44px;"></th>
           </tr>
         </thead>
           {% for log in logs %}
           {# One tbody per session so HTMX delete removes the row and its note together #}
-          <tbody id="cardio-{{ log.id }}">
+          <tbody id="cardio-{{ log.id }}"{% if just_logged and just_logged.id == log.id %} class="just-logged"{% endif %}>
           <tr>
             <td style="font-weight:600;white-space:nowrap;">{{ log.logged_date | human_date }}</td>
             <td>{{ log.exercise_name }}</td>
@@ -119,7 +134,7 @@
                 <span class="distance-display" data-km="{{ log.distance_km }}">{{ "%.1f"|format(log.distance_km) }} km</span>
               {% else %}—{% endif %}
             </td>
-            <td class="num" style="color:var(--muted);">
+            <td class="num col-wide" style="color:var(--muted);">
               {% if log.distance_km and log.distance_km > 0 %}
                 <span class="pace-display"
                       data-min-per-km="{{ log.duration_minutes / log.distance_km }}">

@@ -24,6 +24,11 @@ async function audit(pg, path) {
   await pg.addScriptTag({ content: AXE });
   const res = await pg.evaluate(async () => (await axe.run(document, {
     runOnly: { type: 'tag', values: ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'] },
+    // meta-viewport off by the user's decision (2026-11-02, DESIGN.md): taps and
+    // field focus must never zoom the page. maximum-scale=1 stops that; iOS Safari
+    // still lets people pinch-zoom (Apple ignores the cap for that), and
+    // user-scalable=no is NOT set.
+    rules: { 'meta-viewport': { enabled: false } },
   })).violations.map(v => ({ id: v.id, n: v.nodes.length })));
   const nodes = res.reduce((a, v) => a + v.n, 0);
   failures += nodes;

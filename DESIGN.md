@@ -118,7 +118,7 @@ Five sizes, one job each. Nothing else.
 ## Accessibility
 
 - WCAG 2.1 AA. Text at least 4.5:1 (check E5), UI outlines at least 3:1. Touch targets at least 44px, primary actions at least 56px (E3). No text under 13px (E4).
-- Pinch-zoom allowed. Reflow at 320px (E8). Reduced motion respected (E9).
+- Taps and field focus never zoom the page (the user, 2026-11-02): the viewport sets `maximum-scale=1` (not `user-scalable=no`) and `touch-action: manipulation` covers the whole page. iOS Safari still allows pinch-zoom. Typed field text stays 16px. Reflow at 320px (E8). Reduced motion respected (E9).
 - Keep `scripts/e2e/` green: `ui_usability`, `a11y`, `no_overflow`, `js_errors`, `confirm_sheet`, `sheet_drag`, `journal_zero`, `offline`.
 
 ## Decisions Log
@@ -130,5 +130,7 @@ Five sizes, one job each. Nothing else.
 | 2026-10-31 | Home leads with the strength story; records, volume and activity move to Analytics | Less on Home. The activity heatmap moved to Analytics with them. |
 | 2026-10-31 | One tap from Home into a session | Home starts the next plan day directly (was 2 taps via Sessions). |
 | 2026-10-31 | No orange; primary is ink | Orange belonged to Daylight. Ink fill reads as the thing to press on drafting paper, and leaves color for data (blue) and now (yellow). |
+| 2026-11-02 | Taps never zoom (`maximum-scale=1`) | The user: tapping anything zoomed the page in or out. Reverses the 2026-10-10 removal; `user-scalable=no` stays off, and iOS keeps pinch-zoom for accessibility. axe's meta-viewport rule is disabled in a11y.mjs with this reason. |
+| 2026-11-02 | Logging cardio confirms where you tapped | The user saw no sign it worked: the new entry landed above the form, out of view. A "Logged." line now appears under the button, the entry scrolls into view, the header counts cardio minutes, and the Cardio page opens with a "Logged." banner. |
 
 Earlier systems: `docs/design-history/DESIGN-daylight.md`, `docs/design-history/DESIGN-redline-console.md`.
