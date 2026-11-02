@@ -203,7 +203,7 @@ document.getElementById('goal-input')?.addEventListener('keydown', e => { if(e.k
     <tbody>
       {% for s in sessions %}
       {% set one_rm = (s.max_kg * (1 + (s.max_reps or 1) / 30)) | round(1) %}
-      <tr>
+      <tr{% if loop.index > 10 %} class="hist-more" hidden{% endif %}>
         <td style="font-weight:600;white-space:nowrap;">{{ s.date | human_date }}</td>
         {% if is_bw %}
         <td class="num" style="white-space:nowrap;">
@@ -230,6 +230,13 @@ document.getElementById('goal-input')?.addEventListener('keydown', e => { if(e.k
     </tbody>
   </table>
 </div>
+{% if sessions | length > 10 %}
+{# The newest 10 first; the rest on request (2026-11-02: Bench Press ran 30 rows). #}
+<button type="button" class="btn btn-ghost" id="hist-all" style="width:100%;margin-top:8px;"
+        onclick="document.querySelectorAll('.hist-more').forEach(r => r.hidden = false); this.remove();">
+  Show all <span class="num">{{ sessions | length }}</span> sessions
+</button>
+{% endif %}
 {% else %}
 <div class="card" style="text-align:center;padding:3rem 1.25rem;">
   <div style="display:flex;flex-direction:column;align-items:center;gap:0.75rem;">

@@ -7,30 +7,26 @@ async def test_stats_renders(client):
     resp = await client.get("/stats", headers={"Accept": "text/html"}, follow_redirects=True)
     assert resp.status_code == 200
     assert "Analytics" in resp.text
-    # Always-rendered sections (data-driven sections only appear with data —
-    # those are covered by test_stats_shows_top_exercise / _plateau).
-    assert "Volume" in resp.text          # "Volume — last 12 weeks"
-    assert "Muscle volume" in resp.text   # "Muscle volume — all time"
 
 
 @pytest.mark.asyncio
 async def test_stats_empty_state(client):
+    """A new account sees one empty state, not empty charts (2026-11-02)."""
     resp = await client.get("/stats", headers={"Accept": "text/html"}, follow_redirects=True)
     assert resp.status_code == 200
-    # With no logged sessions, the volume trend shows its empty-state prompt.
-    assert "Volume trend appears once" in resp.text
+    assert "No sets logged yet" in resp.text
     assert "Start a session" in resp.text
+    assert 'id="vol-chart"' not in resp.text and "Muscle volume" not in resp.text
 
 
 @pytest.mark.asyncio
-async def test_stats_empty_chart_state(client):
+async def test_stats_sections_with_data(client):
+    ex = next(e for e in (await client.get("/api/exercises")).json()["exercises"] if e["name"] == "Bench Press")["id"]
+    w = (await client.post("/workouts", json={})).json()["id"]
+    await client.post(f"/workouts/{w}/sets", json={"exercise_id": ex, "reps": 5, "weight_kg": 60})
+    await client.post(f"/workouts/{w}/finish")
     resp = await client.get("/stats", headers={"Accept": "text/html"}, follow_redirects=True)
-    assert resp.status_code == 200
-    assert "Volume trend appears once" in resp.text
-    assert "Start a session" in resp.text
-    # No volume chart is drawn when there's no data (the muscle-map SVG always
-    # renders, so we check for the chart canvas specifically, not any <svg>).
-    assert 'id="vol-chart"' not in resp.text
+    assert "Volume — last 12 weeks" in resp.text and "Muscle volume" in resp.text
 
 
 @pytest.mark.asyncio

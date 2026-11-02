@@ -37,6 +37,21 @@ def _human_date(iso_str) -> str:
 templates.env.filters["human_date"] = _human_date
 
 
+def _day_label(iso_str) -> str:
+    """'Today', 'Yesterday', else 'Fri, Oct 30': a session's day inside a week list."""
+    label = _human_date(iso_str)
+    if label in ("Today", "Yesterday", "—"):
+        return label
+    try:
+        d = _date.fromisoformat(str(iso_str)[:10])
+    except (ValueError, TypeError):
+        return label
+    return f"{d.strftime('%a')}, {d.strftime('%b')} {d.day}"
+
+
+templates.env.filters["day_label"] = _day_label
+
+
 def _long_date(iso_str) -> str:
     """"2026-10-11" -> "Sunday, Oct 11": a page subtitle, never a raw ISO date."""
     try:

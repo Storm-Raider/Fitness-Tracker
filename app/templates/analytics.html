@@ -57,161 +57,12 @@
 .rec-key { width:12px; height:12px; border-radius:3px; border:1px solid; display:inline-block; }
 </style>
 
-{# ── 1. Muscle heatmap ───────────────────────────────────────────── #}
-<div style="margin-bottom:1.5rem;">
-  <div class="section-title">Muscle volume — all time</div>
-  <div class="card" style="padding:1.25rem;">
-    {% set map_id = "analytics" %}
-    {% include 'partials/muscle_map.html' %}
-  </div>
-</div>
-
-{# ── 2. Muscle recovery ──────────────────────────────────────────── #}
-{% if muscle_recovery %}
-<div style="margin-bottom:1.5rem;">
-  <div class="section-title">Muscle recovery</div>
-  <div class="card" style="padding:1rem 1.25rem;">
-    <div style="display:flex;flex-wrap:wrap;gap:0.5rem;">
-      {% for m in muscle_recovery %}
-      {% if m.days_ago <= 1 %}
-        {% set state = "fatigued" %}{% set label = "Fatigued" %}
-      {% elif m.days_ago <= 3 %}
-        {% set state = "recovering" %}{% set label = "Recovering" %}
-      {% else %}
-        {% set state = "fresh" %}{% set label = "Fresh" %}
-      {% endif %}
-      <div class="rec-chip rec-{{ state }}" title="{{ m.muscle }}: last trained {{ m.last_date }}">
-        <span class="rec-muscle">{{ m.muscle }}</span>
-        <span class="rec-state">{{ label }} ·
-          {% if m.days_ago == 0 %}today{% elif m.days_ago == 1 %}<span class="num">1</span> day{% else %}<span class="num">{{ m.days_ago }}</span> days{% endif %}
-        </span>
-      </div>
-      {% endfor %}
-    </div>
-    <div class="rec-legend">
-      <span><span class="rec-key" style="background:var(--success-dim);border-color:var(--success);"></span>Fresh: 4+ days</span>
-      <span><span class="rec-key" style="background:var(--surface-2);border-color:var(--border-mid);"></span>Recovering: 2–3 days</span>
-      <span><span class="rec-key" style="background:var(--danger-dim);border-color:var(--danger);"></span>Fatigued: 0–1 days</span>
-    </div>
-  </div>
-</div>
-{% endif %}
-
-{# ── 3. Strength percentiles ─────────────────────────────────────── #}
-{% if records and bodyweight_kg %}
-<div style="margin-bottom:1.5rem;">
-  <div class="section-title">Strength levels — bodyweight ratios</div>
-  <div class="card" style="padding:1.1rem 1.25rem;">
-    <p style="font-size: var(--t-label);color:var(--muted);margin:0 0 1rem;">
-      Standard strength benchmarks for your bodyweight of <strong style="color:var(--text);"><span class="weight-display num" id="bw-display" data-kg="{{ bodyweight_kg | round(1) }}">{{ bodyweight_kg | round(1) }} kg</span></strong>.
-    </p>
-    <div id="percentile-grid" style="display:flex;flex-direction:column;"></div>
-  </div>
-</div>
-<script>
-(function() {
-  const BW_KG = {{ bodyweight_kg }};
-
-  const LIFT_NORMS = {
-    'Bench Press':       [0.50, 0.75, 1.00, 1.25, 1.50],
-    'Back Squat':        [0.75, 1.00, 1.25, 1.50, 1.75],
-    'Deadlift':          [1.00, 1.25, 1.50, 1.75, 2.00],
-    'Overhead Press':    [0.35, 0.55, 0.75, 1.00, 1.25],
-    'Barbell Row':       [0.50, 0.75, 1.00, 1.25, 1.50],
-    'Romanian Deadlift': [0.75, 1.00, 1.25, 1.50, 1.75],
-    'Front Squat':       [0.55, 0.80, 1.00, 1.25, 1.50],
-    'Incline Bench Press':[0.40, 0.60, 0.85, 1.10, 1.35],
-  };
-  const LEVELS = ['Untrained','Novice','Intermediate','Advanced','Elite'];
-  // Ordered levels: one neutral ramp, darker as the level rises (validated as
-  // an ordinal ramp on the white card: monotone L, light end 3.3:1). Elite is
-  // earned, so it wears the record amber (--pr).
-  const LEVEL_COLORS = {
-    'Untrained':    '#8f8e88',   // --ring
-    'Novice':       '#6b6a65',
-    'Intermediate': '#4a4a46',   // --muted-hi
-    'Advanced':     '#141414',   // --text
-    'Elite':        '#8c5a00',   // --pr
-  };
-
-  const records = [
-    {% for r in records if not r.is_bodyweight %}
-    { name: {{ r.name | tojson }}, e1rm: {{ r.est_1rm }} },
-    {% endfor %}
-  ];
-
-  const unit = window.getAppUnit ? window.getAppUnit() : 'kg';
-  const bwEl = document.getElementById('bw-display');
-  if (bwEl) bwEl.textContent = window.fmtWeight ? window.fmtWeight(BW_KG, unit) : BW_KG.toFixed(1) + ' kg';
-
-  function getLevel(liftKg, norms) {
-    const ratio = liftKg / BW_KG;
-    let level = 'Untrained', pct = 0;
-    for (let i = norms.length - 1; i >= 0; i--) {
-      if (ratio >= norms[i]) {
-        level = LEVELS[i];
-        const lo = norms[i], hi = norms[i + 1] || norms[i] * 1.25;
-        const progress = Math.min(1, (ratio - lo) / (hi - lo));
-        pct = Math.round((i / (LEVELS.length - 1) + progress / (LEVELS.length - 1)) * 100);
-        break;
-      }
-      if (i === 0 && ratio < norms[0]) {
-        pct = Math.round(Math.min(1, ratio / norms[0]) * (100 / LEVELS.length));
-      }
-    }
-    return { level, pct: Math.min(99, pct) };
-  }
-
-  const grid = document.getElementById('percentile-grid');
-  if (!grid) return;
-
-  let rendered = 0;
-  for (const [liftName, norms] of Object.entries(LIFT_NORMS)) {
-    const rec = records.find(r => r.name.toLowerCase() === liftName.toLowerCase());
-    if (!rec) continue;
-    const { level, pct } = getLevel(rec.e1rm, norms);
-    const color = LEVEL_COLORS[level] || '#141414';
-    const ratio = (rec.e1rm / BW_KG).toFixed(2);
-    const display = window.fmtWeight ? window.fmtWeight(rec.e1rm, unit) : rec.e1rm.toFixed(1) + ' kg';
-
-    const row = document.createElement('div');
-    row.className = 'strength-row';
-    row.innerHTML = `
-      <div style="flex:0 1 8.5rem;min-width:0;overflow:hidden;">
-        <div style="font-size: var(--t-body);font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${liftName}</div>
-        <div style="font-size: var(--t-label);font-weight:700;color:${level === 'Elite' ? 'var(--pr)' : 'var(--muted)'};margin-top:0.15rem;">${level}</div>
-      </div>
-      <div style="flex:1;min-width:40px;">
-        <div style="height:8px;background:var(--surface-hover);border-radius:4px;overflow:hidden;">
-          <div style="height:100%;width:${pct}%;background:${color};border-radius:4px;transition:width 0.6s cubic-bezier(0.16,1,0.3,1);"></div>
-        </div>
-      </div>
-      <div style="text-align:right;flex-shrink:0;width:5.5rem;">
-        <div class="num" data-e1rm="${rec.e1rm}" style="font-size: var(--t-body);color:var(--text);line-height:1;">${display}</div>
-        <div style="font-size: var(--t-label);color:var(--muted);margin-top:0.2rem;"><span class="num">${ratio}</span>× BW</div>
-      </div>`;
-    grid.appendChild(row);
-    rendered++;
-  }
-
-  if (rendered === 0) {
-    grid.innerHTML = '<div style="color:var(--muted);font-size: var(--t-label);padding:0.5rem 0;">Log bench press, squat, or deadlift to see strength levels.</div>';
-  }
-
-  window.addEventListener('unitchange', function() {
-    const u = window.getAppUnit ? window.getAppUnit() : 'kg';
-    const bwEl2 = document.getElementById('bw-display');
-    if (bwEl2) bwEl2.textContent = window.fmtWeight ? window.fmtWeight(BW_KG, u) : BW_KG + ' kg';
-    grid.querySelectorAll('[data-e1rm]').forEach(function(el) {
-      el.textContent = window.fmtWeight ? window.fmtWeight(parseFloat(el.dataset.e1rm), u) : el.dataset.e1rm + ' kg';
-    });
-  });
-})();
-</script>
-{% endif %}
-
-{# ── 4. PR records table ─────────────────────────────────────────── #}
+{# Order (2026-11-02): what you check most first. One empty state when there is
+   nothing at all; any activity (sets, cardio, Oura) shows the page. #}
+{% if records or active_days or weekly_rows or recovery_json %}
 {% if records %}
+{# ── 4. PR records table ─────────────────────────────────────────── #}
+
 <div style="margin-bottom:1.5rem;">
   <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.6rem;flex-wrap:wrap;gap:0.5rem;">
     <div class="section-title" style="margin-bottom:0;">Personal records</div>
@@ -383,29 +234,7 @@ document.getElementById('pr-search').addEventListener('keydown', e => {
 })();
 </script>
 
-{% else %}
-<div class="card" style="text-align:center;padding:3rem 1.25rem;margin-bottom:1.5rem;">
-  <div style="display:flex;flex-direction:column;align-items:center;gap:0.75rem;">
-    <div style="width:52px;height:52px;border-radius:50%;background:var(--surface-2);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;">
-      <i data-lucide="bar-chart-2" style="width:22px;height:22px;color:var(--muted-hi);pointer-events:none;"></i>
-    </div>
-    <p style="color:var(--muted);font-size: var(--t-body);max-width:240px;line-height:1.5;">No sets logged yet — your analytics will appear here.</p>
-    <a href="/workouts" class="btn btn-primary" style="margin-top:0.25rem;">Start a session</a>
-  </div>
-</div>
-{% endif %}
-
-{# ── Activity: one cell a day (moved from Home, 2026-10-31) ─────────── #}
-<div style="margin-bottom:1.5rem;">
-  <div class="section-title" style="display:flex;justify-content:space-between;align-items:baseline;">
-    <span><span class="hm-wide">Activity, last 52 weeks</span><span class="hm-narrow">Activity, last 26 weeks</span></span>
-    <span style="font-size:var(--t-label);color:var(--muted);font-weight:500;"><span class="num" style="color:var(--text);">{{ active_days }}</span> active days</span>
-  </div>
-  <div class="card">
-    <div class="hm-wide" role="img" aria-label="Activity heatmap, last 52 weeks">{{ heatmap_svg | safe }}</div>
-    <div class="hm-narrow" role="img" aria-label="Activity heatmap, last 26 weeks">{{ heatmap_svg_phone | safe }}</div>
-  </div>
-</div>
+{% endif %}{# records #}
 
 {# ── 5. Volume trend ─────────────────────────────────────────────── #}
 <div style="margin-bottom:1.5rem;">
@@ -434,27 +263,17 @@ document.getElementById('pr-search').addEventListener('keydown', e => {
   </div>
 </div>
 
-{# ── 5b. Oura recovery (only with Oura days in the last 12 weeks) ── #}
-{% if recovery_json %}
+{# ── Activity: one cell a day (moved from Home, 2026-10-31) ─────────── #}
 <div style="margin-bottom:1.5rem;">
-  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.6rem;flex-wrap:wrap;gap:0.5rem;">
-    <div class="section-title" style="margin-bottom:0;">Recovery (Oura) — last 12 weeks</div>
-    <div class="seg-toggle" role="group" aria-label="Recovery measure">
-      <button type="button" aria-pressed="true" data-key="readiness">Readiness</button>
-      <button type="button" aria-pressed="false" data-key="sleep">Sleep</button>
-      <button type="button" aria-pressed="false" data-key="hrv">HRV</button>
-      <button type="button" aria-pressed="false" data-key="rhr">Resting HR</button>
-    </div>
+  <div class="section-title" style="display:flex;justify-content:space-between;align-items:baseline;">
+    <span><span class="hm-wide">Activity, last 52 weeks</span><span class="hm-narrow">Activity, last 26 weeks</span></span>
+    <span style="font-size:var(--t-label);color:var(--muted);font-weight:500;"><span class="num" style="color:var(--text);">{{ active_days }}</span> active days</span>
   </div>
-  <div class="card" style="padding:0.85rem 1.25rem 0.65rem;">
-    <div style="position:relative;">
-      <canvas id="rec-chart" role="img" aria-label="Weekly Oura readiness" style="display:block;width:100%;cursor:crosshair;"></canvas>
-      <div id="rec-chart-tip" style="display:none;position:absolute;top:4px;background:var(--surface);border:1px solid var(--border-mid);border-radius:var(--radius-xs);padding:0.45rem 0.7rem;pointer-events:none;z-index:10;white-space:nowrap;box-shadow:var(--shadow);"></div>
-    </div>
-    <p id="rec-chart-note" style="margin:0.4rem 0 0;font-size: var(--t-label);color:var(--muted);">Weekly average readiness score, out of 100.</p>
+  <div class="card">
+    <div class="hm-wide" role="img" aria-label="Activity heatmap, last 52 weeks">{{ heatmap_svg | safe }}</div>
+    <div class="hm-narrow" role="img" aria-label="Activity heatmap, last 26 weeks">{{ heatmap_svg_phone | safe }}</div>
   </div>
 </div>
-{% endif %}
 
 {# ── 6. Stalled exercises ────────────────────────────────────────── #}
 {% if stalled %}
@@ -493,6 +312,193 @@ document.getElementById('pr-search').addEventListener('keydown', e => {
         {% endfor %}
       </tbody>
     </table>
+  </div>
+</div>
+{% endif %}
+
+{# ── 3. Strength percentiles ─────────────────────────────────────── #}
+{% if records and bodyweight_kg %}
+<div style="margin-bottom:1.5rem;">
+  <div class="section-title">Strength levels — bodyweight ratios</div>
+  <div class="card" style="padding:1.1rem 1.25rem;">
+    <p style="font-size: var(--t-label);color:var(--muted);margin:0 0 1rem;">
+      Standard strength benchmarks for your bodyweight of <strong style="color:var(--text);"><span class="weight-display num" id="bw-display" data-kg="{{ bodyweight_kg | round(1) }}">{{ bodyweight_kg | round(1) }} kg</span></strong>.
+    </p>
+    <div id="percentile-grid" style="display:flex;flex-direction:column;"></div>
+  </div>
+</div>
+<script>
+(function() {
+  const BW_KG = {{ bodyweight_kg }};
+
+  const LIFT_NORMS = {
+    'Bench Press':       [0.50, 0.75, 1.00, 1.25, 1.50],
+    'Back Squat':        [0.75, 1.00, 1.25, 1.50, 1.75],
+    'Deadlift':          [1.00, 1.25, 1.50, 1.75, 2.00],
+    'Overhead Press':    [0.35, 0.55, 0.75, 1.00, 1.25],
+    'Barbell Row':       [0.50, 0.75, 1.00, 1.25, 1.50],
+    'Romanian Deadlift': [0.75, 1.00, 1.25, 1.50, 1.75],
+    'Front Squat':       [0.55, 0.80, 1.00, 1.25, 1.50],
+    'Incline Bench Press':[0.40, 0.60, 0.85, 1.10, 1.35],
+  };
+  const LEVELS = ['Untrained','Novice','Intermediate','Advanced','Elite'];
+  // Ordered levels: one neutral ramp, darker as the level rises (validated as
+  // an ordinal ramp on the white card: monotone L, light end 3.3:1). Elite is
+  // earned, so it wears the record amber (--pr).
+  const LEVEL_COLORS = {
+    'Untrained':    '#8f8e88',   // --ring
+    'Novice':       '#6b6a65',
+    'Intermediate': '#4a4a46',   // --muted-hi
+    'Advanced':     '#141414',   // --text
+    'Elite':        '#8c5a00',   // --pr
+  };
+
+  const records = [
+    {% for r in records if not r.is_bodyweight %}
+    { name: {{ r.name | tojson }}, e1rm: {{ r.est_1rm }} },
+    {% endfor %}
+  ];
+
+  const unit = window.getAppUnit ? window.getAppUnit() : 'kg';
+  const bwEl = document.getElementById('bw-display');
+  if (bwEl) bwEl.textContent = window.fmtWeight ? window.fmtWeight(BW_KG, unit) : BW_KG.toFixed(1) + ' kg';
+
+  function getLevel(liftKg, norms) {
+    const ratio = liftKg / BW_KG;
+    let level = 'Untrained', pct = 0;
+    for (let i = norms.length - 1; i >= 0; i--) {
+      if (ratio >= norms[i]) {
+        level = LEVELS[i];
+        const lo = norms[i], hi = norms[i + 1] || norms[i] * 1.25;
+        const progress = Math.min(1, (ratio - lo) / (hi - lo));
+        pct = Math.round((i / (LEVELS.length - 1) + progress / (LEVELS.length - 1)) * 100);
+        break;
+      }
+      if (i === 0 && ratio < norms[0]) {
+        pct = Math.round(Math.min(1, ratio / norms[0]) * (100 / LEVELS.length));
+      }
+    }
+    return { level, pct: Math.min(99, pct) };
+  }
+
+  const grid = document.getElementById('percentile-grid');
+  if (!grid) return;
+
+  let rendered = 0;
+  for (const [liftName, norms] of Object.entries(LIFT_NORMS)) {
+    const rec = records.find(r => r.name.toLowerCase() === liftName.toLowerCase());
+    if (!rec) continue;
+    const { level, pct } = getLevel(rec.e1rm, norms);
+    const color = LEVEL_COLORS[level] || '#141414';
+    const ratio = (rec.e1rm / BW_KG).toFixed(2);
+    const display = window.fmtWeight ? window.fmtWeight(rec.e1rm, unit) : rec.e1rm.toFixed(1) + ' kg';
+
+    const row = document.createElement('div');
+    row.className = 'strength-row';
+    row.innerHTML = `
+      <div style="flex:0 1 8.5rem;min-width:0;overflow:hidden;">
+        <div style="font-size: var(--t-body);font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${liftName}</div>
+        <div style="font-size: var(--t-label);font-weight:700;color:${level === 'Elite' ? 'var(--pr)' : 'var(--muted)'};margin-top:0.15rem;">${level}</div>
+      </div>
+      <div style="flex:1;min-width:40px;">
+        <div style="height:8px;background:var(--surface-hover);border-radius:4px;overflow:hidden;">
+          <div style="height:100%;width:${pct}%;background:${color};border-radius:4px;transition:width 0.6s cubic-bezier(0.16,1,0.3,1);"></div>
+        </div>
+      </div>
+      <div style="text-align:right;flex-shrink:0;width:5.5rem;">
+        <div class="num" data-e1rm="${rec.e1rm}" style="font-size: var(--t-body);color:var(--text);line-height:1;">${display}</div>
+        <div style="font-size: var(--t-label);color:var(--muted);margin-top:0.2rem;"><span class="num">${ratio}</span>× BW</div>
+      </div>`;
+    grid.appendChild(row);
+    rendered++;
+  }
+
+  if (rendered === 0) {
+    grid.innerHTML = '<div style="color:var(--muted);font-size: var(--t-label);padding:0.5rem 0;">Log bench press, squat, or deadlift to see strength levels.</div>';
+  }
+
+  window.addEventListener('unitchange', function() {
+    const u = window.getAppUnit ? window.getAppUnit() : 'kg';
+    const bwEl2 = document.getElementById('bw-display');
+    if (bwEl2) bwEl2.textContent = window.fmtWeight ? window.fmtWeight(BW_KG, u) : BW_KG + ' kg';
+    grid.querySelectorAll('[data-e1rm]').forEach(function(el) {
+      el.textContent = window.fmtWeight ? window.fmtWeight(parseFloat(el.dataset.e1rm), u) : el.dataset.e1rm + ' kg';
+    });
+  });
+})();
+</script>
+{% endif %}
+
+{# ── 1. Muscle heatmap ───────────────────────────────────────────── #}
+<div style="margin-bottom:1.5rem;">
+  <div class="section-title">Muscle volume — all time</div>
+  <div class="card" style="padding:1.25rem;">
+    {% set map_id = "analytics" %}
+    {% include 'partials/muscle_map.html' %}
+  </div>
+</div>
+
+{# ── 2. Muscle recovery ──────────────────────────────────────────── #}
+{% if muscle_recovery %}
+<div style="margin-bottom:1.5rem;">
+  <div class="section-title">Muscle recovery</div>
+  <div class="card" style="padding:1rem 1.25rem;">
+    <div style="display:flex;flex-wrap:wrap;gap:0.5rem;">
+      {% for m in muscle_recovery %}
+      {% if m.days_ago <= 1 %}
+        {% set state = "fatigued" %}{% set label = "Fatigued" %}
+      {% elif m.days_ago <= 3 %}
+        {% set state = "recovering" %}{% set label = "Recovering" %}
+      {% else %}
+        {% set state = "fresh" %}{% set label = "Fresh" %}
+      {% endif %}
+      <div class="rec-chip rec-{{ state }}" title="{{ m.muscle }}: last trained {{ m.last_date }}">
+        <span class="rec-muscle">{{ m.muscle }}</span>
+        <span class="rec-state">{{ label }} ·
+          {% if m.days_ago == 0 %}today{% elif m.days_ago == 1 %}<span class="num">1</span> day{% else %}<span class="num">{{ m.days_ago }}</span> days{% endif %}
+        </span>
+      </div>
+      {% endfor %}
+    </div>
+    <div class="rec-legend">
+      <span><span class="rec-key" style="background:var(--success-dim);border-color:var(--success);"></span>Fresh: 4+ days</span>
+      <span><span class="rec-key" style="background:var(--surface-2);border-color:var(--border-mid);"></span>Recovering: 2–3 days</span>
+      <span><span class="rec-key" style="background:var(--danger-dim);border-color:var(--danger);"></span>Fatigued: 0–1 days</span>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+{# ── 5b. Oura recovery (only with Oura days in the last 12 weeks) ── #}
+{% if recovery_json %}
+<div style="margin-bottom:1.5rem;">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.6rem;flex-wrap:wrap;gap:0.5rem;">
+    <div class="section-title" style="margin-bottom:0;">Recovery (Oura) — last 12 weeks</div>
+    <div class="seg-toggle" role="group" aria-label="Recovery measure">
+      <button type="button" aria-pressed="true" data-key="readiness">Readiness</button>
+      <button type="button" aria-pressed="false" data-key="sleep">Sleep</button>
+      <button type="button" aria-pressed="false" data-key="hrv">HRV</button>
+      <button type="button" aria-pressed="false" data-key="rhr">Resting HR</button>
+    </div>
+  </div>
+  <div class="card" style="padding:0.85rem 1.25rem 0.65rem;">
+    <div style="position:relative;">
+      <canvas id="rec-chart" role="img" aria-label="Weekly Oura readiness" style="display:block;width:100%;cursor:crosshair;"></canvas>
+      <div id="rec-chart-tip" style="display:none;position:absolute;top:4px;background:var(--surface);border:1px solid var(--border-mid);border-radius:var(--radius-xs);padding:0.45rem 0.7rem;pointer-events:none;z-index:10;white-space:nowrap;box-shadow:var(--shadow);"></div>
+    </div>
+    <p id="rec-chart-note" style="margin:0.4rem 0 0;font-size: var(--t-label);color:var(--muted);">Weekly average readiness score, out of 100.</p>
+  </div>
+</div>
+{% endif %}
+
+{% else %}
+<div class="card" style="text-align:center;padding:3rem 1.25rem;margin-bottom:1.5rem;">
+  <div style="display:flex;flex-direction:column;align-items:center;gap:0.75rem;">
+    <div style="width:52px;height:52px;border-radius:50%;background:var(--surface-2);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;">
+      <i data-lucide="bar-chart-2" style="width:22px;height:22px;color:var(--muted-hi);pointer-events:none;"></i>
+    </div>
+    <p style="color:var(--muted);font-size: var(--t-body);max-width:240px;line-height:1.5;">No sets logged yet — your analytics will appear here.</p>
+    <a href="/workouts" class="btn btn-primary" style="margin-top:0.25rem;">Start a session</a>
   </div>
 </div>
 {% endif %}

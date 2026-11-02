@@ -166,10 +166,40 @@ async def list_workouts(
         active_workout = dict(row) if row else None
     return render(request, "workout_list", {
         "workouts": workouts,
+        "weeks": _group_by_week([w for w in workouts if w["ended_at"]]),
         "active_workout": active_workout,
         "user": dict(current_user),
         "q": search,
     })
+
+
+def _group_by_week(done: list[dict]) -> list[dict]:
+    """Finished sessions in Monday-to-Sunday weeks, newest first, each with its
+    label ("This week", "Last week", "Oct 19 – 25") and totals for the header."""
+    from datetime import date, timedelta
+    today = date.today()
+    this_monday = today - timedelta(days=today.weekday())
+    weeks: dict = {}
+    for w in done:
+        d = date.fromisoformat(w["started_at"][:10])
+        monday = d - timedelta(days=d.weekday())
+        wk = weeks.setdefault(monday, {"monday": monday, "sessions": [], "volume_kg": 0.0})
+        wk["sessions"].append(w)
+        wk["volume_kg"] += w.get("volume_kg") or 0
+    out = []
+    for monday in sorted(weeks, reverse=True):
+        wk = weeks[monday]
+        sunday = monday + timedelta(days=6)
+        if monday == this_monday:
+            label = "This week"
+        elif monday == this_monday - timedelta(days=7):
+            label = "Last week"
+        elif monday.month == sunday.month:
+            label = f"{monday.strftime('%b')} {monday.day} – {sunday.day}"
+        else:
+            label = f"{monday.strftime('%b')} {monday.day} – {sunday.strftime('%b')} {sunday.day}"
+        out.append({"label": label, "sessions": wk["sessions"], "volume_kg": wk["volume_kg"]})
+    return out
 
 
 @router.post("/workouts", status_code=201)
