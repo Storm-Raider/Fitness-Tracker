@@ -2036,6 +2036,11 @@ function _renderPickList() {
   if (routineVal !== '' || selectedMuscleGroup) {
     const base = routineVal !== '' ? _routines[parseInt(routineVal)].exercises : exercises;
     pool = base.filter(e => _exerciseMatchesMuscle(e, selectedMuscleGroup));
+    // A muscle on its own lists the whole database: yours first, then Common.
+    if (routineVal === '') {
+      pool = pool.slice().sort((a, b) => ((b.uses || 0) - (a.uses || 0)) || ((a.tier || 1) - (b.tier || 1)) ||
+                                         a.name.localeCompare(b.name)).slice(0, 40);
+    }
     title = routineVal !== '' ? _routines[parseInt(routineVal)].name : selectedMuscleGroup;
   } else if (_planned.length) {
     pool = _planned; title = 'This session';
@@ -2662,9 +2667,15 @@ function updateNewExPicker(q, exact) {
     document.getElementById('routine-plan').style.display = q ? 'none' : '';
     if (!q) { dropdown.textContent = ''; updateNewExPicker('', null); return; }
     const ql = q.toLowerCase();
-    // Names that start with the query first, then the rest.
+    // Ranking (2026-11-04): names that start with the query, then what you
+    // log most, then the Common tier, then the rest of the database.
     const matches = exercises.filter(e => e.name.toLowerCase().includes(ql))
-      .sort((a, b) => (b.name.toLowerCase().startsWith(ql) - a.name.toLowerCase().startsWith(ql)));
+      .sort((a, b) =>
+        (b.name.toLowerCase().startsWith(ql) - a.name.toLowerCase().startsWith(ql)) ||
+        ((b.uses || 0) - (a.uses || 0)) ||
+        ((a.tier || 1) - (b.tier || 1)) ||
+        a.name.localeCompare(b.name))
+      .slice(0, 40);
     renderDropdown(matches, q);
     // Offer the typed name as a new exercise unless it is one exactly.
     updateNewExPicker(q, exercises.find(e => e.name.toLowerCase() === ql));

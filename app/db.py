@@ -428,6 +428,17 @@ _MIGRATIONS = [
         until       TEXT    NOT NULL,
         PRIMARY KEY (user_id, exercise_id)
     )""",
+    # Bundled exercise database (free-exercise-db, 2026-11-04): where an exercise
+    # came from, its tier (1 = Common, shown first), and the database's level,
+    # step-by-step instructions (JSON list) and photo paths (JSON list).
+    "ALTER TABLE exercises ADD COLUMN source TEXT",
+    "ALTER TABLE exercises ADD COLUMN tier INTEGER",
+    "ALTER TABLE exercises ADD COLUMN level TEXT",
+    "ALTER TABLE exercises ADD COLUMN instructions TEXT",
+    "ALTER TABLE exercises ADD COLUMN images TEXT",
+    "ALTER TABLE exercises ADD COLUMN fedb_id TEXT",
+    "CREATE INDEX IF NOT EXISTS idx_exercises_tier ON exercises(tier)",
+    "CREATE TABLE IF NOT EXISTS app_meta (key TEXT PRIMARY KEY, value TEXT)",
 ]
 
 
@@ -536,6 +547,8 @@ async def init_db(conn: aiosqlite.Connection) -> None:
                 (routine_id, idx, ex_name),
             )
 
+    await _seed_exercise_db(conn)
+
     # Retire deprecated junk exercises — but ONLY when nothing references them.
     # Runs after the global routines are re-seeded above (so their stale rows are
     # gone first). Any exercise a user actually trained (sets), or that lives in a
@@ -636,3 +649,79 @@ def clear_db() -> None:
     global _conn, write_lock
     _conn = None
     write_lock = asyncio.Lock()
+
+
+async def _seed_exercise_db(conn: aiosqlite.Connection) -> None:
+    """Load app/data/exercise_db.json (scripts/exercise_db/build.py). Runs inside
+    init_db's transaction; skipped when the file hasn't changed since last time.
+
+    Curated exercises are enriched in place (instructions, level, photos), never
+    renamed or re-tagged. Database exercises are added under their own names. An
+    exercise a user created (source IS NULL) is never taken over, even when the
+    database has one of the same name."""
+    import hashlib
+    import json as _json
+    from pathlib import Path
+
+    path = Path(__file__).parent / "data" / "exercise_db.json"
+    if not path.exists():
+        return
+    raw = path.read_bytes()
+    digest = hashlib.sha256(raw).hexdigest()
+    async with conn.execute("SELECT value FROM app_meta WHERE key='exercise_db'") as cur:
+        row = await cur.fetchone()
+    if row and row["value"] == digest:
+        return
+
+    data = _json.loads(raw)
+    async with conn.execute("SELECT name, source FROM exercises") as cur:
+        existing = {r["name"]: r["source"] for r in await cur.fetchall()}
+
+    # Batched with executemany: ~900 rows one await at a time cost ~0.4s per
+    # fresh database (every test, every cold start on the Pi).
+    curated, fedb = [], []
+    for ex in data["exercises"]:
+        steps = _json.dumps(ex.get("instructions") or [], ensure_ascii=False)
+        pics = _json.dumps(ex.get("images") or [])
+        if ex["source"] == "curated":
+            curated.append((ex["tier"], ex.get("level"), steps, pics, ex.get("fedb_id"), ex["name"]))
+        elif existing.get(ex["name"], "fedb") == "fedb":
+            # absent, or ours from an earlier load; a user's own exercise
+            # (or a curated one) of the same name is left alone
+            fedb.append((ex, steps, pics))
+
+    await conn.executemany(
+        """UPDATE exercises SET source='curated', tier=?, level=?, instructions=?,
+           images=?, fedb_id=? WHERE name=?""",
+        curated,
+    )
+    await conn.executemany(
+        "INSERT INTO exercises(name) VALUES (?)",
+        [(ex["name"],) for ex, _, _ in fedb if ex["name"] not in existing],
+    )
+    await conn.executemany(
+        """UPDATE exercises SET category=?, equipment=?, log_type=?, source='fedb', tier=?,
+           level=?, instructions=?, images=?, fedb_id=? WHERE name=?""",
+        [(ex["category"], ex["equipment"], ex.get("log_type", "reps"), ex["tier"],
+          ex.get("level"), steps, pics, ex["fedb_id"], ex["name"]) for ex, steps, pics in fedb],
+    )
+    async with conn.execute("SELECT id, name FROM exercises WHERE source='fedb'") as cur:
+        ids = {r["name"]: r["id"] for r in await cur.fetchall()}
+    await conn.execute(
+        "DELETE FROM exercise_muscles WHERE exercise_id IN "
+        "(SELECT id FROM exercises WHERE source='fedb')"
+    )
+    await conn.executemany(
+        "INSERT INTO exercise_muscles(exercise_id, muscle, is_primary) VALUES (?, ?, ?)",
+        [(ids[ex["name"]], m, prim) for ex, _, _ in fedb
+         for key, prim in (("muscle_primary", 1), ("muscle_secondary", 0))
+         for m in ex.get(key) or []],
+    )
+
+    await conn.execute(
+        "INSERT INTO app_meta(key, value) VALUES ('exercise_db', ?) "
+        "ON CONFLICT(key) DO UPDATE SET value=excluded.value",
+        (digest,),
+    )
+    logging.info("exercise db: loaded %d exercises", data.get("count", 0))
+
