@@ -234,7 +234,7 @@ async def exercise_detail(
 ):
     async with conn.execute(
         """
-        SELECT e.id, e.name, e.category, e.equipment, e.cue, e.level, e.instructions, e.images,
+        SELECT e.id, e.name, e.category, e.equipment, e.cue, e.level, e.instructions, e.steps_source, e.images,
                em.muscle, em.is_primary
         FROM exercises e
         LEFT JOIN exercise_muscles em ON em.exercise_id = e.id
@@ -256,6 +256,7 @@ async def exercise_detail(
         "cue": first["cue"],
         "level": first["level"],
         "instructions": json.loads(first["instructions"] or "[]"),
+        "steps_source": first["steps_source"],
         "images": json.loads(first["images"] or "[]"),
         "muscles": [
             {"name": r["muscle"], "is_primary": bool(r["is_primary"])}

@@ -29,6 +29,7 @@ sys.path.insert(0, str(ROOT))
 
 from app.data.exercises import EXERCISES  # noqa: E402
 from scripts.exercise_db.curated_map import CURATED_TO_FEDB, EXTRA_COMMON  # noqa: E402
+from scripts.exercise_db.zenkai_steps import ZENKAI_STEPS  # noqa: E402
 
 OUT_JSON = ROOT / "app/data/exercise_db.json"
 OUT_IMG = ROOT / "app/static/exercises"
@@ -122,13 +123,20 @@ def main(src: str) -> None:
     # 1. Curated: enrichment of the existing 169, keyed by the curated name.
     for name in sorted(curated):
         fedb = by_name.get(CURATED_TO_FEDB.get(name) or "")
+        steps = (fedb.get("instructions") or []) if fedb else []
+        level = fedb.get("level") if fedb else None
+        steps_source = "fedb" if steps else None
+        if not steps and name in ZENKAI_STEPS:      # no usable match: our own steps
+            level, steps = ZENKAI_STEPS[name]
+            steps_source = "zenkai"
         entries.append({
             "name": name,
             "source": "curated",
             "fedb_id": fedb["id"] if fedb else None,
             "tier": 1,
-            "level": fedb.get("level") if fedb else None,
-            "instructions": (fedb.get("instructions") or []) if fedb else [],
+            "level": level,
+            "instructions": steps,
+            "steps_source": steps_source,
             "images": photos(src_root, fedb["id"], fedb.get("images") or []) if fedb else [],
         })
     # 2. The rest of free-exercise-db under its own names.
@@ -157,6 +165,7 @@ def main(src: str) -> None:
             "log_type": "time" if x["category"] == "stretching" else "reps",
             "level": x.get("level"),
             "instructions": x.get("instructions") or [],
+            "steps_source": "fedb" if x.get("instructions") else None,
             "images": photos(src_root, x["id"], x.get("images") or []) if tier == 1 else [],
         })
 

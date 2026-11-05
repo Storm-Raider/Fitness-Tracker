@@ -7,6 +7,7 @@ import pytest
 
 from app.db import init_db, _seed_exercise_db
 from scripts.exercise_db.curated_map import CURATED_TO_FEDB, EXTRA_COMMON, SHARED_OK
+from scripts.exercise_db.zenkai_steps import ZENKAI_STEPS
 
 ROOT = Path(__file__).resolve().parent.parent
 DATA = json.loads((ROOT / "app/data/exercise_db.json").read_text())
@@ -52,7 +53,6 @@ def test_database_entries_have_valid_metadata():
         assert set(e["muscle_primary"]) | set(e["muscle_secondary"]) <= MUSCLES, e["name"]
         assert e["equipment"] in EQUIPMENT, (e["name"], e["equipment"])
         assert e["log_type"] in {"reps", "time"}
-        assert e["instructions"] or e["tier"] == 2, e["name"]
 
 
 def test_photos_only_for_common_tier_and_all_exist():
@@ -67,6 +67,19 @@ def test_photos_only_for_common_tier_and_all_exist():
 def test_photo_payload_stays_small():
     total = sum(p.stat().st_size for p in (ROOT / "app/static/exercises").rglob("*.webp"))
     assert total < 5 * 1024 * 1024
+
+
+def test_every_curated_lift_has_steps_and_a_source():
+    for e in (x for x in EXS if x["source"] == "curated"):
+        assert e["instructions"], e["name"]
+        assert e["steps_source"] in {"fedb", "zenkai"}, e["name"]
+        assert e["level"] in {"beginner", "intermediate", "expert"}, e["name"]
+
+
+def test_zenkai_steps_only_fill_real_gaps():
+    """A hand-written entry that the database now covers is stale: drop it."""
+    written = {e["name"] for e in EXS if e.get("steps_source") == "zenkai"}
+    assert written == set(ZENKAI_STEPS)
 
 
 # ── seeding ──────────────────────────────────────────────────────────────
@@ -146,3 +159,13 @@ async def test_detail_page_shows_how_to(client):
     html = (await client.get(f"/exercises/{bench['id']}")).text
     assert "How to do it" in html
     assert "/static/exercises/" in html and "<ol" in html
+    assert "From free-exercise-db" in html
+
+
+@pytest.mark.asyncio
+async def test_detail_page_labels_hand_written_steps(client):
+    items = (await client.get("/api/exercises")).json()["exercises"]
+    burpee = next(e for e in items if e["name"] == "Burpee")
+    html = (await client.get(f"/exercises/{burpee['id']}")).text
+    assert "How to do it" in html and "Steps written for Zenkai" in html
+    assert "no photos for this one" in html

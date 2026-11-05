@@ -439,6 +439,8 @@ _MIGRATIONS = [
     "ALTER TABLE exercises ADD COLUMN fedb_id TEXT",
     "CREATE INDEX IF NOT EXISTS idx_exercises_tier ON exercises(tier)",
     "CREATE TABLE IF NOT EXISTS app_meta (key TEXT PRIMARY KEY, value TEXT)",
+    # Where an exercise's steps came from: 'fedb' (free-exercise-db) or 'zenkai' (written for the app).
+    "ALTER TABLE exercises ADD COLUMN steps_source TEXT",
 ]
 
 
@@ -684,7 +686,8 @@ async def _seed_exercise_db(conn: aiosqlite.Connection) -> None:
         steps = _json.dumps(ex.get("instructions") or [], ensure_ascii=False)
         pics = _json.dumps(ex.get("images") or [])
         if ex["source"] == "curated":
-            curated.append((ex["tier"], ex.get("level"), steps, pics, ex.get("fedb_id"), ex["name"]))
+            curated.append((ex["tier"], ex.get("level"), steps, ex.get("steps_source"), pics,
+                            ex.get("fedb_id"), ex["name"]))
         elif existing.get(ex["name"], "fedb") == "fedb":
             # absent, or ours from an earlier load; a user's own exercise
             # (or a curated one) of the same name is left alone
@@ -692,7 +695,7 @@ async def _seed_exercise_db(conn: aiosqlite.Connection) -> None:
 
     await conn.executemany(
         """UPDATE exercises SET source='curated', tier=?, level=?, instructions=?,
-           images=?, fedb_id=? WHERE name=?""",
+           steps_source=?, images=?, fedb_id=? WHERE name=?""",
         curated,
     )
     await conn.executemany(
@@ -701,9 +704,9 @@ async def _seed_exercise_db(conn: aiosqlite.Connection) -> None:
     )
     await conn.executemany(
         """UPDATE exercises SET category=?, equipment=?, log_type=?, source='fedb', tier=?,
-           level=?, instructions=?, images=?, fedb_id=? WHERE name=?""",
-        [(ex["category"], ex["equipment"], ex.get("log_type", "reps"), ex["tier"],
-          ex.get("level"), steps, pics, ex["fedb_id"], ex["name"]) for ex, steps, pics in fedb],
+           level=?, instructions=?, steps_source=?, images=?, fedb_id=? WHERE name=?""",
+        [(ex["category"], ex["equipment"], ex.get("log_type", "reps"), ex["tier"], ex.get("level"),
+          steps, ex.get("steps_source"), pics, ex["fedb_id"], ex["name"]) for ex, steps, pics in fedb],
     )
     async with conn.execute("SELECT id, name FROM exercises WHERE source='fedb'") as cur:
         ids = {r["name"]: r["id"] for r in await cur.fetchall()}

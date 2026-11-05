@@ -11,6 +11,7 @@
   .howto-pics figure { margin: 0; }
   .howto-pics img { display: block; width: 100%; height: auto; border: 1px solid var(--border); border-radius: var(--radius); background: #fff; }
   .howto-pics figcaption { font-size: var(--t-label); color: var(--muted); margin-top: 4px; }
+  .howto-src { margin: 12px 0 0; font-size: var(--t-label); color: var(--muted); }
   .howto-steps { margin: 0; padding-left: 1.4em; display: grid; gap: 8px; font-size: var(--t-body); line-height: 1.5; max-width: 65ch; }
 </style>
 {% from "partials/bw_best.html" import bw_best %}
@@ -94,6 +95,8 @@
     <ol class="howto-steps">
       {% for step in exercise.instructions %}<li>{{ step }}</li>{% endfor %}
     </ol>
+    {% if exercise.steps_source == 'zenkai' %}<p class="howto-src">Steps written for Zenkai{% if not exercise.images %}; there are no photos for this one{% endif %}.</p>
+    {% elif exercise.steps_source == 'fedb' %}<p class="howto-src">From free-exercise-db (public domain).</p>{% endif %}
     {% endif %}
   </div>
 </section>
