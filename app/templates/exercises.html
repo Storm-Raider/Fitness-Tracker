@@ -3,6 +3,13 @@
 {% block head %}
 <style>
   /* ── Search ─────────────────────────────────────── */
+  .ex-more { margin-top: 8px; }
+  .ex-more > summary { min-height: 48px; display: flex; align-items: center; padding: 0 16px; cursor: pointer;
+                       border: 1.5px dashed var(--ring); border-radius: var(--radius); font-size: var(--t-body); color: var(--text); list-style: none; }
+  .ex-more > summary::-webkit-details-marker { display: none; }
+  .ex-more > summary::after { content: "▾"; margin-left: auto; color: var(--muted); }
+  .ex-more[open] > summary::after { content: "▴"; }
+  .ex-more > .ex-list { margin-top: 8px; }
   .ex-search-wrap {
     position: relative;
     margin-bottom: 1.25rem;
@@ -199,8 +206,10 @@
       <span class="ex-group-line"></span>
       <span class="ex-group-ct num" data-group-ct="{{ exs | length }}">{{ exs | length }}</span>
     </div>
+    {% set common = exs | selectattr('common') | list %}
+    {% set more = exs | rejectattr('common') | list %}
     <div class="ex-list">
-      {% for ex in exs %}
+      {% for ex in common %}
       <a class="ex-item" href="/exercises/{{ ex.id }}"
          data-name="{{ ex.name | lower }}"
          data-muscles="{{ ex.muscles | join(',') }}">
@@ -213,6 +222,26 @@
       </a>
       {% endfor %}
     </div>
+    {% if more %}
+    {# The long tail of the bundled database: folded, opened by search (2026-11-04). #}
+    <details class="ex-more">
+      <summary><span class="num">{{ more | length }}</span> more {{ muscle | lower }} exercises</summary>
+      <div class="ex-list">
+        {% for ex in more %}
+      <a class="ex-item" href="/exercises/{{ ex.id }}"
+         data-name="{{ ex.name | lower }}"
+         data-muscles="{{ ex.muscles | join(',') }}">
+        <span>{{ ex.name }}</span>
+        {% if ex.bw %}
+        <span class="badge badge-pr num">Best {{ bw_best(ex.bw) }}</span>
+        {% elif ex.pr_kg is not none %}
+        <span class="badge badge-pr num">PR <span class="weight-display" data-kg="{{ ex.pr_kg }}">{{ ex.pr_kg }} kg</span></span>
+        {% endif %}
+      </a>
+        {% endfor %}
+      </div>
+    </details>
+    {% endif %}
   </div>
   {% endfor %}
 </div>
@@ -248,6 +277,12 @@ function applyFilters() {
       if (show) { groupVisible++; visible++; }
     });
 
+    // A search looks through the folded "more" lists too.
+    group.querySelectorAll('.ex-more').forEach(d => {
+      if (q) { d.open = [...d.querySelectorAll('.ex-item')].some(i => i.style.display !== 'none'); d.dataset.searched = '1'; }
+      else if (d.dataset.searched) { d.open = false; delete d.dataset.searched; }
+      d.style.display = q && !d.open ? 'none' : '';
+    });
     group.style.display = groupVisible > 0 ? '' : 'none';
     const ct = group.querySelector('[data-group-ct]');
     if (ct) ct.textContent = groupVisible;

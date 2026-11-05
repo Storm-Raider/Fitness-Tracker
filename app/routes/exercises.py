@@ -39,7 +39,8 @@ async def exercises_page(
 ):
     async with conn.execute(
         """
-        SELECT e.id, e.name, e.category, MAX(s.weight_kg) AS pr_kg,
+        SELECT e.id, e.name, e.category, e.tier, MAX(s.weight_kg) AS pr_kg,
+               COUNT(DISTINCT s.id) AS uses,
                GROUP_CONCAT(DISTINCT CASE WHEN em.is_primary = 1 THEN em.muscle END) AS primary_muscles
         FROM exercises e
         LEFT JOIN sets s ON s.exercise_id = e.id AND s.user_id = ?
@@ -62,6 +63,9 @@ async def exercises_page(
         ex["bw"] = bw_best.get(ex["id"])
         muscles = [m.strip() for m in (ex.pop("primary_muscles") or "").split(",") if m.strip()]
         ex["muscles"] = muscles
+        # Common = the bundled database's tier 1, anything you have logged, and
+        # exercises you made yourself (no tier). The rest folds under "N more".
+        ex["common"] = (ex.get("tier") or 1) == 1 or (ex.get("uses") or 0) > 0
         exercises.append(ex)
         matched = False
         for m in muscles:
@@ -127,11 +131,13 @@ async def list_exercises_json(
 
     async with conn.execute(
         """
-        SELECT e.id, e.name, e.equipment, e.log_type, em.muscle, em.is_primary
+        SELECT e.id, e.name, e.equipment, e.log_type, e.tier, em.muscle, em.is_primary,
+               (SELECT COUNT(*) FROM sets s WHERE s.exercise_id = e.id AND s.user_id = :uid) AS uses
         FROM exercises e
         LEFT JOIN exercise_muscles em ON em.exercise_id = e.id
         ORDER BY e.name, em.is_primary DESC, em.muscle
-        """
+        """,
+        {"uid": current_user["id"]},
     ) as cur:
         rows = await cur.fetchall()
 
@@ -140,7 +146,8 @@ async def list_exercises_json(
         if r["id"] not in _ex:
             _ex[r["id"]] = {"id": r["id"], "name": r["name"],
                             "is_bodyweight": r["equipment"] == "Bodyweight",
-                            "is_time": r["log_type"] == "time", "muscles": []}
+                            "is_time": r["log_type"] == "time", "muscles": [],
+                            "tier": r["tier"] or 1, "uses": r["uses"] or 0}
         if r["muscle"]:
             _ex[r["id"]]["muscles"].append(
                 {"name": r["muscle"], "is_primary": bool(r["is_primary"])}
@@ -227,7 +234,7 @@ async def exercise_detail(
 ):
     async with conn.execute(
         """
-        SELECT e.id, e.name, e.category, e.equipment, e.cue,
+        SELECT e.id, e.name, e.category, e.equipment, e.cue, e.level, e.instructions, e.images,
                em.muscle, em.is_primary
         FROM exercises e
         LEFT JOIN exercise_muscles em ON em.exercise_id = e.id
@@ -247,6 +254,9 @@ async def exercise_detail(
         "category": first["category"],
         "equipment": first["equipment"],
         "cue": first["cue"],
+        "level": first["level"],
+        "instructions": json.loads(first["instructions"] or "[]"),
+        "images": json.loads(first["images"] or "[]"),
         "muscles": [
             {"name": r["muscle"], "is_primary": bool(r["is_primary"])}
             for r in rows if r["muscle"]
