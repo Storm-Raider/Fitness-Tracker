@@ -5,7 +5,7 @@ https://github.com/yuhonas/free-exercise-db).
     git clone --depth 1 https://github.com/yuhonas/free-exercise-db /tmp/fedb
     python3 scripts/exercise_db/build.py /tmp/fedb
 
-Writes app/data/exercise_db.json and, for the Common tier, small WebP photos in
+Writes app/data/exercise_db.json and small WebP photos (two per exercise) in
 app/static/exercises/<id>/. Deterministic: the same checkout gives the same
 output, so a rebuild shows only real upstream changes in the diff.
 
@@ -17,7 +17,8 @@ Rules:
   vocabulary, unless its name would duplicate a curated one ("Split Squats" next
   to "Split Squat"), in which case it is skipped.
 - Tier 1 (Common) = the curated exercises + EXTRA_COMMON. Tier 2 = the rest.
-  Only tier 1 gets photos (two each, 400px WebP), so the Pi stays small.
+  Every exercise the database has photos for gets two (400px WebP, ~10 KB each);
+  tier only decides ordering and folding.
 """
 import json
 import re
@@ -166,7 +167,7 @@ def main(src: str) -> None:
             "level": x.get("level"),
             "instructions": x.get("instructions") or [],
             "steps_source": "fedb" if x.get("instructions") else None,
-            "images": photos(src_root, x["id"], x.get("images") or []) if tier == 1 else [],
+            "images": photos(src_root, x["id"], x.get("images") or []),
         })
 
     OUT_JSON.write_text(json.dumps({

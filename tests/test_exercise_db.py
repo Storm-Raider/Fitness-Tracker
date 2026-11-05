@@ -55,18 +55,18 @@ def test_database_entries_have_valid_metadata():
         assert e["log_type"] in {"reps", "time"}
 
 
-def test_photos_only_for_common_tier_and_all_exist():
+def test_photos_exist_and_cover_nearly_everything():
     for e in EXS:
-        if e["tier"] != 1:
-            assert e["images"] == [], e["name"]
         for src in e["images"]:
             assert src.startswith("/static/exercises/")
             assert (ROOT / "app" / src.lstrip("/")).is_file(), src
+    with_photos = sum(1 for e in EXS if e["images"])
+    assert with_photos >= len(EXS) - 40          # only lifts with no database match lack them
 
 
-def test_photo_payload_stays_small():
+def test_photo_payload_stays_reasonable_for_the_pi():
     total = sum(p.stat().st_size for p in (ROOT / "app/static/exercises").rglob("*.webp"))
-    assert total < 5 * 1024 * 1024
+    assert total < 25 * 1024 * 1024
 
 
 def test_every_curated_lift_has_steps_and_a_source():
