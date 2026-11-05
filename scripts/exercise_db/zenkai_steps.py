@@ -1,5 +1,6 @@
-"""Steps for the curated exercises free-exercise-db can't cover: no true match
-(curated_map.py maps them to None) or a match with no instructions.
+"""Steps for exercises free-exercise-db can't cover: curated lifts with no true
+match (curated_map.py maps them to None) or a match with no instructions, plus
+the two database entries that ship without steps.
 
 Written for Zenkai, not from the database, so build.py tags them
 steps_source="zenkai" and the detail page says so. Each agrees with the
@@ -7,6 +8,19 @@ exercise's own cue in app/data/exercises.py. Level follows the database's
 scale: beginner / intermediate / expert."""
 
 ZENKAI_STEPS: dict[str, tuple[str, list[str]]] = {
+    # Two database entries that have photos but no steps upstream.
+    "Iron Cross": ("intermediate", [
+        "Stand with feet shoulder-width apart, a light dumbbell in each hand.",
+        "Squat down while raising both arms straight out in front of you to shoulder height.",
+        "Stand back up and, as you rise, sweep your arms out to your sides at shoulder height.",
+        "Bring your arms back in front of you as you squat into the next rep. Keep your elbows soft throughout.",
+    ]),
+    "Side Jackknife": ("beginner", [
+        "Lie on your side with your legs straight and stacked, bottom arm across your body.",
+        "Place your top hand lightly behind your head.",
+        "Lift your top leg as high as you can while crunching your torso sideways to bring elbow and knee together.",
+        "Lower both back down with control. Finish the set, then switch sides.",
+    ]),
     "Assault Bike": ("beginner", [
         "Set the seat so your knee is slightly bent at the bottom of the pedal stroke.",
         "Grip the handles at chest height and start pedaling at an easy pace.",

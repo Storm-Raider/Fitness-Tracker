@@ -106,7 +106,9 @@
     "For intervals, go all out for 10 to 30 seconds, then pedal easy until your breathing settles."
    ],
    "steps_source": "zenkai",
-   "images": []
+   "images": [
+    "/static/exercises/repdb/air-bike/0.webp"
+   ]
   },
   {
    "name": "Assisted Pull-up",
@@ -364,7 +366,9 @@
     "Drive up and jump, reaching overhead. Land softly and go straight into the next rep."
    ],
    "steps_source": "zenkai",
-   "images": []
+   "images": [
+    "/static/exercises/repdb/burpees/0.webp"
+   ]
   },
   {
    "name": "Cable Crunch",
@@ -532,7 +536,10 @@
     "Bend the elbow slowly back to 90 degrees without letting the upper arm drop. Finish the set, then switch arms."
    ],
    "steps_source": "zenkai",
-   "images": []
+   "images": [
+    "/static/exercises/repdb/cable-tricep-kickback/0.webp",
+    "/static/exercises/repdb/cable-tricep-kickback/1.webp"
+   ]
   },
   {
    "name": "Calf Raise",
@@ -703,7 +710,9 @@
     "Lower with control and switch sides."
    ],
    "steps_source": "zenkai",
-   "images": []
+   "images": [
+    "/static/exercises/repdb/copenhagen-plank/0.webp"
+   ]
   },
   {
    "name": "Crunch",
@@ -888,7 +897,10 @@
     "Hold for a moment at the top, then lower with control. Finish the set and switch legs."
    ],
    "steps_source": "zenkai",
-   "images": []
+   "images": [
+    "/static/exercises/repdb/glute-kickback/0.webp",
+    "/static/exercises/repdb/glute-kickback/1.webp"
+   ]
   },
   {
    "name": "Dragon Flag",
@@ -904,7 +916,10 @@
     "Stop just above the bench, then raise back up the same way."
    ],
    "steps_source": "zenkai",
-   "images": []
+   "images": [
+    "/static/exercises/repdb/dragon-flag/0.webp",
+    "/static/exercises/repdb/dragon-flag/1.webp"
+   ]
   },
   {
    "name": "Dumbbell Bench Press",
@@ -976,7 +991,10 @@
     "Lower your hips under control until they nearly touch the floor."
    ],
    "steps_source": "zenkai",
-   "images": []
+   "images": [
+    "/static/exercises/repdb/dumbbell-hip-thrust/0.webp",
+    "/static/exercises/repdb/dumbbell-hip-thrust/1.webp"
+   ]
   },
   {
    "name": "Dumbbell Pullover",
@@ -1155,7 +1173,10 @@
     "Pause, then lower with control. Finish the set and switch sides."
    ],
    "steps_source": "zenkai",
-   "images": []
+   "images": [
+    "/static/exercises/repdb/fire-hydrant/0.webp",
+    "/static/exercises/repdb/fire-hydrant/1.webp"
+   ]
   },
   {
    "name": "Flutter Kicks",
@@ -1170,7 +1191,10 @@
     "Keep your lower back pressed down the whole time; if it lifts, raise your legs a little higher."
    ],
    "steps_source": "zenkai",
-   "images": []
+   "images": [
+    "/static/exercises/repdb/flutter-kicks/0.webp",
+    "/static/exercises/repdb/flutter-kicks/1.webp"
+   ]
   },
   {
    "name": "Frog Pump",
@@ -1364,7 +1388,10 @@
     "Lower your legs slowly until they're straight, without swinging."
    ],
    "steps_source": "zenkai",
-   "images": []
+   "images": [
+    "/static/exercises/repdb/hanging-knee-raise/0.webp",
+    "/static/exercises/repdb/hanging-knee-raise/1.webp"
+   ]
   },
   {
    "name": "Hanging Leg Raise",
@@ -1414,7 +1441,9 @@
     "Hold. If your lower back lifts, bend your knees or bring your arms forward to make it easier."
    ],
    "steps_source": "zenkai",
-   "images": []
+   "images": [
+    "/static/exercises/repdb/hollow-body-hold/0.webp"
+   ]
   },
   {
    "name": "Incline Bench Press",
@@ -1504,7 +1533,9 @@
     "Stand tall and let your arms swing; don't hold the rails or lean on the console."
    ],
    "steps_source": "zenkai",
-   "images": []
+   "images": [
+    "/static/exercises/repdb/incline-treadmill-walk/0.webp"
+   ]
   },
   {
    "name": "Inverted Row",
@@ -1574,7 +1605,10 @@
     "Stay light on the balls of your feet and keep a steady rhythm."
    ],
    "steps_source": "zenkai",
-   "images": []
+   "images": [
+    "/static/exercises/repdb/jumping-jacks/0.webp",
+    "/static/exercises/repdb/jumping-jacks/1.webp"
+   ]
   },
   {
    "name": "Kettlebell Swing",
@@ -1608,7 +1642,9 @@
     "Hold with legs together and knees locked. Tuck your knees to make it easier."
    ],
    "steps_source": "zenkai",
-   "images": []
+   "images": [
+    "/static/exercises/repdb/l-sit/0.webp"
+   ]
   },
   {
    "name": "Landmine Press",
@@ -1623,7 +1659,10 @@
     "Lower it back to your shoulder under control. Finish the set and switch arms, or press with both hands."
    ],
    "steps_source": "zenkai",
-   "images": []
+   "images": [
+    "/static/exercises/repdb/landmine-press/0.webp",
+    "/static/exercises/repdb/landmine-press/1.webp"
+   ]
   },
   {
    "name": "Lat Pulldown",
@@ -1658,7 +1697,10 @@
     "Push off the bent leg to return to standing. Alternate sides or finish one side first."
    ],
    "steps_source": "zenkai",
-   "images": []
+   "images": [
+    "/static/exercises/repdb/side-lunge/0.webp",
+    "/static/exercises/repdb/side-lunge/1.webp"
+   ]
   },
   {
    "name": "Lateral Raise",
@@ -2004,7 +2046,10 @@
     "Drive up out of the hole to standing."
    ],
    "steps_source": "zenkai",
-   "images": []
+   "images": [
+    "/static/exercises/repdb/pause-squat/0.webp",
+    "/static/exercises/repdb/pause-squat/1.webp"
+   ]
   },
   {
    "name": "Pec Deck",
@@ -2038,7 +2083,10 @@
     "Lower the bar all the way back to the floor and let it settle. Reset your back before the next rep."
    ],
    "steps_source": "zenkai",
-   "images": []
+   "images": [
+    "/static/exercises/repdb/pendlay-row/0.webp",
+    "/static/exercises/repdb/pendlay-row/1.webp"
+   ]
   },
   {
    "name": "Pike Push-up",
@@ -2560,7 +2608,10 @@
     "Stand back up and let the handles rise slowly to the start before the next pull."
    ],
    "steps_source": "zenkai",
-   "images": []
+   "images": [
+    "/static/exercises/repdb/ski-erg/0.webp",
+    "/static/exercises/repdb/ski-erg/1.webp"
+   ]
   },
   {
    "name": "Skull Crusher",
@@ -2651,7 +2702,10 @@
     "Drive through your front foot to stand back up. Finish the set and switch legs."
    ],
    "steps_source": "zenkai",
-   "images": []
+   "images": [
+    "/static/exercises/repdb/dumbbell-split-squat/0.webp",
+    "/static/exercises/repdb/dumbbell-split-squat/1.webp"
+   ]
   },
   {
    "name": "Stair Climber",
@@ -2896,7 +2950,10 @@
     "Lower your upper body and legs slowly back to the floor."
    ],
    "steps_source": "zenkai",
-   "images": []
+   "images": [
+    "/static/exercises/repdb/v-ups/0.webp",
+    "/static/exercises/repdb/v-ups/1.webp"
+   ]
   },
   {
    "name": "Walking",
@@ -2945,7 +3002,9 @@
     "Hold for the set time, then slide back up."
    ],
    "steps_source": "zenkai",
-   "images": []
+   "images": [
+    "/static/exercises/repdb/wall-sit/0.webp"
+   ]
   },
   {
    "name": "Wide-Grip Lat Pulldown",
@@ -10780,8 +10839,13 @@
    ],
    "log_type": "reps",
    "level": "intermediate",
-   "instructions": [],
-   "steps_source": null,
+   "instructions": [
+    "Stand with feet shoulder-width apart, a light dumbbell in each hand.",
+    "Squat down while raising both arms straight out in front of you to shoulder height.",
+    "Stand back up and, as you rise, sweep your arms out to your sides at shoulder height.",
+    "Bring your arms back in front of you as you squat into the next rep. Keep your elbows soft throughout."
+   ],
+   "steps_source": "zenkai",
    "images": [
     "/static/exercises/Iron_Cross/0.webp",
     "/static/exercises/Iron_Cross/1.webp"
@@ -11239,7 +11303,10 @@
     "Move slowly and keep your head, hips and lower back still. If your lower back arches or the bell drifts far from your head, use a lighter weight."
    ],
    "steps_source": "fedb",
-   "images": []
+   "images": [
+    "/static/exercises/repdb/kettlebell-halo/0.webp",
+    "/static/exercises/repdb/kettlebell-halo/1.webp"
+   ]
   },
   {
    "name": "Kettlebell Halo with Overhead Extension",
@@ -11320,7 +11387,10 @@
     "Keep your ribcage down and avoid arching your lower back as you extend."
    ],
    "steps_source": "fedb",
-   "images": []
+   "images": [
+    "/static/exercises/repdb/kettlebell-overhead-tricep-extension/0.webp",
+    "/static/exercises/repdb/kettlebell-overhead-tricep-extension/1.webp"
+   ]
   },
   {
    "name": "Kettlebell Pass Between The Legs",
@@ -17833,8 +17903,13 @@
    "muscle_secondary": [],
    "log_type": "reps",
    "level": "beginner",
-   "instructions": [],
-   "steps_source": null,
+   "instructions": [
+    "Lie on your side with your legs straight and stacked, bottom arm across your body.",
+    "Place your top hand lightly behind your head.",
+    "Lift your top leg as high as you can while crunching your torso sideways to bring elbow and knee together.",
+    "Lower both back down with control. Finish the set, then switch sides."
+   ],
+   "steps_source": "zenkai",
    "images": [
     "/static/exercises/Side_Jackknife/0.webp",
     "/static/exercises/Side_Jackknife/1.webp"

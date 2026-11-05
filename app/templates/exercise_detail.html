@@ -83,10 +83,12 @@
   <div class="card howto-card">
     {% if exercise.images %}
     <div class="howto-pics">
+      {% set single = exercise.images | length == 1 %}
       {% for src in exercise.images %}
+      {% set square = '/repdb/' in src %}
       <figure>
-        <img src="{{ src }}" alt="{{ exercise.name }}, {{ 'start' if loop.first else 'finish' }} position" width="400" height="267" loading="lazy" decoding="async">
-        <figcaption>{{ 'Start' if loop.first else 'Finish' }}</figcaption>
+        <img src="{{ src }}" alt="{{ exercise.name }}{% if not single %}, {{ 'start' if loop.first else 'finish' }} position{% endif %}" width="400" height="{{ 400 if square else 267 }}" loading="lazy" decoding="async">
+        {% if not single %}<figcaption>{{ 'Start' if loop.first else 'Finish' }}</figcaption>{% endif %}
       </figure>
       {% endfor %}
     </div>
@@ -95,8 +97,10 @@
     <ol class="howto-steps">
       {% for step in exercise.instructions %}<li>{{ step }}</li>{% endfor %}
     </ol>
-    {% if exercise.steps_source == 'zenkai' %}<p class="howto-src">Steps written for Zenkai{% if not exercise.images %}; there are no photos for this one{% endif %}.</p>
-    {% elif exercise.steps_source == 'fedb' %}<p class="howto-src">From free-exercise-db (public domain).</p>{% endif %}
+    {% set drawn = exercise.images and '/repdb/' in exercise.images[0] %}
+    <p class="howto-src">
+      {%- if exercise.steps_source == 'zenkai' %}Steps written for Zenkai{% elif exercise.steps_source == 'fedb' %}From free-exercise-db (public domain){% endif -%}
+      {%- if drawn %}. Illustrations: exercise data by <a href="https://repdb.co" rel="nofollow noopener" target="_blank">RepDB (repdb.co)</a>{% elif not exercise.images %}; there are no photos for this one{% endif %}.</p>
     {% endif %}
   </div>
 </section>

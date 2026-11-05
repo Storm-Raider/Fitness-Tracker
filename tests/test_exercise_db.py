@@ -8,6 +8,7 @@ import pytest
 from app.db import init_db, _seed_exercise_db
 from scripts.exercise_db.curated_map import CURATED_TO_FEDB, EXTRA_COMMON, SHARED_OK
 from scripts.exercise_db.zenkai_steps import ZENKAI_STEPS
+from scripts.exercise_db.repdb_map import REPDB_IMAGES
 
 ROOT = Path(__file__).resolve().parent.parent
 DATA = json.loads((ROOT / "app/data/exercise_db.json").read_text())
@@ -67,6 +68,17 @@ def test_photos_exist_and_cover_nearly_everything():
 def test_photo_payload_stays_reasonable_for_the_pi():
     total = sum(p.stat().st_size for p in (ROOT / "app/static/exercises").rglob("*.webp"))
     assert total < 25 * 1024 * 1024
+
+
+def test_every_exercise_has_steps():
+    assert [e["name"] for e in EXS if not e["instructions"]] == []
+
+
+def test_repdb_illustrations_only_where_mapped_and_credited():
+    drawn = {e["name"] for e in EXS if e["images"] and "/repdb/" in e["images"][0]}
+    assert drawn == set(REPDB_IMAGES)
+    readme = (ROOT / "README.md").read_text()
+    assert "Exercise data by [RepDB](https://repdb.co)" in readme      # license term 2
 
 
 def test_every_curated_lift_has_steps_and_a_source():
@@ -163,9 +175,11 @@ async def test_detail_page_shows_how_to(client):
 
 
 @pytest.mark.asyncio
-async def test_detail_page_labels_hand_written_steps(client):
-    items = (await client.get("/api/exercises")).json()["exercises"]
-    burpee = next(e for e in items if e["name"] == "Burpee")
-    html = (await client.get(f"/exercises/{burpee['id']}")).text
-    assert "How to do it" in html and "Steps written for Zenkai" in html
-    assert "no photos for this one" in html
+async def test_detail_page_labels_hand_written_steps_and_credits_illustrations(client):
+    items = {e["name"]: e for e in (await client.get("/api/exercises")).json()["exercises"]}
+    burpee = (await client.get(f"/exercises/{items['Burpee']['id']}")).text
+    assert "Steps written for Zenkai" in burpee
+    assert "/static/exercises/repdb/" in burpee and 'href="https://repdb.co"' in burpee
+    assert "<figcaption>" not in burpee              # one illustration: no Start/Finish caption
+    swim = (await client.get(f"/exercises/{items['Swimming']['id']}")).text
+    assert "How to do it" in swim and "no photos for this one" in swim
