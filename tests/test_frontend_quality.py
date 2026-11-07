@@ -46,13 +46,17 @@ async def test_analytics_empty_account_shows_one_empty_state(client):
 
 
 @pytest.mark.asyncio
-async def test_analytics_leads_with_records(client):
+async def test_analytics_order_puts_records_last(client):
     w = (await client.post("/workouts", json={})).json()["id"]
     ex = next(e for e in (await client.get("/api/exercises")).json()["exercises"] if e["name"] == "Bench Press")["id"]
     await client.post(f"/workouts/{w}/sets", json={"exercise_id": ex, "reps": 5, "weight_kg": 60})
     await client.post(f"/workouts/{w}/finish")
     html = (await client.get("/analytics", headers={"Accept": "text/html"})).text
-    assert html.index("Personal records") < html.index("Volume — last 12 weeks") < html.index("Muscle volume")
+    order = ["Muscle recovery", "Volume — last 12 weeks", "Activity, last", "Muscle volume",
+             "Strength levels", "Personal records"]
+    present = [t for t in order if t in html]
+    assert present[0] == "Muscle recovery" and present[-1] == "Personal records", present
+    assert [html.index(t) for t in present] == sorted(html.index(t) for t in present)
 
 
 @pytest.mark.asyncio
