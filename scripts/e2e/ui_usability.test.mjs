@@ -27,6 +27,9 @@
 //      "Logged." confirmation where you tapped, and the entry itself.
 //   E12 No zoom on tap: every page's viewport caps zoom at 1 and the whole page
 //      has touch-action: manipulation; no field is under 16px.
+//   F6 In a session: the exercise picker shows a picture next to each name, and
+//      "How to" opens the exercise's steps and photos in a sheet that closes back
+//      to the log.
 //   E11 Type scale: every main page and the sign-in page use only the five sizes in
 //      DESIGN.md (13 / 15 / 18 / 22 / 30 px; 40 for the desktop headline; 16 for
 //      text typed into a field, which iOS needs to avoid zooming).
@@ -171,6 +174,27 @@ await seedCtx.close();
     await tap(page.getByRole('button', { name: /log set|complete set/i }).first());
     tapsToLog = taps;
     await page.waitForTimeout(600);
+
+    // F6: picker thumbnails and the How-to sheet.
+    await page.getByRole('button', { name: /change exercise/i }).first().click();
+    await page.locator('#ex-picker').waitFor({ state: 'visible' });
+    await page.locator('#exercise-input').fill('press');   // a new account has only one recent exercise
+    await page.waitForTimeout(700);
+    const thumbs = await page.$$eval('#ex-picker [role=option] .pi-thumb img',
+      imgs => imgs.slice(0, 8).filter(i => i.complete && i.naturalWidth > 0).length);
+    await page.locator('#ex-picker .picker-close').click();
+    await page.waitForTimeout(400);
+    await page.getByRole('button', { name: /^how to do/i }).first().click();
+    await page.locator('#howto-sheet').waitFor({ state: 'visible' });
+    await page.waitForFunction(() => document.querySelectorAll('#howto-body .howto-steps li').length > 0, null, { timeout: 4000 }).catch(() => {});
+    const steps = await page.locator('#howto-body .howto-steps li').count();
+    const pics = await page.$$eval('#howto-body img', imgs => imgs.length);
+    await page.locator('#howto-sheet .picker-close').click();
+    await page.waitForTimeout(400);
+    const closed = !(await page.locator('#howto-sheet').isVisible());
+    check('F6', 'picker shows pictures; "How to" opens steps + photos and closes back',
+          thumbs >= 4 && steps >= 3 && pics === 2 && closed,
+          `thumbs=${thumbs} steps=${steps} pics=${pics} closed=${closed}`);
     // SESSION_SETS is a top-level `let`, so it is a global binding but not on window.
     logged = await page.evaluate(() => (typeof SESSION_SETS !== 'undefined' ? SESSION_SETS : []).length > 0);
     const sessionUrl = page.url();

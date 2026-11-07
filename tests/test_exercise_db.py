@@ -183,3 +183,30 @@ async def test_detail_page_labels_hand_written_steps_and_credits_illustrations(c
     assert "<figcaption>" not in burpee              # one illustration: no Start/Finish caption
     swim = (await client.get(f"/exercises/{items['Swimming']['id']}")).text
     assert "How to do it" in swim and "no photos for this one" in swim
+
+
+# ── in-session: picker thumbnails + How-to sheet ─────────────────────────
+
+@pytest.mark.asyncio
+async def test_api_exercises_has_thumb_and_howto_flag(client):
+    items = {e["name"]: e for e in (await client.get("/api/exercises")).json()["exercises"]}
+    assert items["Bench Press"]["thumb"].startswith("/static/exercises/")
+    assert items["Bench Press"]["has_howto"] is True
+    assert items["Swimming"]["thumb"] is None and items["Swimming"]["has_howto"] is True   # steps, no photo
+
+
+@pytest.mark.asyncio
+async def test_howto_endpoint(client):
+    items = {e["name"]: e for e in (await client.get("/api/exercises")).json()["exercises"]}
+    h = (await client.get(f"/api/exercises/{items['Burpee']['id']}/howto")).json()
+    assert h["name"] == "Burpee" and h["instructions"] and h["illustrated"] is True
+    assert h["steps_source"] == "zenkai"
+    b = (await client.get(f"/api/exercises/{items['Bench Press']['id']}/howto")).json()
+    assert len(b["images"]) == 2 and b["illustrated"] is False
+    assert (await client.get("/api/exercises/999999/howto")).status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_howto_endpoint_needs_login(anon_client):
+    r = await anon_client.get("/api/exercises/1/howto", follow_redirects=False)
+    assert r.status_code in (302, 303, 401)
