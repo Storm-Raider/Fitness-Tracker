@@ -281,11 +281,20 @@ gates before any restart:
 - **Main only.** If the checkout is on any other branch it neither pulls nor
   restarts (`checkout is on X, not main — not deploying`); switching back to
   `main` catches up on the next tick.
-- **Tests first.** A commit that changes server code runs the test suite
-  (`pytest -x`, about 75 s on a Pi 5; output in `logs/deploy-tests.log`). If it
-  fails, the app stays on the code it is running and the log says `ALERT: tests
-  failed`; that commit isn't re-tested every tick, and the next commit tries again.
-  Dependencies are installed before the tests run, since the tests need them.
+- **Tests first, outside the live tree.** When `origin/main` brings server code
+  (`app/*.py`, `requirements.txt`, `schema.sql`), the new commit is checked out
+  in a separate worktree (`~/.cache/zenkai-deploy-worktree`) and the suite runs
+  there (`pytest -x`, output in `logs/deploy-tests.log`). Only if it passes does
+  the live checkout fast-forward, and the app restarts straight after, so new
+  templates never run against old Python. If it fails, the live checkout and
+  the app both stay where they were and the log says `ALERT: tests failed …
+  NOT pulling`; that commit isn't re-tested every tick, and the next commit
+  tries again. Dependencies are installed before the tests run, since the
+  tests need them. Template- and static-only commits are pulled directly with
+  no tests and no restart. A commit made on the Pi itself is tested in place
+  before its restart, as before.
+- **Fast suite.** Each test copies a database seeded once per run instead of
+  seeding its own (about 25 s for the whole suite on a laptop).
 
 ---
 

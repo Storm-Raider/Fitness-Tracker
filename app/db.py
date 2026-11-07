@@ -598,7 +598,12 @@ async def init_db(conn: aiosqlite.Connection) -> None:
     logging.info("Seeded %d exercises, %d global routines", len(EXERCISES), len(ROUTINES))
 
 
-async def open_db(path: str) -> aiosqlite.Connection:
+async def open_db(path: str, *, copy_from: str | None = None) -> aiosqlite.Connection:
+    """Open the shared connection and bring the schema and seed data up to date.
+
+    copy_from (tests only): the path of a database open_db already initialised.
+    Its contents are copied in and init_db is skipped, so each test gets a fresh,
+    fully seeded database in milliseconds instead of re-loading 900 exercises."""
     conn = await aiosqlite.connect(path, isolation_level=None)
     conn.row_factory = aiosqlite.Row
     # The connection is shared by every request and runs in autocommit mode
@@ -624,6 +629,14 @@ async def open_db(path: str) -> aiosqlite.Connection:
                 "Either the key is wrong or the database is not yet encrypted. "
                 "Run: python scripts/encrypt_db.py"
             ) from exc
+    if copy_from:
+        src = await aiosqlite.connect(copy_from)
+        try:
+            await src.backup(conn)
+        finally:
+            await src.close()
+        await conn.execute("PRAGMA foreign_keys=ON")
+        return conn
     await conn.execute("PRAGMA journal_mode=WAL")
     await conn.execute("PRAGMA foreign_keys=ON")
     await init_db(conn)

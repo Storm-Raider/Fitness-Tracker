@@ -46,10 +46,40 @@ async def _seed_session(conn, user_id: int, sid: str = "test-sid") -> None:
     await conn.commit()
 
 
+_TEMPLATE_DB: str | None = None
+
+
+def _template_db() -> str:
+    """A database open_db initialised once per test run (schema, migrations and the
+    903-exercise seed). Each test copies it instead of seeding its own: seeding cost
+    ~0.14 s a test here and several times that on the Pi, whose deploy runs this suite."""
+    global _TEMPLATE_DB
+    if _TEMPLATE_DB is None:
+        import asyncio
+        import atexit
+        import shutil
+        import tempfile
+        import threading
+        tmp = tempfile.mkdtemp(prefix="zenkai-test-db-")
+        atexit.register(shutil.rmtree, tmp, ignore_errors=True)
+        path = os.path.join(tmp, "template.db")
+
+        async def build():
+            conn = await open_db(path)
+            await conn.close()          # closing the last connection checkpoints the WAL
+        # Its own thread and loop: a pytest-asyncio loop may already be running here.
+        t = threading.Thread(target=lambda: asyncio.run(build()))
+        t.start(); t.join()
+        if not os.path.exists(path):
+            raise RuntimeError("could not build the template test database")
+        _TEMPLATE_DB = path
+    return _TEMPLATE_DB
+
+
 @pytest_asyncio.fixture
 async def db_conn():
     coach_budget.reset()      # loop-bound asyncio state and the in-memory daily counter
-    conn = await open_db(":memory:")
+    conn = await open_db(":memory:", copy_from=_template_db())
     set_db(conn)
     yield conn
     await conn.close()
