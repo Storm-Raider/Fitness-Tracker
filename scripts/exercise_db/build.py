@@ -5,7 +5,7 @@ https://github.com/yuhonas/free-exercise-db).
     git clone --depth 1 https://github.com/yuhonas/free-exercise-db /tmp/fedb
     python3 scripts/exercise_db/build.py /tmp/fedb
 
-Writes app/data/exercise_db.json and, for the Common tier, small WebP photos in
+Writes app/data/exercise_db.json and small WebP photos (two per exercise) in
 app/static/exercises/<id>/. Deterministic: the same checkout gives the same
 output, so a rebuild shows only real upstream changes in the diff.
 
@@ -17,7 +17,8 @@ Rules:
   vocabulary, unless its name would duplicate a curated one ("Split Squats" next
   to "Split Squat"), in which case it is skipped.
 - Tier 1 (Common) = the curated exercises + EXTRA_COMMON. Tier 2 = the rest.
-  Only tier 1 gets photos (two each, 400px WebP), so the Pi stays small.
+  Every exercise the database has photos for gets two (400px WebP, ~10 KB each);
+  tier only decides ordering and folding.
 """
 import json
 import re
@@ -29,6 +30,8 @@ sys.path.insert(0, str(ROOT))
 
 from app.data.exercises import EXERCISES  # noqa: E402
 from scripts.exercise_db.curated_map import CURATED_TO_FEDB, EXTRA_COMMON  # noqa: E402
+from scripts.exercise_db.zenkai_steps import ZENKAI_STEPS  # noqa: E402
+from scripts.exercise_db.repdb_map import REPDB_IMAGES  # noqa: E402
 
 OUT_JSON = ROOT / "app/data/exercise_db.json"
 OUT_IMG = ROOT / "app/static/exercises"
@@ -105,7 +108,30 @@ def photos(src_root: Path, fid: str, rel_images: list[str]) -> list[str]:
     return out
 
 
-def main(src: str) -> None:
+def repdb_photos(repdb_root: Path | None, name: str) -> list[str]:
+    """RepDB illustrations for an exercise with no photos, resized to 400px (see repdb_map.py)."""
+    if repdb_root is None or name not in REPDB_IMAGES:
+        return []
+    from PIL import Image
+    data = json.loads((repdb_root / "exercises.json").read_text())
+    rec = next(e for e in data["exercises"] if e["name_en"] == REPDB_IMAGES[name])
+    flat = rec["images"]["flat"]
+    rels = [flat[k] for k in ("start", "peak") if k in flat] or [flat["main"]]
+    out = []
+    for i, rel in enumerate(rels):
+        dest = OUT_IMG / "repdb" / rec["id"] / f"{i}.webp"
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        with Image.open(repdb_root / rel) as im:
+            im = im.convert("RGB")
+            if im.width > IMG_WIDTH:
+                im = im.resize((IMG_WIDTH, round(im.height * IMG_WIDTH / im.width)), Image.LANCZOS)
+            im.save(dest, "WEBP", quality=IMG_QUALITY, method=6)
+        out.append(f"/static/exercises/repdb/{rec['id']}/{i}.webp")
+    return out
+
+
+def main(src: str, repdb: str | None = None) -> None:
+    repdb_root = Path(repdb) if repdb else None
     src_root = Path(src)
     db = json.loads((src_root / "dist/exercises.json").read_text())
     by_name = {x["name"]: x for x in db}
@@ -122,14 +148,22 @@ def main(src: str) -> None:
     # 1. Curated: enrichment of the existing 169, keyed by the curated name.
     for name in sorted(curated):
         fedb = by_name.get(CURATED_TO_FEDB.get(name) or "")
+        steps = (fedb.get("instructions") or []) if fedb else []
+        level = fedb.get("level") if fedb else None
+        steps_source = "fedb" if steps else None
+        if not steps and name in ZENKAI_STEPS:      # no usable match: our own steps
+            level, steps = ZENKAI_STEPS[name]
+            steps_source = "zenkai"
         entries.append({
             "name": name,
             "source": "curated",
             "fedb_id": fedb["id"] if fedb else None,
             "tier": 1,
-            "level": fedb.get("level") if fedb else None,
-            "instructions": (fedb.get("instructions") or []) if fedb else [],
-            "images": photos(src_root, fedb["id"], fedb.get("images") or []) if fedb else [],
+            "level": level,
+            "instructions": steps,
+            "steps_source": steps_source,
+            "images": (photos(src_root, fedb["id"], fedb.get("images") or []) if fedb else [])
+                      or repdb_photos(repdb_root, name),
         })
     # 2. The rest of free-exercise-db under its own names.
     skipped = []
@@ -156,8 +190,9 @@ def main(src: str) -> None:
             "muscle_secondary": sec,
             "log_type": "time" if x["category"] == "stretching" else "reps",
             "level": x.get("level"),
-            "instructions": x.get("instructions") or [],
-            "images": photos(src_root, x["id"], x.get("images") or []) if tier == 1 else [],
+            "instructions": x.get("instructions") or ZENKAI_STEPS.get(x["name"], (None, []))[1],
+            "steps_source": "fedb" if x.get("instructions") else ("zenkai" if x["name"] in ZENKAI_STEPS else None),
+            "images": photos(src_root, x["id"], x.get("images") or []) or repdb_photos(repdb_root, x["name"]),
         })
 
     OUT_JSON.write_text(json.dumps({
@@ -173,4 +208,6 @@ def main(src: str) -> None:
 
 
 if __name__ == "__main__":
-    main(sys.argv[1] if len(sys.argv) > 1 else "/tmp/fedb/src")
+    # build.py <free-exercise-db checkout> [<RepDB exercise-dataset checkout>]
+    main(sys.argv[1] if len(sys.argv) > 1 else "/tmp/fedb/src",
+         sys.argv[2] if len(sys.argv) > 2 else None)

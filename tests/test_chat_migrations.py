@@ -74,7 +74,7 @@ async def test_a_pre_chat_database_upgrades_cleanly_and_keeps_its_rows():
         await conn.execute("ALTER TABLE user_settings DROP COLUMN coach_chat_ack_at")
         await conn.execute("ALTER TABLE routine_exercises DROP COLUMN target_json")   # added after the chat
         await conn.execute("DROP INDEX idx_exercises_tier")                            # exercise db, also later
-        for col in ("source", "tier", "level", "instructions", "images", "fedb_id"):
+        for col in ("source", "tier", "level", "instructions", "images", "fedb_id", "steps_source"):
             await conn.execute(f"ALTER TABLE exercises DROP COLUMN {col}")
         await conn.execute("DELETE FROM _schema_migrations WHERE idx >= ?", (first,))
         await conn.execute(

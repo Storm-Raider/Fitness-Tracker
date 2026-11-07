@@ -7,6 +7,8 @@ import pytest
 
 from app.db import init_db, _seed_exercise_db
 from scripts.exercise_db.curated_map import CURATED_TO_FEDB, EXTRA_COMMON, SHARED_OK
+from scripts.exercise_db.zenkai_steps import ZENKAI_STEPS
+from scripts.exercise_db.repdb_map import REPDB_IMAGES
 
 ROOT = Path(__file__).resolve().parent.parent
 DATA = json.loads((ROOT / "app/data/exercise_db.json").read_text())
@@ -52,21 +54,44 @@ def test_database_entries_have_valid_metadata():
         assert set(e["muscle_primary"]) | set(e["muscle_secondary"]) <= MUSCLES, e["name"]
         assert e["equipment"] in EQUIPMENT, (e["name"], e["equipment"])
         assert e["log_type"] in {"reps", "time"}
-        assert e["instructions"] or e["tier"] == 2, e["name"]
 
 
-def test_photos_only_for_common_tier_and_all_exist():
+def test_photos_exist_and_cover_nearly_everything():
     for e in EXS:
-        if e["tier"] != 1:
-            assert e["images"] == [], e["name"]
         for src in e["images"]:
             assert src.startswith("/static/exercises/")
             assert (ROOT / "app" / src.lstrip("/")).is_file(), src
+    with_photos = sum(1 for e in EXS if e["images"])
+    assert with_photos >= len(EXS) - 40          # only lifts with no database match lack them
 
 
-def test_photo_payload_stays_small():
+def test_photo_payload_stays_reasonable_for_the_pi():
     total = sum(p.stat().st_size for p in (ROOT / "app/static/exercises").rglob("*.webp"))
-    assert total < 5 * 1024 * 1024
+    assert total < 25 * 1024 * 1024
+
+
+def test_every_exercise_has_steps():
+    assert [e["name"] for e in EXS if not e["instructions"]] == []
+
+
+def test_repdb_illustrations_only_where_mapped_and_credited():
+    drawn = {e["name"] for e in EXS if e["images"] and "/repdb/" in e["images"][0]}
+    assert drawn == set(REPDB_IMAGES)
+    readme = (ROOT / "README.md").read_text()
+    assert "Exercise data by [RepDB](https://repdb.co)" in readme      # license term 2
+
+
+def test_every_curated_lift_has_steps_and_a_source():
+    for e in (x for x in EXS if x["source"] == "curated"):
+        assert e["instructions"], e["name"]
+        assert e["steps_source"] in {"fedb", "zenkai"}, e["name"]
+        assert e["level"] in {"beginner", "intermediate", "expert"}, e["name"]
+
+
+def test_zenkai_steps_only_fill_real_gaps():
+    """A hand-written entry that the database now covers is stale: drop it."""
+    written = {e["name"] for e in EXS if e.get("steps_source") == "zenkai"}
+    assert written == set(ZENKAI_STEPS)
 
 
 # ── seeding ──────────────────────────────────────────────────────────────
@@ -146,3 +171,15 @@ async def test_detail_page_shows_how_to(client):
     html = (await client.get(f"/exercises/{bench['id']}")).text
     assert "How to do it" in html
     assert "/static/exercises/" in html and "<ol" in html
+    assert "From free-exercise-db" in html
+
+
+@pytest.mark.asyncio
+async def test_detail_page_labels_hand_written_steps_and_credits_illustrations(client):
+    items = {e["name"]: e for e in (await client.get("/api/exercises")).json()["exercises"]}
+    burpee = (await client.get(f"/exercises/{items['Burpee']['id']}")).text
+    assert "Steps written for Zenkai" in burpee
+    assert "/static/exercises/repdb/" in burpee and 'href="https://repdb.co"' in burpee
+    assert "<figcaption>" not in burpee              # one illustration: no Start/Finish caption
+    swim = (await client.get(f"/exercises/{items['Swimming']['id']}")).text
+    assert "How to do it" in swim and "no photos for this one" in swim
