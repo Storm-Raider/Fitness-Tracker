@@ -6,11 +6,19 @@
 # on main (a feature branch checked out here is never deployed). Three jobs:
 #
 #   1. PULL    — origin/main advanced (commit pushed from another machine)
-#                → fast-forward the working tree to it.
+#                → if it changes server code, test it first in a separate
+#                worktree, then fast-forward the working tree to it.
 #   2. RESTART — the running server is on an older commit than HEAD AND the
-#                change actually touches server code → run the test suite,
-#                and only if it passes restart so the live app matches HEAD,
-#                then verify it serves traffic.
+#                change actually touches server code → restart (testing first
+#                unless PULL already tested this commit) so the live app
+#                matches HEAD, then verify it serves traffic.
+#
+# Why test in a worktree (2026-11-07): templates and static files are read
+# from the working tree on every request, so pulling first and testing after
+# served new templates against the old Python for the whole test run (a 500 on
+# /plan while the suite ran). Now the live tree only moves once the new commit
+# has passed, and the restart follows within seconds. A commit that fails
+# never reaches the live tree at all.
 #   3. VERIFY  — after a restart, poll /health; if the new code fails to boot,
 #                alert loudly instead of leaving the app silently down.
 #
@@ -42,7 +50,9 @@ set -uo pipefail
 REPO="${ZENKAI_REPO:-/home/stormraider/Desktop/Git/Fitness-Tracker}"
 BRANCH="main"
 MARKER="$REPO/logs/deployed-commit"
-TESTS_FAILED_MARKER="$REPO/logs/tests-failed-commit"   # HEAD whose tests failed; not re-run every tick
+TESTS_FAILED_MARKER="$REPO/logs/tests-failed-commit"   # commit whose tests failed; not re-run every tick
+TESTS_PASSED_MARKER="$REPO/logs/tests-passed-commit"   # commit tested (and passed) before it was pulled
+WORKTREE="${ZENKAI_WORKTREE:-${XDG_CACHE_HOME:-$HOME/.cache}/zenkai-deploy-worktree}"
 TEST_CMD="${ZENKAI_TEST_CMD:-timeout 900 $REPO/.venv/bin/python -m pytest -q -x -p no:cacheprovider}"
 LOCK="${ZENKAI_DEPLOY_LOCK:-/tmp/zenkai-auto-deploy.lock}"
 HEALTH_URL="${ZENKAI_HEALTH_URL:-http://127.0.0.1:8000/health}"
@@ -104,6 +114,49 @@ restart_server() {
     kill -9 "$pid" 2>/dev/null || true
 }
 
+# Only Python, the SQL schema, or dependency changes can affect the running
+# server; templates hot-reload and static files are served fresh.
+SERVER_CODE='(^app/.*\.py$|^requirements\.txt$|^schema\.sql$)'
+
+touches_server() {  # $1..$2 changes server code?
+    git diff --name-only "$1" "$2" 2>/dev/null | grep -qE "$SERVER_CODE"
+}
+
+install_deps() {  # $1 = directory whose requirements.txt to install
+    log "requirements.txt changed — installing dependencies"
+    "$REPO/.venv/bin/pip" install --quiet -r "$1/requirements.txt"
+}
+
+# Check out $1 in the deploy worktree (outside the repo, so pytest in the repo
+# never collects it) and run the suite there; output in logs/deploy-tests.log.
+common_dir() {  # the .git directory a checkout belongs to, as a real path (any git version)
+    (cd "$1" 2>/dev/null && cd "$(git rev-parse --git-common-dir 2>/dev/null)" 2>/dev/null && pwd -P) || echo "none"
+}
+
+prepare_worktree() {
+    local commit="$1"
+    # A leftover directory that isn't this repo's worktree is replaced, not reused.
+    if [ -e "$WORKTREE" ] && [ "$(common_dir "$WORKTREE")" != "$(common_dir "$REPO")" ]; then
+        rm -rf "$WORKTREE"
+    fi
+    if [ -e "$WORKTREE/.git" ] && [ "$(git -C "$WORKTREE" rev-parse HEAD 2>/dev/null)" = "$commit" ]; then
+        return 0
+    fi
+    if [ -e "$WORKTREE/.git" ]; then
+        git -C "$WORKTREE" checkout --quiet --detach --force "$commit" \
+            && git -C "$WORKTREE" clean --quiet -fdx
+    else
+        git worktree prune
+        mkdir -p "$(dirname "$WORKTREE")"
+        git worktree add --quiet --detach --force "$WORKTREE" "$commit"
+    fi || { log "could not prepare the test worktree at $WORKTREE"; return 1; }
+}
+
+test_in_worktree() {
+    prepare_worktree "$1" || return 1
+    (cd "$WORKTREE" && bash -c "$TEST_CMD") > "$REPO/logs/deploy-tests.log" 2>&1
+}
+
 # --- Only ever deploy the main branch -------------------------------------
 # This checkout doubles as the dev workspace. With a feature branch checked
 # out, its HEAD is not what was reviewed and merged, so neither pull nor
@@ -123,10 +176,35 @@ if timeout "$FETCH_TIMEOUT" git fetch --quiet origin "$BRANCH" 2>/dev/null; then
     if [ "$LOCAL" != "$REMOTE" ]; then
         if ! git diff --quiet || ! git diff --cached --quiet; then
             log "origin/$BRANCH advanced to ${REMOTE:0:8} but working tree is dirty — skipping pull"
-        elif git merge --ff-only "origin/$BRANCH" >/dev/null 2>&1; then
-            log "pulled $BRANCH ${LOCAL:0:8} -> ${REMOTE:0:8}"
-        else
+        elif ! git merge-base --is-ancestor "$LOCAL" "$REMOTE"; then
             log "cannot fast-forward $BRANCH (diverged) — reconcile manually"
+        else
+            # Server code changed: test the new commit before it touches the live tree.
+            if touches_server "$LOCAL" "$REMOTE" \
+               && [ "$(cat "$TESTS_PASSED_MARKER" 2>/dev/null)" != "$REMOTE" ]; then
+                if [ "$(cat "$TESTS_FAILED_MARKER" 2>/dev/null)" = "$REMOTE" ]; then
+                    exit 0                         # already failed; wait for the next commit
+                fi
+                log "testing ${REMOTE:0:8} in $WORKTREE before pulling"
+                # New dependencies go in before the tests, which need them (the
+                # running app keeps working: pip only adds or upgrades packages).
+                if ! git diff --quiet "$LOCAL" "$REMOTE" -- requirements.txt 2>/dev/null \
+                   && ! { prepare_worktree "$REMOTE" && install_deps "$WORKTREE"; }; then
+                    log "pip install failed — NOT pulling (app left on ${LOCAL:0:8})"
+                    exit 1
+                fi
+                if ! test_in_worktree "$REMOTE"; then
+                    printf '%s\n' "$REMOTE" > "$TESTS_FAILED_MARKER"
+                    log "ALERT: tests failed on ${REMOTE:0:8} — NOT pulling (app and working tree left on ${LOCAL:0:8}); see logs/deploy-tests.log"
+                    exit 1
+                fi
+                printf '%s\n' "$REMOTE" > "$TESTS_PASSED_MARKER"
+            fi
+            if git merge --ff-only "origin/$BRANCH" >/dev/null 2>&1; then
+                log "pulled $BRANCH ${LOCAL:0:8} -> ${REMOTE:0:8}"
+            else
+                log "cannot fast-forward $BRANCH — reconcile manually"
+            fi
         fi
     fi
 else
@@ -145,33 +223,36 @@ DIFF_BASE="${DEPLOYED:-HEAD~1}"
 # server. Templates hot-reload (Jinja auto_reload), static files are served
 # fresh, and docs/scripts/tests never touch it — for those, advance the marker
 # with no restart so a doc or script commit causes zero downtime.
-CHANGED="$(git diff --name-only "$DIFF_BASE" HEAD 2>/dev/null || echo "")"
-if ! printf '%s\n' "$CHANGED" | grep -qE '(^app/.*\.py$|^requirements\.txt$|^schema\.sql$)'; then
+if ! touches_server "$DIFF_BASE" HEAD; then
     write_marker "$HEAD"
     log "no server-code changes ${OLD_SHORT}..${HEAD:0:8} — marker advanced, no restart"
     exit 0
 fi
 
-# Install deps first if requirements.txt moved since the running server booted.
-if ! git diff --quiet "$DIFF_BASE" HEAD -- requirements.txt 2>/dev/null; then
-    log "requirements.txt changed — installing dependencies"
-    if ! "$REPO/.venv/bin/pip" install --quiet -r "$REPO/requirements.txt"; then
-        log "pip install failed — NOT restarting (app left on previous code)"
+# Already tested before the pull (the usual case): restart straight away, so the
+# new templates never wait on the old Python. Otherwise (a commit made on this
+# machine) test here first, as before.
+if [ "$(cat "$TESTS_PASSED_MARKER" 2>/dev/null)" != "$HEAD" ]; then
+    # Install deps first if requirements.txt moved since the running server booted.
+    if ! git diff --quiet "$DIFF_BASE" HEAD -- requirements.txt 2>/dev/null; then
+        if ! install_deps "$REPO"; then
+            log "pip install failed — NOT restarting (app left on previous code)"
+            exit 1
+        fi
+    fi
+
+    # Run the test suite before restarting: a red commit leaves the app on the
+    # code it is already running. The failure is remembered per commit so the
+    # suite isn't re-run every tick; the next commit (the fix) tries again.
+    if [ "$(cat "$TESTS_FAILED_MARKER" 2>/dev/null)" = "$HEAD" ]; then
+        exit 0
+    fi
+    log "testing ${HEAD:0:8} before deploying"
+    if ! (cd "$REPO" && bash -c "$TEST_CMD") > "$REPO/logs/deploy-tests.log" 2>&1; then
+        printf '%s\n' "$HEAD" > "$TESTS_FAILED_MARKER"
+        log "ALERT: tests failed on ${HEAD:0:8} — NOT restarting (app left on ${OLD_SHORT}); see logs/deploy-tests.log"
         exit 1
     fi
-fi
-
-# Run the test suite before restarting: a red commit leaves the app on the
-# code it is already running. The failure is remembered per commit so the
-# suite isn't re-run every tick; the next commit (the fix) tries again.
-if [ "$(cat "$TESTS_FAILED_MARKER" 2>/dev/null)" = "$HEAD" ]; then
-    exit 0
-fi
-log "testing ${HEAD:0:8} before deploying"
-if ! (cd "$REPO" && bash -c "$TEST_CMD") > "$REPO/logs/deploy-tests.log" 2>&1; then
-    printf '%s\n' "$HEAD" > "$TESTS_FAILED_MARKER"
-    log "ALERT: tests failed on ${HEAD:0:8} — NOT restarting (app left on ${OLD_SHORT}); see logs/deploy-tests.log"
-    exit 1
 fi
 rm -f "$TESTS_FAILED_MARKER"
 
