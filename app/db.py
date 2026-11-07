@@ -441,6 +441,8 @@ _MIGRATIONS = [
     "CREATE TABLE IF NOT EXISTS app_meta (key TEXT PRIMARY KEY, value TEXT)",
     # Where an exercise's steps came from: 'fedb' (free-exercise-db) or 'zenkai' (written for the app).
     "ALTER TABLE exercises ADD COLUMN steps_source TEXT",
+    # The Plan page's last setup (equipment, session length, focus muscles), as JSON.
+    "ALTER TABLE user_settings ADD COLUMN plan_setup TEXT",
 ]
 
 

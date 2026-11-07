@@ -43,6 +43,7 @@
       title: el('div', 'plan-out-title'),
       summary: el('div', 'plan-out-summary'),
       volume: el('div', 'plan-out-volume'),
+      setup: el('div', 'plan-out-setup'),
       dropped: el('div', 'plan-out-dropped'),
       daysEl: el('div'),
       days: [],
@@ -50,6 +51,7 @@
     pv.header.appendChild(pv.title);
     pv.header.appendChild(pv.summary);
     pv.header.appendChild(pv.volume);
+    pv.header.appendChild(pv.setup);
     container.appendChild(pv.header);
     container.appendChild(pv.dropped);
     container.appendChild(pv.daysEl);
@@ -81,6 +83,18 @@
     return line;
   }
 
+  // A session's length, as app/utils/plan_setup.day_minutes works it out: 5 min warm-up,
+  // 40 s per set, rest between sets, 1.5 min to set up each exercise; to the nearest 5 min.
+  // Worked out here so a swap or a chat edit updates it at once.
+  function dayMinutes(exs) {
+    var t = 5;
+    (exs || []).forEach(function (e) {
+      var sets = e.sets || 3, rest = e.rest_sec || 60;
+      t += (sets * 40 + Math.max(0, sets - 1) * rest) / 60 + 1.5;
+    });
+    return Math.floor(t / 5 + 0.5) * 5;
+  }
+
   function buildDay(day, n, opts, isChanged) {
     var card = el('div', 'day-card');
     card.setAttribute('data-day', String(n));
@@ -88,6 +102,10 @@
     h3.appendChild(el('span', 'day-num', 'Day ' + n));
     h3.appendChild(document.createTextNode(' ' + fmt(day.focus)));
     if (isChanged) h3.appendChild(el('span', 'edited-tag', 'Edited'));
+    if ((day.exercises || []).length) {
+      var mins = el('span', 'day-min', '≈ ' + dayMinutes(day.exercises) + ' min');
+      h3.appendChild(mins);
+    }
     card.appendChild(h3);
 
     (day.exercises || []).forEach(function (ex, idx) {
@@ -143,6 +161,14 @@
       // Why accessory volume moved for recovery (coach_program.volume_note); older plans have none.
       pv.volume.textContent = fmt(plan.volume_note);
       pv.volume.style.display = plan.volume_note ? '' : 'none';
+      // What the plan was built for (the Plan page setup); older plans have none.
+      while (pv.setup.firstChild) pv.setup.removeChild(pv.setup.firstChild);
+      var su = plan.setup;
+      if (su) {
+        if (su.session_minutes) pv.setup.appendChild(el('span', null, su.session_minutes + ' min sessions'));
+        (su.equipment_labels || []).forEach(function (l) { pv.setup.appendChild(el('span', null, l)); });
+        (su.focus_muscles || []).forEach(function (m) { pv.setup.appendChild(el('span', null, 'Focus: ' + m)); });
+      }
 
       var dropped = opts.dropped || [];
       pv.dropped.textContent = dropped.length

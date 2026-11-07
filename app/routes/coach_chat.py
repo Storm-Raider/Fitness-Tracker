@@ -22,11 +22,19 @@ from pydantic import BaseModel
 from app.db import WriteConflict, get_db, write_tx
 from app.routes.auth import get_current_user, require_admin
 from app.utils import coach_budget, coach_chat, gemini
+from app.utils import plan_setup
 from app.utils.coach_plan import (
     exercise_catalog, exercise_rows, is_safe_exercise_name, name_to_id_map, pain_avoid_pattern,
 )
 from app.utils.coach_program import annotate_targets
 from app.utils.training_profile import build_profile
+
+
+
+def _plan_equipment(plan: dict) -> frozenset | None:
+    """The equipment the plan was built for (Plan page setup); None = no limit."""
+    eq = (plan.get("setup") or {}).get("equipment")
+    return frozenset(eq) if eq is not None else None
 
 router = APIRouter()
 
@@ -178,7 +186,9 @@ async def ask_coach(conn: aiosqlite.Connection, uid: int, plan: dict, message: s
     asked = message + " " + " ".join(m["content"] for m in history if m["role"] == "user")
     wanted = coach_chat.mentioned_exercises(asked, name_map, norm_map)
     wanted |= {e["name"].lower() for d in plan["days"] for e in d["exercises"]}   # the plan's own exercises
-    catalog = await exercise_catalog(conn, uid, profile.get("preferred_equipment"), wanted)
+    eq_values = plan_setup.equipment_values(_plan_equipment(plan))
+    catalog = await exercise_catalog(conn, uid, eq_values if eq_values is not None
+                                     else profile.get("preferred_equipment"), wanted)
     contents = coach_chat.build_contents(
         context_text=coach_chat.context_text(
             profile, plan["goal"], GOAL_LABELS.get(plan["goal"], plan["goal"]), catalog, notes),
@@ -451,7 +461,8 @@ async def swap_alternatives(plan_id: int, day: int, idx: int, base_rev: int | No
     return {
         "current": {"day": day, "idx": idx, "exercise_id": current["exercise_id"], "name": current["name"]},
         "alternatives": coach_chat.rank_alternatives(
-            await exercise_rows(conn), name_map, current["name"], day_names=here, used_elsewhere=elsewhere,
+            [r for r in await exercise_rows(conn) if plan_setup.fits_equipment(r, _plan_equipment(plan))],
+            name_map, current["name"], day_names=here, used_elsewhere=elsewhere,
             preferred_equipment=profile.get("preferred_equipment"), avoid=pain_avoid_pattern(profile, said)),
         "rev": row["rev"],
     }

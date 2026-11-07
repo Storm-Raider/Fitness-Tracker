@@ -17,7 +17,7 @@ from fastapi.responses import HTMLResponse
 from app.db import get_db, write_tx
 from app.routes import coach
 from app.routes.auth import get_current_user
-from app.utils import coach_budget, gemini, progression
+from app.utils import coach_budget, gemini, plan_setup, progression
 from app.utils.render import render
 from app.utils.coach_program import volume_note
 from app.utils.training_profile import build_profile
@@ -155,6 +155,13 @@ async def plan_page(
         reverse=True,
     )[:15]
 
+    async with conn.execute("SELECT plan_setup FROM user_settings WHERE user_id = ?", (uid,)) as cur:
+        r = await cur.fetchone()
+    try:
+        last_setup = _json.loads(r["plan_setup"]) if r and r["plan_setup"] else None
+    except ValueError:
+        last_setup = None
+
     active_job = coach.active_job_id(uid)
     return render(
         request,
@@ -173,6 +180,12 @@ async def plan_page(
             # or when there is no key to talk to.
             "coach_chat_enabled": coach_budget.chat_enabled() and gemini.is_configured(),
             "active_job_id": active_job,
+            # The setup controls (plan_setup) and what this athlete chose last time.
+            "setup": {
+                "equipment": plan_setup.EQUIPMENT, "presets": plan_setup.PRESETS,
+                "minutes": plan_setup.SESSION_MINUTES, "muscles": list(plan_setup.FOCUS_MUSCLES),
+                "max_focus": plan_setup.MAX_FOCUS, "last": last_setup,
+            },
             "failed_generation": None if active_job else coach.take_unseen_failure(uid),
         },
     )
