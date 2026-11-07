@@ -17,6 +17,7 @@ import re
 from collections import Counter
 
 from app.utils.coach_plan import max_weekly_repeats, pain_avoid_pattern, resolve_name, staple_rank
+from app.utils.plan_setup import FOCUS_DAYS_CAP, FOCUS_MUSCLES, WARM_UP_MIN, day_minutes, fits_equipment, slot_minutes
 
 # ── Movement patterns ────────────────────────────────────────────────
 
@@ -453,9 +454,14 @@ def build_skeleton(rows: list[dict], profile: dict, goal: str, days: int, focus_
     keys = list(requested_split(focus_note, days) or _DEFAULT_SPLITS[max(1, min(7, days))])
     pain_rx = pain_avoid_pattern(profile, focus_note)
 
+    available = profile.get("equipment_available")      # None = no limit (plan_setup)
+    wanted_focus = [m for m in profile.get("plan_focus") or [] if m in FOCUS_MUSCLES]
+    minutes = profile.get("session_minutes")
     by_pattern: dict[str, list[dict]] = {}
     for r in rows:
         if pain_rx and pain_rx.search(r["name"]):
+            continue
+        if not fits_equipment(r, available):
             continue
         by_pattern.setdefault(pattern_of(r["name"]), []).append(r)
     for lst in by_pattern.values():
@@ -470,8 +476,9 @@ def build_skeleton(rows: list[dict], profile: dict, goal: str, days: int, focus_
                 return (p,)
         return ()
 
-    # 1 — slots per day: trim by priority, keep template order.
-    limit = _slots_per_day(profile)
+    # 1 — slots per day: trim by priority, keep template order. With a session length
+    # the athlete chose, time decides instead (step 3b).
+    limit = 12 if minutes else _slots_per_day(profile)
     week: list[dict] = []
     for key in keys:
         focus, template = TEMPLATES[key]
@@ -516,6 +523,33 @@ def build_skeleton(rows: list[dict], profile: dict, goal: str, days: int, focus_
             if first and PATTERN_MUSCLE.get(first["patterns"][0]) not in fatigued:
                 week = week[k:] + week[:k]
                 break
+
+    # 3a — focus muscles: one more slot for each on the days that are its natural home
+    # (Chest on push/upper days), on at most FOCUS_DAYS_CAP days. It goes before the core
+    # work and carries a high prio, so time trimming takes other accessories first.
+    for muscle in wanted_focus:
+        pats, role, home = FOCUS_MUSCLES[muscle]
+        pats = tuple(p for p in pats if by_pattern.get(p))
+        if not pats:
+            continue                                  # nothing in reach for it
+        homes = [d for d in week if home is None or any(s["patterns"][0] in home for s in d["slots"])]
+        for d in (homes or week)[:FOCUS_DAYS_CAP]:
+            at = next((i for i, s in enumerate(d["slots"]) if s["role"] == "core"), len(d["slots"]))
+            d["slots"].insert(at, {"role": role, "patterns": pats, "prio": 9, "focus": muscle})
+
+    # 3b — session length: drop the lowest-priority slots until the day fits. The main
+    # lift always stays, and so do three slots.
+    if minutes:
+        for d in week:
+            def est(slots):
+                return WARM_UP_MIN + sum(slot_minutes(scheme(goal, s["role"])["sets"] + (1 if s.get("focus") else 0),
+                                                      scheme(goal, s["role"])["rest_sec"]) for s in slots)
+            while len(d["slots"]) > 3 and est(d["slots"]) > minutes:
+                drop = min((i for i, s in enumerate(d["slots"]) if s["role"] != "main"),
+                           key=lambda i: (d["slots"][i]["prio"], -i), default=None)
+                if drop is None:
+                    break
+                d["slots"].pop(drop)
 
     # 4 — schemes, adjustments, candidates and default picks.
     delta = _volume_delta(profile)
@@ -563,6 +597,8 @@ def build_skeleton(rows: list[dict], profile: dict, goal: str, days: int, focus_
             muscle = PATTERN_MUSCLE.get(pattern)
             if goal == "balance" and muscle in under:
                 sets = min(5, sets + 1)
+            if slot.get("focus"):
+                sets = min(5, sets + 1)                 # the muscle the athlete asked to bring up
             used[default["name"]] += 1
             day_names.add(default["name"])
             day_patterns.add(pattern)
@@ -623,7 +659,8 @@ def assemble_plan(skeleton: list[dict], raw: dict, goal: str, days: int,
                 ok = (match and match["name"].lower() in row_of
                       and (match["name"] in candidates or (allow_outside and _fits_slot(match["name"], slot["role"])))
                       and match["name"] not in names_today and used[match["name"]] < cap
-                      and not (pain_rx and pain_rx.search(match["name"])))
+                      and not (pain_rx and pain_rx.search(match["name"]))
+                      and fits_equipment(row_of[match["name"].lower()], profile.get("equipment_available")))
                 if ok:
                     chosen, from_pick = match, True
                 elif name.lower() != (slot["default"] or "").lower():
@@ -647,7 +684,8 @@ def assemble_plan(skeleton: list[dict], raw: dict, goal: str, days: int,
                                    slot["rest_sec"], profile, goal),
             })
         if exercises:
-            out_days.append({"focus": day["focus"], "exercises": exercises})
+            out_days.append({"focus": day["focus"], "exercises": exercises,
+                             "est_minutes": day_minutes(exercises)})
 
     goal_word = {"strength": "Strength", "hypertrophy": "Hypertrophy", "balance": "Balance", "general": "General"}
     fallback_title = f"{days}-Day {goal_word.get(goal, 'Training')} Week"

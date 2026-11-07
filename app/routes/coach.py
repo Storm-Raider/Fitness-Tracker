@@ -38,6 +38,7 @@ from app.utils.coach_plan import (
     pain_constraint,
 )
 from app.utils.coach_program import assemble_plan, build_skeleton, recovery_trim, volume_note
+from app.utils import plan_setup
 from app.utils.training_profile import build_profile, invalidate_profile
 
 router = APIRouter()
@@ -178,6 +179,39 @@ class GenerateIn(BaseModel):
     goal: str = Field(pattern=r"^(strength|hypertrophy|balance|general)$")
     days_per_week: int = Field(ge=1, le=7)
     focus_note: str = Field(default="", max_length=300)
+    # The Plan page's setup (plan_setup): what the athlete has, how long a session can
+    # be and what to bring up. All optional: an older client sends none of them.
+    equipment: list[str] | None = Field(default=None, max_length=len(plan_setup.EQUIPMENT))
+    session_minutes: int | None = Field(default=None, ge=20, le=120)
+    focus_muscles: list[str] = Field(default_factory=list, max_length=8)
+
+    def setup(self) -> dict:
+        return {
+            "equipment": plan_setup.clean_equipment(self.equipment),
+            "session_minutes": self.session_minutes,
+            "focus_muscles": plan_setup.clean_focus(self.focus_muscles),
+        }
+
+
+def apply_setup(profile: dict, setup: dict | None) -> dict:
+    """The profile build_skeleton and assemble_plan read, with the athlete's setup on it."""
+    if not setup:
+        return profile
+    return {**profile,
+            "equipment_available": setup.get("equipment"),
+            "session_minutes": setup.get("session_minutes"),
+            "plan_focus": setup.get("focus_muscles") or []}
+
+
+def setup_json(setup: dict | None) -> dict | None:
+    """The setup as stored on a plan (sets become sorted lists)."""
+    if not setup:
+        return None
+    eq = setup.get("equipment")
+    return {"equipment": sorted(eq) if eq is not None else None,
+            "equipment_labels": plan_setup.equipment_labels(eq),
+            "session_minutes": setup.get("session_minutes"),
+            "focus_muscles": setup.get("focus_muscles") or []}
 
 
 class PlanExercise(BaseModel):
@@ -242,7 +276,8 @@ def _week_lines(skeleton: list[dict], profile: dict) -> list[str]:
         lines.append(f"DAY {di} — {day['focus']}")
         for si, slot in enumerate(day["slots"], start=1):
             cands = " | ".join(_candidate_label(c, profile) for c in slot["candidates"])
-            lines.append(f"  slot {si} · {_ROLE_LABEL[slot['role']]} · {slot['sets']}×{slot['reps']} "
+            mark = f" · FOCUS {slot['focus']}" if slot.get("focus") else ""
+            lines.append(f"  slot {si} · {_ROLE_LABEL[slot['role']]}{mark} · {slot['sets']}×{slot['reps']} "
                          f"@ RIR {slot['rir']}: {cands}")
     lines.append("")
     return lines
@@ -257,6 +292,15 @@ def _build_prompt(goal: str, days: int, profile: dict, skeleton: list[dict], cat
 
     lines.append(f"GOAL: {GOALS[goal]}")
     lines.append(f"TRAINING DAYS PER WEEK: {days}")
+    if profile.get("session_minutes"):
+        lines.append(f"SESSION LENGTH: about {profile['session_minutes']} minutes (the slots already fit it)")
+    if profile.get("equipment_available") is not None:
+        lines.append("EQUIPMENT THE ATHLETE HAS: "
+                     + ", ".join(plan_setup.equipment_labels(profile["equipment_available"]))
+                     + " (and their bodyweight); every candidate below uses only these")
+    if profile.get("plan_focus"):
+        lines.append("FOCUS MUSCLES (the athlete wants these brought up; their slots are marked FOCUS): "
+                     + ", ".join(profile["plan_focus"]))
     note = " ".join(focus_note.replace('"', "'").split())
     if note:
         lines.append(f'ATHLETE REQUEST (written by the athlete): "{note}"')
@@ -284,6 +328,8 @@ def _build_prompt(goal: str, days: int, profile: dict, skeleton: list[dict], cat
         "(slot number, exact name, cue), plus a title and a summary."
     )
     reminders = [pain_constraint(profile)]
+    if profile.get("equipment_available") is not None:
+        reminders.append("Use only exercises the athlete's equipment allows.")
     if note:
         reminders.append(f'The athlete asked: "{note}" Follow it unless it conflicts with the pain or safety rules.')
     lines.append(" ".join([task] + [r for r in reminders if r]))
@@ -424,7 +470,7 @@ async def _generate_plan(
 
 async def _run_generation(
     job_id: str, conn: aiosqlite.Connection, uid: int,
-    goal: str, days: int, focus_note: str,
+    goal: str, days: int, focus_note: str, setup: dict | None = None,
 ) -> None:
     """Background worker: build the profile, ask Gemini, validate, store result.
 
@@ -449,8 +495,10 @@ async def _run_generation(
             await _emit(job_id, {"type": "phase", "message": "Building your training profile…"})
             # Fresh, not cached: a workout finished just before Generate must count.
             # A build is ~2 ms today and ~170 ms at 20k sets, nothing next to the model call.
-            profile = await build_profile(conn, uid, fresh=True)
-            catalog = await exercise_catalog(conn, uid, profile.get("preferred_equipment"))
+            profile = apply_setup(await build_profile(conn, uid, fresh=True), setup)
+            eq_values = plan_setup.equipment_values(profile.get("equipment_available"))
+            catalog = await exercise_catalog(conn, uid, eq_values if eq_values is not None
+                                             else profile.get("preferred_equipment"))
             async with conn.execute("SELECT text FROM coach_notes WHERE user_id = ? ORDER BY id", (uid,)) as cur:
                 notes = [r["text"] for r in await cur.fetchall()]
             plan, dropped, model_used = await _generate_plan(
@@ -465,6 +513,8 @@ async def _run_generation(
             return
 
         final_dropped = sorted(set(dropped))
+        if setup_json(setup):
+            plan["setup"] = setup_json(setup)
 
         # Auto-save as a draft so the plan survives browser close before the user confirms.
         # Remove any previous unconfirmed draft for this user first (one draft at a time).
@@ -553,6 +603,18 @@ async def generate(
                    "Give it a few minutes and try again.",
         )
 
+    # Remember the setup so the page opens with it next time (best effort).
+    try:
+        saved = setup_json(body.setup()) | {"goal": body.goal, "days_per_week": body.days_per_week}
+        async with write_tx(conn):
+            await conn.execute(
+                "INSERT INTO user_settings(user_id, plan_setup) VALUES (?, ?) "
+                "ON CONFLICT(user_id) DO UPDATE SET plan_setup = excluded.plan_setup",
+                (uid, json.dumps(saved)),
+            )
+    except Exception:
+        logging.warning("coach: could not save the plan setup for uid=%d", uid, exc_info=True)
+
     job_id = uuid.uuid4().hex
     _JOBS[job_id] = {"status": "queued", "user_id": uid}
     _QUEUE.append(job_id)
@@ -560,7 +622,7 @@ async def generate(
     _LAST_BY_USER[uid] = job_id
     _prune_jobs()
     task = asyncio.create_task(
-        _run_generation(job_id, conn, uid, body.goal, body.days_per_week, body.focus_note)
+        _run_generation(job_id, conn, uid, body.goal, body.days_per_week, body.focus_note, body.setup())
     )
     _TASKS.add(task)
     task.add_done_callback(_TASKS.discard)

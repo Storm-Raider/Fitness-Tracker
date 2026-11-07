@@ -1,7 +1,74 @@
 {% extends "base.html" %}
+{% from "partials/equipment_icon.html" import eq_icon %}
 {% block title %}Training plan — Zenkai{% endblock %}
 {% block content %}
 <style>
+/* ── Plan setup: days, time, equipment, focus ── */
+.seg-row { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 0.4rem; margin-bottom: 1.25rem; }
+.seg-btn {
+  min-height: 48px; border: 1.5px solid var(--border-mid); border-radius: var(--radius-sm);
+  background: var(--surface); color: var(--text); font-family: var(--f-ui); font-size: var(--t-head);
+  font-weight: 700; cursor: pointer; display: flex; flex-direction: column; align-items: center;
+  justify-content: center; line-height: 1.1; padding: 0.25rem 0;
+}
+.seg-btn .seg-unit { font-size: var(--t-label); font-weight: 500; color: var(--muted); }
+.seg-btn:hover { border-color: var(--text); }
+.seg-btn[aria-pressed="true"] { background: var(--primary); border-color: var(--primary); color: var(--bg); }
+.seg-btn[aria-pressed="true"] .seg-unit { color: var(--bg); }
+#setup-minutes { margin-bottom: 0.4rem; }
+.setup-hint { font-size: var(--t-label); color: var(--muted); margin: 0 0 1.25rem; display: flex; align-items: center; gap: 0.35rem; min-height: 1.2em; }
+.setup-hint .bw-mark { display: inline-flex; color: var(--text); }
+.sec-sub { font-family: var(--f-ui); font-size: var(--t-label); font-weight: 500; color: var(--muted); margin-left: 0.35rem; }
+
+.preset-row { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-bottom: 0.6rem; }
+.preset-btn {
+  min-height: 44px; padding: 0 0.9rem; border: 1px dashed var(--border-mid); border-radius: 999px;
+  background: transparent; color: var(--text); font-family: var(--f-ui); font-size: var(--t-body);
+  font-weight: 600; cursor: pointer;
+}
+.preset-btn:hover { border-color: var(--text); }
+.preset-btn[aria-pressed="true"] { border-style: solid; border-color: var(--text); background: var(--hi); }
+
+.eq-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.5rem; margin-bottom: 0.5rem; }
+.eq-tile {
+  position: relative; min-height: 88px; padding: 0.6rem 0.25rem 0.5rem;
+  border: 1.5px solid var(--border-mid); border-radius: var(--radius-sm); background: var(--surface);
+  color: var(--muted); font-family: var(--f-ui); cursor: pointer;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.35rem;
+}
+.eq-tile .eq-name { font-size: var(--t-label); font-weight: 600; color: var(--text); text-align: center; line-height: 1.2; }
+.eq-tile:hover { border-color: var(--text); }
+.eq-tile[aria-pressed="true"] { border-color: var(--text); color: var(--text); background: var(--surface); box-shadow: inset 0 0 0 1px var(--text); }
+.eq-tile[aria-pressed="true"] .eq-icon { background: var(--hi); border-radius: 6px; }
+.eq-tile[aria-pressed="false"] .eq-icon { opacity: 0.45; }
+.eq-tile[aria-pressed="true"]::after {
+  content: ""; position: absolute; top: 6px; right: 6px; width: 16px; height: 16px; border-radius: 50%;
+  background: var(--primary) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23fff' stroke-width='3.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12.5l4.5 4.5L19 7.5'/%3E%3C/svg%3E") center / 11px no-repeat;
+}
+
+.focus-wrap { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 0.75rem; align-items: center; margin-bottom: 0.4rem; }
+.focus-map { width: 132px; }
+.focus-map svg { width: 60px !important; height: auto !important; }
+.focus-map #fmap-wrap > div { gap: 0.6rem !important; }
+.focus-map .mmap-muscle { cursor: pointer; }
+.focus-map .mmap-muscle.is-focus { fill: var(--hi) !important; stroke: var(--text) !important; stroke-width: 1.5; }
+.focus-map [id$="-legend"] { display: none; }
+.focus-chips { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.4rem; }
+.focus-chip {
+  min-height: 44px; border: 1.5px solid var(--border-mid); border-radius: var(--radius-sm); background: var(--surface);
+  color: var(--text); font-family: var(--f-ui); font-size: var(--t-body); font-weight: 600; cursor: pointer;
+}
+.focus-chip:hover { border-color: var(--text); }
+.focus-chip[aria-pressed="true"] { border-color: var(--text); background: var(--hi); box-shadow: inset 0 0 0 1px var(--text); }
+.focus-chip:disabled { opacity: 0.45; cursor: not-allowed; }
+@media (max-width: 359px) { .focus-wrap { grid-template-columns: minmax(0, 1fr); } .focus-map { margin: 0 auto; } }
+
+/* Plan output: what it was built for, and each day's length */
+.plan-out-setup { display: flex; flex-wrap: wrap; gap: 0.35rem; margin-top: 0.5rem; }
+.plan-out-setup:empty { display: none; }
+.plan-out-setup span { font-size: var(--t-label); font-weight: 600; padding: 0.15rem 0.5rem; border: 1px solid var(--border-mid); border-radius: 999px; background: var(--surface); }
+.day-min { margin-left: auto; font-size: var(--t-label); font-weight: 600; color: var(--muted); white-space: nowrap; }
+
 /* ── Mode toggle ── */
 .plan-mode-toggle { margin-bottom: 1.5rem; }
 
@@ -539,31 +606,47 @@
         </button>
       </div>
 
-      <div class="section-title">Training days / week</div>
-      <div class="card" style="padding:1rem 1.25rem;margin-bottom:1.25rem;">
-        <div style="display:flex;align-items:center;gap:1rem;">
-          <input type="range" id="ai-days-slider" aria-label="Training days per week" min="1" max="7" value="4"
-                 oninput="document.getElementById('ai-days-val').textContent=this.value;"
-                 style="flex:1;accent-color:var(--accent);cursor:pointer;">
-          <div class="num" style="font-size: var(--t-display);color:var(--text);min-width:1.5rem;text-align:right;line-height:1;">
-            <span id="ai-days-val">4</span>
-          </div>
-        </div>
+      {# ── Setup: days, time, equipment, focus (app/utils/plan_setup.py). Each group is a
+         set of toggle buttons (aria-pressed); the page remembers the last choice. ── #}
+      <div class="section-title" id="setup-days-lbl">Days per week</div>
+      <div class="seg-row" role="group" aria-labelledby="setup-days-lbl" id="setup-days">
+        {% for n in range(1, 8) %}<button type="button" class="seg-btn num" data-days="{{ n }}" aria-pressed="false">{{ n }}</button>{% endfor %}
       </div>
 
-      {# Training profile pills #}
-      {% if profile and profile.top_exercises %}
-      <div class="section-title">Top exercises</div>
-      <div style="display:flex;flex-wrap:wrap;gap:0.4rem;margin-bottom:1.25rem;">
-        {% for ex in profile.top_exercises[:5] %}
-        <span class="profile-pill">{{ ex.name }}</span>
+      <div class="section-title" id="setup-min-lbl">Time per session</div>
+      <div class="seg-row" role="group" aria-labelledby="setup-min-lbl" id="setup-minutes">
+        {% for m in setup.minutes %}<button type="button" class="seg-btn" data-min="{{ m }}" aria-pressed="false"><span class="num">{{ m }}</span><span class="seg-unit">min</span></button>{% endfor %}
+      </div>
+      <p class="setup-hint" id="setup-min-hint" aria-live="polite"></p>
+
+      <div class="section-title" id="setup-eq-lbl">Your equipment</div>
+      <div class="preset-row" role="group" aria-label="Equipment presets">
+        {% for p in setup.presets %}<button type="button" class="preset-btn" data-preset="{{ p.key }}" data-items="{{ p['items'] | join(' ') }}" aria-pressed="false">{{ p.label }}</button>{% endfor %}
+      </div>
+      <div class="eq-grid" role="group" aria-labelledby="setup-eq-lbl" id="setup-equipment">
+        {% for e in setup.equipment %}
+        <button type="button" class="eq-tile" data-eq="{{ e.key }}" aria-pressed="false">
+          {{ eq_icon(e.key) }}<span class="eq-name">{{ e.label }}</span>
+        </button>
         {% endfor %}
       </div>
-      {% endif %}
+      <p class="setup-hint"><span class="bw-mark">{{ eq_icon('bodyweight', 18) }}</span> Bodyweight moves are always included.</p>
 
-      <div class="section-title">Focus / restrictions (optional)</div>
-      <textarea id="ai-focus-note" aria-label="Focus or restrictions (optional)" rows="2" maxlength="300"
-                placeholder="Focus or restrictions? (e.g. avoid deadlifts, focus on upper body)"
+      <div class="section-title" id="setup-focus-lbl">Muscles to focus on <span class="sec-sub">up to {{ setup.max_focus }}</span></div>
+      <div class="focus-wrap">
+        <div class="focus-map" aria-hidden="true">
+          {% set map_id = 'fmap' %}{% set muscle_data_json = '{}' %}
+          {% include 'partials/muscle_map.html' %}
+        </div>
+        <div class="focus-chips" role="group" aria-labelledby="setup-focus-lbl" id="setup-focus">
+          {% for m in setup.muscles %}<button type="button" class="focus-chip" data-muscle="{{ m }}" aria-pressed="false">{{ m }}</button>{% endfor %}
+        </div>
+      </div>
+      <p class="setup-hint" id="setup-focus-hint" aria-live="polite"></p>
+
+      <div class="section-title"><label for="ai-focus-note">Tell the coach (optional)</label></div>
+      <textarea id="ai-focus-note" rows="3" maxlength="300"
+                placeholder="e.g. no overhead pressing for my left shoulder; I like a push/pull/legs split"
                 style="margin-bottom:1.25rem;"></textarea>
 
       <button class="btn btn-primary" id="ai-generate-btn" onclick="generateAiRoutine()"
@@ -581,6 +664,11 @@
       {# Profile snapshot #}
       {% if profile %}
       <div class="section-title" style="margin-top:1.75rem;">Your training profile</div>
+      {% if profile.top_exercises %}
+      <div style="display:flex;flex-wrap:wrap;gap:0.4rem;margin-bottom:0.5rem;">
+        {% for ex in profile.top_exercises[:5] %}<span class="profile-pill">{{ ex.name }}</span>{% endfor %}
+      </div>
+      {% endif %}
       <div style="display:flex;flex-wrap:wrap;gap:0.4rem;">
         <span class="profile-pill"><b>{{ profile.total_workouts }}</b> sessions</span>
         {% if profile.sessions_per_week %}<span class="profile-pill"><b>{{ profile.sessions_per_week }}</b>/wk</span>{% endif %}
@@ -913,8 +1001,86 @@ function selectAiGoal(btn) {
   btn.classList.add('selected');
 }
 
+// ── Setup: days, time, equipment, focus ───────────────────────
+// Toggle buttons (aria-pressed). Starts from what this athlete chose last time.
+const _SETUP_LAST = {{ setup.last | tojson }};
+const _MAX_FOCUS = {{ setup.max_focus }};
+const _EQ_ALL = [...document.querySelectorAll('#setup-equipment .eq-tile')].map(b => b.dataset.eq);
+const _setup = {
+  days: (_SETUP_LAST && _SETUP_LAST.days_per_week) || {{ (profile.sessions_per_week | round | int) if profile and profile.sessions_per_week and profile.sessions_per_week >= 1 else 4 }},
+  minutes: (_SETUP_LAST && _SETUP_LAST.session_minutes) || 60,
+  equipment: new Set(_SETUP_LAST && Array.isArray(_SETUP_LAST.equipment) ? _SETUP_LAST.equipment : _EQ_ALL),
+  focus: (_SETUP_LAST && _SETUP_LAST.focus_muscles) || [],
+};
+// Rough exercises per session at each length (what plan_setup's trimming lands on).
+const _PER_SESSION = {30: '3', 45: '4–5', 60: '6–7', 75: '7–8', 90: '8'};
+const _FOCUS_ELS = { Glutes: ['fmap-b-glutel', 'fmap-b-gluter'] };
+
+function _press(sel, test) {
+  document.querySelectorAll(sel).forEach(b => b.setAttribute('aria-pressed', String(!!test(b))));
+}
+function renderSetup() {
+  _press('#setup-days .seg-btn', b => +b.dataset.days === _setup.days);
+  _press('#setup-minutes .seg-btn', b => +b.dataset.min === _setup.minutes);
+  document.getElementById('setup-min-hint').textContent =
+    `About ${_PER_SESSION[_setup.minutes] || ''} exercises a session, warm-up included.`;
+  _press('#setup-equipment .eq-tile', b => _setup.equipment.has(b.dataset.eq));
+  _press('.preset-btn', b => {
+    const items = b.dataset.items ? b.dataset.items.split(' ') : [];
+    return items.length === _setup.equipment.size && items.every(k => _setup.equipment.has(k));
+  });
+  _press('#setup-focus .focus-chip', b => _setup.focus.includes(b.dataset.muscle));
+  const full = _setup.focus.length >= _MAX_FOCUS;
+  document.querySelectorAll('#setup-focus .focus-chip').forEach(b => {
+    b.disabled = full && !_setup.focus.includes(b.dataset.muscle);
+  });
+  document.getElementById('setup-focus-hint').textContent = _setup.focus.length
+    ? `Extra sets for ${_setup.focus.join(', ')}.`
+    : 'None picked: an even spread.';
+  // The body map mirrors the chips (it is decoration; the chips are the control).
+  document.querySelectorAll('#fmap-wrap .mmap-muscle').forEach(el => {
+    const glute = /glute/.test(el.id);
+    const m = glute ? 'Glutes' : el.dataset.muscle;
+    el.classList.toggle('is-focus', _setup.focus.includes(m));
+  });
+}
+document.getElementById('setup-days').addEventListener('click', e => {
+  const b = e.target.closest('.seg-btn'); if (!b) return; _setup.days = +b.dataset.days; renderSetup();
+});
+document.getElementById('setup-minutes').addEventListener('click', e => {
+  const b = e.target.closest('.seg-btn'); if (!b) return; _setup.minutes = +b.dataset.min; renderSetup();
+});
+document.getElementById('setup-equipment').addEventListener('click', e => {
+  const b = e.target.closest('.eq-tile'); if (!b) return;
+  const k = b.dataset.eq;
+  _setup.equipment.has(k) ? _setup.equipment.delete(k) : _setup.equipment.add(k);
+  renderSetup();
+});
+document.querySelectorAll('.preset-btn').forEach(b => b.addEventListener('click', () => {
+  _setup.equipment = new Set(b.dataset.items ? b.dataset.items.split(' ') : []);
+  renderSetup();
+}));
+function _toggleFocus(m) {
+  const i = _setup.focus.indexOf(m);
+  if (i >= 0) _setup.focus.splice(i, 1);
+  else if (_setup.focus.length < _MAX_FOCUS) _setup.focus.push(m);
+  renderSetup();
+}
+document.getElementById('setup-focus').addEventListener('click', e => {
+  const b = e.target.closest('.focus-chip'); if (!b || b.disabled) return; _toggleFocus(b.dataset.muscle);
+});
+document.querySelectorAll('#fmap-wrap .mmap-muscle').forEach(el => el.addEventListener('click', () => {
+  const m = /glute/.test(el.id) ? 'Glutes' : el.dataset.muscle;
+  if (document.querySelector(`#setup-focus .focus-chip[data-muscle="${m}"]`)) _toggleFocus(m);
+}));
+if (_SETUP_LAST && _SETUP_LAST.goal) {
+  const g = document.querySelector(`#plan-ai .goal-btn[data-goal="${_SETUP_LAST.goal}"]`);
+  if (g) selectAiGoal(g);
+}
+renderSetup();
+
 async function generateAiRoutine() {
-  const days = parseInt(document.getElementById('ai-days-slider').value);
+  const days = _setup.days;
   const note = document.getElementById('ai-focus-note').value;
 
   // Silently delete the pending draft — a new generation will create a fresh one.
@@ -927,7 +1093,9 @@ async function generateAiRoutine() {
     const start = await fetch('/coach/generate', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({goal: _aiGoal, days_per_week: days, focus_note: note}),
+      body: JSON.stringify({goal: _aiGoal, days_per_week: days, focus_note: note,
+                            session_minutes: _setup.minutes, equipment: [..._setup.equipment],
+                            focus_muscles: _setup.focus}),
     });
     const sd = await start.json();
     if (!start.ok) throw new Error(sd.detail || sd.error || 'Could not start generation.');

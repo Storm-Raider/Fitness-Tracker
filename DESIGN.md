@@ -103,6 +103,7 @@ Five sizes, one job each. Nothing else.
 
 - **Header:** session name, the live line (red dot · elapsed · sets · volume), ⋯, Finish.
 - **Exercise strip:** chips. Done ones ticked, the current one filled ink, planned ones dashed.
+- **Plan setup:** days and session length are rows of equal toggle buttons (pressed = ink fill). Equipment is a 3-column grid of tiles with Zenkai's own line pictograms (`partials/equipment_icon.html`, 24px grid, 1.75px ink stroke); a picked tile gets an ink outline, a highlighter fill behind its icon and a check badge, an unpicked one a faded icon. Presets are dashed pills. Focus muscles are toggle buttons beside the body map, which mirrors them in highlighter.
 - **Exercise detail, How to do it:** a level label, then the two photos side by side (Start, Finish, 13px captions), then numbered steps at body size. On the Exercises list, the long tail of each muscle folds under a dashed "N more … exercises" box that search opens.
 - **The exercise box:** name (display), muscles, last time, then the set table. Logged sets are rows with a filled round tick. The set you are on is highlighter yellow with an ink outline, two white 56px fields and the 56px log tick. Then effort (Easy, Medium, Hard, Max: the boxed toggle) and a note.
 - **The rest timer** is pinned above the tab bar: ink, a white countdown at display size, −30 / +30 / Skip, and a yellow line that shrinks as time runs down.
