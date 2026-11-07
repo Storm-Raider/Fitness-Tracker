@@ -58,15 +58,16 @@ def env(tmp_path):
         _git(upstream, "push", "-q", "origin", "main")
         return _head(upstream)
 
-    def run(tests_pass=True):
+    def run(tests_pass=True, test_cmd=None):
         e = {
             **os.environ,
             "PATH": f"{stubs}:{os.environ['PATH']}",
             "ZENKAI_REPO": str(repo),
             "ZENKAI_DEPLOY_LOCK": str(tmp_path / "deploy.lock"),
+            "ZENKAI_WORKTREE": str(tmp_path / "deploy-worktree"),
             "ZENKAI_HEALTH_URL": f"file://{tmp_path / 'health'}",
             "ZENKAI_RESTART_CMD": f"echo restart >> {tmp_path / 'restarts'}",
-            "ZENKAI_TEST_CMD": f"echo run >> {tmp_path / 'test-runs'}; {'true' if tests_pass else 'false'}",
+            "ZENKAI_TEST_CMD": test_cmd or f"echo run >> {tmp_path / 'test-runs'}; {'true' if tests_pass else 'false'}",
         }
         return subprocess.run(["bash", str(SCRIPT)], env=e, capture_output=True, text=True, timeout=60)
 
@@ -88,18 +89,39 @@ def test_server_change_with_passing_tests_restarts(env):
     assert env.marker() == new
 
 
-def test_failing_tests_block_the_restart_and_are_not_rerun(env):
+def test_failing_tests_block_the_pull_and_are_not_rerun(env):
     old = env.marker()
-    new = env.push()
+    env.push()
     first = env.run(tests_pass=False)
-    assert "tests failed" in first.stdout
+    assert "tests failed" in first.stdout and "NOT pulling" in first.stdout
     assert env.count("restarts") == 0
     assert env.marker() == old                 # the running commit is unchanged
+    assert _head(env.repo) == old              # and so is the live tree (templates too)
+    assert (env.repo / "app" / "main.py").read_text() == "v = 1\n"
 
     env.run(tests_pass=False)                  # next cron tick, same commit
     assert env.count("test-runs") == 1         # not re-tested every 2 minutes
     assert env.count("restarts") == 0
+    assert _head(env.repo) == old
+
+
+def test_the_new_commit_is_tested_outside_the_live_tree(env, tmp_path):
+    new = env.push(text="v = 2\n")
+    # The stand-in test command records which tree it ran in and what it saw.
+    out = env.run(test_cmd=f"pwd >> {tmp_path / 'test-dirs'}; cat app/main.py >> {tmp_path / 'test-dirs'}")
+    assert out.returncode == 0, out.stdout + out.stderr
+    ran_in, saw = (tmp_path / "test-dirs").read_text().splitlines()
+    assert ran_in == str(tmp_path / "deploy-worktree") and saw == "v = 2"
+    assert _head(env.repo) == new and env.marker() == new
+    assert env.count("restarts") == 1
+
+
+def test_template_only_change_deploys_without_tests_or_restart(env):
+    new = env.push(path="app/templates/page.html", text="<p>new</p>\n")
+    env.run()
     assert _head(env.repo) == new
+    assert env.count("test-runs") == 0 and env.count("restarts") == 0
+    assert env.marker() == new
 
 
 def test_a_fix_after_a_failure_deploys(env):
@@ -131,3 +153,14 @@ def test_doc_only_change_skips_tests_and_restart(env):
     assert env.count("test-runs") == 0
     assert env.count("restarts") == 0
     assert env.marker() == new
+
+
+def test_a_stale_directory_at_the_worktree_path_is_replaced(env, tmp_path):
+    stale = tmp_path / "deploy-worktree"
+    stale.mkdir()
+    (stale / "junk.txt").write_text("left over")
+    new = env.push()
+    out = env.run()
+    assert out.returncode == 0, out.stdout + out.stderr
+    assert _head(env.repo) == new and env.count("restarts") == 1
+    assert not (stale / "junk.txt").exists()
