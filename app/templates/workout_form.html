@@ -177,6 +177,23 @@
   cursor: pointer;
 }
 .ex-change-btn:hover { border-color: var(--text); }
+.ex-hero-btns { display: flex; gap: 0.5rem; flex-shrink: 0; }
+
+/* ── How-to sheet: the exercise's steps and photos, mid-session ── */
+.howto-sheet { display: none; }
+.howto-sheet.is-sheet { display: flex; flex-direction: column; }
+.howto-body { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain;
+  padding: 0 1rem calc(1rem + env(safe-area-inset-bottom, 0px)); }
+.howto-level { font-size: var(--t-label); color: var(--muted); margin: 0 0 0.75rem; }
+.howto-pics { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.5rem; margin-bottom: 1rem; }
+.howto-pics.single { grid-template-columns: minmax(0, 1fr); max-width: 260px; }
+.howto-pics figure { margin: 0; }
+.howto-pics img { display: block; width: 100%; height: auto; border: 1px solid var(--border); border-radius: var(--radius); background: #fff; }
+.howto-pics figcaption { font-size: var(--t-label); color: var(--muted); margin-top: 4px; }
+.howto-steps { margin: 0; padding-left: 1.4em; display: grid; gap: 0.5rem; font-size: var(--t-body); line-height: 1.5; }
+.howto-src { margin: 0.75rem 0 0; font-size: var(--t-label); color: var(--muted); }
+.howto-more { display: inline-flex; align-items: center; min-height: 44px; margin-top: 0.5rem;
+  font-size: var(--t-body); font-weight: 600; color: var(--text); }
 .ex-hero-hint {
   font-size: var(--t-body);
   color: var(--muted);
@@ -641,6 +658,13 @@
 .pick-item:last-child { border-bottom: none; }
 .pick-item:hover, .pick-item.ex-active { background: var(--surface-hover); }
 .pick-item .pi-name { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+/* A small picture of the movement, so look-alike names are easy to tell apart.
+   Exercises with no picture keep an empty box so the names still line up. */
+.pick-item .pi-thumb {
+  flex-shrink: 0; width: 44px; height: 44px; border-radius: var(--radius-xs);
+  border: 1px solid var(--border); background: var(--surface); overflow: hidden;
+}
+.pick-item .pi-thumb img { display: block; width: 100%; height: 100%; object-fit: cover; }
 .pick-item .pi-sub { flex-shrink: 0; font-size: var(--t-body); color: var(--muted); }
 .pick-item mark { background: transparent; color: var(--text); font-weight: 700; text-decoration: underline; text-underline-offset: 3px; }
 .pick-empty { color: var(--muted); font-size: var(--t-body); padding: 0.75rem 0.25rem; }
@@ -1190,7 +1214,10 @@ document.getElementById('tpl-name-input')?.addEventListener('keydown', e => { if
         <h2 class="ex-hero-name" id="hero-name"></h2>
         <div class="ex-hero-muscles" id="hero-muscles"></div>
       </div>
-      <button type="button" class="ex-change-btn" onclick="openPicker(this)" aria-label="Change exercise">Change</button>
+      <div class="ex-hero-btns">
+        <button type="button" class="ex-change-btn" id="howto-btn" onclick="openHowto(this)" style="display:none;">How to</button>
+        <button type="button" class="ex-change-btn" onclick="openPicker(this)" aria-label="Change exercise">Change</button>
+      </div>
     </div>
     <div id="last-set-hint" class="ex-hero-hint" style="display:none;">
       Last time <span class="last-val" id="last-set-text"></span>
@@ -1383,6 +1410,17 @@ document.getElementById('tpl-name-input')?.addEventListener('keydown', e => { if
       <button type="button" class="btn btn-primary new-ex-use" id="new-ex-use" onclick="useNewExercise()">Use this name</button>
     </div>
   </div>
+</div>
+
+{# ── How-to sheet: opened by "How to" in the exercise header ── #}
+<div id="howto-sheet" class="howto-sheet">
+  <div class="picker-hdr">
+    <h2 id="howto-title" tabindex="-1">How to do it</h2>
+    <button type="button" class="picker-close" onclick="closeHowto()" aria-label="Close">
+      <i data-lucide="x" style="width:20px;height:20px;pointer-events:none;"></i>
+    </button>
+  </div>
+  <div class="howto-body" id="howto-body" aria-live="polite"></div>
 </div>
 
 {# ── Session menu (a sheet) ── #}
@@ -1770,6 +1808,11 @@ function updateExerciseHero(ex) {
   document.getElementById('hero-name').textContent = ex.name;
   const muscles = (ex.muscles || []).map(m => m.name).join(' · ');
   document.getElementById('hero-muscles').textContent = ex.isNew ? 'New exercise' : muscles;
+  const howtoBtn = document.getElementById('howto-btn');
+  if (howtoBtn) {
+    howtoBtn.style.display = (!ex.isNew && ex.has_howto) ? '' : 'none';
+    howtoBtn.setAttribute('aria-label', `How to do ${ex.name}`);
+  }
   hero.style.display = '';
   area.style.display = '';
   empty.style.display = 'none';
@@ -2025,6 +2068,82 @@ function openPicker(opener) {
 }
 function closePicker() { if (_pickerSheet) _pickerSheet.close(); }
 
+// ── How-to sheet ──────────────────────────────────────────────
+// The exercise's steps and photos without leaving the log. Fetched once per
+// exercise and kept for the rest of the session.
+let _howtoSheet = null;
+const _howtoCache = new Map();
+function _howtoEl(tag, cls, text) {
+  const el = document.createElement(tag);
+  if (cls) el.className = cls;
+  if (text != null) el.textContent = text;
+  return el;
+}
+function _renderHowto(body, h) {
+  body.textContent = '';
+  document.getElementById('howto-title').textContent = h.name;
+  if (h.level) body.appendChild(_howtoEl('p', 'howto-level', h.level.charAt(0).toUpperCase() + h.level.slice(1)));
+  if (h.images.length) {
+    const single = h.images.length === 1;
+    const pics = _howtoEl('div', 'howto-pics' + (single ? ' single' : ''));
+    h.images.forEach((src, i) => {
+      const fig = _howtoEl('figure');
+      const img = document.createElement('img');
+      img.src = src; img.decoding = 'async'; img.width = 400; img.height = h.illustrated ? 400 : 267;
+      img.alt = single ? h.name : `${h.name}, ${i === 0 ? 'start' : 'finish'} position`;
+      fig.appendChild(img);
+      if (!single) fig.appendChild(_howtoEl('figcaption', null, i === 0 ? 'Start' : 'Finish'));
+      pics.appendChild(fig);
+    });
+    body.appendChild(pics);
+  }
+  if (h.instructions.length) {
+    const ol = _howtoEl('ol', 'howto-steps');
+    h.instructions.forEach(step => ol.appendChild(_howtoEl('li', null, step)));
+    body.appendChild(ol);
+  } else if (h.cue) {
+    body.appendChild(_howtoEl('p', 'howto-steps', h.cue));
+  }
+  const src = h.steps_source === 'zenkai' ? 'Steps written for Zenkai'
+            : h.steps_source === 'fedb' ? 'From free-exercise-db (public domain)' : '';
+  const credit = _howtoEl('p', 'howto-src', src);
+  if (h.illustrated) {
+    credit.append((src ? '. ' : '') + 'Illustrations: exercise data by ');
+    const a = _howtoEl('a', null, 'RepDB (repdb.co)');
+    a.href = 'https://repdb.co'; a.target = '_blank'; a.rel = 'nofollow noopener';
+    credit.append(a);
+  }
+  if (credit.textContent) { credit.append('.'); body.appendChild(credit); }
+  const more = _howtoEl('a', 'howto-more', 'Full exercise page and your history');
+  more.href = `/exercises/${h.id}`;
+  body.appendChild(more);
+}
+async function openHowto(opener) {
+  const root = document.getElementById('howto-sheet');
+  const id = _currentExId();
+  if (!root || !window.Sheet || _howtoSheet || !id) return;
+  const body = document.getElementById('howto-body');
+  const cached = _howtoCache.get(id);
+  if (cached) _renderHowto(body, cached);
+  else { body.textContent = ''; body.appendChild(_howtoEl('p', 'howto-level', 'Loading…')); }
+  _howtoSheet = Sheet.open(root, {
+    label: 'How to do it', initialFocus: document.getElementById('howto-title'), returnFocus: opener,
+    onClose: () => { _howtoSheet = null; },
+  });
+  if (cached) return;
+  try {
+    const r = await fetch(`/api/exercises/${id}/howto`);
+    if (!r.ok) throw new Error(r.status);
+    const h = await r.json();
+    _howtoCache.set(id, h);
+    if (_howtoSheet && _currentExId() === id) _renderHowto(body, h);
+  } catch (_) {
+    body.textContent = '';
+    body.appendChild(_howtoEl('p', 'howto-level', "Couldn't load the steps. Check your connection and try again."));
+  }
+}
+function closeHowto() { if (_howtoSheet) _howtoSheet.close(); }
+
 // What the picker lists before anything is typed: the routine / muscle filter's
 // exercises, else the plan, else the exercises you have logged before.
 function _renderPickList() {
@@ -2064,6 +2183,14 @@ function _pickItem(e, q) {
   b.setAttribute('role', 'option');
   b.dataset.id = e.id;
   b.dataset.name = e.name;
+  const thumb = document.createElement('span'); thumb.className = 'pi-thumb'; thumb.setAttribute('aria-hidden', 'true');
+  if (e.thumb) {
+    const img = document.createElement('img');
+    img.src = e.thumb; img.alt = ''; img.loading = 'lazy'; img.decoding = 'async'; img.width = 44; img.height = 44;
+    img.addEventListener('error', () => img.remove());   // offline or missing: keep the empty box
+    thumb.appendChild(img);
+  }
+  b.appendChild(thumb);
   const name = document.createElement('span'); name.className = 'pi-name'; name.innerHTML = _highlight(e.name, q);
   b.appendChild(name);
   const n = _setsOf(e.id).length;

@@ -112,6 +112,31 @@ async def exercises_page(
     )
 
 
+@router.get("/api/exercises/{exercise_id}/howto")
+async def exercise_howto(
+    exercise_id: int,
+    conn: aiosqlite.Connection = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    """What the in-session "How to" sheet shows: the detail page's steps and
+    photos, without leaving the log."""
+    async with conn.execute(
+        "SELECT id, name, cue, level, instructions, images, steps_source FROM exercises WHERE id = ?",
+        (exercise_id,),
+    ) as cur:
+        r = await cur.fetchone()
+    if r is None:
+        return JSONResponse({"detail": "Exercise not found"}, status_code=404)
+    images = json.loads(r["images"] or "[]")
+    return JSONResponse({
+        "id": r["id"], "name": r["name"], "cue": r["cue"], "level": r["level"],
+        "instructions": json.loads(r["instructions"] or "[]"),
+        "images": images,
+        "steps_source": r["steps_source"],
+        "illustrated": bool(images) and "/repdb/" in images[0],
+    })
+
+
 @router.get("/api/exercises")
 async def list_exercises_json(
     conn: aiosqlite.Connection = Depends(get_db),
@@ -132,6 +157,8 @@ async def list_exercises_json(
     async with conn.execute(
         """
         SELECT e.id, e.name, e.equipment, e.log_type, e.tier, em.muscle, em.is_primary,
+               json_extract(e.images, '$[0]') AS thumb,
+               COALESCE(json_array_length(e.instructions), 0) AS n_steps,
                (SELECT COUNT(*) FROM sets s WHERE s.exercise_id = e.id AND s.user_id = :uid) AS uses
         FROM exercises e
         LEFT JOIN exercise_muscles em ON em.exercise_id = e.id
@@ -147,7 +174,9 @@ async def list_exercises_json(
             _ex[r["id"]] = {"id": r["id"], "name": r["name"],
                             "is_bodyweight": r["equipment"] == "Bodyweight",
                             "is_time": r["log_type"] == "time", "muscles": [],
-                            "tier": r["tier"] or 1, "uses": r["uses"] or 0}
+                            "tier": r["tier"] or 1, "uses": r["uses"] or 0,
+                            "thumb": r["thumb"],
+                            "has_howto": bool(r["n_steps"] or r["thumb"])}
         if r["muscle"]:
             _ex[r["id"]]["muscles"].append(
                 {"name": r["muscle"], "is_primary": bool(r["is_primary"])}
