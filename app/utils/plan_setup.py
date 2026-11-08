@@ -50,7 +50,6 @@ FOCUS_MUSCLES: dict[str, tuple[tuple[str, ...], str, frozenset | None]] = {
     "Glutes": (("glute",), "accessory", frozenset({"squat", "hinge", "single_leg", "glute"})),
     "Abs": (("core",), "core", None),
 }
-MAX_FOCUS = 3
 FOCUS_DAYS_CAP = 3          # a focus muscle gets an extra slot on at most this many days
 
 # Some lifts need a bench, a bar or dip bars on top of their listed equipment. Machines
@@ -82,7 +81,7 @@ def clean_focus(muscles) -> list[str]:
     for m in muscles or []:
         if m in FOCUS_MUSCLES and m not in seen:
             seen.append(m)
-    return seen[:MAX_FOCUS]
+    return seen                 # any number: each one picked gets its extra work
 
 
 def fits_equipment(row: dict, available: frozenset | None) -> bool:
