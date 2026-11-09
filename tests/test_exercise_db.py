@@ -180,7 +180,8 @@ async def test_detail_page_labels_hand_written_steps_and_credits_illustrations(c
     burpee = (await client.get(f"/exercises/{items['Burpee']['id']}")).text
     assert "Steps written for Zenkai" in burpee
     assert "/static/exercises/repdb/" in burpee and 'href="https://repdb.co"' in burpee
-    assert "<figcaption>" not in burpee              # one illustration: no Start/Finish caption
+    assert "<figcaption>Start" not in burpee         # one illustration: no Start/Finish
+    assert "the steps below cover the whole movement" in burpee
     swim = (await client.get(f"/exercises/{items['Swimming']['id']}")).text
     assert "How to do it" in swim and "no photos for this one" in swim
 
@@ -246,3 +247,28 @@ def test_service_worker_keeps_exercise_media_across_versions():
     assert "const MEDIA_CACHE = 'zenkai-exercise-media-v1'" in sw
     assert "k !== MEDIA_CACHE" in sw                              # not deleted on activate
     assert "warm-exercise-media" in sw
+
+
+
+# ── one picture: a caption that says so ──────────────────────────────────
+
+def test_single_picture_caption_rule():
+    from app.routes.exercises import single_picture_caption as cap
+    assert cap(["a", "b"], "Core", "time") is None
+    assert cap([], "Core", "time") is None
+    assert cap(["a"], "Core", "time") == "Hold this position"
+    assert cap(["a"], "Cardio", "reps") == "Keep a steady rhythm"
+    assert cap(["a"], "Full Body", "reps").startswith("One position shown")
+
+
+@pytest.mark.asyncio
+async def test_single_picture_exercises_are_captioned(client):
+    items = {e["name"]: e for e in (await client.get("/api/exercises")).json()["exercises"]}
+    for name, caption in [("Wall Sit", "Hold this position"), ("L-Sit", "Hold this position"),
+                          ("Assault Bike", "Keep a steady rhythm")]:
+        h = (await client.get(f"/api/exercises/{items[name]['id']}/howto")).json()
+        assert len(h["images"]) == 1 and h["picture_caption"] == caption, name
+        html = (await client.get(f"/exercises/{items[name]['id']}", headers={"Accept": "text/html"})).text
+        assert f"<figcaption>{caption}</figcaption>" in html and 'class="howto-pics single"' in html
+    bench = (await client.get(f"/api/exercises/{items['Bench Press']['id']}/howto")).json()
+    assert bench["picture_caption"] is None

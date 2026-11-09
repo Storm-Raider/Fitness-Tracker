@@ -112,6 +112,18 @@ async def exercises_page(
     )
 
 
+def single_picture_caption(images: list, category: str | None, log_type: str | None) -> str | None:
+    """What to say under an exercise's only picture, so one picture reads as
+    intended rather than as a missing second one. Two pictures get Start/Finish."""
+    if len(images) != 1:
+        return None
+    if log_type == "time":
+        return "Hold this position"
+    if category == "Cardio":
+        return "Keep a steady rhythm"
+    return "One position shown; the steps below cover the whole movement"
+
+
 # How many exercises a phone keeps pictures and steps for (about 20 KB each).
 OFFLINE_PACK_LIMIT = 250
 
@@ -203,7 +215,8 @@ async def exercise_howto(
     """What the in-session "How to" sheet shows: the detail page's steps and
     photos, without leaving the log."""
     async with conn.execute(
-        "SELECT id, name, cue, level, instructions, images, steps_source FROM exercises WHERE id = ?",
+        "SELECT id, name, cue, level, instructions, images, steps_source, category, log_type "
+        "FROM exercises WHERE id = ?",
         (exercise_id,),
     ) as cur:
         r = await cur.fetchone()
@@ -216,6 +229,7 @@ async def exercise_howto(
         "images": images,
         "steps_source": r["steps_source"],
         "illustrated": bool(images) and "/repdb/" in images[0],
+        "picture_caption": single_picture_caption(images, r["category"], r["log_type"]),
     })
 
 
@@ -346,6 +360,7 @@ async def exercise_detail(
     async with conn.execute(
         """
         SELECT e.id, e.name, e.category, e.equipment, e.cue, e.level, e.instructions, e.steps_source, e.images,
+               e.log_type AS ex_log_type,
                em.muscle, em.is_primary
         FROM exercises e
         LEFT JOIN exercise_muscles em ON em.exercise_id = e.id
@@ -368,6 +383,8 @@ async def exercise_detail(
         "level": first["level"],
         "instructions": json.loads(first["instructions"] or "[]"),
         "steps_source": first["steps_source"],
+        "picture_caption": single_picture_caption(json.loads(first["images"] or "[]"),
+                                                  first["category"], first["ex_log_type"]),
         "images": json.loads(first["images"] or "[]"),
         "muscles": [
             {"name": r["muscle"], "is_primary": bool(r["is_primary"])}

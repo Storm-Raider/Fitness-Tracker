@@ -186,7 +186,7 @@
   padding: 0 1rem calc(1rem + env(safe-area-inset-bottom, 0px)); }
 .howto-level { font-size: var(--t-label); color: var(--muted); margin: 0 0 0.75rem; }
 .howto-pics { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.5rem; margin-bottom: 1rem; }
-.howto-pics.single { grid-template-columns: minmax(0, 1fr); max-width: 260px; }
+.howto-pics.single { grid-template-columns: minmax(0, 1fr); max-width: 400px; }
 .howto-pics figure { margin: 0; }
 .howto-pics img { display: block; width: 100%; height: auto; border: 1px solid var(--border); border-radius: var(--radius); background: #fff; }
 .howto-pics figcaption { font-size: var(--t-label); color: var(--muted); margin-top: 4px; }
@@ -2093,6 +2093,7 @@ function _renderHowto(body, h) {
       img.alt = single ? h.name : `${h.name}, ${i === 0 ? 'start' : 'finish'} position`;
       fig.appendChild(img);
       if (!single) fig.appendChild(_howtoEl('figcaption', null, i === 0 ? 'Start' : 'Finish'));
+      else if (h.picture_caption) fig.appendChild(_howtoEl('figcaption', null, h.picture_caption));
       pics.appendChild(fig);
     });
     body.appendChild(pics);

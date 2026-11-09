@@ -11,6 +11,8 @@
   .howto-pics figure { margin: 0; }
   .howto-pics img { display: block; width: 100%; height: auto; border: 1px solid var(--border); border-radius: var(--radius); background: #fff; }
   .howto-pics figcaption { font-size: var(--t-label); color: var(--muted); margin-top: 4px; }
+  /* One picture (a hold, a cardio machine): full width, not half a grid. */
+  .howto-pics.single { grid-template-columns: minmax(0, 1fr); max-width: 400px; }
   .howto-src { margin: 12px 0 0; font-size: var(--t-label); color: var(--muted); }
   .howto-steps { margin: 0; padding-left: 1.4em; display: grid; gap: 8px; font-size: var(--t-body); line-height: 1.5; max-width: 65ch; }
 </style>
@@ -82,13 +84,14 @@
   </div>
   <div class="card howto-card">
     {% if exercise.images %}
-    <div class="howto-pics">
-      {% set single = exercise.images | length == 1 %}
+    {% set single = exercise.images | length == 1 %}
+    <div class="howto-pics{% if single %} single{% endif %}">
       {% for src in exercise.images %}
       {% set square = '/repdb/' in src %}
       <figure>
         <img src="{{ src }}" alt="{{ exercise.name }}{% if not single %}, {{ 'start' if loop.first else 'finish' }} position{% endif %}" width="400" height="{{ 400 if square else 267 }}" loading="lazy" decoding="async">
-        {% if not single %}<figcaption>{{ 'Start' if loop.first else 'Finish' }}</figcaption>{% endif %}
+        {% if not single %}<figcaption>{{ 'Start' if loop.first else 'Finish' }}</figcaption>
+        {% elif exercise.picture_caption %}<figcaption>{{ exercise.picture_caption }}</figcaption>{% endif %}
       </figure>
       {% endfor %}
     </div>
