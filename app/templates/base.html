@@ -1161,6 +1161,37 @@
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('/sw.js');
     }
+    // Once a day, with signal, save the pictures and How-to steps of the
+    // exercises you use (routines, plan, recent sessions, then common lifts) so
+    // they open on a gym's weak signal. Runs after the page has settled; skipped
+    // on Data Saver. The list comes from /api/exercises/offline-pack.
+    (function () {
+      if (!('serviceWorker' in navigator) || !('caches' in window) || !navigator.onLine) return;
+      if (navigator.connection && navigator.connection.saveData) return;
+      if (/^\/(login|logout|forgot-password|reset-password|invite)/.test(location.pathname)) return;
+      var KEY = 'zk-exercise-media-day', today = new Date().toDateString();
+      try { if (localStorage.getItem(KEY) === today) return; } catch (e) {}
+      setTimeout(function () {
+        Promise.all([
+          navigator.serviceWorker.ready,
+          fetch('/api/exercises/offline-pack', { credentials: 'same-origin' }),
+        ]).then(function (got) {
+          var reg = got[0], r = got[1];
+          var type = r.headers.get('Content-Type') || '';
+          if (!r.ok || r.redirected || type.indexOf('application/json') !== 0 || !reg.active) return null;
+          return r.json().then(function (pack) {
+            if (!pack.urls || !pack.urls.length) return;
+            // Only a complete save counts for today; a dropped signal retries on the next page.
+            navigator.serviceWorker.addEventListener('message', function done(ev) {
+              if (!ev.data || ev.data.type !== 'warm-exercise-media-done') return;
+              navigator.serviceWorker.removeEventListener('message', done);
+              if (!ev.data.failed) { try { localStorage.setItem(KEY, today); } catch (e) {} }
+            });
+            reg.active.postMessage({ type: 'warm-exercise-media', urls: pack.urls });
+          });
+        }).catch(function () {});
+      }, 4000);
+    })();
     // Keep --nav-h in sync with the desktop nav's real height so the container
     // top padding always clears it, even when nav items wrap to a second line.
     // ResizeObserver fires once on observe and then only when the nav's own size

@@ -112,6 +112,88 @@ async def exercises_page(
     )
 
 
+# How many exercises a phone keeps pictures and steps for (about 20 KB each).
+OFFLINE_PACK_LIMIT = 250
+
+
+@router.get("/api/exercises/offline-pack")
+async def exercise_offline_pack(
+    conn: aiosqlite.Connection = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    """The exercises this athlete is likely to open mid-session, so the phone can
+    save their pictures and How-to steps while it has signal (static/sw.js keeps
+    them across app updates). Their own first: routines, the latest plans and
+    anything logged in the last 90 days, most-logged first; then the common
+    tier, until OFFLINE_PACK_LIMIT."""
+    uid = current_user["id"]
+    ordered: list[int] = []
+    seen: set[int] = set()
+
+    def add(ids):
+        for i in ids:
+            if i not in seen and len(ordered) < OFFLINE_PACK_LIMIT:
+                seen.add(i)
+                ordered.append(i)
+
+    async with conn.execute(
+        """SELECT re.exercise_id FROM routine_exercises re JOIN routines r ON r.id = re.routine_id
+           WHERE r.user_id = ? ORDER BY r.id, re.order_idx""", (uid,),
+    ) as cur:
+        add(r[0] for r in await cur.fetchall())
+
+    async with conn.execute(
+        "SELECT plan_json FROM coach_plans WHERE user_id = ? ORDER BY id DESC LIMIT 2", (uid,),
+    ) as cur:
+        plans = [r[0] for r in await cur.fetchall()]
+    names: list[str] = []
+    for raw in plans:
+        try:
+            plan = json.loads(raw)
+        except (TypeError, ValueError):
+            continue
+        for day in plan.get("days") or []:
+            names += [e.get("name") for e in day.get("exercises") or [] if e.get("name")]
+    if names:
+        marks = ",".join("?" * len(names))
+        async with conn.execute(f"SELECT id, name FROM exercises WHERE name IN ({marks})", names) as cur:
+            id_of = {r["name"]: r["id"] for r in await cur.fetchall()}
+        add(id_of[n] for n in names if n in id_of)
+
+    async with conn.execute(
+        """SELECT s.exercise_id FROM sets s JOIN workouts w ON w.id = s.workout_id
+           WHERE s.user_id = ? AND w.started_at >= datetime('now', 'localtime', '-90 days')
+           GROUP BY s.exercise_id ORDER BY COUNT(*) DESC""", (uid,),
+    ) as cur:
+        add(r[0] for r in await cur.fetchall())
+
+    async with conn.execute("SELECT id FROM exercises WHERE tier = 1 ORDER BY name") as cur:
+        add(r[0] for r in await cur.fetchall())
+
+    if not ordered:
+        return JSONResponse({"exercises": [], "urls": []})
+    marks = ",".join("?" * len(ordered))
+    async with conn.execute(
+        f"""SELECT id, images, COALESCE(json_array_length(instructions), 0) AS n_steps
+            FROM exercises WHERE id IN ({marks})""", ordered,
+    ) as cur:
+        info = {r["id"]: r for r in await cur.fetchall()}
+    urls: list[str] = []
+    kept: list[int] = []
+    for i in ordered:
+        r = info.get(i)
+        if r is None:
+            continue
+        images = json.loads(r["images"] or "[]")
+        if not images and not r["n_steps"]:
+            continue                       # nothing to show offline
+        kept.append(i)
+        urls.append(f"/api/exercises/{i}/howto")
+        urls += images
+    return JSONResponse({"exercises": kept, "urls": urls},
+                        headers={"Cache-Control": "no-store"})
+
+
 @router.get("/api/exercises/{exercise_id}/howto")
 async def exercise_howto(
     exercise_id: int,

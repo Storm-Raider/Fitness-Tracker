@@ -4,6 +4,14 @@ const CACHE_NAME = `fittrack-${CACHE_VERSION}`;
 // across worker versions; cleared whenever the login page is shown, so the
 // next person to sign in on this device never sees the previous one's pages.
 const PAGES_CACHE = 'zenkai-pages-v1';
+// Exercise pictures and How-to steps, saved ahead of time while there is signal
+// (the page asks once a day; see base.html) and served from here first, so the
+// picker and the How-to sheet work on a gym's weak signal. Not personal data,
+// so it survives sign-out, and it is kept across worker versions. Bump the
+// suffix if the exercise images are ever rebuilt under the same names.
+const MEDIA_CACHE = 'zenkai-exercise-media-v1';
+const MEDIA_MAX = 1500;           // entries; about 25 MB at the most
+const HOWTO_RE = /^\/api\/exercises\/\d+\/howto$/;
 
 const PRECACHE = [
   '/static/manifest.json',
@@ -57,7 +65,7 @@ self.addEventListener('install', event => {
 
 self.addEventListener('activate', event => {
   event.waitUntil((async () => {
-    const old = (await caches.keys()).filter(k => k !== CACHE_NAME && k !== PAGES_CACHE);
+    const old = (await caches.keys()).filter(k => k !== CACHE_NAME && k !== PAGES_CACHE && k !== MEDIA_CACHE);
     await Promise.all(old.map(k => caches.delete(k)));
     await self.clients.claim();
     // Force every open window to reload once when a NEW worker version takes
@@ -93,13 +101,90 @@ async function navigate(request, url) {
   }
 }
 
+// A usable response to keep: a real answer, not a redirect to the login page.
+function keepable(response, type) {
+  return response.ok && !response.redirected
+    && (response.headers.get('Content-Type') || '').startsWith(type);
+}
+
+// Pictures: from the phone if saved, else the network (and save it).
+async function exerciseImage(request) {
+  const cache = await caches.open(MEDIA_CACHE);
+  const saved = await cache.match(request);
+  if (saved) return saved;
+  const response = await fetch(request);
+  if (keepable(response, 'image/')) cache.put(request, response.clone());
+  return response;
+}
+
+// How-to steps: the saved copy at once, refreshed in the background; the
+// network when nothing is saved yet.
+async function exerciseHowto(event) {
+  const cache = await caches.open(MEDIA_CACHE);
+  const saved = await cache.match(event.request);
+  const fresh = fetch(event.request).then(response => {
+    if (keepable(response, 'application/json')) cache.put(event.request, response.clone());
+    return response;
+  });
+  if (saved) {
+    event.waitUntil(fresh.catch(() => {}));
+    return saved;
+  }
+  return fresh;
+}
+
+// "Save these for offline": fetch what isn't saved yet, a few at a time, then
+// trim anything beyond MEDIA_MAX that isn't on the list. Replies with a count.
+async function warmMedia(urls) {
+  const cache = await caches.open(MEDIA_CACHE);
+  const wanted = new Set(urls.map(u => new URL(u, self.location.origin).href));
+  const have = new Set((await cache.keys()).map(r => r.url));
+  const todo = [...wanted].filter(u => !have.has(u));
+  let saved = 0, failed = 0;
+  async function worker() {
+    while (todo.length) {
+      const url = todo.shift();
+      try {
+        const response = await fetch(url, { credentials: 'same-origin' });
+        const type = HOWTO_RE.test(new URL(url).pathname) ? 'application/json' : 'image/';
+        if (keepable(response, type)) { await cache.put(url, response); saved++; }
+        else failed++;
+      } catch (e) {
+        failed++;
+        if (!self.navigator.onLine) break;     // signal gone: stop, try again next time
+      }
+    }
+  }
+  await Promise.all([worker(), worker(), worker(), worker()]);
+  const keys = await cache.keys();
+  if (keys.length > MEDIA_MAX) {
+    const extra = keys.filter(r => !wanted.has(r.url)).slice(0, keys.length - MEDIA_MAX);
+    await Promise.all(extra.map(r => cache.delete(r)));
+  }
+  return { saved, failed, total: wanted.size, already: wanted.size - saved - failed };
+}
+
+self.addEventListener('message', event => {
+  const data = event.data || {};
+  if (data.type !== 'warm-exercise-media' || !Array.isArray(data.urls)) return;
+  const urls = data.urls.filter(u => typeof u === 'string'
+    && (u.startsWith('/static/exercises/') || HOWTO_RE.test(u)));
+  event.waitUntil(warmMedia(urls).then(result => {
+    if (event.source) event.source.postMessage({ type: 'warm-exercise-media-done', ...result });
+  }));
+});
+
 self.addEventListener('fetch', event => {
   if (event.request.method !== 'GET') return;
 
   const url = new URL(event.request.url);
   if (url.origin !== self.location.origin) return;
 
-  if (url.pathname.startsWith('/static/')) {
+  if (url.pathname.startsWith('/static/exercises/')) {
+    event.respondWith(exerciseImage(event.request));
+  } else if (HOWTO_RE.test(url.pathname)) {
+    event.respondWith(exerciseHowto(event));
+  } else if (url.pathname.startsWith('/static/')) {
     // Cache-first for static assets
     event.respondWith(
       caches.match(event.request).then(cached => {

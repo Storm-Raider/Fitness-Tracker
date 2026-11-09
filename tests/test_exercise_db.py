@@ -210,3 +210,39 @@ async def test_howto_endpoint(client):
 async def test_howto_endpoint_needs_login(anon_client):
     r = await anon_client.get("/api/exercises/1/howto", follow_redirects=False)
     assert r.status_code in (302, 303, 401)
+
+
+# ── offline pack: what the phone saves ahead of time ─────────────────────
+
+@pytest.mark.asyncio
+async def test_offline_pack_puts_the_athletes_own_exercises_first(client, db):
+    items = {e["name"]: e for e in (await client.get("/api/exercises")).json()["exercises"]}
+    # A routine with a long-tail exercise, and a logged set of another one.
+    tail = next(e for e in items.values() if e["tier"] == 2 and e["thumb"])
+    r = await client.post("/routines", json={"name": "Mine", "exercise_ids": [tail["id"]]})
+    assert r.status_code in (200, 201), r.text
+    w = (await client.post("/workouts", json={})).json()["id"]
+    await client.post(f"/workouts/{w}/sets", json={"exercise_id": items["Pendlay Row"]["id"], "reps": 5, "weight_kg": 60})
+
+    pack = (await client.get("/api/exercises/offline-pack")).json()
+    ids = pack["exercises"]
+    assert ids[0] == tail["id"]                                  # routines first
+    assert ids.index(items["Pendlay Row"]["id"]) < ids.index(items["Bench Press"]["id"])
+    assert items["Bench Press"]["id"] in ids                     # then the common tier
+    assert len(ids) <= 250
+    urls = pack["urls"]
+    assert f"/api/exercises/{tail['id']}/howto" in urls and tail["thumb"] in urls
+    assert all(u.startswith(("/static/exercises/", "/api/exercises/")) for u in urls)
+
+
+@pytest.mark.asyncio
+async def test_offline_pack_needs_login(anon_client):
+    r = await anon_client.get("/api/exercises/offline-pack", follow_redirects=False)
+    assert r.status_code in (302, 303, 401)
+
+
+def test_service_worker_keeps_exercise_media_across_versions():
+    sw = (ROOT / "app/static/sw.js").read_text()
+    assert "const MEDIA_CACHE = 'zenkai-exercise-media-v1'" in sw
+    assert "k !== MEDIA_CACHE" in sw                              # not deleted on activate
+    assert "warm-exercise-media" in sw

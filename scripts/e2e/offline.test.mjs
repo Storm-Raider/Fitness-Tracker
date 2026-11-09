@@ -195,10 +195,17 @@ await page.fill('input[name=username]', 'e2eadmin');
 await page.fill('input[name=password]', 'e2e-admin-password-123');
 await Promise.all([page.waitForNavigation(), page.click('button[type=submit]')]);
 
-// ── 9. Service worker: visited pages open offline, others get a fallback ─
+// ── 9. Service worker: visited pages open offline, others get a fallback;
+//       saved exercise pictures and steps work with the Pi unreachable ────
 await page.goto(BASE + '/workouts', { waitUntil: 'networkidle' });
 await page.evaluate(() => navigator.serviceWorker.ready);
 await page.reload({ waitUntil: 'networkidle' });          // now controlled + cached
+// Exercise pictures and How-to steps are saved ahead of time (base.html asks
+// the worker once a day). Wait until today's save has completed.
+const warmed = await page.waitForFunction(() => localStorage.getItem('zk-exercise-media-day'), null, { timeout: 90000 })
+  .then(() => true).catch(() => false);
+const mediaCount = await page.evaluate(async () => (await (await caches.open('zenkai-exercise-media-v1')).keys()).length);
+check('Exercise pictures and steps are saved ahead of time', warmed && mediaCount > 300, `warmed=${warmed} saved=${mediaCount}`);
 // Stop the server: Playwright's offline switch doesn't reliably reach the
 // service worker's own fetches, and "Pi unreachable" is the real case anyway.
 const { execSync } = require('child_process');
@@ -209,6 +216,17 @@ try { await page.reload(); visited = await page.title(); } catch (e) { visited =
 check('Visited page opens offline', /Zenkai/i.test(visited), visited);
 try { await page.goto(BASE + '/achievements'); fallback = await page.textContent('body'); } catch (e) { fallback = 'ERR ' + e.message.split('\n')[0]; }
 check('Unvisited page offline shows the offline fallback', /offline/i.test(fallback) && !/ERR/.test(fallback), fallback.slice(0, 80));
+// With the Pi unreachable, the saved How-to steps and picture still load (as the
+// How-to sheet and the picker fetch them).
+await page.goto(BASE + '/workouts').catch(() => {});
+const offlineMedia = await page.evaluate(async ([howto, img]) => {
+  const h = await fetch(howto).then(r => r.ok ? r.json() : null).catch(() => null);
+  const i = await fetch(img).then(r => r.ok ? r.blob() : null).catch(() => null);
+  return { steps: h ? h.instructions.length : 0, bytes: i ? i.size : 0, type: i ? i.type : '' };
+}, [`/api/exercises/${bench.id}/howto`, bench.thumb]);
+check('Offline: saved How-to steps and pictures still load',
+      offlineMedia.steps >= 3 && offlineMedia.bytes > 1000 && offlineMedia.type.startsWith('image/'),
+      JSON.stringify(offlineMedia));
 await ctx.setOffline(false);
 
 await browser.close();
