@@ -184,7 +184,7 @@ async def plan_page(
             "setup": {
                 "equipment": plan_setup.EQUIPMENT, "presets": plan_setup.PRESETS,
                 "minutes": plan_setup.SESSION_MINUTES, "muscles": list(plan_setup.FOCUS_MUSCLES),
-                "max_focus": plan_setup.MAX_FOCUS, "last": last_setup,
+                "last": last_setup,
             },
             "failed_generation": None if active_job else coach.take_unseen_failure(uid),
         },

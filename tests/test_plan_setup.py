@@ -149,7 +149,19 @@ def test_focus_survives_time_trimming():
 
 
 def test_clean_focus():
-    assert ps.clean_focus(["Chest", "Chest", "Bogus", "Back", "Abs", "Legs"]) == ["Chest", "Back", "Abs"]
+    assert ps.clean_focus(["Chest", "Chest", "Bogus", "Back", "Abs", "Legs"]) == ["Chest", "Back", "Abs", "Legs"]
+    every = list(ps.FOCUS_MUSCLES)
+    assert ps.clean_focus(every) == every              # no cap on how many
+
+
+def test_many_focus_muscles_still_fit_the_session():
+    every = list(ps.FOCUS_MUSCLES)
+    week = _week(days=4, session_minutes=60, plan_focus=every)
+    plan, _ = cp.assemble_plan(week, {}, "hypertrophy", 4, NAME_MAP, {}, ROWS, _profile(session_minutes=60))
+    for d in plan["days"]:
+        assert d["est_minutes"] <= 65
+    marked = {s.get("focus") for d in week for s in d["slots"]} - {None}
+    assert len(marked) >= 4
 
 
 # ── the endpoint ─────────────────────────────────────────────────────

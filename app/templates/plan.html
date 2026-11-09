@@ -60,7 +60,6 @@
 }
 .focus-chip:hover { border-color: var(--text); }
 .focus-chip[aria-pressed="true"] { border-color: var(--text); background: var(--hi); box-shadow: inset 0 0 0 1px var(--text); }
-.focus-chip:disabled { opacity: 0.45; cursor: not-allowed; }
 @media (max-width: 359px) { .focus-wrap { grid-template-columns: minmax(0, 1fr); } .focus-map { margin: 0 auto; } }
 
 /* Plan output: what it was built for, and each day's length */
@@ -632,7 +631,7 @@
       </div>
       <p class="setup-hint"><span class="bw-mark">{{ eq_icon('bodyweight', 18) }}</span> Bodyweight moves are always included.</p>
 
-      <div class="section-title" id="setup-focus-lbl">Muscles to focus on <span class="sec-sub">up to {{ setup.max_focus }}</span></div>
+      <div class="section-title" id="setup-focus-lbl">Muscles to focus on <span class="sec-sub">pick any</span></div>
       <div class="focus-wrap">
         <div class="focus-map" aria-hidden="true">
           {% set map_id = 'fmap' %}{% set muscle_data_json = '{}' %}
@@ -1004,7 +1003,6 @@ function selectAiGoal(btn) {
 // ── Setup: days, time, equipment, focus ───────────────────────
 // Toggle buttons (aria-pressed). Starts from what this athlete chose last time.
 const _SETUP_LAST = {{ setup.last | tojson }};
-const _MAX_FOCUS = {{ setup.max_focus }};
 const _EQ_ALL = [...document.querySelectorAll('#setup-equipment .eq-tile')].map(b => b.dataset.eq);
 const _setup = {
   days: (_SETUP_LAST && _SETUP_LAST.days_per_week) || {{ (profile.sessions_per_week | round | int) if profile and profile.sessions_per_week and profile.sessions_per_week >= 1 else 4 }},
@@ -1030,13 +1028,12 @@ function renderSetup() {
     return items.length === _setup.equipment.size && items.every(k => _setup.equipment.has(k));
   });
   _press('#setup-focus .focus-chip', b => _setup.focus.includes(b.dataset.muscle));
-  const full = _setup.focus.length >= _MAX_FOCUS;
-  document.querySelectorAll('#setup-focus .focus-chip').forEach(b => {
-    b.disabled = full && !_setup.focus.includes(b.dataset.muscle);
-  });
-  document.getElementById('setup-focus-hint').textContent = _setup.focus.length
-    ? `Extra sets for ${_setup.focus.join(', ')}.`
-    : 'None picked: an even spread.';
+  const nFocus = _setup.focus.length, nAll = document.querySelectorAll('#setup-focus .focus-chip').length;
+  document.getElementById('setup-focus-hint').textContent =
+    !nFocus ? 'None picked: an even spread.'
+    : nFocus === nAll ? 'Everything picked: more work for every muscle, still fitted to your session time.'
+    : nFocus >= 4 ? `Extra sets for ${_setup.focus.join(', ')}. With this many, each gets a little less of the session time.`
+    : `Extra sets for ${_setup.focus.join(', ')}.`;
   // The body map mirrors the chips (it is decoration; the chips are the control).
   document.querySelectorAll('#fmap-wrap .mmap-muscle').forEach(el => {
     const glute = /glute/.test(el.id);
@@ -1063,11 +1060,11 @@ document.querySelectorAll('.preset-btn').forEach(b => b.addEventListener('click'
 function _toggleFocus(m) {
   const i = _setup.focus.indexOf(m);
   if (i >= 0) _setup.focus.splice(i, 1);
-  else if (_setup.focus.length < _MAX_FOCUS) _setup.focus.push(m);
+  else _setup.focus.push(m);
   renderSetup();
 }
 document.getElementById('setup-focus').addEventListener('click', e => {
-  const b = e.target.closest('.focus-chip'); if (!b || b.disabled) return; _toggleFocus(b.dataset.muscle);
+  const b = e.target.closest('.focus-chip'); if (!b) return; _toggleFocus(b.dataset.muscle);
 });
 document.querySelectorAll('#fmap-wrap .mmap-muscle').forEach(el => el.addEventListener('click', () => {
   const m = /glute/.test(el.id) ? 'Glutes' : el.dataset.muscle;
