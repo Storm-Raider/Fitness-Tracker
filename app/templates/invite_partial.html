@@ -1,53 +1,7 @@
-<div style="margin-top: 0.25rem;">
-  <p style="font-size: var(--t-body); color: var(--muted); margin-bottom: 0.5rem;">Share this link — expires in 7 days, up to {{ max_uses }} signups:</p>
-  <div style="display: flex; gap: 0.5rem; align-items: center;">
-    <input type="text" id="invite-url" value="{{ invite_url | e }}" readonly
-           style="flex: 1; background: var(--surface-2); cursor: text;">
-    <button class="btn btn-ghost"
-            style="flex-shrink: 0;"
-            onclick="var btn=this;navigator.clipboard.writeText(document.getElementById('invite-url').value).then(function(){btn.textContent='Copied!';setTimeout(function(){btn.textContent='Copy';},2000)})"
-            type="button">
-      Copy
-    </button>
-  </div>
-</div>
-
-<div id="pending-invites-card" hx-swap-oob="innerHTML" class="card" style="padding:0; overflow-x:auto;">
-  <table>
-    <thead>
-      <tr>
-        <th>Token</th>
-        <th>Created</th>
-        <th>Expires</th>
-        <th>Uses</th>
-        <th></th>
-      </tr>
-    </thead>
-    <tbody id="pending-invites-body">
-      {% for inv in pending_invites %}
-      <tr>
-        <td>
-          <code style="font-size: var(--t-body); color:var(--muted-hi);">…{{ inv.token[-8:] }}</code>
-        </td>
-        <td style="font-size: var(--t-body); color:var(--muted);">{{ inv.created_at[:16] }}</td>
-        <td style="font-size: var(--t-body); color:var(--muted);">{{ inv.expires_at[:16] }}</td>
-        <td class="num" style="font-size: var(--t-body); color:var(--muted);">{{ inv.uses_count }} / {{ inv.max_uses }}</td>
-        <td style="text-align:right;">
-          <button class="btn btn-ghost"
-                  style="font-size: var(--t-body); color:var(--danger);"
-                  hx-delete="/invite/{{ inv.token }}"
-                  hx-target="closest tr"
-                  hx-swap="outerHTML"
-                  hx-confirm="Revoke this invite link?">
-            Revoke
-          </button>
-        </td>
-      </tr>
-      {% else %}
-      <tr id="pending-invites-empty">
-        <td colspan="5" style="padding:1rem; color:var(--muted); font-size: var(--t-body);">No pending invites.</td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
-</div>
+{# htmx answer to "Create link": the new link (or why not), plus the refreshed list. #}
+{% if error %}
+<p class="inv-error" role="alert">{{ error }}</p>
+{% else %}
+<p class="inv-new" role="status">Link ready: up to {{ max_uses }} {{ 'person' if max_uses == 1 else 'people' }} can join with it in the next 7 days.</p>
+{% endif %}
+{% set oob = true %}{% include "partials/invite_links.html" %}{% include "partials/invite_limits.html" %}

@@ -3,6 +3,7 @@ import re
 import secrets
 import time
 from collections import defaultdict
+from datetime import datetime
 from threading import Lock
 
 import aiosqlite
@@ -401,32 +402,74 @@ async def _fetch_valid_invite(conn: aiosqlite.Connection, token: str) -> aiosqli
     return row
 
 
+# Everyone can invite (2026-11-09). Members share small links: up to
+# MEMBER_MAX_USES signups each, MEMBER_ACTIVE_LINKS at a time, and see only
+# their own. Admins keep the old limits and see everyone's, with who made each.
+MEMBER_MAX_USES = 5
+MEMBER_ACTIVE_LINKS = 3
+ADMIN_MAX_USES = 50
+_PENDING = "i.uses_count < i.max_uses AND i.expires_at > datetime('now','localtime')"
+
+
+async def _pending_invites(conn: aiosqlite.Connection, user, base: str) -> list[dict]:
+    mine_only = "" if user["is_admin"] else " AND i.created_by = :uid"
+    async with conn.execute(
+        "SELECT i.token, i.created_at, i.expires_at, i.max_uses, i.uses_count, i.created_by, "
+        "       u.username AS created_by_name "
+        "FROM invite_tokens i LEFT JOIN users u ON u.id = i.created_by "
+        f"WHERE {_PENDING}{mine_only} ORDER BY i.created_at DESC",
+        {"uid": user["id"]},
+    ) as cur:
+        rows = [dict(r) for r in await cur.fetchall()]
+    for r in rows:
+        r["url"] = f"{base}/invite/accept/{r['token']}"
+        r["mine"] = r["created_by"] == user["id"]
+        try:
+            r["expires_label"] = datetime.strptime(r["expires_at"][:16], "%Y-%m-%d %H:%M").strftime("%a %b %-d")
+        except (TypeError, ValueError):
+            r["expires_label"] = (r["expires_at"] or "")[:10]
+    return rows
+
+
+def _invite_limits(user, pending: list[dict]) -> dict:
+    if user["is_admin"]:
+        return {"max_uses_cap": ADMIN_MAX_USES, "links_left": None}
+    mine = sum(1 for r in pending if r["mine"])
+    return {"max_uses_cap": MEMBER_MAX_USES, "links_left": max(0, MEMBER_ACTIVE_LINKS - mine)}
+
+
+async def _invite_context(conn, request: Request, user, **extra) -> dict:
+    base = public_base_url(request)
+    pending = await _pending_invites(conn, user, base)
+    return {"user": dict(user), "pending_invites": pending, "base_url": base,
+            "is_admin": bool(user["is_admin"]), "member_active_links": MEMBER_ACTIVE_LINKS,
+            **_invite_limits(user, pending), **extra}
+
+
 @router.get("/invite", response_class=HTMLResponse)
 async def invite_get(
     request: Request,
     conn: aiosqlite.Connection = Depends(get_db),
-    user=Depends(require_admin),
+    user=Depends(get_current_user),
 ):
-    async with conn.execute(
-        "SELECT token, created_at, expires_at, max_uses, uses_count FROM invite_tokens "
-        "WHERE uses_count < max_uses AND expires_at > datetime('now','localtime') "
-        "ORDER BY created_at DESC"
-    ) as cur:
-        pending_invites = [dict(r) for r in await cur.fetchall()]
-    base = public_base_url(request)
-    return templates.TemplateResponse(
-        request, "invite.html", {"user": dict(user), "pending_invites": pending_invites, "base_url": base}
-    )
+    return templates.TemplateResponse(request, "invite.html", await _invite_context(conn, request, user))
 
 
 @router.delete("/invite/{token}")
 async def invite_delete(
     token: str,
     conn: aiosqlite.Connection = Depends(get_db),
-    _user=Depends(require_admin),
+    user=Depends(get_current_user),
 ):
-    await conn.execute("DELETE FROM invite_tokens WHERE token = ?", (token,))
+    # A member can revoke only their own links; an admin any.
+    if user["is_admin"]:
+        cur = await conn.execute("DELETE FROM invite_tokens WHERE token = ?", (token,))
+    else:
+        cur = await conn.execute(
+            "DELETE FROM invite_tokens WHERE token = ? AND created_by = ?", (token, user["id"]))
     await conn.commit()
+    if cur.rowcount == 0:
+        raise HTTPException(status_code=404, detail="Invite not found")
     return Response(status_code=200)
 
 
@@ -434,9 +477,20 @@ async def invite_delete(
 async def invite_post(
     request: Request,
     conn: aiosqlite.Connection = Depends(get_db),
-    user=Depends(require_admin),
-    max_uses: int = Form(5, ge=1, le=50),
+    user=Depends(get_current_user),
+    max_uses: int = Form(5, ge=1, le=ADMIN_MAX_USES),
 ):
+    ctx = await _invite_context(conn, request, user)
+    error = None
+    if max_uses > ctx["max_uses_cap"]:
+        error = f"A link can take up to {ctx['max_uses_cap']} signups."
+    elif ctx["links_left"] == 0:
+        error = (f"You already have {MEMBER_ACTIVE_LINKS} active links. "
+                 "Revoke one, or wait for one to be used up or expire.")
+    if error:
+        # 200 so htmx swaps the message in; nothing was created.
+        return render(request, "invite", {**ctx, "error": error, "max_uses": max_uses})
+
     token = secrets.token_urlsafe(32)
     await conn.execute(
         "INSERT INTO invite_tokens(token, created_by, expires_at, max_uses) "
@@ -444,19 +498,9 @@ async def invite_post(
         (token, user["id"], max_uses),
     )
     await conn.commit()
-    base = public_base_url(request)
-    invite_url = f"{base}/invite/accept/{token}"
-    async with conn.execute(
-        "SELECT token, created_at, expires_at, max_uses, uses_count FROM invite_tokens "
-        "WHERE uses_count < max_uses AND expires_at > datetime('now','localtime') "
-        "ORDER BY created_at DESC"
-    ) as cur:
-        pending_invites = [dict(r) for r in await cur.fetchall()]
+    ctx = await _invite_context(conn, request, user)
     return render(request, "invite", {
-        "invite_url": invite_url,
-        "max_uses": max_uses,
-        "user": dict(user),
-        "pending_invites": pending_invites,
+        **ctx, "invite_url": f"{ctx['base_url']}/invite/accept/{token}", "max_uses": max_uses,
     })
 
 

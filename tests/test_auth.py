@@ -80,9 +80,15 @@ async def test_invite_page_accessible_to_admin(admin_client):
 
 
 @pytest.mark.asyncio
-async def test_invite_create_forbidden_for_non_admin(client):
-    resp = await client.post("/invite")
-    assert resp.status_code == 403
+async def test_member_can_create_an_invite(client, db_conn):
+    resp = await client.post("/invite", data={"max_uses": 2}, headers={"Accept": "text/html"})
+    assert resp.status_code == 200
+    async with db_conn.execute(
+        "SELECT i.max_uses, u.is_admin FROM invite_tokens i JOIN users u ON u.id = i.created_by"
+    ) as cur:
+        rows = [tuple(r) for r in await cur.fetchall()]
+    assert rows == [(2, 0)]
+    assert b"/invite/accept/" in resp.content
 
 
 @pytest.mark.asyncio
@@ -584,10 +590,10 @@ async def test_admin_sees_invite_link_in_nav(admin_client):
 
 
 @pytest.mark.asyncio
-async def test_non_admin_does_not_see_invite_link_in_nav(client):
+async def test_member_sees_invite_link_in_nav(client):
     resp = await client.get("/", headers={"Accept": "text/html"})
     assert resp.status_code == 200
-    assert b"/invite" not in resp.content
+    assert b'href="/invite"' in resp.content
 
 
 # ---------------------------------------------------------------------------
@@ -610,7 +616,7 @@ async def test_invite_page_shows_pending_invite(admin_client, db_conn):
 async def test_invite_page_empty_state(admin_client):
     resp = await admin_client.get("/invite", headers={"Accept": "text/html"})
     assert resp.status_code == 200
-    assert b"No pending invites" in resp.content
+    assert b"No active invite links" in resp.content
 
 
 @pytest.mark.asyncio
@@ -668,14 +674,15 @@ async def test_invite_revoke_deletes_token(admin_client, db_conn):
 
 
 @pytest.mark.asyncio
-async def test_invite_revoke_forbidden_for_non_admin(client, db_conn):
+async def test_member_cannot_revoke_someone_elses_link(client, user_b, db_conn):
     await db_conn.execute(
         "INSERT INTO invite_tokens(token, created_by, expires_at, max_uses, uses_count) "
-        "VALUES ('tok-non-admin', 1, datetime('now','localtime','+48 hours'), 5, 0)"
+        "VALUES ('tok-other-member', 2, datetime('now','localtime','+48 hours'), 5, 0)"
     )
     await db_conn.commit()
-    resp = await client.delete("/invite/tok-non-admin")
-    assert resp.status_code == 403
+    resp = await client.delete("/invite/tok-other-member")
+    assert resp.status_code == 404
+    assert await _count_invites(db_conn) == 1
 
 @pytest.mark.asyncio
 async def test_login_case_insensitive_username(anon_client):
@@ -822,3 +829,95 @@ async def test_forgot_password_rate_limit_does_not_block_login(anon_client, _cle
         data={"username": "testuser", "password": "test-password", "next": "/"},
     )
     assert resp.status_code == 303  # login still succeeds
+
+
+
+# ---------------------------------------------------------------------------
+# Invites for everyone: member limits and scoping
+# ---------------------------------------------------------------------------
+
+async def _uid(db_conn, admin):
+    async with db_conn.execute("SELECT id FROM users WHERE is_admin = ? ORDER BY id LIMIT 1", (admin,)) as cur:
+        return (await cur.fetchone())[0]
+
+
+async def _count_invites(db_conn):
+    async with db_conn.execute("SELECT COUNT(*) FROM invite_tokens") as cur:
+        return (await cur.fetchone())[0]
+
+
+@pytest.mark.asyncio
+async def test_member_link_size_is_capped(client, db_conn):
+    resp = await client.post("/invite", data={"max_uses": 6}, headers={"Accept": "text/html"})
+    assert resp.status_code == 200 and b"up to 5 signups" in resp.content
+    assert await _count_invites(db_conn) == 0
+
+
+@pytest.mark.asyncio
+async def test_member_has_at_most_three_active_links(client, db_conn):
+    for _ in range(3):
+        assert (await client.post("/invite", data={"max_uses": 1})).status_code == 200
+    resp = await client.post("/invite", data={"max_uses": 1}, headers={"Accept": "text/html"})
+    assert b"already have 3 active links" in resp.content
+    assert await _count_invites(db_conn) == 3
+
+
+@pytest.mark.asyncio
+async def test_used_up_or_expired_links_dont_count_toward_the_cap(client, db_conn):
+    uid = await _uid(db_conn, 0)
+    await db_conn.execute(
+        "INSERT INTO invite_tokens(token, created_by, expires_at, max_uses, uses_count) VALUES "
+        "('used-up', ?, datetime('now','localtime','+1 day'), 1, 1), "
+        "('expired', ?, datetime('now','localtime','-1 day'), 5, 0)", (uid, uid))
+    await db_conn.commit()
+    for _ in range(3):
+        await client.post("/invite", data={"max_uses": 1})
+    async with db_conn.execute("SELECT COUNT(*) FROM invite_tokens WHERE created_by = ?", (uid,)) as cur:
+        assert (await cur.fetchone())[0] == 5
+
+
+@pytest.mark.asyncio
+async def test_member_sees_and_revokes_only_their_own_links(client, admin_user, db_conn):
+    admin = await _uid(db_conn, 1)
+    await db_conn.execute(
+        "INSERT INTO invite_tokens(token, created_by, expires_at, max_uses) "
+        "VALUES ('admins-link-xyz', ?, datetime('now','localtime','+1 day'), 5)", (admin,))
+    await db_conn.commit()
+    page = await client.get("/invite", headers={"Accept": "text/html"})
+    assert b"admins-link-xyz" not in page.content
+    assert (await client.delete("/invite/admins-link-xyz")).status_code == 404
+    assert await _count_invites(db_conn) == 1
+
+    await client.post("/invite", data={"max_uses": 1})
+    async with db_conn.execute("SELECT token FROM invite_tokens WHERE created_by != ?", (admin,)) as cur:
+        mine = (await cur.fetchone())[0]
+    assert (await client.delete(f"/invite/{mine}")).status_code == 200
+    assert await _count_invites(db_conn) == 1
+
+
+@pytest.mark.asyncio
+async def test_admin_sees_members_links_with_who_made_them(admin_client, db_conn):
+    member = await _uid(db_conn, 0)
+    async with db_conn.execute("SELECT username FROM users WHERE id = ?", (member,)) as cur:
+        name = (await cur.fetchone())[0]
+    await db_conn.execute(
+        "INSERT INTO invite_tokens(token, created_by, expires_at, max_uses) "
+        "VALUES ('members-link-abc', ?, datetime('now','localtime','+1 day'), 3)", (member,))
+    await db_conn.commit()
+    page = await admin_client.get("/invite", headers={"Accept": "text/html"})
+    assert b"members-link-abc" in page.content and f"by {name}".encode() in page.content
+    assert (await admin_client.delete("/invite/members-link-abc")).status_code == 200
+
+
+@pytest.mark.asyncio
+async def test_admin_keeps_the_large_link_limit(admin_client, db_conn):
+    resp = await admin_client.post("/invite", data={"max_uses": 50})
+    assert resp.status_code == 200
+    async with db_conn.execute("SELECT max_uses FROM invite_tokens") as cur:
+        assert (await cur.fetchone())[0] == 50
+
+
+@pytest.mark.asyncio
+async def test_create_response_refreshes_links_left(client):
+    r = await client.post("/invite", data={"max_uses": 1}, headers={"Accept": "text/html", "HX-Request": "true"})
+    assert b'id="inv-limits" hx-swap-oob="outerHTML"' in r.content and b"(2 left)" in r.content
