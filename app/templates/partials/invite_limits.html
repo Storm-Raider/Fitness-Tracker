@@ -1,0 +1,5 @@
+{# How big a link can be and, for a member, how many more they can make. #}
+<p class="inv-limits" id="inv-limits" {% if oob %}hx-swap-oob="outerHTML"{% endif %}>
+  {%- if is_admin %}Up to {{ max_uses_cap }} people per link.
+  {%- else %}Up to {{ max_uses_cap }} people per link, {{ member_active_links }} links at a time ({{ links_left }} left).{% endif -%}
+</p>

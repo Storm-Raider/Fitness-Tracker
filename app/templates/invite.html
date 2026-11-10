@@ -1,80 +1,103 @@
 {% extends "base.html" %}
-{% block title %}Invite user — Zenkai{% endblock %}
+{% block title %}Invite friends — Zenkai{% endblock %}
 
 {% block content %}
+<style>
+  .inv-intro { font-size: var(--t-body); color: var(--muted); margin: 0 0 16px; line-height: 1.5; }
+  .inv-row { display: flex; gap: 8px; align-items: flex-end; }
+  .inv-row .form-group { flex: 0 0 120px; margin: 0; }
+  .inv-row .btn { flex: 1; min-height: 56px; }
+  .inv-limits { font-size: var(--t-label); color: var(--muted); margin: 8px 0 0; }
+  #invite-result:empty { display: none; }
+  #invite-result { margin-top: 16px; }
+  .inv-new { font-size: var(--t-body); margin: 0; padding: 8px 12px; background: var(--hi); border-radius: var(--radius-xs); }
+  .inv-error { font-size: var(--t-body); margin: 0; color: var(--danger); }
+  .inv-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+  .inv-item { padding: 16px; display: grid; gap: 8px; }
+  .inv-meta { font-size: var(--t-label); color: var(--muted); display: flex; flex-wrap: wrap; gap: 4px; }
+  .inv-url { width: 100%; min-height: 44px; font-size: var(--t-body); background: var(--surface-2); cursor: text; }
+  .inv-actions { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+  .inv-actions .btn { min-height: 44px; font-size: var(--t-body); }
+  .inv-revoke { color: var(--danger); }
+  .inv-empty { font-size: var(--t-body); color: var(--muted); margin: 0; }
+</style>
+
 <div class="page-hd">
   <div>
-    <h1>Invite a new user</h1>
-    <div class="subtitle">Shareable registration links</div>
+    <h1>Invite friends</h1>
+    <div class="subtitle">Share a link to join Zenkai</div>
   </div>
 </div>
 
 <div class="grid-2" style="align-items:start;">
   <div style="min-width:0;">
-    <div class="section-title" style="margin-bottom:0.75rem;">Generate link</div>
+    <div class="section-title" style="margin-bottom:0.75rem;">New link</div>
     <div class="card">
-      <p style="font-size: var(--t-body); color:var(--muted); margin-bottom:1.25rem;">
-        Generate an invite link good for multiple signups. It expires after 7 days.
+      <p class="inv-intro">
+        Anyone with the link can create their own account. Their training is private to them. Links expire after 7 days.
       </p>
-      <div class="form-group">
-        <label for="invite-max-uses">Max uses</label>
-        <input type="number" id="invite-max-uses" name="max_uses" value="5" min="1" max="50" style="min-height:48px;" onblur="if(!this.value) this.value=5;">
+      <div class="inv-row">
+        <div class="form-group">
+          <label for="invite-max-uses">People</label>
+          <input type="number" id="invite-max-uses" name="max_uses" value="{{ [5, max_uses_cap] | min }}"
+                 min="1" max="{{ max_uses_cap }}" inputmode="numeric" style="min-height:56px;"
+                 onblur="if(!this.value) this.value=1;">
+        </div>
+        <button class="btn btn-primary" id="invite-create"
+                hx-post="/invite" hx-include="#invite-max-uses" hx-target="#invite-result" hx-swap="innerHTML"
+                {% if links_left == 0 %}disabled{% endif %}>
+          Create invite link
+        </button>
       </div>
-      <button class="btn btn-primary"
-              style="width:100%;min-height:56px;border-radius:var(--radius);font-size: var(--t-body);"
-              hx-post="/invite"
-              hx-include="#invite-max-uses"
-              hx-target="#invite-result"
-              hx-swap="innerHTML">
-        Generate invite link
-      </button>
-      <div id="invite-result" style="margin-top:1rem;"></div>
+      {% set oob = false %}{% include "partials/invite_limits.html" %}
+      <div id="invite-result" aria-live="polite">{% if error %}<p class="inv-error" role="alert">{{ error }}</p>{% elif invite_url %}<p class="inv-new" role="status">Link ready: up to {{ max_uses }} {{ 'person' if max_uses == 1 else 'people' }} can join with it in the next 7 days.</p>{% endif %}</div>
     </div>
   </div>
 
   <div style="min-width:0;">
-    <div class="section-title" style="margin-bottom:0.75rem;">Pending invites</div>
-    <div id="pending-invites-card" class="card" style="padding:0; overflow-x:auto;">
-      <table>
-        <thead>
-          <tr>
-            <th>Token</th>
-            <th>Created</th>
-            <th>Expires</th>
-            <th>Uses</th>
-            <th></th>
-          </tr>
-        </thead>
-        <tbody id="pending-invites-body">
-          {% if pending_invites %}
-            {% for inv in pending_invites %}
-            <tr>
-              <td>
-                <code style="font-size: var(--t-body); color:var(--muted-hi);">…{{ inv.token[-8:] }}</code>
-              </td>
-              <td style="font-size: var(--t-body); color:var(--muted);">{{ inv.created_at[:16] }}</td>
-              <td style="font-size: var(--t-body); color:var(--muted);">{{ inv.expires_at[:16] }}</td>
-              <td class="num" style="font-size: var(--t-body); color:var(--muted);">{{ inv.uses_count }} / {{ inv.max_uses }}</td>
-              <td style="text-align:right;">
-                <button class="btn btn-ghost"
-                        style="font-size: var(--t-body); color:var(--danger);"
-                        hx-delete="/invite/{{ inv.token }}"
-                        hx-target="closest tr"
-                        hx-swap="outerHTML"
-                        hx-confirm="Revoke this invite link?">
-                  Revoke
-                </button>
-              </td>
-            </tr>
-            {% endfor %}
-          {% else %}
-          <tr id="pending-invites-empty">
-            <td colspan="5" style="padding:1rem; color:var(--muted); font-size: var(--t-body);">No pending invites.</td>
-          </tr>
-          {% endif %}
-        </tbody>
-      </table>
-    </div>
+    <div class="section-title" style="margin-bottom:0.75rem;">{{ 'Active links' if is_admin else 'Your links' }}</div>
+    {% set oob = false %}{% include "partials/invite_links.html" %}
   </div>
 </div>
+
+<script>
+// Share: the phone's share sheet where there is one (it needs https); otherwise copy.
+function shareInvite(btn) {
+  var url = btn.dataset.url;
+  if (navigator.share) {
+    navigator.share({ title: 'Join me on Zenkai', text: 'Here is an invite to Zenkai, the training log I use:', url: url })
+      .catch(function () {});
+  } else {
+    copyInvite(btn);
+  }
+}
+// Copy: the Clipboard API where allowed (https), else select-and-copy, which also
+// works on the Pi's plain-http address.
+function copyInvite(btn) {
+  var url = btn.dataset.url, label = btn.textContent;
+  function done(ok) {
+    btn.textContent = ok ? 'Copied' : 'Select and copy';
+    setTimeout(function () { btn.textContent = label; }, 2000);
+  }
+  if (navigator.clipboard && window.isSecureContext) {
+    navigator.clipboard.writeText(url).then(function () { done(true); }, function () { done(fallback()); });
+  } else {
+    done(fallback());
+  }
+  function fallback() {
+    var input = btn.closest('.inv-item') && btn.closest('.inv-item').querySelector('.inv-url');
+    if (!input) return false;
+    input.focus(); input.select();
+    try { return document.execCommand('copy'); } catch (e) { return false; }
+  }
+}
+// The create button follows the list: disabled once a member has no links left.
+document.body.addEventListener('htmx:afterSwap', function (e) {
+  if (e.target.id !== 'invite-result') return;
+  {% if not is_admin %}
+  var n = document.querySelectorAll('#invite-links .inv-item').length;
+  document.getElementById('invite-create').disabled = n >= {{ member_active_links }};
+  {% endif %}
+});
+</script>
 {% endblock %}

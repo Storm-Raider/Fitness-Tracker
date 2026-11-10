@@ -1029,7 +1029,7 @@
           <a href="/achievements">Achievements</a>
           <a href="/export">Export</a>
           <a href="/feedback">Feedback</a>
-          {% if user.is_admin %}<a href="/invite">Invite</a>{% endif %}
+          <a href="/invite">Invite</a>
           <a href="/settings">Settings</a>
         </div>
       </div>
@@ -1042,7 +1042,7 @@
       <a href="/challenges" class="nav-more-mobile-link">Challenges</a>
       <a href="/metrics" class="nav-more-mobile-link">Body metrics</a>
       <a href="/export" class="nav-more-mobile-link">Export</a>
-      {% if user.is_admin %}<a href="/invite" class="nav-more-mobile-link">Invite</a>{% endif %}
+      <a href="/invite" class="nav-more-mobile-link">Invite</a>
       <a href="/settings" class="nav-more-mobile-link">Settings</a>
       <div class="nav-mobile-user">
         <a href="/settings" class="username">{{ user.username }}</a>
@@ -1131,12 +1131,10 @@
         <div class="mob-more-icon"><i data-lucide="download"></i></div>
         <span>Export</span>
       </a>
-      {% if user.is_admin %}
       <a href="/invite" class="mob-more-item" data-mob-more-path="/invite" onclick="closeMobMore()">
         <div class="mob-more-icon"><i data-lucide="user-plus"></i></div>
         <span>Invite</span>
       </a>
-      {% endif %}
       <a href="/feedback" class="mob-more-item" data-mob-more-path="/feedback" onclick="closeMobMore()">
         <div class="mob-more-icon"><i data-lucide="megaphone"></i></div>
         <span>Feedback</span>
@@ -1168,7 +1166,7 @@
     (function () {
       if (!('serviceWorker' in navigator) || !('caches' in window) || !navigator.onLine) return;
       if (navigator.connection && navigator.connection.saveData) return;
-      if (/^\/(login|logout|forgot-password|reset-password|invite)/.test(location.pathname)) return;
+      if (/^\/(login|logout|forgot-password|reset-password|invite\/accept)/.test(location.pathname)) return;
       var KEY = 'zk-exercise-media-day', today = new Date().toDateString();
       try { if (localStorage.getItem(KEY) === today) return; } catch (e) {}
       setTimeout(function () {
@@ -1428,7 +1426,7 @@
     // Mobile tab + More sheet active states
     (function() {
       var here = location.pathname;
-      var morePaths = ['/plan', '/exercises', '/cardio', '/challenges', '/metrics', '/export', {% if user.is_admin %}'/invite', {% endif %}'/settings', '/achievements'];
+      var morePaths = ['/plan', '/exercises', '/cardio', '/challenges', '/metrics', '/export', '/invite', '/settings', '/achievements'];
       document.querySelectorAll('.mob-tab[data-mob-path]').forEach(function(tab) {
         var p = tab.getAttribute('data-mob-path');
         var exact = tab.getAttribute('data-mob-exact');

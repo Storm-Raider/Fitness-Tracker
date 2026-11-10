@@ -1,0 +1,27 @@
+{# The athlete's active invite links (all of them for an admin), each with
+   Share / Copy / Revoke. Used by invite.html and, out of band, invite_partial.html. #}
+<div id="invite-links" {% if oob %}hx-swap-oob="outerHTML"{% endif %}>
+  {% if pending_invites %}
+  <ul class="inv-list">
+    {% for inv in pending_invites %}
+    <li class="inv-item card">
+      <div class="inv-meta">
+        <span class="num">{{ inv.uses_count }} of {{ inv.max_uses }}</span> joined
+        <span aria-hidden="true">·</span> expires {{ inv.expires_label }}
+        {% if is_admin and not inv.mine %}<span aria-hidden="true">·</span> by {{ inv.created_by_name or 'a removed user' }}{% endif %}
+      </div>
+      <input class="inv-url" type="text" value="{{ inv.url }}" readonly aria-label="Invite link">
+      <div class="inv-actions">
+        <button type="button" class="btn btn-primary inv-share" data-url="{{ inv.url }}" onclick="shareInvite(this)">Share</button>
+        <button type="button" class="btn btn-ghost" data-url="{{ inv.url }}" onclick="copyInvite(this)">Copy</button>
+        <button type="button" class="btn btn-ghost inv-revoke"
+                hx-delete="/invite/{{ inv.token }}" hx-target="closest li" hx-swap="outerHTML"
+                hx-confirm="Revoke this invite link? Anyone who hasn't joined yet won't be able to use it.">Revoke</button>
+      </div>
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p class="inv-empty">No active invite links.</p>
+  {% endif %}
+</div>
