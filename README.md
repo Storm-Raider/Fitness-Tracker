@@ -494,29 +494,37 @@ Then `docker compose restart`.
 
 ## Backup & restore
 
-`scripts/backup.py` uses Python's `sqlite3.Connection.backup()` which is WAL-safe and
-works while the app is live. Run it manually or wire it to cron.
+Zenkai backs itself up. Whenever the newest backup is more than a day old, the running
+app makes a new copy of the database in `backups/` (next to the database) and keeps
+the last 7. Nothing to install: no cron job or timer.
 
-Each copy is checked with `PRAGMA integrity_check` before it counts as a backup.
+Each copy is made with SQLite's backup API, which is safe while the app is live, and
+is read back with `PRAGMA integrity_check` before it counts as a backup.
 
-**Manual backup:**
+**In the app (admins):** Settings → *Backups* shows the last backup and has
+**Back up now** and **Download latest**. A backup older than 3 days, or a failed
+one, shows in red.
+
+**A second copy on another device.** Backups on the same SD card as the database
+die with it. Set `MIRROR_DIR` in `.env` to a folder on a USB drive and each backup is
+also copied there (and checked again), keeping `MIRROR_KEEP` copies (default 30). If
+the drive isn't mounted the backup is reported as failed in Settings instead of
+quietly writing to the SD card; the local backup is still made. Without a drive, use
+**Download latest** now and then. Keep a copy of `DB_ENCRYPTION_KEY` somewhere else
+too (a password manager): an encrypted backup is useless without it.
+
+| Setting | Default | |
+|---|---|---|
+| `BACKUP_EVERY_HOURS` | 24 | A new backup when the newest is older than this. `0` turns the schedule off. |
+| `BACKUP_DIR` | `backups/` next to the database | |
+| `KEEP_DAYS` | 7 | Backups kept in `BACKUP_DIR` |
+| `MIRROR_DIR` | none | Second copy, e.g. `/media/pi/USB/zenkai-backups` |
+| `MIRROR_KEEP` | 30 | Backups kept in `MIRROR_DIR` |
+
+**By hand or from cron** (the same code; reads the same settings):
 ```bash
 DATABASE_PATH=./fittrack.db python3 scripts/backup.py
 # → backups/fittrack-20260521-114000.db  (176 KB; integrity ok; 3 users, 40 workouts, 450 sets)
-```
-
-**A second copy on another device.** Backups on the same SD card as the database
-die with it. Set `MIRROR_DIR` to a folder on a USB drive and each backup is also
-copied there (and checked again), keeping `MIRROR_KEEP` copies (default 30). If the
-drive isn't mounted the script exits non-zero instead of quietly writing to the SD
-card; the local backup is still made. Keep a copy of `DB_ENCRYPTION_KEY` somewhere
-else too (a password manager): an encrypted backup is useless without it.
-
-**Cron — nightly at 3:30, 7 local + 30 on the drive, then a restore drill:**
-```bash
-crontab -e
-# add (one line):
-30 3 * * * cd /home/pi/Fitness-Tracker && export DB_ENCRYPTION_KEY="$(grep -m1 '^DB_ENCRYPTION_KEY=' .env | cut -d= -f2-)" && DATABASE_PATH=$PWD/fittrack.db KEEP_DAYS=7 MIRROR_DIR=/media/pi/USB/zenkai-backups .venv/bin/python scripts/backup.py && .venv/bin/python scripts/restore_check.py backups /media/pi/USB/zenkai-backups >> logs/backup.log 2>&1
 ```
 
 **Restore drill.** `scripts/restore_check.py` opens the newest backup in each folder

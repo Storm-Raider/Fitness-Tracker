@@ -1,6 +1,6 @@
 import aiosqlite
 from fastapi import APIRouter, Depends, Form, Request
-from fastapi.responses import JSONResponse, RedirectResponse
+from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from pydantic import BaseModel, Field
 
 from app.db import get_db
@@ -10,8 +10,9 @@ from app.routes.auth import (
     _password_error,
     _verify_password,
     get_current_user,
+    require_admin,
 )
-from app.utils import oura, oura_sync
+from app.utils import backup, oura, oura_sync
 from app.utils.render import templates
 
 router = APIRouter()
@@ -77,7 +78,30 @@ async def settings_get(
         "email_errors": {},
         "password_errors": {},
         "oura": await _oura_card(conn, current_user["id"], request),
+        "backups": backup.status(backup.db_path()) if current_user["is_admin"] else None,
     })
+
+
+@router.post("/settings/backup")
+async def backup_now(admin=Depends(require_admin)):
+    """Admin: make a backup now (the nightly one runs by itself)."""
+    try:
+        await backup.run_now(backup.db_path())
+    except backup.MirrorError as exc:
+        return JSONResponse({"detail": f"Backed up here, but the second copy failed: {exc}"}, status_code=500)
+    except backup.BackupError as exc:
+        return JSONResponse({"detail": f"The backup failed: {exc}"}, status_code=500)
+    return {"ok": True}
+
+
+@router.get("/settings/backup/latest")
+async def backup_download(admin=Depends(require_admin)):
+    """Admin: download the newest backup, to keep a copy off this server."""
+    local = backup.status(backup.db_path())["local"]
+    if not local["newest"]:
+        return JSONResponse({"detail": "There is no backup yet."}, status_code=404)
+    return FileResponse(local["path"], filename=local["newest"], media_type="application/octet-stream",
+                        headers={"Cache-Control": "no-store"})
 
 
 @router.post("/settings/email")

@@ -201,5 +201,57 @@
     </form>
   </div>
 
+  {# ── Backups (admin). The app makes one every night: app/utils/backup.py. ── #}
+  {% if backups %}
+  {% set b = backups.local %}
+  <div class="card" id="backup-card">
+    <div class="section-title" style="margin-bottom:0.5rem;">Backups</div>
+    {% if backups.error %}
+    <div class="flash flash-error" role="alert" style="margin-bottom:0.85rem;">{{ backups.error }}</div>
+    {% endif %}
+    {% if b.newest %}
+    <p style="font-size: var(--t-body);">
+      Last backup: <b{% if backups.stale %} style="color:var(--danger);"{% endif %}>{{ b.when_text }}</b>
+      <span style="color:var(--muted);">· {{ b.size_text }} · {{ b.count }} kept</span>
+    </p>
+    {% if backups.stale %}
+    <p style="font-size: var(--t-body);color:var(--danger);margin-top:0.35rem;">That's more than 3 days old. Back up now, and check the server log if it happens again.</p>
+    {% endif %}
+    {% else %}
+    <p style="font-size: var(--t-body);"><b>No backup yet.</b></p>
+    {% endif %}
+    <p style="font-size: var(--t-body);color:var(--muted);margin-top:0.35rem;">
+      {% if backups.scheduled %}Zenkai copies everyone's data once a day and checks each copy can be restored.{% else %}The daily backup is turned off (<code>BACKUP_EVERY_HOURS=0</code>).{% endif %}
+    </p>
+    <p style="font-size: var(--t-body);color:var(--muted);margin-top:0.75rem;">
+      {% if backups.mirror and backups.mirror.newest %}
+      Second copy: <b style="color:var(--text);">{{ backups.mirror.when_text }}</b> in <code style="overflow-wrap:anywhere;">{{ backups.mirror.dir }}</code>.
+      {% elif backups.mirror %}
+      Second copy: nothing yet in <code style="overflow-wrap:anywhere;">{{ backups.mirror.dir }}</code>.
+      {% else %}
+      These copies sit on the same card as the data, so a dead card takes both. Download one now and then,
+      or set <code>MIRROR_DIR</code> in <code>.env</code> to a folder on a USB drive.
+      {% endif %}
+    </p>
+    <div style="display:flex;gap:0.75rem;flex-wrap:wrap;margin-top:1rem;">
+      <button type="button" class="btn btn-ghost" id="backup-now" onclick="backupNow(this)">Back up now</button>
+      {% if b.newest %}<a class="btn btn-ghost" href="/settings/backup/latest" download>Download latest</a>{% endif %}
+    </div>
+    <p id="backup-msg" role="status" style="font-size: var(--t-body);color:var(--danger);margin-top:0.5rem;"></p>
+    <script>
+    async function backupNow(btn) {
+      const msg = document.getElementById('backup-msg');
+      btn.disabled = true; btn.textContent = 'Backing up…'; msg.textContent = '';
+      try {
+        const r = await fetch('/settings/backup', {method: 'POST'});
+        if (r.ok) { location.reload(); return; }
+        msg.textContent = (await r.json()).detail || 'The backup failed.';
+      } catch (e) { msg.textContent = 'No connection. Try again.'; }
+      btn.disabled = false; btn.textContent = 'Back up now';
+    }
+    </script>
+  </div>
+  {% endif %}
+
 </div>
 {% endblock %}
