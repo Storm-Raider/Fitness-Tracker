@@ -443,6 +443,14 @@ _MIGRATIONS = [
     "ALTER TABLE exercises ADD COLUMN steps_source TEXT",
     # The Plan page's last setup (equipment, session length, focus muscles), as JSON.
     "ALTER TABLE user_settings ADD COLUMN plan_setup TEXT",
+    # 2026-11-15 review: the per-user tables read on most pages had no index on their
+    # owner, so each read scanned the whole table (cardio_logs on Home, Analytics,
+    # Achievements and Challenges; routines and their exercises on Plan and in a session).
+    "CREATE INDEX IF NOT EXISTS idx_cardio_logs_user_date ON cardio_logs(user_id, logged_date)",
+    "CREATE INDEX IF NOT EXISTS idx_routines_user ON routines(user_id)",
+    "CREATE INDEX IF NOT EXISTS idx_routine_exercises_routine ON routine_exercises(routine_id, order_idx)",
+    "CREATE INDEX IF NOT EXISTS idx_mesocycle_plans_user ON mesocycle_plans(user_id)",
+    "CREATE INDEX IF NOT EXISTS idx_workout_templates_user ON workout_templates(user_id)",
 ]
 
 

@@ -17,7 +17,6 @@ The athlete's training summary and request are sent to the Google Gemini API
 """
 
 import asyncio
-import copy
 import json
 import logging
 import os

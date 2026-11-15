@@ -1012,7 +1012,6 @@ const _setup = {
 };
 // Rough exercises per session at each length (what plan_setup's trimming lands on).
 const _PER_SESSION = {30: '3', 45: '4–5', 60: '6–7', 75: '7–8', 90: '8'};
-const _FOCUS_ELS = { Glutes: ['fmap-b-glutel', 'fmap-b-gluter'] };
 
 function _press(sel, test) {
   document.querySelectorAll(sel).forEach(b => b.setAttribute('aria-pressed', String(!!test(b))));
@@ -1306,15 +1305,6 @@ async function dismissDraft() {
   PlanState.clear();  // the plan:cleared handler empties the output and the notice
 }
 
-async function deleteAiPlan(id, btn) {
-  if (!confirm('Delete this saved plan? (Routines it created are kept.)')) return;
-  const resp = await fetch('/coach/plans/' + id, {method: 'DELETE'});
-  if (resp.ok || resp.status === 204) {
-    const card = document.getElementById('saved-plan-' + id + '-ai');
-    if (card) card.remove();
-  }
-}
-
 /* ══════════════════════════════════════════════════
    MESOCYCLE JS
 ══════════════════════════════════════════════════ */
@@ -1520,15 +1510,6 @@ async function saveMesoPlan() {
     msg.textContent = 'Failed to save. Try again.';
     msg.style.color = 'var(--danger)';
     msg.style.display = 'block';
-  }
-}
-
-async function deleteMesoPlan(id, btn) {
-  if (!confirm('Delete this saved plan?')) return;
-  const resp = await fetch('/planner/plans/' + id, {method: 'DELETE'});
-  if (resp.ok || resp.status === 204) {
-    const card = document.getElementById('saved-plan-' + id + '-meso');
-    if (card) card.remove();
   }
 }
 

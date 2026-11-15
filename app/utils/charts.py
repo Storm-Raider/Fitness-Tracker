@@ -8,7 +8,7 @@ AXIS_TEXT = "#5b615b"       # --muted: 5.6:1 on paper
 LABEL_TEXT = "#23262b"      # --text
 TRACK_COLOR = "#dde4db"     # --grid: empty track / zero-day stub
 _UI_FONT = "Instrument Sans,system-ui,sans-serif"
-_NUM_FONT = "Archivo,system-ui,sans-serif"
+_NUM_FONT = _UI_FONT              # numbers use the same family (DESIGN.md)
 
 # One colour per muscle, used wherever muscles are charted (dashboard bars, the
 # muscle map on analytics and the workout page via the MUSCLE_COLORS template

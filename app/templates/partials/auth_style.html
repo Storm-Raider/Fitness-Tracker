@@ -1,0 +1,186 @@
+{# The shared look of the signed-out pages (login, forgot/reset password, invite
+   accept). They don't extend base.html, so the tokens they need are here once.
+   Included first inside each page's <style>; page-only rules follow it. #}
+    /* Drafting style (DESIGN.md). Standalone page (no base.html), so the tokens are
+       copied from base.html's :root; keep the two in step. */
+    :root {
+      color-scheme: light;
+      /* Height the fixed chat composer occupies (0 when absent); toasts, the
+         achievement rack and the page's bottom padding clear it. */
+      --composer-h: 0px;
+      --bg:           #eef1ec;   /* drafting paper */
+      --surface:      #eef1ec;   /* boxes: paper, outlined in ink */
+      --surface-2:    #e6eae4;   /* done sets, nested panels */
+      --surface-hover:#e6eae4;
+      --border:       #d3dbd1;   /* hairlines inside boxes */
+      --border-mid:   #23262b;   /* secondary-button borders: ink */
+      --ring:         #8a908a;   /* input and empty-tick outlines, 3.3:1 */
+      --text:         #23262b;   /* graphite ink */
+      --muted:        #5b615b;   /* pencil, 5.6:1 on paper */
+      --muted-hi:     #474c47;
+      --accent:       #23262b;   /* interactive text and active states: ink */
+      --accent-hover: #3a3e44;
+      --accent-dim:   rgba(35,38,43,0.06);
+      --primary:      #23262b;   /* the thing to press: an ink fill */
+      --primary-hover:#3a3e44;
+      --on-primary:   #eef1ec;
+      --primary-edge: #23262b;   /* the active set's outline */
+      --primary-tint: #f6e7a1;   /* highlighter yellow: the set you are on */
+      --danger:       #c8372d;
+      --danger-dim:   #fdecea;
+      --success:      #1f7a4d;
+      --success-dim:  #e8f4ee;
+      --pr:           #8c5a00;   /* records only */
+      --pr-dim:       #f6e7a1;
+      --pr-glow:      rgba(245,213,71,0.55);
+      --live:         #b23a26;   /* live-session dot */
+      --live-dim:     #f6e7a1;
+      --live-glow:    rgba(178,58,38,0.25);
+      --data:         #1e5bb8;   /* plotted data: trace blue */
+      --accent-glow:  rgba(20,20,20,0.2);
+      --shadow-sm:    inset 0 0 0 1.5px var(--text);   /* a box's outline, for boxes without a border */
+      --shadow:       0 4px 16px rgba(35,38,43,0.12);   /* sheets and toasts only */
+      --shadow-lg:    0 12px 36px rgba(20,20,20,0.16);
+      --glow:         0 0 0 3px rgba(20,20,20,0.12);
+      --glow-pr:      0 0 0 3px rgba(140,90,0,0.18);
+      --radius:       4px;
+      --radius-sm:    4px;
+      --radius-xs:    4px;
+      --f-display: 'Instrument Sans', system-ui, sans-serif;
+      --f-ui: 'Instrument Sans', system-ui, sans-serif;
+      /* Type scale (DESIGN.md): one job per size. */
+      --t-label: 13px;  --t-body: 15px;  --t-head: 18px;  --t-data: 22px;  --t-display: 30px;
+      --hi: #f5d547;     /* highlighter: today, the newest record */
+      --datum: #b23a26;  /* targets and limits on plots */
+      --grid: #dde4db;   /* the paper's grid */
+      /* Spacing scale — 8px base */
+      --sp-2xs:  2px;
+      --sp-xs:   4px;
+      --sp-sm:   8px;
+      --sp-md:   16px;
+      --sp-lg:   24px;
+      --sp-xl:   32px;
+      --sp-2xl:  48px;
+      --sp-3xl:  64px;
+    }
+    body { background-color: var(--bg) !important;
+           background-image: linear-gradient(var(--grid) 1px, transparent 1px),
+                             linear-gradient(90deg, var(--grid) 1px, transparent 1px) !important;
+           background-size: 13px 13px !important; font-size: var(--t-body); }
+    input:not([type=checkbox]):not([type=radio]), select, textarea { background-color: #ffffff; border-color: var(--text); }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    a, button, input, label { touch-action: manipulation; }
+    html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--f-ui);
+      font-size: 16px;
+      line-height: 1.5;
+      min-height: 100vh;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+    *:focus-visible { outline: 2px solid var(--text); outline-offset: 2px; }
+    body {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: max(14vh, env(safe-area-inset-top, 0px) + 48px) 16px 48px;
+    }
+    .wrap, .login-wrap { width: 100%; max-width: 400px; }
+    .wordmark {
+      font-family: var(--f-display);
+      font-weight: 600;
+      font-size: var(--t-display);
+      letter-spacing: -0.02em;
+      line-height: 1.05;
+      color: var(--text);
+      text-align: center;
+    }
+    .tagline {
+      text-align: center;
+      font-size: var(--t-body);
+      color: var(--muted);
+      margin: 0.4rem 0 1.75rem;
+    }
+    .card {
+      background: var(--surface);
+      border-radius: var(--radius);
+      padding: 1.5rem;
+      box-shadow: var(--shadow-sm);
+    }
+    h2 {
+      font-family: var(--f-display);
+      font-size: var(--t-data);
+      font-weight: 700;
+      letter-spacing: -0.005em;
+      line-height: 1.2;
+      margin-bottom: 1.25rem;
+    }
+    .flash-error, .flash-success {
+      border-radius: var(--radius-sm);
+      padding: 0.875rem 1rem;
+      font-size: var(--t-body);
+      line-height: 1.5;
+      margin-bottom: 1.25rem;
+    }
+    .flash-error { background: var(--danger-dim); color: var(--danger); }
+    .flash-success { background: var(--success-dim); color: var(--success); }
+    form > div { margin-bottom: 1.1rem; }
+    label {
+      display: block;
+      font-size: var(--t-body);
+      font-weight: 600;
+      color: var(--muted);
+      margin-bottom: 0.4rem;
+    }
+    input[type="text"],
+    input[type="email"],
+    input[type="password"] {
+      display: block;
+      width: 100%;
+      height: 52px;
+      background: var(--surface);
+      border: 1px solid var(--ring);
+      border-radius: var(--radius-sm);
+      color: var(--text);
+      padding: 0 0.95rem;
+      font-family: inherit;
+      transition: border-color 0.15s;
+    }
+    input[type="text"]:focus,
+    input[type="email"]:focus,
+    input[type="password"]:focus {
+      outline: 2px solid var(--text);
+      outline-offset: 0;
+      border-color: var(--text);
+    }
+    .hint-text, .field-error {
+      font-size: var(--t-label);
+      line-height: 1.4;
+      margin-top: 0.4rem;
+    }
+    .hint-text { color: var(--muted); }
+    .field-error { color: var(--danger); font-weight: 600; }
+    .btn-primary {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      min-height: 56px;
+      margin-top: 0.5rem;
+      background: var(--primary);
+      color: var(--on-primary);
+      border: none;
+      border-radius: var(--radius);
+      font-family: inherit;
+      font-size: var(--t-head);
+      font-weight: 700;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    .btn-primary:hover { background: var(--primary-hover); }
+    /* Force 16px on inputs unconditionally to stop tap-to-zoom on every
+       touch device (width/pointer queries miss iPad+trackpad & landscape). */
+    input, select, textarea { font-size: 16px !important; }

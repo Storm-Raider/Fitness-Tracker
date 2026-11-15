@@ -69,3 +69,31 @@ async def test_bogus_top_level_path_browser_navigation_renders_html(client):
     assert resp.status_code == 404
     assert resp.headers["content-type"].startswith("text/html")
     assert "Not Found — Zenkai" in resp.text
+
+
+def test_error_page_follows_the_design_system():
+    """One template for 404 and 500, in the drafting style: no orange, 4px corners,
+    Instrument Sans (the old pair of pages was still on the previous design)."""
+    from pathlib import Path
+    root = Path(__file__).resolve().parent.parent / "app"
+    page = (root / "templates/errors/error.html").read_text()
+    assert "#ff5a1f" not in page and "Archivo" not in page and "Instrument Sans" in page
+    assert "border-radius: 4px" in page
+    sw = (root / "static/sw.js").read_text()
+    assert "#ff5a1f" not in sw and "Archivo" not in sw
+    fonts = (root / "static/fonts/fonts.css").read_text()
+    assert fonts.count("@font-face") == 1
+    for url in __import__("re").findall(r"url\('([^']+)'\)", fonts):
+        assert (root / "static/fonts" / url).is_file(), url
+
+
+@pytest.mark.asyncio
+async def test_server_error_renders_the_shared_page(client):
+    from app.main import _server_error
+
+    from starlette.requests import Request
+    resp = await _server_error(Request({"type": "http", "method": "GET", "path": "/x", "headers": [],
+                                        "query_string": b"", "server": ("test", 80), "scheme": "http"}), None)
+    assert resp.status_code == 500
+    body = resp.body.decode()
+    assert "Server Error — Zenkai" in body and "Something went wrong" in body and "Error 500" in body

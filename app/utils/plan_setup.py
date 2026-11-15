@@ -129,14 +129,3 @@ def day_minutes(exercises: list[dict]) -> int:
     """An honest estimate of a session's length, to the nearest 5 minutes."""
     total = WARM_UP_MIN + sum(slot_minutes(e.get("sets") or 3, e.get("rest_sec")) for e in exercises)
     return int(5 * math.floor(total / 5 + 0.5))
-
-
-def setup_summary(setup: dict) -> str:
-    """One line for the prompt and the plan header."""
-    bits = []
-    if setup.get("session_minutes"):
-        bits.append(f"about {setup['session_minutes']} min a session")
-    bits.append("equipment: " + ", ".join(equipment_labels(setup.get("equipment"))))
-    if setup.get("focus_muscles"):
-        bits.append("focus: " + ", ".join(setup["focus_muscles"]))
-    return "; ".join(bits)

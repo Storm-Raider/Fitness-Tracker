@@ -1553,11 +1553,6 @@ document.addEventListener('DOMContentLoaded', function() {
   _restoreTimerState();
 });
 
-function epley1RM(weight, reps) {
-  if (reps <= 1) return weight;
-  return Math.round(weight * (1 + reps / 30) * 10) / 10;
-}
-
 // Header: "12m · 9 sets · 1,440 kg"
 function updateSessionMeta() {
   const n = SESSION_SETS.length;
@@ -2278,7 +2273,6 @@ function _refreshTarget() {
   _showTarget(id ? {id} : null);
   renderStrip();
 }
-function clearRoutine() { document.getElementById('routine-select').value = ''; onRoutineSelect(''); }
 function onMuscleGroupSelect(val) {
   selectedMuscleGroup = val;
   document.getElementById('muscle-group-select').classList.toggle('is-set', !!val);
