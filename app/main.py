@@ -17,7 +17,7 @@ from starlette.responses import RedirectResponse
 from app.db import open_db, set_db, clear_db, WriteConflict
 from app.routes.coach_chat import ChatError, router as coach_chat_router
 import app.db as _db
-from app.utils import coach_plan, oura, oura_sync
+from app.utils import backup, coach_plan, oura, oura_sync
 from app.routes import oura as oura_routes
 from app.routes import achievements, analytics, cardio, challenges, coach, dashboard, exercises, export, feedback, import_, journal, metrics, plan, planner, prs, routines, settings, stats, templates, trash, webhooks, workouts
 from app.routes.auth import router as auth_router, COOKIE_NAME, _serializer, _hash_password, _verify_password
@@ -183,12 +183,15 @@ async def lifespan(app: FastAPI):
     oura_routes.set_http_client(client)
     # Oura: every connected user is synced every 6 hours (pages also sync when stale).
     oura_task = asyncio.create_task(_oura_loop(conn, client))
+    # Backups: a verified copy of the database every night (app/utils/backup.py).
+    backup_task = asyncio.create_task(backup.backup_loop(DATABASE_PATH))
     # Pre-populate exercise caches (synchronous with startup — DB is open, costs ~5 ms).
     await coach_plan.warm_caches(conn)
     try:
         yield
     finally:
         oura_task.cancel()
+        backup_task.cancel()
         await client.aclose()
         await conn.close()
         clear_db()
