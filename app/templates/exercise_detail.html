@@ -315,7 +315,6 @@ document.getElementById('goal-input')?.addEventListener('keydown', e => { if(e.k
     axis: tok('--muted', '#5d5d58'), ring: tok('--ring', '#8f8e88'), surface: tok('--surface', '#ffffff'),
   };
   const AXIS_FONT = window.CHART_AXIS_FONT;
-  const METRICS = { weight: {}, orm: {}, volume: {} };
   // index of the newest session that set the current PR (top weight)
   let prIdx = -1;
   if (PR_KG !== null) RAW.forEach((s, i) => { if (s.max_kg >= PR_KG) prIdx = i; });

@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{ title }} — Zenkai</title>
+  <meta name="theme-color" content="#eef1ec">
+  <meta name="color-scheme" content="light">
+  <link rel="stylesheet" href="/static/fonts/fonts.css">
+  <style>
+    /* The 404 and 500 page (app/main.py passes the words). Standalone, with no
+       base.html, so a broken page can still show it; the few tokens it needs
+       are copied from base.html's :root. Keep the two in step (DESIGN.md). */
+    :root { color-scheme: light; --bg: #eef1ec; --grid: #dde4db; --text: #23262b; --muted: #5b615b; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+    body {
+      min-height: 100vh; padding: 48px 16px;
+      display: flex; align-items: center; justify-content: center; text-align: center;
+      background-color: var(--bg);
+      background-image: linear-gradient(var(--grid) 1px, transparent 1px),
+                        linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+      background-size: 13px 13px;
+      color: var(--text); font-family: 'Instrument Sans', system-ui, sans-serif;
+      font-size: 15px; line-height: 1.5; -webkit-font-smoothing: antialiased;
+    }
+    *:focus-visible { outline: 2px solid var(--text); outline-offset: 2px; }
+    main { display: flex; flex-direction: column; align-items: center; max-width: 22rem; }
+    .code { font-size: 13px; font-weight: 600; color: var(--muted); font-variant-numeric: tabular-nums; margin-bottom: 8px; }
+    .msg { font-size: 30px; font-weight: 700; line-height: 1.15; letter-spacing: -0.01em; margin-bottom: 8px; }
+    .sub { color: var(--muted); margin-bottom: 40px; }
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center;
+      min-height: 56px; min-width: 220px; padding: 0 24px;
+      background: var(--text); color: var(--bg); border-radius: 4px;
+      font-size: 15px; font-weight: 700; text-decoration: none;
+    }
+    .btn:hover { background: #3a3e44; }
+  </style>
+</head>
+<body>
+  <main>
+    <div class="code">Error {{ code }}</div>
+    <h1 class="msg">{{ heading }}</h1>
+    <div class="sub">{{ message }}</div>
+    <a href="/" class="btn">Go to Home</a>
+  </main>
+</body>
+</html>

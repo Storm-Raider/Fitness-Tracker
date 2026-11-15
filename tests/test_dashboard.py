@@ -10,7 +10,7 @@ async def test_dashboard_renders(client):
 
 
 @pytest.mark.asyncio
-async def test_dashboard_shows_streak(client):
+async def test_dashboard_computes_streak(client):
     ex = await client.post("/exercises", json={"name": "Squat"})
     ex_id = ex.json()["id"]
     w = await client.post("/workouts", json={"notes": None})
@@ -18,9 +18,11 @@ async def test_dashboard_shows_streak(client):
     await client.post(f"/workouts/{w_id}/sets",
                       json={"exercise_id": ex_id, "reps": 5, "weight_kg": 100.0})
 
-    resp = await client.get("/", headers={"Accept": "text/html"})
+    # The page's data, not its HTML: Home no longer prints the streak, and the old
+    # check ("streak" anywhere in the page) only passed on an unused CSS class name.
+    resp = await client.get("/")
     assert resp.status_code == 200
-    assert "streak" in resp.text.lower()
+    assert resp.json()["streak"] == 1
 
 
 @pytest.mark.asyncio

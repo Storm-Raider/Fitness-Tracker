@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'v0.5.0';
+const CACHE_VERSION = 'v0.6.0';   // 2026-11-15: icons.js replaces lucide.min.js; old fonts dropped
 const CACHE_NAME = `fittrack-${CACHE_VERSION}`;
 // Copies of pages you have opened, so they still open with no signal. Kept
 // across worker versions; cleared whenever the login page is shown, so the
@@ -26,22 +26,24 @@ const SIGNED_OUT = ['/login', '/logout', '/forgot-password', '/reset-password/',
 const OFFLINE_HTML = `<!doctype html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#f4f4f1"><meta name="color-scheme" content="light">
+<meta name="theme-color" content="#eef1ec"><meta name="color-scheme" content="light">
 <title>Offline — Zenkai</title>
 <style>
-  /* Daylight. No webfont link: the server is unreachable, so fall back to system-ui. */
+  /* Drafting style (DESIGN.md), as templates/errors/error.html. No webfont link:
+     the server is unreachable, so the font is whatever is already loaded. */
   :root { color-scheme: light; }
   body { margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center;
-         background: #f4f4f1; color: #141414; padding: 16px;
-         font-family: 'Atkinson Hyperlegible Next', system-ui, sans-serif; font-size: 16px; line-height: 1.5; }
+         background-color: #eef1ec; color: #23262b; padding: 16px;
+         background-image: linear-gradient(#dde4db 1px, transparent 1px), linear-gradient(90deg, #dde4db 1px, transparent 1px);
+         background-size: 13px 13px;
+         font-family: 'Instrument Sans', system-ui, sans-serif; font-size: 15px; line-height: 1.5; }
   main { width: 100%; max-width: 22rem; text-align: center; }
-  h1 { font-family: 'Archivo', system-ui, sans-serif; font-weight: 800; font-size: 1.75rem;
-       letter-spacing: -0.01em; line-height: 1.15; margin: 0 0 0.5rem; }
-  p { color: #5d5d58; margin: 0 0 1.5rem; }
-  button { min-height: 56px; width: 100%; border: 0; border-radius: 18px; background: #ff5a1f;
-           color: #141414; font: inherit; font-weight: 700; font-size: 1.0625rem; cursor: pointer; }
-  button:hover { background: #f04e14; }
-  button:focus-visible { outline: 2px solid #141414; outline-offset: 2px; }
+  h1 { font-weight: 700; font-size: 30px; letter-spacing: -0.01em; line-height: 1.15; margin: 0 0 8px; }
+  p { color: #5b615b; margin: 0 0 40px; }
+  button { min-height: 56px; width: 100%; border: 0; border-radius: 4px; background: #23262b;
+           color: #eef1ec; font: inherit; font-weight: 700; cursor: pointer; }
+  button:hover { background: #3a3e44; }
+  button:focus-visible { outline: 2px solid #23262b; outline-offset: 2px; }
 </style></head>
 <body><main>
   <h1>You're offline</h1>

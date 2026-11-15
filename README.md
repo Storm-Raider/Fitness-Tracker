@@ -554,6 +554,8 @@ docker run --rm \
 
 ## Development
 
+**Icons.** Pages load `app/static/icons.js`, which holds only the [Lucide](https://lucide.dev) icons the app uses (about 60, 14 KB) instead of the full 400 KB bundle. After using a new icon (`data-lucide="name"` in a template, or an `"icon"` value in Python), run `python3 scripts/icons/build.py` (needs node). `tests/test_icons.py` fails if a page references an icon the built file lacks. When you change a file under `app/static/`, bump `CACHE_VERSION` in `app/static/sw.js`: installed phones serve static files from their cache until it changes.
+
 ```bash
 pip install -r requirements.txt
 cp .env.example .env   # fill in test values

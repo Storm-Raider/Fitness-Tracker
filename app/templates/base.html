@@ -12,7 +12,7 @@
   <link rel="icon" type="image/png" sizes="32x32" href="/static/favicon-32.png">
   <link rel="stylesheet" href="/static/fonts/fonts.css">
   <script src="/static/htmx.min.js" defer></script>
-  <script src="/static/lucide.min.js" defer></script>
+  <script src="/static/icons.js" defer></script>
   <style>
     /* Daylight (DESIGN.md). Old token names are kept so every template follows
        the new palette: --accent is now ink (links, active states, focus), the
@@ -450,36 +450,12 @@
       from { opacity: 0; transform: translateY(6px); }
       to   { opacity: 1; transform: translateY(0); }
     }
-    /* .session-dot marks an active/live session (an orange mark, never text). */
+    /* .session-dot marks an active/live session (--live red, never text). */
     @keyframes pulse {
-      0%, 100% { box-shadow: 0 0 0 3px rgba(224,74,18,0.25); }
-      50%       { box-shadow: 0 0 0 7px rgba(224,74,18,0); }
+      0%, 100% { box-shadow: 0 0 0 3px rgba(178,58,38,0.25); }
+      50%       { box-shadow: 0 0 0 7px rgba(178,58,38,0); }
     }
     .session-dot { animation: pulse 2s ease-in-out infinite; }
-    @keyframes setSlideIn {
-      from { opacity: 0; transform: translateY(6px); }
-      to   { opacity: 1; transform: translateY(0); }
-    }
-    .set-enter { animation: setSlideIn 0.18s ease-out both; }
-    /* A record is the one authored moment: the row turns amber and one band of
-       light sweeps across it, once. See DESIGN.md § Motion. */
-    @keyframes recordSweep {
-      from { background-position: -120% 0, 0 0; }
-      to   { background-position: 220% 0, 0 0; }
-    }
-    .pr-flash {
-      border-radius: var(--radius-xs);
-      background-color: var(--pr-dim);
-      background-image: linear-gradient(100deg, transparent 30%, var(--pr-glow) 50%, transparent 70%);
-      background-size: 60% 100%;
-      background-repeat: no-repeat;
-      animation: recordSweep 0.9s ease-out 1;
-    }
-    .pr-flash .weight-display { color: var(--pr); }
-    @keyframes setSlideOut {
-      to { opacity: 0; transform: translateX(-8px); }
-    }
-    .set-exit { animation: setSlideOut 0.15s ease-in both; }
 
     /* ── Cards ───────────────────────────────────────── */
     .card {
@@ -490,55 +466,13 @@
       box-shadow: none;
       position: relative;
     }
-    /* A live (in-progress) session card carries the orange outline. */
+    /* A live (in-progress) session card carries a heavier ink outline. */
     .card.is-live { box-shadow: inset 0 0 0 2px var(--primary-edge), var(--shadow-sm); }
-    .scan-sweep { display: none; }
     /* Highlighted card with a left edge */
     .card-accent {
       border-left: 3px solid var(--text);
       padding-left: calc(1.25rem - 2px);
     }
-    .card-accent-pr {
-      border-left: 3px solid var(--pr);
-      padding-left: calc(1.25rem - 2px);
-    }
-
-    /* ── KPI Stat Cards ──────────────────────────────── */
-    .kpi {
-      display: flex;
-      flex-direction: column;
-      gap: 0.5rem;
-      overflow: hidden;
-    }
-    .kpi-head {
-      display: flex;
-      align-items: flex-start;
-      justify-content: space-between;
-      gap: 0.5rem;
-    }
-    .kpi-label {
-      font-size: var(--t-body);
-      font-weight: 600;
-      color: var(--muted);
-      line-height: 1.3;
-    }
-    .kpi-icon {
-      width: 32px;
-      height: 32px;
-      border-radius: var(--radius-xs);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      flex-shrink: 0;
-    }
-    .kpi-val {
-      font-family: var(--f-display);
-      font-weight: 600;
-      font-variant-numeric: tabular-nums;
-      font-size: var(--t-display);
-      line-height: 1;
-    }
-    .kpi-foot { display: none; }
 
     /* ── Buttons ─────────────────────────────────────── */
     .btn {
@@ -632,7 +566,6 @@
     tbody tr { transition: background 0.1s; }
     tbody tr:hover td { background: var(--surface-2); }
     /* PR cell highlight */
-    td.cell-pr { color: var(--pr); }
     /* Secondary columns drop out on a phone, so a table fits its card instead
        of cutting a number in half at the edge. */
     @media (max-width: 559px) { .col-wide { display: none; } }
@@ -651,16 +584,14 @@
       color: var(--text);
     }
     .badge-pr { background: var(--pr-dim); color: var(--pr); }
-    .badge-streak { background: var(--success-dim); color: var(--success); }
     .badge-blue { background: var(--accent-dim); color: var(--text); }
 
     /* ── Grids ───────────────────────────────────────── */
     /* minmax(0, 1fr), not 1fr: a 1fr track never shrinks below its content, so
        one long unwrapped line (a session note) widened the page past the screen. */
     .grid-2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }
-    .grid-3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1rem; }
     @media (max-width: 640px) {
-      .grid-2, .grid-3 { grid-template-columns: minmax(0, 1fr); }
+      .grid-2 { grid-template-columns: minmax(0, 1fr); }
     }
 
     /* ── Section title ───────────────────────────────── */
@@ -716,8 +647,8 @@
     .stepper-btn:hover { border-color: var(--text); }
 
     /* ── Numeric typography ──────────────────────────── */
-    /* Archivo condensed with tabular figures: digits keep one width, so a
-       changing weight never moves the layout. */
+    /* Tabular figures: digits keep one width, so a changing weight never
+       moves the layout. */
     .num {
       font-family: var(--f-display);
       font-weight: 600;
@@ -938,13 +869,6 @@
     .undo-toast-btn:hover:not(:disabled) { background: var(--primary-hover); }
     .undo-toast-btn:disabled { opacity: 0.6; cursor: default; }
 
-    /* ── Utility ─────────────────────────────────────── */
-    .text-muted { color: var(--muted); }
-    .text-accent { color: var(--text); }
-    .text-pr     { color: var(--pr); }
-    .text-success{ color: var(--success); }
-    .text-danger { color: var(--danger); }
-    .truncate { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     @media (prefers-reduced-motion: reduce) {
       *, *::before, *::after {
         animation-duration: 0.01ms !important;
@@ -999,7 +923,7 @@
       return ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][+p[1] - 1] + ' ' + (+p[2]);
     };
     // Chart axes are numbers, so they use the number face (DESIGN.md: .num).
-    window.CHART_AXIS_FONT = "700 13px 'Archivo', system-ui, sans-serif";
+    window.CHART_AXIS_FONT = "700 13px 'Instrument Sans', system-ui, sans-serif";
   </script>
   {% block head %}{% endblock %}
 </head>
